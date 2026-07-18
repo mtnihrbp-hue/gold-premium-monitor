@@ -1,17 +1,10 @@
-import requests
+from collectors.kitco import get_world_gold_price
 
-url = "https://api.gold-api.com/price/XAU"
 
-try:
-    r = requests.get(url, timeout=15)
-    r.raise_for_status()
+def main():
+    price = get_world_gold_price()
+    print(f"World Gold Price: {price:.2f} USD/oz")
 
-    data = r.json()
 
-    print("=" * 40)
-    print("Gold API Connected")
-    print("=" * 40)
-    print(data)
-
-except Exception as e:
-    print(e)
+if __name__ == "__main__":
+    main()
