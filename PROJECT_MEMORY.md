@@ -48,3 +48,7 @@ USD/IRR:
 - Keep collectors independent.
 - Never mix world gold logic with Bonbast logic.
 - Replace a collector only if its source becomes permanently unavailable.
+- Kitco → World gold price.
+Bonbast → USD/IRR sell rate.
+Milli or Taline → Actual tradable 18K gold price (the price you can execute at).
+Do not use Bonbast's gold price for trading decisions.
