@@ -18,4 +18,7 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - run: python src/main.py
+      - name: Run Monitor
+        env:
+          BONBAST_COOKIE: ${{ secrets.BONBAST_COOKIE }}
+        run: python src/main.py
