@@ -1,6 +1,12 @@
-def get_usd_sell_rate():
+from bonbast import Bonbast
+
+
+def get_usd_sell_rate() -> float:
     """
-    Temporary placeholder.
-    The real scraper will be added next.
+    Returns USD sell rate in IRR.
     """
-    return 0
+    client = Bonbast()
+
+    usd = client.currency("USD")
+
+    return float(usd.sell)
