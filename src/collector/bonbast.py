@@ -1,8 +1,7 @@
-import json
 import subprocess
 
 
-def get_usd_sell_rate() -> int:
+def get_usd_sell_rate():
     result = subprocess.run(
         ["python", "-m", "bonbast", "export"],
         capture_output=True,
@@ -10,8 +9,6 @@ def get_usd_sell_rate() -> int:
         check=True,
     )
 
-    data = json.loads(result.stdout)
+    print(result.stdout)
 
-    usd = data["currencies"]["USD"]
-
-    return int(usd["sell"])
+    raise RuntimeError("STOP")
