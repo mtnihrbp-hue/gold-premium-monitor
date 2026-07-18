@@ -1,1 +1,1 @@
-# gold-premium-monitor
+# Gold Premium Monitor
