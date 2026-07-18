@@ -8,11 +8,12 @@ from collector.bonbast import get_usd_sell_rate
 
 
 def main():
-    gold = get_world_gold_price()
+
+    world = get_world_gold_price()
     usd = get_usd_sell_rate()
 
-    print(f"World Gold Price : {gold:.2f} USD/oz")
-    print(f"USD Sell Rate    : {usd:,.0f} IRR")
+    print(f"World Gold Price : {world:.2f} USD/oz")
+    print(f"USD Sell Rate    : {usd:,} IRR")
 
 
 if __name__ == "__main__":
