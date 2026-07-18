@@ -2,17 +2,20 @@ import requests
 from bs4 import BeautifulSoup
 
 
-URL = "https://www.bonbast.com"
-
-
 def get_usd_sell_rate():
+    url = "https://www.bonbast.com"
+
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
 
-    r = requests.get("https://www.bonbast.com", headers=headers, timeout=20)
-    r.raise_for_status()
+    r = requests.get(url, headers=headers, timeout=20)
 
-    print(r.text[:5000])
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    for table in soup.find_all("table"):
+        print("=" * 80)
+        print(table.get_text(" ", strip=True))
+        print("=" * 80)
 
     raise RuntimeError("STOP")
