@@ -1,21 +1,17 @@
-import requests
-from bs4 import BeautifulSoup
+import json
+import subprocess
 
 
-def get_usd_sell_rate():
-    url = "https://www.bonbast.com"
+def get_usd_sell_rate() -> int:
+    result = subprocess.run(
+        ["python", "-m", "bonbast", "export"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
 
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+    data = json.loads(result.stdout)
 
-    r = requests.get(url, headers=headers, timeout=20)
+    usd = data["currencies"]["USD"]
 
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    for table in soup.find_all("table"):
-        print("=" * 80)
-        print(table.get_text(" ", strip=True))
-        print("=" * 80)
-
-    raise RuntimeError("STOP")
+    return int(usd["sell"])
