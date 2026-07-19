@@ -11,5 +11,5 @@ def get_milli_price():
 
     return {
         "platform": "Milli",
-        "priceIRR": float(data["data"]["price18"*1000])
+        "priceIRR": float(data["data"]["price18"]) *1000
     }
