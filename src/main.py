@@ -1,6 +1,7 @@
 from collector.kitco import get_world_gold_price
 from collector.bonbast import get_usd_sell_rate
 from collector.iran import get_market_prices
+from persistence.state import load_state, save_state
 
 from caluclator.gold import (
     calculate_fair_price,
@@ -18,6 +19,24 @@ def main():
     fair = calculate_fair_price(world, usd) * 10
     lowest = find_lowest_market_price(iran)
     premium = premium_percent(fair, lowest)
+
+
+    previous = load_state()
+    
+    save_state({
+        "world_gold": world,
+        "usd": usd,
+        "fair_price": fair,
+        "premium": premium,
+        "markets": {
+            name: info["price"]
+            for name, info in iran.items()
+            if info["status"] == "OK"
+        }
+    })
+
+
+    
 
     print(f"World Gold Price : {world:.2f} USD/oz")
     print(f"USD Sell Rate    : {usd:,} IRR")
