@@ -5,6 +5,8 @@ sys.path.append(os.path.dirname(__file__))
 
 from collector.kitco import get_world_gold_price
 from collector.bonbast import get_usd_sell_rate
+from collector.iran import get_market_prices
+
 
 
 def main():
