@@ -11,5 +11,5 @@ def get_milli_price():
 
     return {
         "platform": "Milli",
-        "price": float(data["data"]["price18"]["date"])
+        "price": float(data["data"]["price18"])
     }
