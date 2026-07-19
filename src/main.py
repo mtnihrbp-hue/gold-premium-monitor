@@ -15,7 +15,7 @@ def main():
     usd = get_usd_sell_rate()
     iran = get_market_prices()
 
-    fair = calculate_fair_price(world, usd)
+    fair = calculate_fair_price(world, usd) * 10
     lowest = find_lowest_market_price(iran)
     premium = premium_percent(fair, lowest)
 
