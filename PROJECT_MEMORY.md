@@ -91,6 +91,7 @@ gold-premium-monitor
     └── workflows
         └── gold-monitor.yml
 
+https://milli.gold/api/v1/public/milli-price/external
 
 
 
