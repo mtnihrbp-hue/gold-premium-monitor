@@ -5,6 +5,7 @@ from collector.wallgold import get_wallgold_price
 
 
 def get_market_prices():
+
     prices = {}
 
     collectors = [
