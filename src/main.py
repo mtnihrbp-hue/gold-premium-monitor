@@ -14,9 +14,17 @@ def main():
     print()
 
     print("Iranian Platforms")
+    print("-" * 45)
 
-    for platform, price in iran.items():
-        print(f"{platform:<10} {price:,}")
+    for platform, info in iran.items():
+
+        if info["status"] == "OK":
+            print(f"{platform:<12} {info['price']:>15,.0f}")
+
+        else:
+            print(f"{platform:<12} ERROR")
+
+    print("-" * 45)
 
 
 if __name__ == "__main__":
