@@ -11,5 +11,5 @@ def get_daric_price():
 
     return {
         "platform": "Daric",
-        "priceIRR": float(data["Data"]["BestSellPrice"*10])
+        "priceIRR": float(data["Data"]["BestSellPrice"]) * 10
     }
