@@ -11,9 +11,17 @@ def main():
 
     world = get_world_gold_price()
     usd = get_usd_sell_rate()
+    iran = get_market_prices()
+
 
     print(f"World Gold Price : {world:.2f} USD/oz")
     print(f"USD Sell Rate    : {usd:,} IRR")
+    print()
+
+    print("Iranian Platforms")
+
+    for platform, price in iran.items():
+        print(f"{platform:<10} {price:,}")
 
 
 if __name__ == "__main__":
