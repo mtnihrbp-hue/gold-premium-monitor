@@ -52,3 +52,55 @@ USD/IRR:
 Bonbast → USD/IRR sell rate.
 Milli or Taline → Actual tradable 18K gold price (the price you can execute at).
 Do not use Bonbast's gold price for trading decisions.
+
+
+
+ok, lets go
+so another thing we should do is to get IRAN 18Gold Price per gram from milli and taline and so on you rememebr, we locked the arch as below i guess, 
+
+gold-premium-monitor
+│
+├── config
+│   └── config.json
+│
+├── src
+│   ├── main.py
+│   ├── collectors
+│   │      ├── kitco.py
+│   │      ├── bonbast.py
+│   │      ├── iran.py
+│   │      └── common.py
+│   │
+│   ├── calculators
+│   │      └── gold.py
+│   │
+│   ├── alerts
+│   │      └── gmail.py
+│   │
+│   ├── persistence
+│   │      └── state.py
+│   │
+│   └── utils
+│          ├── logger.py
+│          └── validator.py
+│
+├── tests
+│
+├── requirements.txt
+└── .github
+    └── workflows
+        └── gold-monitor.yml
+
+
+
+
+
+
+
+
+
+
+
+
+
+
