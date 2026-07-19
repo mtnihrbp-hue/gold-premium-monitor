@@ -11,5 +11,5 @@ def get_wallgold_price():
 
     return {
         "platform": "WallGold",
-        "price": float(data["result"]["price"]) *10
+        "price": float(data["result"]["price"]) * 10
     }
