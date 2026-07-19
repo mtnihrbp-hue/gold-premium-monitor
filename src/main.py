@@ -2,7 +2,7 @@ from collector.kitco import get_world_gold_price
 from collector.bonbast import get_usd_sell_rate
 from collector.iran import get_market_prices
 
-from calculator.gold import (
+from caluclator.gold import (
     calculate_fair_price,
     find_lowest_market_price,
     premium_percent,
