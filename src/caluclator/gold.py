@@ -28,3 +28,14 @@ def find_lowest_market_price(prices):
 def premium_percent(fair_price, market_price):
 
     return (market_price - fair_price) / fair_price * 100
+
+
+def trading_signal(premium, buy_threshold, sell_threshold):
+
+    if premium <= buy_threshold:
+        return "BUY"
+
+    if premium >= sell_threshold:
+        return "SELL"
+
+    return "HOLD"
