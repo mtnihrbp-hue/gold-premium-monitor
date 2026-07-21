@@ -1,395 +1,292 @@
-# Gold Premium Monitor
-
-## Objective
-Monitor the premium of gold in Iran by comparing:
-- World gold ounce price (USD/oz)
-- USD/IRR free market sell rate (Bonbast)
-- Calculate theoretical gold value
-- Calculate premium
-- Send email every 30 minutes
-
-## Current Architecture
-
-src/
-    collector/
-        kitco.py        # World gold price
-        bonbast.py      # USD/IRR sell rate
-    calculator.py
-    notifier/
-        email.py
-    main.py
-
-## Data Sources
-
-World Gold:
-- Kitco (or replacement if Kitco changes)
-
-USD/IRR:
-- Bonbast.com
-
-## Constraints
-
-- Open-source only
-- No paid APIs
-- Runs on GitHub Actions
-- Email notification
-- No local server
-
-## Current Status
-
-✔ GitHub Actions working
-✔ Email configured
-✔ Workflow scheduled
-✔ Kitco collector implemented
-❌ Bonbast collector not finalized
-
-## Rules
-
-- Keep collectors independent.
-- Never mix world gold logic with Bonbast logic.
-- Replace a collector only if its source becomes permanently unavailable.
-- Kitco → World gold price.
-Bonbast → USD/IRR sell rate.
-Milli or Taline → Actual tradable 18K gold price (the price you can execute at).
-Do not use Bonbast's gold price for trading decisions.
-
-
-
-ok, lets go
-so another thing we should do is to get IRAN 18Gold Price per gram from milli and taline and so on you rememebr, we locked the arch as below i guess, 
-
-gold-premium-monitor
-│
-├── config
-│   └── config.json
-│
-├── src
-│   ├── main.py
-│   ├── collectors
-│   │      ├── kitco.py
-│   │      ├── bonbast.py
-│   │      ├── iran.py
-│   │      └── common.py
-│   │
-│   ├── calculators
-│   │      └── gold.py
-│   │
-│   ├── alerts
-│   │      └── gmail.py
-│   │
-│   ├── persistence
-│   │      └── state.py
-│   │
-│   └── utils
-│          ├── logger.py
-│          └── validator.py
-│
-├── tests
-│
-├── requirements.txt
-└── .github
-    └── workflows
-        └── gold-monitor.yml
-
-Milli_Gold Price == https://milli.gold/api/v1/public/milli-price/external
-Goldika Gold Price == https://api.goldika.ir/api/public/price
-Darik Gold Price == https://apisc.daric.gold/loan/api/v1/User/Collateral/GetGoldlPrice
-Wall Gold Price == https://api.wallgold.ir/api/v1/price?side=buy&symbol=GLD_18C_750TMN
-
-
-
-
-
-
-
-
-
-
------------------------
-
-# Gold Premium Monitor
-
-## Objective
-
-Continuously monitor the Iranian 18K gold market by comparing the theoretical fair value (derived from the world gold price and USD/IRR exchange rate) with executable prices from Iranian online gold platforms.
-
-The system sends:
-- Daily market report
-- Trading opportunity alerts
-
----
-
-# Current Status
-
-## Infrastructure
-
-✅ GitHub repository operational
-
-✅ GitHub Actions operational
-
-✅ Scheduled workflow operational
-
----
-
-## Data Collectors
-
-### World Gold
-
-Collector:
-kitco.py
-
-Status:
-Working
-
-Purpose:
-Retrieve live world gold ounce price (USD/oz).
-
----
-
-### USD / IRR
-
-Collector:
-bonbast.py
-
-Status:
-Working
-
-Implementation:
-SamadiPour/bonbast package
-
-Purpose:
-Retrieve Bonbast USD Sell rate.
-
----
-
-### Iranian Gold Platforms
-
-Status:
-Research completed.
-
-Confirmed sources:
-
-- Milli
-- Goldika
-- Daric
-- WallGold
-- Taline
-
-Known endpoints:
-
-Milli
-https://milli.gold/api/v1/public/milli-price/external
-
-Goldika
-https://api.goldika.ir/api/public/price
-
-Daric
-https://apisc.daric.gold/loan/api/v1/User/Collateral/GetGoldlPrice
-
-WallGold
-https://api.wallgold.ir/api/v1/price?side=buy&symbol=GLD_18C_750TMN
-
-Taline
-HTML parser available.
-
-Implementation pending.
-
----
-
-# Architecture
-
-gold-premium-monitor
-
+Gold Premium Monitor
+Objective
+
+Continuously monitor the Iranian 18K gold market by comparing the theoretical fair value of gold with live executable prices from Iranian trading platforms.
+
+The monitor must identify market premiums/discounts and notify when opportunities appear.
+
+Current Status
+Infrastructure
+✅ GitHub repository is public.
+✅ GitHub Actions running every 30 minutes.
+✅ Python 3.12.
+✅ Repository connected to ChatGPT GitHub integration (read-only assistance).
+✅ README updated.
+✅ Resend email integration working.
+✅ Daily HTML report successfully delivered.
+Current Folder Structure
 config/
 
 src/
 
-    collectors/
+    alerts/
+        resend_mail.py
 
-        kitco.py
-
-        bonbast.py
-
-        iran.py
-
-    calculators/
-
+    caluclator/
         gold.py
 
-    alerts/
-
-        gmail.py
+    collector/
+        bonbast.py
+        goldika.py
+        iran.py
+        kitco.py
+        milli.py
+        wallgold.py
+        taline.py
+        daric.py
 
     persistence/
-
         state.py
 
-    utils/
-
-tests/
+    main.py
 
 .github/
+    workflows/
+        gold-monitor.yml
 
----
+(Current project intentionally uses caluclator instead of calculator.)
 
-# Design Rules
+Working Collectors
+Kitco
+
+Purpose
+
+World Gold Price (USD/oz)
+
+Status
+
+✅ Stable
+
+Bonbast
+
+Purpose
+
+USD Sell Rate
+
+Implementation
+
+bonbast python package
+
+Status
+
+✅ Stable
+
+Iranian Platforms
+Milli
+
+Endpoint
+
+https://milli.gold/api/v1/public/milli-price/external
+
+Uses
+
+data.price18
+
+Normalization
+
+price × 1000
+
+Status
+
+✅ Working
+
+Goldika
+
+Endpoint
+
+https://api.goldika.ir/api/public/price
+
+Uses
+
+data.price.buy
+
+Status
+
+✅ Working
+
+WallGold
+
+Endpoint
+
+https://api.wallgold.ir/api/v1/price?side=buy&symbol=GLD_18C_750TMN
+
+Uses
+
+result.price
+
+Normalization
+
+price × 10
+
+Status
+
+✅ Working
+
+Taline
+
+Status
+
+HTML parser exists
+
+Currently unstable
+
+Returns ERROR when unavailable
+
+Daric
+
+Endpoint responds inconsistently.
+
+Frequent timeout.
+
+Currently ignored.
+
+Calculation Logic
+
+Fair price is calculated from
+
+World Gold
+USD Sell
+
+Current implementation multiplies calculated fair value by 10 to match Iranian market units.
+
+Outputs
+
+Fair Price
+Lowest Market Price
+Premium %
+Persistence
+src/persistence/state.py
+
+Current implementation
+
+load_state()
+
+save_state()
+
+State stored as
+
+state.json
+
+Current issue
+
+GitHub Actions creates a fresh runner every execution.
+
+Therefore
+
+state.json
+
+does not persist between workflow runs.
+
+Persistence must be redesigned using GitHub Artifacts or GitHub Cache.
+
+Email
+
+Provider
+
+Resend
+
+Status
+
+✅ Working
+
+Current sender
+
+onboarding@resend.dev
+
+Recipient
+
+Repository Secret
+
+EMAIL_TO
+
+API Key
+
+Repository Secret
+
+RESEND_API_KEY
+
+HTML email contains
+
+Fair Price
+Every platform
+Lowest Market
+Premium
+World Gold
+USD Sell
+Workflow
+
+Runs every
+
+30 minutes
+
+Workflow
+
+.github/workflows/gold-monitor.yml
+Design Rules
 
 Collectors only collect.
 
-Collectors never perform calculations.
+Collectors never calculate.
 
 Collectors never send email.
 
-Calculators never access websites.
+Calculators never access APIs.
 
-Alerts never perform calculations.
+Alerts never calculate.
 
-Every module has exactly one responsibility.
+Persistence never performs calculations.
 
----
+Each module owns exactly one responsibility.
 
-# Iranian Market Logic
+Current Technical Debt
 
-The monitor is NOT intended to report Bonbast gold prices.
+Persist state across GitHub Actions runs.
 
-Bonbast is ONLY the exchange-rate source.
+Priority: HIGH
 
-Tradable prices MUST come from Iranian online trading platforms.
+Finish Taline collector.
 
-Priority sources:
+Priority: HIGH
 
-1. Milli
+Replace Daric if timeout persists.
 
-2. Goldika
+Priority: MEDIUM
 
-3. Daric
+Move from single HTML email to reusable email template.
 
-4. WallGold
+Priority: LOW
 
-5. Taline
+Rename
 
----
+caluclator
 
-# Trading Logic
+to
 
-Collect prices from every available platform.
+calculator
 
-Ignore unavailable platforms.
+after project stabilizes.
 
-Select the lowest executable price.
+Priority: LOW
 
-Compare against calculated fair value.
+Immediate Next Milestone
 
-Compute:
+Implement persistent state using GitHub Artifacts.
 
-- Fair Value
-- Lowest Tradable Price
-- Premium %
-- Spread between platforms
+Goal
 
----
+Run N
+↓
 
-# Notifications
+Load previous state
 
-## Daily Report
+↓
 
-Schedule:
+Compare current premium vs previous premium
 
-18:00 Iran Time
+↓
 
-Always send.
+Send alerts only when meaningful change occurs
 
-Contents:
+↓
 
-- World Gold
-- USD Sell
-- Fair Value
-- Every platform price
-- Lowest platform
-- Premium
-- Platform spread
-
----
-
-## Trading Alert
-
-Schedule:
-
-Every 3 hours
-
-12:00
-
-15:00
-
-18:00
-
-21:00
-
-Trigger:
-
-Premium exceeds configured threshold.
-
-Condition must persist for configured consecutive runs.
-
----
-
-# Constraints
-
-Python 3.12
-
-GitHub Actions
-
-Open-source only
-
-No paid APIs
-
-No browser automation unless absolutely necessary.
-
-Official APIs preferred.
-
-JSON endpoints preferred.
-
-HTML scraping is the final fallback.
-
----
-
-# Next Milestone
-
-Implement iran.py.
-
-Responsibilities:
-
-- Query every supported platform.
-
-- Normalize returned prices.
-
-- Return:
-
-{
-    "milli": ...,
-    "goldika": ...,
-    "daric": ...,
-    "wallgold": ...,
-    "taline": ...
-}
-
-No calculations.
-
-No alerting.
-
-No persistence.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Save updated state for next execution
