@@ -2,8 +2,9 @@ name: Gold Premium Monitor
 
 on:
   workflow_dispatch:
+
   schedule:
-    - cron: "30 * * * *"
+    - cron: "30 14 * * *"
 
 jobs:
   run:
@@ -20,5 +21,6 @@ jobs:
 
       - name: Run Monitor
         env:
-          BONBAST_COOKIE: ${{ secrets.BONBAST_COOKIE }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
         run: python src/main.py
