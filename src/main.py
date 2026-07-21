@@ -22,7 +22,7 @@ def main():
     lowest = find_lowest_market_price(iran)
     premium = premium_percent(fair, lowest)
 
-    previous = load_state()
+    #previous = load_state()
 
     save_state({
         "world_gold": world,
