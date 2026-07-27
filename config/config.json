@@ -1,8 +1,17 @@
 
-{
-  "buy_threshold": -1.0,
-  "sell_threshold": 2.0
-  "timezone":"Asia/Tehran","threshold_percent":4,"confirmation_hours":3
+      
 
-  
+
+{
+  "timezone":"Asia/Tehran","threshold_percent":4,"confirmation_hours":3
+  "thresholds": {
+    "buy_premium_percent": -1.5,
+    "sell_premium_percent": 3.0,
+    "min_change_for_alert": 0.5,
+    "history_limit": 30
+  },
+  "email": {
+    "send_daily_recap": true,
+    "send_alerts": true
+  }
 }
