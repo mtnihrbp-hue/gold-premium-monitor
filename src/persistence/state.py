@@ -5,23 +5,42 @@ from datetime import datetime
 STATE_FILE = Path("state.json")
 
 
+def _default_state():
+    return {
+        "schema_version": 1,
+        "history": [],
+        "last_alert": None,
+        "alert_history": [],
+        "created_at": datetime.now().isoformat(),
+    }
+
+
 def load_state():
     if not STATE_FILE.exists():
-        return []
+        return _default_state()
 
-    with open(STATE_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            state = json.load(f)
+    except Exception:
+        return _default_state()
+
+    state.setdefault("schema_version", 1)
+    state.setdefault("history", [])
+    state.setdefault("last_alert", None)
+    state.setdefault("alert_history", [])
+
+    return state
 
 
-def save_state(data):
-
-    history = load_state()
-
-    data["timestamp"] = datetime.now().isoformat()
-
-    history.append(data)
-
-    history = history[-365:]
+def save_state(state):
+    state["updated_at"] = datetime.now().isoformat()
 
     with open(STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump(history, f, indent=4)
+        json.dump(
+            state,
+            f,
+            indent=2,
+            ensure_ascii=False,
+            default=str,
+        )
