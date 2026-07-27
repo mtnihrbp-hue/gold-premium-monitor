@@ -1,26 +1,49 @@
 name: Gold Premium Monitor
 
 on:
+
   workflow_dispatch:
 
   schedule:
     - cron: "30 14 * * *"
 
 jobs:
+
   run:
+
     runs-on: ubuntu-latest
 
     steps:
+
       - uses: actions/checkout@v4
+
+      - name: Restore State
+        uses: actions/cache@v4
+        with:
+          path: state.json
+          key: gold-monitor-state-${{ github.run_id }}
+          restore-keys: |
+            gold-monitor-state-
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - run: pip install -r requirements.txt
+      - name: Install
+        run: |
 
-      - name: Run Monitor
+          python -m pip install --upgrade pip
+
+          pip install -r requirements.txt
+
+      - name: Execute
+
         env:
+
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-        run: python src/main.py
+
+        run: |
+
+          python src/main.py
