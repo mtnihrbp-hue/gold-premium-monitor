@@ -1,102 +1,237 @@
+import json
+from datetime import datetime
+
 from collector.kitco import get_world_gold_price
 from collector.bonbast import get_usd_sell_rate
 from collector.iran import get_market_prices
 
-from persistence.state import load_state, save_state
-from alerts.resend_mail import send_email
-
-from caluclator.gold import (
+from calculator.gold import (
     calculate_fair_price,
     find_lowest_market_price,
     premium_percent,
 )
 
+from calculator.signals import evaluate_signal
+
+from persistence.state import (
+    load_state,
+    save_state,
+)
+
+from alerts.resend_mail import (
+    send_daily_recap,
+    send_alert,
+)
+
+
+def load_config():
+
+    with open(
+        "config/config.json",
+        "r",
+        encoding="utf-8",
+    ) as f:
+
+        return json.load(f)
+
 
 def main():
 
+    config = load_config()
+
+    thresholds = config["thresholds"]
+
+    email_cfg = config["email"]
+
+    ####################################################
+    # Restore memory
+    ####################################################
+
+    state = load_state()
+
+    history = state["history"]
+
+    last_alert = state["last_alert"]
+
+    ####################################################
+    # Collect
+    ####################################################
+
     world = get_world_gold_price()
+
     usd = get_usd_sell_rate()
-    iran = get_market_prices()
+
+    markets = get_market_prices()
+
+    ####################################################
+    # Calculate
+    ####################################################
 
     fair = calculate_fair_price(world, usd) * 10
-    lowest = find_lowest_market_price(iran)
-    premium = premium_percent(fair, lowest)
 
-    #previous = load_state()
+    lowest = find_lowest_market_price(markets)
 
-    save_state({
-        "world_gold": world,
-        "usd": usd,
-        "fair_price": fair,
-        "premium": premium,
-        "markets": {
-            name: info["price"]
-            for name, info in iran.items()
-            if info["status"] == "OK"
-        }
-    })
+    premium = premium_percent(
+        fair,
+        lowest,
+    )
 
-    print(f"World Gold Price : {world:.2f} USD/oz")
-    print(f"USD Sell Rate    : {usd:,} IRR")
-    print()
+    ####################################################
+    # Previous values
+    ####################################################
 
-    print("Iranian Platforms")
-    print("-" * 45)
+    if history:
 
-    rows = ""
+        previous_premium = history[-1]["premium"]
 
-    for platform, info in iran.items():
+    else:
+
+        previous_premium = premium
+
+    ####################################################
+    # Signal
+    ####################################################
+
+    signal = evaluate_signal(
+        current_premium=premium,
+        previous_premium=previous_premium,
+        last_alert_type=last_alert,
+        thresholds=thresholds,
+    )
+
+    ####################################################
+    # Console
+    ####################################################
+
+    print("=" * 60)
+
+    print(f"World Gold : {world:.2f}")
+
+    print(f"USD Sell   : {usd:,}")
+
+    print("-" * 60)
+
+    for name, info in markets.items():
 
         if info["status"] == "OK":
-            print(f"{platform:<12} {info['price']:>15,.0f}")
 
-            rows += f"""
-            <tr>
-                <td>{platform}</td>
-                <td>{info['price']:,.0f}</td>
-            </tr>
-            """
+            print(
+                f"{name:<15}"
+                f"{info['price']:>15,.0f}"
+            )
 
         else:
-            print(f"{platform:<12} ERROR")
 
-    print("-" * 45)
-    print()
+            print(
+                f"{name:<15}ERROR"
+            )
 
-    print(f"Fair Price      : {fair:,.0f}")
-    print(f"Lowest Market   : {lowest:,.0f}")
-    print(f"Premium         : {premium:.2f}%")
+    print("-" * 60)
 
-    html = f"""
-    <h2>Daily Gold Premium Report</h2>
+    print(f"Fair Price : {fair:,.0f}")
 
-    <table border="1" cellpadding="6" cellspacing="0">
-        <tr>
-            <th>Source</th>
-            <th>Price (IRR)</th>
-        </tr>
+    print(f"Lowest     : {lowest:,.0f}")
 
-        <tr>
-            <td><b>Fair Price</b></td>
-            <td><b>{fair:,.0f}</b></td>
-        </tr>
+    print(f"Premium    : {premium:.2f}%")
 
-        {rows}
+    print(f"Last Alert : {last_alert}")
 
-    </table>
+    if signal:
 
-    <br>
+        print(signal)
 
-    <p><b>Lowest Market:</b> {lowest:,.0f}</p>
-    <p><b>Premium:</b> {premium:.2f}%</p>
-    <p><b>World Gold:</b> {world:.2f} USD/oz</p>
-    <p><b>USD Sell Rate:</b> {usd:,} IRR</p>
-    """
+    ####################################################
+    # History
+    ####################################################
 
-    send_email(
-        subject="Daily Gold Premium Report",
-        html=html,
+    history.append(
+        {
+            "timestamp": datetime.now().isoformat(),
+            "world_gold": world,
+            "usd": usd,
+            "fair_price": fair,
+            "lowest_market": lowest,
+            "premium": premium,
+            "markets": {
+                k: v["price"]
+                for k, v in markets.items()
+                if v["status"] == "OK"
+            },
+        }
     )
+
+    limit = thresholds.get(
+        "history_limit",
+        30,
+    )
+
+    history = history[-limit:]
+
+    state["history"] = history
+
+    ####################################################
+    # Alert history
+    ####################################################
+
+    if signal:
+
+        state["last_alert"] = signal["new_alert_type"]
+
+        state["alert_history"].append(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "signal": signal["signal"],
+                "premium": premium,
+                "reason": signal["reason"],
+            }
+        )
+
+    ####################################################
+    # Save
+    ####################################################
+
+    save_state(state)
+
+    ####################################################
+    # Alert Email
+    ####################################################
+
+    if (
+        signal
+        and signal["signal"] in ("BUY", "SELL")
+        and email_cfg.get(
+            "send_alerts",
+            True,
+        )
+    ):
+
+        send_alert(
+            signal,
+            world,
+            usd,
+            fair,
+            lowest,
+            premium,
+            markets,
+        )
+
+    ####################################################
+    # Daily Report
+    ####################################################
+
+    if email_cfg.get(
+        "send_daily_recap",
+        True,
+    ):
+
+        send_daily_recap(
+            world,
+            usd,
+            fair,
+            lowest,
+            premium,
+            markets,
+        )
 
 
 if __name__ == "__main__":
