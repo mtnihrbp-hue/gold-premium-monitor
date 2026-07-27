@@ -145,6 +145,13 @@ def send_alert(
 
 <p><b>USD:</b> {usd:,}</p>
 
+<hr>
+
+<p>
+Generated:
+{datetime.now().strftime("%Y-%m-%d %H:%M")}
+</p>
+
 </div>
 """
 
