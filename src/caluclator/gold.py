@@ -22,7 +22,8 @@ def find_lowest_market_price(prices):
 
 
 def premium_percent(fair_price, market_price):
-
+    if fair_price == 0:
+        return 0.0
     return (market_price - fair_price) / fair_price * 100
 
 
