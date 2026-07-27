@@ -70,6 +70,10 @@ def main():
     fair = calculate_fair_price(world, usd) * 10
 
     lowest = find_lowest_market_price(markets)
+    if lowest is None:
+        print("ERROR: No market data available. Skipping.")
+        # Optionally send a "data unavailable" email or just exit cleanly
+        return
 
     premium = premium_percent(
         fair,
