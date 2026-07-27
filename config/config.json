@@ -3,7 +3,7 @@
 
 
 {
-  "timezone":"Asia/Tehran","threshold_percent":4,"confirmation_hours":3
+  "timezone":"Asia/Tehran","confirmation_hours":3
   "thresholds": {
     "buy_premium_percent": -1.5,
     "sell_premium_percent": 3.0,
