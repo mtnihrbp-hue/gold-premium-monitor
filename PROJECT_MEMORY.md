@@ -1,292 +1,188 @@
 Gold Premium Monitor
+
 Objective
 
 Continuously monitor the Iranian 18K gold market by comparing the theoretical fair value of gold with live executable prices from Iranian trading platforms.
 
-The monitor must identify market premiums/discounts and notify when opportunities appear.
+The monitor identifies market premiums/discounts and sends BUY/SELL alerts when meaningful opportunities appear.
 
 Current Status
+
 Infrastructure
 ✅ GitHub repository is public.
-✅ GitHub Actions running every 30 minutes.
+✅ GitHub Actions running daily at 14:30 UTC.
 ✅ Python 3.12.
 ✅ Repository connected to ChatGPT GitHub integration (read-only assistance).
-✅ README updated.
 ✅ Resend email integration working.
 ✅ Daily HTML report successfully delivered.
+✅ BUY/SELL alert system with hysteresis.
+✅ Persistent state via GitHub Actions Cache (state.json survives across runs).
+
 Current Folder Structure
+
 config/
+  config.json
 
 src/
+  alerts/
+    resend_mail.py
+    gmail.py
 
-    alerts/
-        resend_mail.py
+  caluclator/
+    gold.py
+    signals.py
 
-    caluclator/
-        gold.py
+  collector/
+    bonbast.py
+    goldika.py
+    iran.py
+    kitco.py
+    milli.py
+    wallgold.py
+    taline.py
+    daric.py
 
-    collector/
-        bonbast.py
-        goldika.py
-        iran.py
-        kitco.py
-        milli.py
-        wallgold.py
-        taline.py
-        daric.py
+  persistence/
+    state.py
 
-    persistence/
-        state.py
-
-    main.py
+  main.py
 
 .github/
-    workflows/
-        gold-monitor.yml
+  workflows/
+    gold-monitor.yml
 
 (Current project intentionally uses caluclator instead of calculator.)
 
 Working Collectors
+
 Kitco
-
-Purpose
-
-World Gold Price (USD/oz)
-
-Status
-
-✅ Stable
+  Purpose:    World Gold Price (USD/oz)
+  Status:     ✅ Stable
 
 Bonbast
+  Purpose:    USD Sell Rate (IRR)
+  Implementation: bonbast python package
+  Status:     ✅ Stable
 
-Purpose
-
-USD Sell Rate
-
-Implementation
-
-bonbast python package
-
-Status
-
-✅ Stable
-
-Iranian Platforms
 Milli
-
-Endpoint
-
-https://milli.gold/api/v1/public/milli-price/external
-
-Uses
-
-data.price18
-
-Normalization
-
-price × 1000
-
-Status
-
-✅ Working
+  Endpoint:  https://milli.gold/api/v1/public/milli-price/external
+  Uses:      data.price18
+  Normalization: price × 1000
+  Status:     ✅ Working
 
 Goldika
-
-Endpoint
-
-https://api.goldika.ir/api/public/price
-
-Uses
-
-data.price.buy
-
-Status
-
-✅ Working
+  Endpoint:  https://api.goldika.ir/api/public/price
+  Uses:      data.price.buy
+  Status:     ✅ Working
 
 WallGold
-
-Endpoint
-
-https://api.wallgold.ir/api/v1/price?side=buy&symbol=GLD_18C_750TMN
-
-Uses
-
-result.price
-
-Normalization
-
-price × 10
-
-Status
-
-✅ Working
+  Endpoint:  https://api.wallgold.ir/api/v1/price?side=buy&symbol=GLD_18C_750TMN
+  Uses:      result.price
+  Normalization: price × 10
+  Status:     ✅ Working
 
 Taline
-
-Status
-
-HTML parser exists
-
-Currently unstable
-
-Returns ERROR when unavailable
+  Status:     HTML parser exists. Currently unstable. Returns ERROR when unavailable.
 
 Daric
-
-Endpoint responds inconsistently.
-
-Frequent timeout.
-
-Currently ignored.
+  Status:     Endpoint responds inconsistently. Frequent timeout. Currently ignored.
 
 Calculation Logic
 
-Fair price is calculated from
-
-World Gold
-USD Sell
+Fair price is calculated from:
+  World Gold (USD/oz) × USD Sell (IRR) / 31.1034768 × 0.750
 
 Current implementation multiplies calculated fair value by 10 to match Iranian market units.
 
-Outputs
+Outputs:
+  Fair Price
+  Lowest Market Price
+  Premium %
 
-Fair Price
-Lowest Market Price
-Premium %
+Signal Logic (src/caluclator/signals.py)
+
+BUY:   premium &lt;= buy_threshold  (default -1.5%)
+SELL:  premium &gt;= sell_threshold (default +3.0%)
+HOLD:  premium between reset bands (clears last_alert to allow re-entry)
+
+Hysteresis rules:
+  - Same-zone drift &lt; 0.5% → no re-alert
+  - Crossed into neutral zone → resets last_alert silently
+  - First entry into BUY/SELL zone → immediate alert
+  - Re-entry after reset → immediate alert
+
 Persistence
+
 src/persistence/state.py
+  load_state()  → restores from state.json (with schema migration)
+  save_state()  → writes to state.json
 
-Current implementation
+State schema:
+  {
+    "schema_version": 1,
+    "history": [...],
+    "last_alert": null | "BUY" | "SELL",
+    "alert_history": [...],
+    "created_at": "...",
+    "updated_at": "..."
+  }
 
-load_state()
-
-save_state()
-
-State stored as
-
-state.json
-
-Current issue
-
-GitHub Actions creates a fresh runner every execution.
-
-Therefore
-
-state.json
-
-does not persist between workflow runs.
-
-Persistence must be redesigned using GitHub Artifacts or GitHub Cache.
+Storage: GitHub Actions Cache (actions/cache@v4)
+  - Restores previous state.json at start of run
+  - Saves updated state.json at end of run
+  - Survives across workflow executions
 
 Email
 
-Provider
+Provider: Resend
+Sender:   onboarding@resend.dev
+Recipient: Repository Secret EMAIL_TO
+API Key:   Repository Secret RESEND_API_KEY
 
-Resend
+Email types:
+  1. Daily Recap — always sent (unless disabled in config)
+  2. BUY/SELL Alert — sent only on signal trigger
 
-Status
-
-✅ Working
-
-Current sender
-
-onboarding@resend.dev
-
-Recipient
-
-Repository Secret
-
-EMAIL_TO
-
-API Key
-
-Repository Secret
-
-RESEND_API_KEY
-
-HTML email contains
-
-Fair Price
-Every platform
-Lowest Market
-Premium
-World Gold
-USD Sell
-Workflow
-
-Runs every
-
-30 minutes
+Both emails include timestamp, fair price, lowest market, premium, world gold, and USD rate.
 
 Workflow
 
-.github/workflows/gold-monitor.yml
+Runs:     Daily at 14:30 UTC (cron: "30 14 * * *")
+Trigger:  workflow_dispatch (manual) + schedule
+
+Steps:
+  1. Restore state.json from cache
+  2. Install Python 3.12 + dependencies
+  3. Run src/main.py
+  4. Cache saves state.json automatically
+
 Design Rules
 
 Collectors only collect.
-
 Collectors never calculate.
-
 Collectors never send email.
-
 Calculators never access APIs.
-
 Alerts never calculate.
-
 Persistence never performs calculations.
-
 Each module owns exactly one responsibility.
 
 Current Technical Debt
 
-Persist state across GitHub Actions runs.
-
-Priority: HIGH
-
 Finish Taline collector.
-
-Priority: HIGH
+  Priority: HIGH
 
 Replace Daric if timeout persists.
+  Priority: MEDIUM
 
-Priority: MEDIUM
+Rename caluclator → calculator after project stabilizes.
+  Priority: LOW
 
-Move from single HTML email to reusable email template.
+Completed Milestones
 
-Priority: LOW
-
-Rename
-
-caluclator
-
-to
-
-calculator
-
-after project stabilizes.
-
-Priority: LOW
-
-Immediate Next Milestone
-
-Implement persistent state using GitHub Artifacts.
-
-Goal
-
-Run N
-↓
-
-Load previous state
-
-↓
-
-Compare current premium vs previous premium
-
-↓
-
-Send alerts only when meaningful change occurs
-
-↓
-
-Save updated state for next execution
+✅ Implement persistent state using GitHub Actions Cache
+✅ Add BUY/SELL signal evaluation with hysteresis
+✅ Separate daily recap emails from alert emails
+✅ Add defensive guards (empty markets, zero fair price)
+✅ Remove unused dependency (playwright)
+✅ Add state.json to .gitignore
+✅ Add timestamps to alert emails
