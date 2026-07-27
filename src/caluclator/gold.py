@@ -15,13 +15,9 @@ def calculate_fair_price(world_gold_usd, usd_irr):
 
 
 def find_lowest_market_price(prices):
-
-    available = [
-        info["price"]
-        for info in prices.values()
-        if info["status"] == "OK"
-    ]
-
+    available = [info["price"] for info in prices.values() if info["status"] == "OK"]
+    if not available:
+        return None
     return min(available)
 
 
