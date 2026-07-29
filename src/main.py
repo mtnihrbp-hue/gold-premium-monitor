@@ -24,8 +24,12 @@ from alerts.resend_mail import (
 )
 
 from alerts.telegram import (
+    
     send_alert as send_telegram_alert,
 )
+
+
+from alerts.telegram import send_daily_recap as send_telegram_recap
 
 
 def load_config():
@@ -223,18 +227,9 @@ def main():
     # Daily Report
     ####################################################
 
-    if email_cfg.get(
-        "send_daily_recap",
-        True,
-    ):
-        send_daily_recap(
-            world,
-            usd,
-            fair,
-            lowest,
-            premium,
-            markets,
-        )
+    if email_cfg.get("send_daily_recap", True):
+            send_daily_recap(world, usd, fair, lowest, premium, markets)
+            send_telegram_recap(world, usd, fair, lowest, premium, markets)
 
 
 if __name__ == "__main__":
