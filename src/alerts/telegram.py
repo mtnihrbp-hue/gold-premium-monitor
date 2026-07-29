@@ -34,6 +34,29 @@ def _send(text: str):
         print(f"TELEGRAM ERROR: {e}", file=sys.stderr)
 
 
+def send_daily_recap(world, usd, fair, lowest, premium, markets):
+    lines = []
+    for name, info in markets.items():
+        if info["status"] == "OK":
+            lines.append(f"• {name}: {info['price']:,.0f}")
+
+    text = f"""📊 <b>Daily Gold Report</b>
+
+<b>Fair Price:</b> {fair:,.0f}
+<b>Lowest:</b> {lowest:,.0f}
+<b>Premium:</b> {premium:.2f}%
+
+<b>World Gold:</b> {world:.2f} USD/oz
+<b>USD:</b> {usd:,} IRR
+
+<b>Platforms:</b>
+{chr(10).join(lines)}
+
+<i>{datetime.now().strftime("%Y-%m-%d %H:%M")}</i>"""
+
+    _send(text)
+
+
 def send_alert(signal, world, usd, fair, lowest, premium, markets):
     emoji = {"BUY": "🟢", "SELL": "🔴", "HOLD": "⚪"}
 
