@@ -20,23 +20,24 @@ from persistence.state import (
 
 from alerts.resend_mail import (
     send_daily_recap,
-    send_alert,
+    send_alert as send_email_alert,
+)
+
+from alerts.telegram import (
+    send_alert as send_telegram_alert,
 )
 
 
 def load_config():
-
     with open(
         "config/config.json",
         "r",
         encoding="utf-8",
     ) as f:
-
         return json.load(f)
 
 
 def main():
-
     config = load_config()
 
     thresholds = config["thresholds"]
@@ -72,7 +73,6 @@ def main():
     lowest = find_lowest_market_price(markets)
     if lowest is None:
         print("ERROR: No market data available. Skipping.")
-        # Optionally send a "data unavailable" email or just exit cleanly
         return
 
     premium = premium_percent(
@@ -85,11 +85,8 @@ def main():
     ####################################################
 
     if history:
-
         previous_premium = history[-1]["premium"]
-
     else:
-
         previous_premium = premium
 
     ####################################################
@@ -116,16 +113,12 @@ def main():
     print("-" * 60)
 
     for name, info in markets.items():
-
         if info["status"] == "OK":
-
             print(
                 f"{name:<15}"
                 f"{info['price']:>15,.0f}"
             )
-
         else:
-
             print(
                 f"{name:<15}ERROR"
             )
@@ -141,7 +134,6 @@ def main():
     print(f"Last Alert : {last_alert}")
 
     if signal:
-
         print(signal)
 
     ####################################################
@@ -178,7 +170,6 @@ def main():
     ####################################################
 
     if signal:
-
         state["last_alert"] = signal["new_alert_type"]
 
         state["alert_history"].append(
@@ -197,7 +188,7 @@ def main():
     save_state(state)
 
     ####################################################
-    # Alert Email
+    # Alert Email + Telegram
     ####################################################
 
     if (
@@ -208,8 +199,17 @@ def main():
             True,
         )
     ):
+        send_email_alert(
+            signal,
+            world,
+            usd,
+            fair,
+            lowest,
+            premium,
+            markets,
+        )
 
-        send_alert(
+        send_telegram_alert(
             signal,
             world,
             usd,
@@ -227,7 +227,6 @@ def main():
         "send_daily_recap",
         True,
     ):
-
         send_daily_recap(
             world,
             usd,
