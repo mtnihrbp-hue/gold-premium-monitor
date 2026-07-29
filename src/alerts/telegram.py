@@ -1,4 +1,5 @@
 import os
+import sys
 from datetime import datetime
 
 import requests
@@ -8,31 +9,39 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 
 def _send(text: str):
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+    if not TELEGRAM_BOT_TOKEN:
+        print("TELEGRAM SKIP: TELEGRAM_BOT_TOKEN not set", file=sys.stderr)
         return
+    if not TELEGRAM_CHAT_ID:
+        print("TELEGRAM SKIP: TELEGRAM_CHAT_ID not set", file=sys.stderr)
+        return
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+
     try:
-        requests.post(
-            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-            json={
-                "chat_id": TELEGRAM_CHAT_ID,
-                "text": text,
-                "parse_mode": "HTML",
-                "disable_web_page_preview": True,
-            },
-            timeout=15,
-        )
-    except Exception:
-        pass
+        response = requests.post(url, json=payload, timeout=15)
+        response.raise_for_status()
+        print(f"TELEGRAM OK: message sent to chat {TELEGRAM_CHAT_ID}")
+    except requests.exceptions.HTTPError as e:
+        print(f"TELEGRAM ERROR HTTP {e.response.status_code}: {e.response.text}", file=sys.stderr)
+    except Exception as e:
+        print(f"TELEGRAM ERROR: {e}", file=sys.stderr)
 
 
 def send_alert(signal, world, usd, fair, lowest, premium, markets):
     emoji = {"BUY": "🟢", "SELL": "🔴", "HOLD": "⚪"}
-    
+
     lines = []
     for name, info in markets.items():
         if info["status"] == "OK":
             lines.append(f"• {name}: {info['price']:,.0f}")
-    
+
     text = f"""{emoji.get(signal["signal"], "⚡")} <b>{signal["signal"]} ALERT</b>
 
 {signal["reason"]}
@@ -48,5 +57,5 @@ def send_alert(signal, world, usd, fair, lowest, premium, markets):
 <b>USD:</b> {usd:,} IRR
 
 <i>{datetime.now().strftime("%Y-%m-%d %H:%M")}</i>"""
-    
+
     _send(text)
