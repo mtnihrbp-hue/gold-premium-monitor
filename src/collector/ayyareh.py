@@ -11,5 +11,5 @@ def get_ayyareh_price():
 
     return {
         "platform": "Milli",
-        "price": float(data["data"]["goldPrice"])
+        "price": float(data["goldPrice"])
     }
