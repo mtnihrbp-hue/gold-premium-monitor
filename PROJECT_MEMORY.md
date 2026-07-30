@@ -10,13 +10,14 @@ Current Status
 
 Infrastructure
 ✅ GitHub repository is public.
-✅ GitHub Actions running daily at 14:30 UTC.
 ✅ Python 3.12.
 ✅ Repository connected to ChatGPT GitHub integration (read-only assistance).
-✅ Resend email integration working.
-✅ Daily HTML report successfully delivered.
-✅ BUY/SELL alert system with hysteresis.
 ✅ Persistent state via GitHub Actions Cache (state.json survives across runs).
+✅ BUY/SELL alert system with hysteresis.
+✅ Dual-channel notifications: Email (Resend) + Telegram Bot.
+✅ On-demand triggering via Telegram bot + Cloudflare Worker.
+✅ External precise trigger via cron-job.org (primary).
+✅ GitHub Actions schedule kept as backup.
 
 Current Folder Structure
 
@@ -27,6 +28,7 @@ src/
   alerts/
     resend_mail.py
     gmail.py
+    telegram.py
 
   caluclator/
     gold.py
@@ -132,23 +134,63 @@ Storage: GitHub Actions Cache (actions/cache@v4)
   - Saves updated state.json at end of run
   - Survives across workflow executions
 
-Email
+Notification Channels
 
-Provider: Resend
-Sender:   onboarding@resend.dev
-Recipient: Repository Secret EMAIL_TO
-API Key:   Repository Secret RESEND_API_KEY
+1. Email (Resend)
+   Provider:   Resend
+   Sender:     onboarding@resend.dev
+   Recipient:  Repository Secret EMAIL_TO
+   API Key:    Repository Secret RESEND_API_KEY
+   Types:
+     - Daily Recap — always sent (unless disabled in config)
+     - BUY/SELL Alert — sent only on signal trigger
 
-Email types:
-  1. Daily Recap — always sent (unless disabled in config)
-  2. BUY/SELL Alert — sent only on signal trigger
+2. Telegram Bot
+   Bot:        Created via @BotFather
+   Chat ID:    Repository Secret TELEGRAM_CHAT_ID
+   Token:      Repository Secret TELEGRAM_BOT_TOKEN
+   Types:
+     - Daily Recap — sent on every run
+     - BUY/SELL Alert — sent only on signal trigger
+   Features:
+     - HTML formatting with emojis
+     - Error logging to console (visible in Actions logs)
+     - Graceful skip if secrets not configured
 
-Both emails include timestamp, fair price, lowest market, premium, world gold, and USD rate.
+Both channels include timestamp, fair price, lowest market, premium, world gold, and USD rate.
+
+Trigger Architecture
+
+Primary Trigger (Precise)
+  Service:    cron-job.org
+  Method:     POST to GitHub API
+  Target:     workflow_dispatch
+  Schedule:   Daily at 18:00 Tehran (configurable)
+  Precision:  ~10–30 seconds
+  Token:      GitHub Personal Access Token (Classic, repo scope)
+
+Secondary Trigger (On-Demand)
+  Service:    Cloudflare Worker
+  Interface:  Telegram Bot
+  Command:    "Update"
+  Method:     POST to GitHub API
+  Target:     workflow_dispatch
+  Security:   Validates TELEGRAM_CHAT_ID before triggering
+
+Backup Trigger (Best-effort)
+  Service:    GitHub Actions native schedule
+  Cron:       "30 14 * * *" (14:30 UTC ≈ 18:00 Tehran)
+  Note:       Subject to 0–4 hour platform delay
 
 Workflow
 
-Runs:     Daily at 14:30 UTC (cron: "30 14 * * *")
-Trigger:  workflow_dispatch (manual) + schedule
+File: .github/workflows/gold-monitor.yml
+
+Secrets passed to runner:
+  RESEND_API_KEY
+  EMAIL_TO
+  TELEGRAM_BOT_TOKEN
+  TELEGRAM_CHAT_ID
 
 Steps:
   1. Restore state.json from cache
@@ -177,6 +219,12 @@ Replace Daric if timeout persists.
 Rename caluclator → calculator after project stabilizes.
   Priority: LOW
 
+Add trend analysis module (historical comparison, moving averages).
+  Priority: MEDIUM
+
+Add sparkline charts to reports.
+  Priority: LOW
+
 Completed Milestones
 
 ✅ Implement persistent state using GitHub Actions Cache
@@ -186,3 +234,7 @@ Completed Milestones
 ✅ Remove unused dependency (playwright)
 ✅ Add state.json to .gitignore
 ✅ Add timestamps to alert emails
+✅ Add Telegram Bot integration (alerts + daily recap)
+✅ Add error logging to Telegram module
+✅ Add external precise trigger via cron-job.org
+✅ Add on-demand Telegram trigger via Cloudflare Worker
