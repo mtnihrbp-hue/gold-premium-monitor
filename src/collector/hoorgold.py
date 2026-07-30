@@ -48,6 +48,6 @@ def get_hoorgold_price():
 
     return {
         "platform": "HoorGold",
-        "price": parse_price(raw_text),
+        "price": parse_price(raw_text) *10,
         "raw": raw_text,
     }
