@@ -40,7 +40,7 @@ def get_taline_price():
 
             return {
                 "platform": "Taline",
-                "price": parse_price(raw_text),  # Toman → Rial
+                "price": parse_price(raw_text) *10,  # Toman → Rial
                 "raw": raw_text,
             }
 
