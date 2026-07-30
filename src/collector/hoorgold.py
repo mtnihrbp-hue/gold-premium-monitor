@@ -1,32 +1,53 @@
+import re
 import requests
 from bs4 import BeautifulSoup
 
 URL = "https://hoorgold.com/"
 
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 Chrome/138.0 Safari/537.36"
+    )
+}
+
+
+def parse_price(text: str) -> float:
+    digits = re.sub(r"[^\d]", "", text)
+    if not digits:
+        raise ValueError(f"Unable to extract numeric value from: {text!r}")
+    return float(digits)
+
 
 def get_hoorgold_price():
-    response = requests.get(URL, timeout=15)
+    response = requests.get(
+        URL,
+        headers=HEADERS,
+        timeout=15,
+    )
     response.raise_for_status()
 
     soup = BeautifulSoup(response.text, "html.parser")
 
-    # Target: <span class="gold-cost">18,900,000 تومان</span>
-    cost_span = soup.select_one("span.gold-price-18 span.gold-cost")
-    if not cost_span:
-        raise ValueError("Price element not found on page")
+    selectors = [
+        "span.gold-price-18 span.gold-cost",
+        ".gold-price-18 .gold-cost",
+        ".gold-cost",
+    ]
 
-    raw_text = cost_span.get_text(strip=True)
+    price_element = None
+    for selector in selectors:
+        price_element = soup.select_one(selector)
+        if price_element:
+            break
 
-    # Remove "تومان", commas, and whitespace → "18900000"
-    cleaned = raw_text.replace("تومان", "").replace(",", "").replace(" ", "").strip()
+    if price_element is None:
+        raise RuntimeError("Could not locate 18K gold price element.")
 
-    price = float(cleaned)
-
-    # NOTE: The site displays prices in Tomans. If your other collectors
-    # return Rials (1 Toman = 10 Rials), uncomment the next line:
-    # price *= 10
+    raw_text = price_element.get_text(" ", strip=True)
 
     return {
         "platform": "HoorGold",
-        "price": price,
+        "price": parse_price(raw_text),
+        "raw": raw_text,
     }
