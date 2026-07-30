@@ -2,6 +2,7 @@ from collector.milli import get_milli_price
 from collector.goldika import get_goldika_price
 from collector.wallgold import get_wallgold_price
 from collector.taline import get_taline_price
+from collector.hoorgold import get_hoorgold_price
 
 
 def get_market_prices():
@@ -12,6 +13,7 @@ def get_market_prices():
         get_milli_price,
         get_goldika_price,
         get_wallgold_price,
+        get_hoorgold_price,
         get_taline_price,
     ]
 
