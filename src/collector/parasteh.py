@@ -49,6 +49,6 @@ def get_parasteh_price():
 
     return {
         "platform": "Parasteh",
-        "price": parse_price(raw_text),
+        "price": parse_price(raw_text) *10,
         "raw": raw_text,
     }
