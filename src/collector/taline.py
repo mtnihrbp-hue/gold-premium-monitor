@@ -1,42 +1,47 @@
 import re
 import requests
+from bs4 import BeautifulSoup
 
-URL = "https://taline.ir/"
+URL = "https://taline.ir/goldprice/"
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 Chrome/138.0 Safari/537.36"
+    )
+}
 
 
-def persian_to_english(text):
-    return text.translate(str.maketrans(
-        "۰۱۲۳۴۵۶۷۸۹",
-        "0123456789"
-    ))
+def parse_price(text: str) -> float:
+    digits = re.sub(r"[^\d]", "", text)
+    if not digits:
+        raise ValueError(f"Unable to parse price from: {text!r}")
+    return float(digits)
 
 
 def get_taline_price():
     response = requests.get(
         URL,
+        headers=HEADERS,
         timeout=15,
-        headers={
-            "User-Agent": "Mozilla/5.0"
-        }
     )
-
     response.raise_for_status()
 
-    html = response.text
+    soup = BeautifulSoup(response.text, "html.parser")
 
-    match = re.search(
-        r"نرخ فعلی طلا.*?([\d,۰-۹]+)",
-        html,
-        re.S
-    )
+    labels = soup.select("span.elementor-heading-title")
 
-    if not match:
-        raise RuntimeError("Taline price not found.")
+    for i, label in enumerate(labels):
+        if "قیمت ۱گرم طلای ۱۸" in label.get_text(strip=True):
+            if i + 1 >= len(labels):
+                raise RuntimeError("Price label found but value is missing.")
 
-    price = persian_to_english(match.group(1))
-    price = float(price.replace(",", ""))
+            raw_text = labels[i + 1].get_text(strip=True)
 
-    return {
-        "platform": "Taline",
-        "price": price
-    }
+            return {
+                "platform": "Taline",
+                "price": parse_price(raw_text),  # Toman → Rial
+                "raw": raw_text,
+            }
+
+    raise RuntimeError("18K gold price not found.")
