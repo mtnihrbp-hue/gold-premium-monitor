@@ -10,6 +10,6 @@ def get_ayyareh_price():
     data = response.json()
 
     return {
-        "platform": "Milli",
-        "price": float(data["goldPrice"])
+        "platform": "Ayyareh",
+        "price": float(data["goldPrice"]) *10,
     }
