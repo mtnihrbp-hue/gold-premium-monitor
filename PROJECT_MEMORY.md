@@ -9,6 +9,28 @@ The monitor identifies market premiums/discounts and sends BUY/SELL alerts when 
 
 ---
 
+
+Premium %
+
+Deviation of executable market price from calculated theoretical fair value.
+
+(price - fair_value) / fair_value
+
+
+---
+
+# Data Quality Rules
+
+A signal is valid only when:
+
+- World gold price is available
+- USD rate is available
+- Minimum N market sources return valid prices
+- No price is stale beyond threshold
+
+
+
+
 # Current Status
 
 ## Infrastructure
@@ -422,6 +444,31 @@ python src/main.py
 * ✅ Added Ayyareh collector
 * ✅ Added Miogold collector
 * ✅ Added Eligallery collector
+
+---
+
+# Configuration
+
+Example:
+
+{
+  "buy_premium_percent": -1.5,
+  "sell_premium_percent": 3.0,
+  "daily_report": true
+}
+
+
+---
+# Testing Status
+
+Current:
+- Manual validation
+
+Planned:
+- Signal engine unit tests
+- Collector response tests
+- State migration tests
+
 
 ---
 
