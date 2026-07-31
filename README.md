@@ -53,6 +53,11 @@ Supported price sources:
 | WallGold | Iranian gold price | Stable |
 | Taline | Iranian gold price | Experimental |
 | Daric | Iranian gold price | Unstable |
+HoorGold
+Parasteh
+Miogold
+Ayyareh
+Eligallery
 
 ---
 
