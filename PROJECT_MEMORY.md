@@ -1,26 +1,35 @@
-Gold Premium Monitor
+````markdown
+# Gold Premium Monitor
 
-Objective
+## Objective
 
 Continuously monitor the Iranian 18K gold market by comparing the theoretical fair value of gold with live executable prices from Iranian trading platforms.
 
 The monitor identifies market premiums/discounts and sends BUY/SELL alerts when meaningful opportunities appear.
 
-Current Status
+---
 
-Infrastructure
-✅ GitHub repository is public.
-✅ Python 3.12.
-✅ Repository connected to ChatGPT GitHub integration (read-only assistance).
-✅ Persistent state via GitHub Actions Cache (state.json survives across runs).
-✅ BUY/SELL alert system with hysteresis.
-✅ Dual-channel notifications: Email (Resend) + Telegram Bot.
-✅ On-demand triggering via Telegram bot + Cloudflare Worker.
-✅ External precise trigger via cron-job.org (primary).
-✅ GitHub Actions schedule kept as backup.
+# Current Status
 
-Current Folder Structure
+## Infrastructure
 
+- ✅ Public GitHub repository
+- ✅ Python 3.12
+- ✅ Repository connected to ChatGPT GitHub integration (read-only assistance)
+- ✅ Persistent state via GitHub Actions Cache (`state.json` survives across runs)
+- ✅ BUY/SELL alert system with hysteresis
+- ✅ Dual-channel notifications:
+  - Email (Resend)
+  - Telegram Bot
+- ✅ Telegram-triggered on-demand execution via Cloudflare Worker
+- ✅ External precise scheduling via cron-job.org
+- ✅ GitHub Actions schedule retained as backup
+
+---
+
+# Project Structure
+
+```text
 config/
   config.json
 
@@ -35,14 +44,20 @@ src/
     signals.py
 
   collector/
+    __init__.py
+    ayyareh.py
     bonbast.py
+    daric.py
+    eligallery.py
     goldika.py
+    hoorgold.py
     iran.py
     kitco.py
+    miogold.py
     milli.py
-    wallgold.py
+    parasteh.py
     taline.py
-    daric.py
+    wallgold.py
 
   persistence/
     state.py
@@ -52,189 +67,404 @@ src/
 .github/
   workflows/
     gold-monitor.yml
+````
 
-(Current project intentionally uses caluclator instead of calculator.)
+> Note: The project intentionally uses `caluclator` instead of `calculator`.
 
-Working Collectors
+---
 
-Kitco
-  Purpose:    World Gold Price (USD/oz)
-  Status:     ✅ Stable
+# Collectors
 
-Bonbast
-  Purpose:    USD Sell Rate (IRR)
-  Implementation: bonbast python package
-  Status:     ✅ Stable
+## External Price Feeds
 
-Milli
-  Endpoint:  https://milli.gold/api/v1/public/milli-price/external
-  Uses:      data.price18
-  Normalization: price × 1000
-  Status:     ✅ Working
+| Platform | Type              | Method                                     | Status   |
+| -------- | ----------------- | ------------------------------------------ | -------- |
+| Kitco    | Global gold price | HTML scrape (`requests` + `BeautifulSoup`) | ✅ Stable |
+| Bonbast  | USD exchange rate | Python package (`bonbast==1.0.2`)          | ✅ Stable |
 
-Goldika
-  Endpoint:  https://api.goldika.ir/api/public/price
-  Uses:      data.price.buy
-  Status:     ✅ Working
+---
 
-WallGold
-  Endpoint:  https://api.wallgold.ir/api/v1/price?side=buy&symbol=GLD_18C_750TMN
-  Uses:      result.price
-  Normalization: price × 10
-  Status:     ✅ Working
+## Iranian Market Collectors
 
-Taline
-  Status:     HTML parser exists. Currently unstable. Returns ERROR when unavailable.
+| Platform   | Type        | Status                                        |
+| ---------- | ----------- | --------------------------------------------- |
+| Milli      | API         | ✅ Working                                     |
+| Goldika    | API         | ✅ Working                                     |
+| WallGold   | API         | ✅ Working                                     |
+| Taline     | HTML scrape | ⚠️ Code ready, production verification needed |
+| HoorGold   | HTML scrape | ⚠️ Code ready, production verification needed |
+| Parasteh   | HTML scrape | ⚠️ Code ready, production verification needed |
+| Miogold    | HTML scrape | ⚠️ Code ready, production verification needed |
+| Ayyareh    | HTML scrape | ⚠️ Code ready, production verification needed |
+| Eligallery | HTML scrape | ⚠️ Code ready, production verification needed |
+| Daric      | HTML scrape | ❌ Ignored due to frequent timeouts            |
 
-Daric
-  Status:     Endpoint responds inconsistently. Frequent timeout. Currently ignored.
+---
 
-Calculation Logic
+# Calculation Logic
 
-Fair price is calculated from:
-  World Gold (USD/oz) × USD Sell (IRR) / 31.1034768 × 0.750
+Fair price formula:
 
-Current implementation multiplies calculated fair value by 10 to match Iranian market units.
+```text
+World Gold (USD/oz)
+×
+USD Sell Rate (IRR)
+÷
+31.1034768
+×
+0.750
+```
+
+Current implementation:
+
+```python
+fair = calculate_fair_price(world, usd) * 10
+```
 
 Outputs:
-  Fair Price
-  Lowest Market Price
-  Premium %
 
-Signal Logic (src/caluclator/signals.py)
+* Fair Price
+* Lowest Market Price
+* Premium %
 
-BUY:   premium &lt;= buy_threshold  (default -1.5%)
-SELL:  premium &gt;= sell_threshold (default +3.0%)
-HOLD:  premium between reset bands (clears last_alert to allow re-entry)
+---
 
-Hysteresis rules:
-  - Same-zone drift &lt; 0.5% → no re-alert
-  - Crossed into neutral zone → resets last_alert silently
-  - First entry into BUY/SELL zone → immediate alert
-  - Re-entry after reset → immediate alert
+# Signal Logic
 
-Persistence
+Location:
 
+```text
+src/caluclator/signals.py
+```
+
+| Signal | Condition                                         |
+| ------ | ------------------------------------------------- |
+| BUY    | `premium <= buy_premium_percent` (default -1.5%)  |
+| SELL   | `premium >= sell_premium_percent` (default +3.0%) |
+| HOLD   | Between reset bands                               |
+
+## Hysteresis Rules
+
+* Same-zone drift below `min_change_for_alert` (0.5%) → no alert
+* Entering neutral zone → resets previous alert silently
+* First BUY/SELL entry → immediate alert
+* Re-entry after reset → immediate alert
+
+---
+
+# Persistence
+
+Location:
+
+```text
 src/persistence/state.py
-  load_state()  → restores from state.json (with schema migration)
-  save_state()  → writes to state.json
+```
+
+Functions:
+
+```python
+load_state()
+save_state()
+```
 
 State schema:
-  {
-    "schema_version": 1,
-    "history": [...],
-    "last_alert": null | "BUY" | "SELL",
-    "alert_history": [...],
-    "created_at": "...",
-    "updated_at": "..."
-  }
 
-Storage: GitHub Actions Cache (actions/cache@v4)
-  - Restores previous state.json at start of run
-  - Saves updated state.json at end of run
-  - Survives across workflow executions
+```json
+{
+  "schema_version": 1,
+  "history": [],
+  "last_alert": null,
+  "alert_history": [],
+  "created_at": "",
+  "updated_at": ""
+}
+```
 
-Notification Channels
+Storage:
 
-1. Email (Resend)
-   Provider:   Resend
-   Sender:     onboarding@resend.dev
-   Recipient:  Repository Secret EMAIL_TO
-   API Key:    Repository Secret RESEND_API_KEY
-   Types:
-     - Daily Recap — always sent (unless disabled in config)
-     - BUY/SELL Alert — sent only on signal trigger
+```text
+GitHub Actions Cache (actions/cache@v4)
+```
 
-2. Telegram Bot
-   Bot:        Created via @BotFather
-   Chat ID:    Repository Secret TELEGRAM_CHAT_ID
-   Token:      Repository Secret TELEGRAM_BOT_TOKEN
-   Types:
-     - Daily Recap — sent on every run
-     - BUY/SELL Alert — sent only on signal trigger
-   Features:
-     - HTML formatting with emojis
-     - Error logging to console (visible in Actions logs)
-     - Graceful skip if secrets not configured
+Process:
 
-Both channels include timestamp, fair price, lowest market, premium, world gold, and USD rate.
+1. Restore `state.json`
+2. Execute monitoring
+3. Update state
+4. Save cache
 
-Trigger Architecture
+---
 
-Primary Trigger (Precise)
-  Service:    cron-job.org
-  Method:     POST to GitHub API
-  Target:     workflow_dispatch
-  Schedule:   Daily at 18:00 Tehran (configurable)
-  Precision:  ~10–30 seconds
-  Token:      GitHub Personal Access Token (Classic, repo scope)
+# Notification Channels
 
-Secondary Trigger (On-Demand)
-  Service:    Cloudflare Worker
-  Interface:  Telegram Bot
-  Command:    "Update"
-  Method:     POST to GitHub API
-  Target:     workflow_dispatch
-  Security:   Validates TELEGRAM_CHAT_ID before triggering
+## Email
 
-Backup Trigger (Best-effort)
-  Service:    GitHub Actions native schedule
-  Cron:       "30 14 * * *" (14:30 UTC ≈ 18:00 Tehran)
-  Note:       Subject to 0–4 hour platform delay
+Provider:
 
-Workflow
+```text
+Resend
+```
 
-File: .github/workflows/gold-monitor.yml
+Configuration:
 
-Secrets passed to runner:
-  RESEND_API_KEY
-  EMAIL_TO
-  TELEGRAM_BOT_TOKEN
-  TELEGRAM_CHAT_ID
+```text
+Sender:
+onboarding@resend.dev
 
-Steps:
-  1. Restore state.json from cache
-  2. Install Python 3.12 + dependencies
-  3. Run src/main.py
-  4. Cache saves state.json automatically
+Secrets:
+RESEND_API_KEY
+EMAIL_TO
+```
 
-Design Rules
+Notifications:
 
-Collectors only collect.
-Collectors never calculate.
-Collectors never send email.
-Calculators never access APIs.
-Alerts never calculate.
-Persistence never performs calculations.
-Each module owns exactly one responsibility.
+* Daily recap
+* BUY/SELL alerts
 
-Current Technical Debt
+---
 
-Finish Taline collector.
-  Priority: HIGH
+## Telegram Bot
 
-Replace Daric if timeout persists.
-  Priority: MEDIUM
+Created through:
 
-Rename caluclator → calculator after project stabilizes.
-  Priority: LOW
+```text
+@BotFather
+```
 
-Add trend analysis module (historical comparison, moving averages).
-  Priority: MEDIUM
+Secrets:
 
-Add sparkline charts to reports.
-  Priority: LOW
+```text
+TELEGRAM_BOT_TOKEN
+TELEGRAM_CHAT_ID
+```
 
-Completed Milestones
+Notifications:
 
-✅ Implement persistent state using GitHub Actions Cache
-✅ Add BUY/SELL signal evaluation with hysteresis
-✅ Separate daily recap emails from alert emails
-✅ Add defensive guards (empty markets, zero fair price)
-✅ Remove unused dependency (playwright)
-✅ Add state.json to .gitignore
-✅ Add timestamps to alert emails
-✅ Add Telegram Bot integration (alerts + daily recap)
-✅ Add error logging to Telegram module
-✅ Add external precise trigger via cron-job.org
-✅ Add on-demand Telegram trigger via Cloudflare Worker
+* Daily recap
+* BUY/SELL alerts
+
+Features:
+
+* HTML formatting (`parse_mode="HTML"`)
+* Console error logging
+* Graceful skip when secrets are unavailable
+
+---
+
+## Notification Data
+
+Both channels include:
+
+* Timestamp
+* Fair price
+* Lowest market price
+* Premium %
+* World gold price
+* USD exchange rate
+
+---
+
+# Trigger Architecture
+
+## Primary Trigger
+
+Service:
+
+```text
+cron-job.org
+```
+
+Flow:
+
+```text
+cron-job.org
+      |
+      |
+GitHub API
+      |
+      |
+workflow_dispatch
+      |
+      |
+GitHub Actions
+```
+
+Configuration:
+
+* Schedule: Daily 18:00 Tehran
+* Precision: ~10–30 seconds
+* Token: GitHub PAT (`repo` scope)
+
+---
+
+## Telegram On-Demand Trigger
+
+Architecture:
+
+```text
+Telegram Bot
+      |
+      |
+Cloudflare Worker
+      |
+      |
+GitHub API
+      |
+      |
+GitHub Actions
+```
+
+Command:
+
+```text
+Update
+```
+
+Security:
+
+* Validates `TELEGRAM_CHAT_ID`
+* Cloudflare observability disabled to prevent retry loops
+
+---
+
+## Backup Trigger
+
+GitHub Actions schedule:
+
+```cron
+30 14 * * *
+```
+
+Equivalent:
+
+```text
+14:30 UTC ≈ 18:00 Tehran
+```
+
+Note:
+
+GitHub free-tier schedules may experience delays.
+
+---
+
+# Workflow
+
+File:
+
+```text
+.github/workflows/gold-monitor.yml
+```
+
+Secrets passed:
+
+```text
+RESEND_API_KEY
+EMAIL_TO
+TELEGRAM_BOT_TOKEN
+TELEGRAM_CHAT_ID
+```
+
+Execution:
+
+1. Restore state cache
+2. Install Python 3.12 dependencies
+3. Run:
+
+```bash
+python src/main.py
+```
+
+4. Save updated state cache
+
+---
+
+# Design Rules
+
+* Collectors only collect.
+* Collectors never calculate.
+* Collectors never send notifications.
+* Calculators never access APIs.
+* Alerts never calculate.
+* Persistence never performs calculations.
+* Each module owns exactly one responsibility.
+
+---
+
+# Technical Debt & Next Priorities
+
+| Priority | Item                                      |
+| -------- | ----------------------------------------- |
+| P1       | Verify HTML collectors in production runs |
+| P1       | Verify Telegram HTML rendering            |
+| P2       | Add trend analysis module                 |
+| P2       | Add 3-day trend arrows                    |
+| P2       | Add 7-day moving average                  |
+| P2       | Add sparkline charts                      |
+| P2       | Rename `caluclator` → `calculator`        |
+
+---
+
+# Completed Milestones
+
+* ✅ Persistent state using GitHub Actions Cache
+* ✅ BUY/SELL signal evaluation with hysteresis
+* ✅ Separate daily recap and alert notifications
+* ✅ Defensive guards for empty markets and zero fair price
+* ✅ Removed unused `playwright` dependency
+* ✅ Added `state.json` to `.gitignore`
+* ✅ Added timestamps to alert emails
+* ✅ Added Telegram notifications
+* ✅ Added Telegram error logging
+* ✅ Added cron-job.org precise trigger
+* ✅ Added Cloudflare Worker Telegram trigger
+* ✅ Added HoorGold collector
+* ✅ Added Parasteh collector
+* ✅ Added Ayyareh collector
+* ✅ Added Miogold collector
+* ✅ Added Eligallery collector
+
+---
+
+# Secrets Reference
+
+| Secret               | Used In                            | Source             |
+| -------------------- | ---------------------------------- | ------------------ |
+| `RESEND_API_KEY`     | GitHub Actions → Email sender      | Resend             |
+| `EMAIL_TO`           | GitHub Actions → Email recipient   | User email         |
+| `TELEGRAM_BOT_TOKEN` | GitHub Actions + Cloudflare Worker | Telegram BotFather |
+| `TELEGRAM_CHAT_ID`   | GitHub Actions + Cloudflare Worker | Telegram API       |
+| `GITHUB_TOKEN`       | Cloudflare Worker → GitHub API     | GitHub PAT         |
+
+---
+
+# New Chat Onboarding
+
+When continuing development:
+
+1. Share this `PROJECT_MEMORY.md`
+2. Share repository:
+
+```text
+https://github.com/mtnihrbp-hue/gold-premium-monitor
+```
+
+3. State the current priority.
+
+Examples:
+
+```text
+Add trend analysis
+```
+
+```text
+Fix Taline collector
+```
+
+```text
+Review signal accuracy
+```
+
+The assistant should read the repository before making architectural changes.
+
+```
+```
