@@ -7,7 +7,7 @@ from collector.parasteh import get_parasteh_price
 from collector.daric import get_daric_price
 from collector.ayyareh import get_ayyareh_price
 from collector.miogold import get_miogold_price
-from collector.elgallery import get_eligold_price
+from collector.eligallery import get_eligold_price
 
 
 def get_market_prices():
