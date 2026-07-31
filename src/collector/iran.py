@@ -6,6 +6,7 @@ from collector.hoorgold import get_hoorgold_price
 from collector.parasteh import get_parasteh_price
 from collector.daric import get_daric_price
 from collector.ayyareh import get_ayyareh_price
+from collector.miogold import get_miogold_price
 
 
 def get_market_prices():
@@ -20,6 +21,7 @@ def get_market_prices():
         get_ayyareh_price,
         get_hoorgold_price,
         get_parasteh_price,
+        get_miogold_price,
         get_daric_price,
         
     ]
