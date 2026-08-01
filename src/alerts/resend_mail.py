@@ -50,6 +50,7 @@ def send_daily_recap(
     lowest,
     premium,
     markets,
+    trends=None,
 ):
 
     html = f"""
