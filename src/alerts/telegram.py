@@ -53,9 +53,7 @@ def _format_trends(trends):
         lines.append(f"<code>{spark}</code>")
 
     if lines:
-        return "
-".join(lines) + "
-"
+        return "\n".join(lines) + "\n"
     return ""
 
 
