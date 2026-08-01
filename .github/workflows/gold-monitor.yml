@@ -36,6 +36,7 @@ jobs:
 
           pip install -r requirements.txt
 
+     
       - name: Execute
 
         env:
@@ -52,3 +53,9 @@ jobs:
         run: |
 
           python src/main.py
+
+
+      - name: Smoke Test
+        run: |
+          python -m compileall src
+          python -c "import sys; sys.path.insert(0, 'src'); import main"
