@@ -21,7 +21,7 @@ from persistence.state import (
 )
 
 from alerts.resend_mail import (
-    send_daily_recap,
+    send_daily_recap as send_email_recap,
     send_alert as send_email_alert,
 )
 
@@ -208,28 +208,44 @@ def main():
     save_state(state)
 
     ####################################################
-    # Alert Email + Telegram
+    # Alert Email + Telegram (isolated)
     ####################################################
 
-    if (
+    should_send_alert = (
         signal
         and signal["signal"] in ("BUY", "SELL")
         and email_cfg.get("send_alerts", True)
-    ):
-        send_email_alert(
-            signal, world, usd, fair, lowest, premium, markets, trends=trends,
-        )
-        send_telegram_alert(
-            signal, world, usd, fair, lowest, premium, markets, trends=trends,
-        )
+    )
+
+    if should_send_alert:
+        try:
+            send_email_alert(
+                signal, world, usd, fair, lowest, premium, markets, trends=trends,
+            )
+        except Exception as e:
+            print(f"ERROR: Email alert failed: {e}")
+
+        try:
+            send_telegram_alert(
+                signal, world, usd, fair, lowest, premium, markets, trends=trends,
+            )
+        except Exception as e:
+            print(f"ERROR: Telegram alert failed: {e}")
 
     ####################################################
-    # Daily Report
+    # Daily Report (isolated)
     ####################################################
 
     if email_cfg.get("send_daily_recap", True):
-        send_daily_recap(world, usd, fair, lowest, premium, markets, trends=trends)
-        send_telegram_recap(world, usd, fair, lowest, premium, markets, trends=trends)
+        try:
+            send_email_recap(world, usd, fair, lowest, premium, markets, trends=trends)
+        except Exception as e:
+            print(f"ERROR: Email daily recap failed: {e}")
+
+        try:
+            send_telegram_recap(world, usd, fair, lowest, premium, markets, trends=trends)
+        except Exception as e:
+            print(f"ERROR: Telegram daily recap failed: {e}")
 
 
 if __name__ == "__main__":
