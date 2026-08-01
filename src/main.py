@@ -30,6 +30,7 @@ from alerts.telegram import (
     send_alert as send_telegram_alert,
     send_manual_update as send_telegram_manual,
     send_data_unavailable as send_telegram_unavailable,
+    send_processing as send_telegram_processing,
 )
 
 from alerts.telegram import send_daily_recap as send_telegram_recap
@@ -85,6 +86,18 @@ def main():
     state = load_state()
     history = state["history"]
     last_alert = state["last_alert"]
+
+    is_scheduled = os.environ.get("SCHEDULED_RUN", "false").lower() == "true"
+
+    ####################################################
+    # Heartbeat for manual triggers
+    ####################################################
+
+    if not is_scheduled:
+        try:
+            send_telegram_processing()
+        except Exception as e:
+            print(f"ERROR: Telegram processing heartbeat failed: {e}")
 
     ####################################################
     # Collect
@@ -147,7 +160,6 @@ def main():
         except Exception as e:
             print(f"ERROR: Telegram unavailable msg failed: {e}")
 
-        # Save partial state (markets + usd) so we at least have continuity
         if usd is not None:
             history.append(
                 {
@@ -318,8 +330,6 @@ def main():
     ####################################################
     # Daily Report (isolated, scheduled only)
     ####################################################
-
-    is_scheduled = os.environ.get("SCHEDULED_RUN", "false").lower() == "true"
 
     if email_cfg.get("send_daily_recap", True) and is_scheduled:
         try:
