@@ -56,6 +56,11 @@ def _format_trends(trends):
     return ""
 
 
+def send_processing():
+    """Send a 'processing' heartbeat so user knows workflow is alive."""
+    _send("⏳ <b>Collecting market data...</b>")
+
+
 def send_daily_recap(world, usd, fair, lowest, premium, markets, trends=None):
     platform_lines = format_platform_bullets(markets)
     trend_block = _format_trends(trends)
