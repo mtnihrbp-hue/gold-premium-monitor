@@ -3,6 +3,12 @@ from datetime import datetime
 
 import resend
 
+from alerts.helpers import (
+    format_platform_table_rows,
+    format_trend_lines,
+    format_timestamp,
+)
+
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 EMAIL_TO = os.environ.get("EMAIL_TO")
 
@@ -30,42 +36,11 @@ def _send(subject: str, html: str):
         print(f"EMAIL ERROR: {e}")
 
 
-def _market_rows(markets):
-    rows = ""
-    for name, info in markets.items():
-        if info["status"] != "OK":
-            continue
-        rows += f"""
-<tr>
-<td style="padding:6px;border-bottom:1px solid #ddd;">
-{name}
-</td>
-<td style="padding:6px;border-bottom:1px solid #ddd;text-align:right;">
-{info["price"]:,.0f}
-</td>
-</tr>
-"""
-    return rows
-
-
 def _trend_block_html(trends):
     """Optional trend block for email HTML."""
-    if not trends:
-        return ""
-
-    lines = []
-    arrow = trends.get("arrow", "→")
-    diff = trends.get("arrow_diff")
-    ma7 = trends.get("ma7")
-
-    if diff is not None:
-        lines.append(f"3-Day Trend: {arrow} ({diff:+.2f}%)")
-    if ma7 is not None:
-        lines.append(f"7-Day MA: {ma7:.2f}%")
-
+    lines = format_trend_lines(trends)
     if not lines:
         return ""
-
     return "<p><b>Trends:</b> " + " | ".join(lines) + "</p>"
 
 
@@ -89,7 +64,7 @@ def send_daily_recap(
 <th align="right">Price</th>
 </tr>
 
-{_market_rows(markets)}
+{format_platform_table_rows(markets)}
 
 <tr>
 <td><b>Fair Price</b></td>
@@ -112,7 +87,7 @@ def send_daily_recap(
 
 <p>
 Generated:
-{datetime.now().strftime("%Y-%m-%d %H:%M")}
+{format_timestamp()}
 </p>
 
 </div>
@@ -152,7 +127,7 @@ def send_alert(
 <th align="right">Price</th>
 </tr>
 
-{_market_rows(markets)}
+{format_platform_table_rows(markets)}
 
 <tr>
 <td><b>Fair Price</b></td>
@@ -175,7 +150,7 @@ def send_alert(
 
 <p>
 Generated:
-{datetime.now().strftime("%Y-%m-%d %H:%M")}
+{format_timestamp()}
 </p>
 
 </div>
