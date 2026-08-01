@@ -4,6 +4,12 @@ from datetime import datetime
 
 import requests
 
+from alerts.helpers import (
+    format_platform_bullets,
+    format_trend_lines,
+    format_timestamp,
+)
+
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
@@ -39,16 +45,9 @@ def _format_trends(trends):
     if not trends:
         return ""
 
-    lines = []
-    arrow = trends.get("arrow", "→")
-    diff = trends.get("arrow_diff")
-    ma7 = trends.get("ma7")
+    lines = format_trend_lines(trends)
     spark = trends.get("sparkline", "")
 
-    if diff is not None:
-        lines.append(f"3-Day Trend: {arrow} ({diff:+.2f}%)")
-    if ma7 is not None:
-        lines.append(f"7-Day MA: {ma7:.2f}%")
     if spark:
         lines.append(f"<code>{spark}</code>")
 
@@ -58,11 +57,7 @@ def _format_trends(trends):
 
 
 def send_daily_recap(world, usd, fair, lowest, premium, markets, trends=None):
-    lines = []
-    for name, info in markets.items():
-        if info["status"] == "OK":
-            lines.append(f"• {name}: {info['price']:,.0f}")
-
+    platform_lines = format_platform_bullets(markets)
     trend_block = _format_trends(trends)
 
     text = f"""📊 <b>Daily Gold Report</b>
@@ -75,9 +70,9 @@ def send_daily_recap(world, usd, fair, lowest, premium, markets, trends=None):
 <b>USD:</b> {usd:,} IRR
 
 <b>Platforms:</b>
-{chr(10).join(lines)}
+{chr(10).join(platform_lines)}
 
-<i>{datetime.now().strftime("%Y-%m-%d %H:%M")}</i>"""
+<i>{format_timestamp()}</i>"""
 
     _send(text)
 
@@ -85,11 +80,7 @@ def send_daily_recap(world, usd, fair, lowest, premium, markets, trends=None):
 def send_alert(signal, world, usd, fair, lowest, premium, markets, trends=None):
     emoji = {"BUY": "🟢", "SELL": "🔴", "HOLD": "⚪"}
 
-    lines = []
-    for name, info in markets.items():
-        if info["status"] == "OK":
-            lines.append(f"• {name}: {info['price']:,.0f}")
-
+    platform_lines = format_platform_bullets(markets)
     trend_block = _format_trends(trends)
 
     text = f"""{emoji.get(signal["signal"], "⚡")} <b>{signal["signal"]} ALERT</b>
@@ -104,8 +95,8 @@ def send_alert(signal, world, usd, fair, lowest, premium, markets, trends=None):
 <b>USD:</b> {usd:,} IRR
 
 <b>Platforms:</b>
-{chr(10).join(lines)}
+{chr(10).join(platform_lines)}
 
-<i>{datetime.now().strftime("%Y-%m-%d %H:%M")}</i>"""
+<i>{format_timestamp()}</i>"""
 
     _send(text)
