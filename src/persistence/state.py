@@ -22,7 +22,8 @@ def load_state():
     try:
         with open(STATE_FILE, "r", encoding="utf-8") as f:
             state = json.load(f)
-    except Exception:
+    except Exception as e:
+        print(f"WARNING: State file corrupted. Using new state. ({e})")
         return _default_state()
 
     state.setdefault("schema_version", 1)
