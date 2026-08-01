@@ -34,11 +34,38 @@ def _send(text: str):
         print(f"TELEGRAM ERROR: {e}", file=sys.stderr)
 
 
-def send_daily_recap(world, usd, fair, lowest, premium, markets):
+def _format_trends(trends):
+    """Format trend block for Telegram message."""
+    if not trends:
+        return ""
+
+    lines = []
+    arrow = trends.get("arrow", "→")
+    diff = trends.get("arrow_diff")
+    ma7 = trends.get("ma7")
+    spark = trends.get("sparkline", "")
+
+    if diff is not None:
+        lines.append(f"3-Day Trend: {arrow} ({diff:+.2f}%)")
+    if ma7 is not None:
+        lines.append(f"7-Day MA: {ma7:.2f}%")
+    if spark:
+        lines.append(f"<code>{spark}</code>")
+
+    if lines:
+        return "
+".join(lines) + "
+"
+    return ""
+
+
+def send_daily_recap(world, usd, fair, lowest, premium, markets, trends=None):
     lines = []
     for name, info in markets.items():
         if info["status"] == "OK":
             lines.append(f"• {name}: {info['price']:,.0f}")
+
+    trend_block = _format_trends(trends)
 
     text = f"""📊 <b>Daily Gold Report</b>
 
@@ -46,7 +73,7 @@ def send_daily_recap(world, usd, fair, lowest, premium, markets):
 <b>Lowest:</b> {lowest:,.0f}
 <b>Premium:</b> {premium:.2f}%
 
-<b>World Gold:</b> {world:.2f} USD/oz
+{trend_block}<b>World Gold:</b> {world:.2f} USD/oz
 <b>USD:</b> {usd:,} IRR
 
 <b>Platforms:</b>
@@ -57,7 +84,7 @@ def send_daily_recap(world, usd, fair, lowest, premium, markets):
     _send(text)
 
 
-def send_alert(signal, world, usd, fair, lowest, premium, markets):
+def send_alert(signal, world, usd, fair, lowest, premium, markets, trends=None):
     emoji = {"BUY": "🟢", "SELL": "🔴", "HOLD": "⚪"}
 
     lines = []
@@ -65,19 +92,21 @@ def send_alert(signal, world, usd, fair, lowest, premium, markets):
         if info["status"] == "OK":
             lines.append(f"• {name}: {info['price']:,.0f}")
 
+    trend_block = _format_trends(trends)
+
     text = f"""{emoji.get(signal["signal"], "⚡")} <b>{signal["signal"]} ALERT</b>
 
 {signal["reason"]}
-
-<b>Platforms:</b>
-{chr(10).join(lines)}
 
 <b>Fair Price:</b> {fair:,.0f}
 <b>Lowest:</b> {lowest:,.0f}
 <b>Premium:</b> {premium:.2f}%
 
-<b>World Gold:</b> {world:.2f} USD/oz
+{trend_block}<b>World Gold:</b> {world:.2f} USD/oz
 <b>USD:</b> {usd:,} IRR
+
+<b>Platforms:</b>
+{chr(10).join(lines)}
 
 <i>{datetime.now().strftime("%Y-%m-%d %H:%M")}</i>"""
 
