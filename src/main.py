@@ -81,10 +81,20 @@ def main():
         print(f"ERROR: USD rate invalid: {e}. Skipping.")
         return
 
-    markets = get_market_prices()
+    raw_markets = get_market_prices()
+
+    print("\nCOLLECT")
+    print("-" * 40)
+    for name, info in raw_markets.items():
+        status = info.get("status", "UNKNOWN")
+        if status == "OK":
+            print(f"  {name:<15} OK")
+        else:
+            err = status.replace("ERROR: ", "") if status.startswith("ERROR: ") else status
+            print(f"  {name:<15} {err}")
 
     try:
-        markets = validate_market_prices(markets)
+        markets = validate_market_prices(raw_markets)
     except Exception as e:
         print(f"ERROR: Market data invalid: {e}. Skipping.")
         return
@@ -137,31 +147,31 @@ def main():
     )
 
     ####################################################
-    # Console
+    # Console output
     ####################################################
 
-    print("=" * 60)
-    print(f"World Gold : {world:.2f}")
-    print(f"USD Sell : {usd:,}")
-    print("-" * 60)
-
+    print("\nCALCULATE")
+    print("-" * 40)
     for name, info in markets.items():
-        if info["status"] == "OK":
-            print(f"{name:<15}{info['price']:>15,.0f}")
-        else:
-            print(f"{name:<15}ERROR")
+        print(f"  {name:<15} {info['price']:>15,.0f}")
+    print(f"  {'-' * 32}")
+    print(f"  Fair Price: {fair:,.0f}")
+    print(f"  Lowest:     {lowest:,.0f}")
+    print(f"  Premium:    {premium:.2f}%")
 
-    print("-" * 60)
-    print(f"Fair Price : {fair:,.0f}")
-    print(f"Lowest : {lowest:,.0f}")
-    print(f"Premium : {premium:.2f}%")
-    print(f"3-Day Trend : {trends['arrow']} ({trends['arrow_diff']:.2f}%)")
+    print("\nTRENDS")
+    print("-" * 40)
+    print(f"  Recent Trend: {trends['arrow']} ({trends['arrow_diff']:.2f}%)")
     if trends["ma7"] is not None:
-        print(f"7-Day MA : {trends['ma7']:.2f}%")
-    print(f"Last Alert : {last_alert}")
+        print(f"  7-Day MA:     {trends['ma7']:.2f}%")
+
+    print(f"\nLast Alert: {last_alert}")
 
     if signal:
-        print(signal)
+        print("\nSIGNAL")
+        print("-" * 40)
+        print(f"  {signal['signal']}")
+        print(f"  {signal['reason']}")
 
     ####################################################
     # History
@@ -234,7 +244,7 @@ def main():
             print(f"ERROR: Telegram alert failed: {e}")
 
     ####################################################
-    # Daily Report (isolated)
+    # Daily Report (isolated, scheduled only)
     ####################################################
 
     is_scheduled = os.environ.get("SCHEDULED_RUN", "false").lower() == "true"
