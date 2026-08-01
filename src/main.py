@@ -12,6 +12,8 @@ from caluclator.gold import (
 )
 
 from caluclator.signals import evaluate_signal
+from caluclator.trends import get_trend_summary
+from caluclator.sparkline import premium_sparkline
 
 from persistence.state import (
     load_state,
@@ -106,6 +108,14 @@ def main():
     premium = premium_percent(fair, lowest)
 
     ####################################################
+    # Trends
+    ####################################################
+
+    trends = get_trend_summary(history)
+    spark = premium_sparkline(history, width=20)
+    trends["sparkline"] = spark
+
+    ####################################################
     # Previous values
     ####################################################
 
@@ -144,6 +154,9 @@ def main():
     print(f"Fair Price : {fair:,.0f}")
     print(f"Lowest : {lowest:,.0f}")
     print(f"Premium : {premium:.2f}%")
+    print(f"3-Day Trend : {trends['arrow']} ({trends['arrow_diff']:.2f}%)")
+    if trends["ma7"] is not None:
+        print(f"7-Day MA : {trends['ma7']:.2f}%")
     print(f"Last Alert : {last_alert}")
 
     if signal:
@@ -204,10 +217,10 @@ def main():
         and email_cfg.get("send_alerts", True)
     ):
         send_email_alert(
-            signal, world, usd, fair, lowest, premium, markets,
+            signal, world, usd, fair, lowest, premium, markets, trends=trends,
         )
         send_telegram_alert(
-            signal, world, usd, fair, lowest, premium, markets,
+            signal, world, usd, fair, lowest, premium, markets, trends=trends,
         )
 
     ####################################################
@@ -215,8 +228,8 @@ def main():
     ####################################################
 
     if email_cfg.get("send_daily_recap", True):
-        send_daily_recap(world, usd, fair, lowest, premium, markets)
-        send_telegram_recap(world, usd, fair, lowest, premium, markets)
+        send_daily_recap(world, usd, fair, lowest, premium, markets, trends=trends)
+        send_telegram_recap(world, usd, fair, lowest, premium, markets, trends=trends)
 
 
 if __name__ == "__main__":
