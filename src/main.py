@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime
 
 from collector.kitco import get_world_gold_price
@@ -236,7 +237,9 @@ def main():
     # Daily Report (isolated)
     ####################################################
 
-    if email_cfg.get("send_daily_recap", True):
+    is_scheduled = os.environ.get("SCHEDULED_RUN", "false").lower() == "true"
+
+    if email_cfg.get("send_daily_recap", True) and is_scheduled:
         try:
             send_email_recap(world, usd, fair, lowest, premium, markets, trends=trends)
         except Exception as e:
