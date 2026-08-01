@@ -100,3 +100,25 @@ def send_alert(signal, world, usd, fair, lowest, premium, markets, trends=None):
 <i>{format_timestamp()}</i>"""
 
     _send(text)
+
+
+def send_manual_update(world, usd, fair, lowest, premium, markets, trends=None):
+    """Send a manual status update to Telegram (on-demand trigger)."""
+    platform_lines = format_platform_bullets(markets)
+    trend_block = _format_trends(trends)
+
+    text = f"""📋 <b>Manual Update</b>
+
+<b>Fair Price:</b> {fair:,.0f}
+<b>Lowest:</b> {lowest:,.0f}
+<b>Premium:</b> {premium:.2f}%
+
+{trend_block}<b>World Gold:</b> {world:.2f} USD/oz
+<b>USD:</b> {usd:,} IRR
+
+<b>Platforms:</b>
+{chr(10).join(platform_lines)}
+
+<i>{format_timestamp()}</i>"""
+
+    _send(text)
