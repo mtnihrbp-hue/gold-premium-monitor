@@ -23,7 +23,7 @@ def get_miogold_price():
     response = requests.get(
         URL,
         headers=HEADERS,
-        timeout=15,
+        timeout=10,
     )
     response.raise_for_status()
 
