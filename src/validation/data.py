@@ -55,26 +55,45 @@ def validate_usd_rate(rate):
 def validate_market_prices(prices):
     """Filter market prices, removing invalid / outlier entries.
 
+    Prints a diagnostic line for each discarded platform.
     Returns a dict of only valid platforms.
     Raises ValueError if fewer than MIN_WORKING_SOURCES are available.
     """
     if not prices:
         raise ValueError("No market price data received")
 
+    print("\nVALIDATION")
+    print("-" * 40)
+
     valid = {}
+    discarded = 0
+
     for name, info in prices.items():
+        reason = None
+
         if info.get("status") != "OK":
+            reason = info.get("status", "unknown status")
+        else:
+            price = info.get("price")
+            if price is None:
+                reason = "price is None"
+            elif not isinstance(price, (int, float)):
+                reason = f"invalid type: {type(price).__name__}"
+            elif price <= 0:
+                reason = f"non-positive price: {price}"
+            elif not (MIN_MARKET_PRICE <= price <= MAX_MARKET_PRICE):
+                reason = f"price out of range: {price}"
+
+        if reason:
+            print(f"  Discarded {name}: {reason}")
+            discarded += 1
             continue
-        price = info.get("price")
-        if price is None:
-            continue
-        if not isinstance(price, (int, float)):
-            continue
-        if price <= 0:
-            continue
-        if not (MIN_MARKET_PRICE <= price <= MAX_MARKET_PRICE):
-            continue
+
         valid[name] = info
+
+    print(f"  {len(valid)} valid source(s)")
+    if discarded:
+        print(f"  {discarded} discarded")
 
     if len(valid) < MIN_WORKING_SOURCES:
         raise ValueError(
