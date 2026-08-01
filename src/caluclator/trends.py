@@ -11,8 +11,8 @@ def _extract_premiums(history, days):
     return [h["premium"] for h in history[-days:]]
 
 
-def get_3day_trend(history):
-    """Return 3-day premium trend.
+def get_recent_trend(history):
+    """Return recent premium trend (last 3 samples).
 
     Returns:
         (diff, arrow) where diff is last - first premium,
@@ -30,6 +30,10 @@ def get_3day_trend(history):
         return diff, "↓"
     else:
         return diff, "→"
+
+
+# Backward compatibility alias
+get_3day_trend = get_recent_trend
 
 
 def get_7day_ma(history):
@@ -54,7 +58,7 @@ def get_trend_summary(history):
             "history_length": int,
         }
     """
-    diff, arrow = get_3day_trend(history)
+    diff, arrow = get_recent_trend(history)
     ma7 = get_7day_ma(history)
 
     return {
