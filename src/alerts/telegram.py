@@ -122,3 +122,23 @@ def send_manual_update(world, usd, fair, lowest, premium, markets, trends=None):
 <i>{format_timestamp()}</i>"""
 
     _send(text)
+
+
+def send_data_unavailable(usd=None, markets=None, reason="World gold price unavailable"):
+    """Send a graceful 'data unavailable' message when core data is missing."""
+    lines = []
+    if markets:
+        lines = format_platform_bullets(markets)
+
+    usd_line = f"<b>USD:</b> {usd:,} IRR\n" if usd else ""
+    platforms_line = "\n<b>Platforms:</b>\n" + "\n".join(lines) if lines else ""
+
+    text = f"""⚠️ <b>Data Temporarily Unavailable</b>
+
+{reason}
+
+{usd_line}{platforms_line}
+
+<i>{format_timestamp()}</i>"""
+
+    _send(text)
