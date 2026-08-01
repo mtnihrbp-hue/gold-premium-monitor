@@ -36,10 +36,16 @@ jobs:
 
           pip install -r requirements.txt
 
-     
+      - name: Smoke Test
+        run: |
+          python -m compileall src
+          python -c "import sys; sys.path.insert(0, 'src'); import main"
+
       - name: Execute
 
         env:
+
+          SCHEDULED_RUN: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
 
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 
@@ -53,9 +59,3 @@ jobs:
         run: |
 
           python src/main.py
-
-
-      - name: Smoke Test
-        run: |
-          python -m compileall src
-          python -c "import sys; sys.path.insert(0, 'src'); import main"
