@@ -24,12 +24,17 @@ from alerts.resend_mail import (
 )
 
 from alerts.telegram import (
-    
     send_alert as send_telegram_alert,
 )
 
-
 from alerts.telegram import send_daily_recap as send_telegram_recap
+
+from validation.data import (
+    validate_world_gold,
+    validate_usd_rate,
+    validate_market_prices,
+    validate_fair_price,
+)
 
 
 def load_config():
@@ -45,7 +50,6 @@ def main():
     config = load_config()
 
     thresholds = config["thresholds"]
-
     email_cfg = config["email"]
 
     ####################################################
@@ -53,20 +57,34 @@ def main():
     ####################################################
 
     state = load_state()
-
     history = state["history"]
-
     last_alert = state["last_alert"]
 
     ####################################################
     # Collect
     ####################################################
 
-    world = get_world_gold_price()
+    try:
+        world = get_world_gold_price()
+        validate_world_gold(world)
+    except Exception as e:
+        print(f"ERROR: World gold price invalid: {e}. Skipping.")
+        return
 
-    usd = get_usd_sell_rate()
+    try:
+        usd = get_usd_sell_rate()
+        validate_usd_rate(usd)
+    except Exception as e:
+        print(f"ERROR: USD rate invalid: {e}. Skipping.")
+        return
 
     markets = get_market_prices()
+
+    try:
+        markets = validate_market_prices(markets)
+    except Exception as e:
+        print(f"ERROR: Market data invalid: {e}. Skipping.")
+        return
 
     ####################################################
     # Calculate
@@ -74,15 +92,18 @@ def main():
 
     fair = calculate_fair_price(world, usd) * 10
 
+    try:
+        validate_fair_price(fair)
+    except Exception as e:
+        print(f"ERROR: Fair price invalid: {e}. Skipping.")
+        return
+
     lowest = find_lowest_market_price(markets)
     if lowest is None:
         print("ERROR: No market data available. Skipping.")
         return
 
-    premium = premium_percent(
-        fair,
-        lowest,
-    )
+    premium = premium_percent(fair, lowest)
 
     ####################################################
     # Previous values
@@ -109,32 +130,20 @@ def main():
     ####################################################
 
     print("=" * 60)
-
     print(f"World Gold : {world:.2f}")
-
-    print(f"USD Sell   : {usd:,}")
-
+    print(f"USD Sell : {usd:,}")
     print("-" * 60)
 
     for name, info in markets.items():
         if info["status"] == "OK":
-            print(
-                f"{name:<15}"
-                f"{info['price']:>15,.0f}"
-            )
+            print(f"{name:<15}{info['price']:>15,.0f}")
         else:
-            print(
-                f"{name:<15}ERROR"
-            )
+            print(f"{name:<15}ERROR")
 
     print("-" * 60)
-
     print(f"Fair Price : {fair:,.0f}")
-
-    print(f"Lowest     : {lowest:,.0f}")
-
-    print(f"Premium    : {premium:.2f}%")
-
+    print(f"Lowest : {lowest:,.0f}")
+    print(f"Premium : {premium:.2f}%")
     print(f"Last Alert : {last_alert}")
 
     if signal:
@@ -160,13 +169,8 @@ def main():
         }
     )
 
-    limit = thresholds.get(
-        "history_limit",
-        30,
-    )
-
+    limit = thresholds.get("history_limit", 30)
     history = history[-limit:]
-
     state["history"] = history
 
     ####################################################
@@ -175,7 +179,6 @@ def main():
 
     if signal:
         state["last_alert"] = signal["new_alert_type"]
-
         state["alert_history"].append(
             {
                 "timestamp": datetime.now().isoformat(),
@@ -198,29 +201,13 @@ def main():
     if (
         signal
         and signal["signal"] in ("BUY", "SELL")
-        and email_cfg.get(
-            "send_alerts",
-            True,
-        )
+        and email_cfg.get("send_alerts", True)
     ):
         send_email_alert(
-            signal,
-            world,
-            usd,
-            fair,
-            lowest,
-            premium,
-            markets,
+            signal, world, usd, fair, lowest, premium, markets,
         )
-
         send_telegram_alert(
-            signal,
-            world,
-            usd,
-            fair,
-            lowest,
-            premium,
-            markets,
+            signal, world, usd, fair, lowest, premium, markets,
         )
 
     ####################################################
@@ -228,8 +215,8 @@ def main():
     ####################################################
 
     if email_cfg.get("send_daily_recap", True):
-            send_daily_recap(world, usd, fair, lowest, premium, markets)
-            send_telegram_recap(world, usd, fair, lowest, premium, markets)
+        send_daily_recap(world, usd, fair, lowest, premium, markets)
+        send_telegram_recap(world, usd, fair, lowest, premium, markets)
 
 
 if __name__ == "__main__":
