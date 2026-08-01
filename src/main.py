@@ -28,6 +28,7 @@ from alerts.resend_mail import (
 
 from alerts.telegram import (
     send_alert as send_telegram_alert,
+    send_manual_update as send_telegram_manual,
 )
 
 from alerts.telegram import send_daily_recap as send_telegram_recap
@@ -259,6 +260,16 @@ def main():
             send_telegram_recap(world, usd, fair, lowest, premium, markets, trends=trends)
         except Exception as e:
             print(f"ERROR: Telegram daily recap failed: {e}")
+
+    ####################################################
+    # Manual Update (non-scheduled runs only)
+    ####################################################
+
+    if not is_scheduled and not should_send_alert:
+        try:
+            send_telegram_manual(world, usd, fair, lowest, premium, markets, trends=trends)
+        except Exception as e:
+            print(f"ERROR: Telegram manual update failed: {e}")
 
 
 if __name__ == "__main__":
