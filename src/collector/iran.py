@@ -1,10 +1,10 @@
-"""Iranian market price collector with parallel execution.
+"""Iranian market price collector with parallel execution and global timeout.
 
 Collectors run concurrently via ThreadPoolExecutor.
-Total time = slowest collector, not sum of all collectors.
+Any collector still running after 25 seconds is cancelled.
 """
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 
 from collector.milli import get_milli_price
 from collector.goldika import get_goldika_price
@@ -15,8 +15,6 @@ from collector.parasteh import get_parasteh_price
 from collector.ayyareh import get_ayyareh_price
 from collector.miogold import get_miogold_price
 from collector.eligallery import get_eligold_price
-
-# Daric is excluded — frequent timeouts waste wall-clock time
 
 COLLECTORS = [
     get_milli_price,
@@ -29,6 +27,9 @@ COLLECTORS = [
     get_miogold_price,
     get_eligold_price,
 ]
+
+# Hard ceiling: if a collector hangs, we stop waiting after this many seconds
+GLOBAL_COLLECTOR_TIMEOUT = 25
 
 
 def _run_collector(collector):
@@ -48,20 +49,41 @@ def _run_collector(collector):
 
 
 def get_market_prices():
-    """Fetch all Iranian market prices in parallel.
+    """Fetch all Iranian market prices in parallel with a global timeout.
 
     Returns a dict of {platform: {price, status}}.
-    Total wall-clock time ≈ slowest collector (not sum).
+    Any collector still running after GLOBAL_COLLECTOR_TIMEOUT seconds
+    is cancelled and reported as timed out.
     """
     prices = {}
+    pending = {}
 
-    with ThreadPoolExecutor(max_workers=9) as executor:
-        futures = {
-            executor.submit(_run_collector, c): c
-            for c in COLLECTORS
-        }
-        for future in as_completed(futures):
+    with ThreadPoolExecutor(max_workers=len(COLLECTORS)) as executor:
+        # Submit all
+        for c in COLLECTORS:
+            future = executor.submit(_run_collector, c)
+            pending[future] = c
+
+        # Wait for all to finish, but cap total wall-clock time
+        done, not_done = wait(
+            pending.keys(),
+            timeout=GLOBAL_COLLECTOR_TIMEOUT,
+            return_when="ALL_COMPLETED",
+        )
+
+        # Collect completed results
+        for future in done:
             name, info = future.result()
             prices[name] = info
+
+        # Cancel anything still hanging
+        for future in not_done:
+            future.cancel()
+            collector = pending[future]
+            name = collector.__name__.replace("get_", "").replace("_price", "").title()
+            prices[name] = {
+                "price": None,
+                "status": f"ERROR: collector timed out after {GLOBAL_COLLECTOR_TIMEOUT}s"
+            }
 
     return prices
