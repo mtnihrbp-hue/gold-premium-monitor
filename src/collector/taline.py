@@ -10,6 +10,6 @@ def get_taline_price():
     data = response.json()
 
     return {
-        "platform": "Milli",
-        "price": float(data["price"]["price"])
+        "platform": "Taline",
+        "price": float(data["prices"][0][0]["price"]["buy"])
     }
