@@ -4,7 +4,7 @@ URL = "https://api.goldika.ir/api/public/price"
 
 
 def get_goldika_price():
-    response = requests.get(URL, timeout=15)
+    response = requests.get(URL, timeout=10)
     response.raise_for_status()
 
     data = response.json()
