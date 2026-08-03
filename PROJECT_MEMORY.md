@@ -21,7 +21,7 @@ Deviation of executable market price from calculated theoretical fair value.
 
 A signal is valid only when:
 
-- World gold price is available
+- World gold price is available (or recent fallback <6h old from history)
 - USD rate is available
 - Minimum N market sources return valid prices
 - No price is stale beyond threshold
@@ -50,6 +50,7 @@ A signal is valid only when:
 - ✅ Structured console output with diagnostics
 - ✅ State corruption warning with graceful fallback
 - ✅ Manual update via Telegram (on-demand snapshot)
+- ✅ World gold price fallback from history (<6h old)
 
 ---
 
@@ -63,13 +64,13 @@ src/
     alerts/
         helpers.py          # Shared formatting helpers
         resend_mail.py
-        gmail.py
+        gmail.py            # SMTP fallback (alternative to Resend)
         telegram.py
 
     caluclator/
         gold.py
         signals.py
-        trends.py           # Recent trend + 7-day MA
+        trends.py           # Fair price trend + 7-day MA + market spread
         sparkline.py        # ASCII sparkline charts
 
     collector/
@@ -86,6 +87,7 @@ src/
         milli.py
         parasteh.py
         taline.py
+        tlyn_backup.py      # API backup for Taline
         wallgold.py
 
     persistence/
@@ -119,7 +121,7 @@ tests/
 
 | Platform | Type | Method | Status |
 | --- | --- | --- | --- |
-| Kitco | Global gold price | HTML scrape (`requests` + `BeautifulSoup`) | ✅ Stable |
+| Kitco | Global gold price | API with 3-level fallback (gold-api.com → kitco SSE → goldprice.org) | ✅ Stable |
 | Bonbast | USD exchange rate | Python package (`bonbast==1.0.2`) | ✅ Stable |
 
 ### Iranian Market Collectors
@@ -135,7 +137,7 @@ tests/
 | Miogold | HTML scrape | ⚠️ Code ready, production verification needed |
 | Ayyareh | HTML scrape | ⚠️ Code ready, production verification needed |
 | Eligallery | HTML scrape | ⚠️ Code ready, production verification needed |
-| Daric | HTML scrape | ❌ Ignored due to frequent timeouts |
+| Daric | API | ⚠️ Code ready, production verification needed |
 
 ---
 
@@ -164,6 +166,11 @@ Outputs:
 - Fair Price
 - Lowest Market Price
 - Premium %
+- Market Spread (highest vs lowest valid platform)
+
+### World Gold Fallback
+
+If all live world gold APIs fail, `main.py` falls back to the most recent cached `world_gold` value from `state.json` if it is less than 6 hours old and from the same calendar day.
 
 ---
 
@@ -200,10 +207,15 @@ src/caluclator/trends.py
 
 | Metric | Description |
 | --- | --- |
-| Recent Trend | Direction of last 3 samples (↑ ↓ →) with 0.5% deadband |
-| 7-Day MA | Simple moving average of last 7 premium values |
+| Fair Price Trend | Direction of last 3 daily fair prices (↑ ↓ →) with 0.1% deadband |
+| vs Yesterday | Percentage change of today's fair price vs yesterday's |
+| 7-Day Avg Fair | Simple moving average of last 7 daily fair prices |
+| Market Spread | Absolute spread between highest and lowest valid platform price (current run) |
+| Premium Sparkline | ASCII block-character chart of recent premium history |
 
 Trends are included in both Email and Telegram notifications when sufficient history exists.
+
+> **Note:** The `get_trend_summary()` builder returns fair-price-based metrics. Premium-based trend functions (`get_recent_trend`, `get_7day_ma`) remain available for backward compatibility but are not used in the main flow.
 
 ---
 
@@ -266,6 +278,7 @@ Validates:
 - USD sell rate (10,000–1,000,000 IRR)
 - Market prices (1M–500M IRR per gram)
 - Minimum 2 working market sources
+- Fair price sanity checks
 
 Discarded platforms are logged with diagnostic reasons (e.g., "price out of range", "timeout").
 
@@ -275,7 +288,7 @@ Discarded platforms are logged with diagnostic reasons (e.g., "price out of rang
 
 ### Email
 
-Provider:
+Primary Provider:
 
 ```
 Resend
@@ -290,6 +303,12 @@ onboarding@resend.dev
 Secrets:
 RESEND_API_KEY
 EMAIL_TO
+```
+
+Fallback:
+
+```
+gmail.py — SMTP via smtplib (alternative transport, not actively used in CI)
 ```
 
 Notifications:
@@ -325,6 +344,8 @@ Notifications:
 - Daily recap (scheduled runs only)
 - BUY/SELL alerts
 - Manual Update (on-demand trigger)
+- Data Unavailable (when world gold fails)
+- Processing heartbeat (manual triggers only)
 
 Features:
 
@@ -346,8 +367,11 @@ Both channels include:
 - Premium %
 - World gold price
 - USD exchange rate
-- Recent trend arrow + diff
-- 7-day moving average (when available)
+- Fair Price Trend arrow + percentage
+- vs Yesterday percentage
+- 7-Day Avg Fair (when available)
+- Premium sparkline (Telegram only)
+- Platform price change vs previous run
 
 ---
 
@@ -520,6 +544,8 @@ python src/main.py
 - ✅ Added Ayyareh collector
 - ✅ Added Miogold collector
 - ✅ Added Eligallery collector
+- ✅ Added market spread tracking
+- ✅ Added world gold price fallback from history
 - ✅ **Sprint 1:** Data validation module + unit tests (signals + gold)
 - ✅ **Sprint 2:** Trend analysis, recent trend arrows, 7-day MA, ASCII sparklines
 - ✅ **Quality Sprint A:** Unified notification interfaces, transport isolation
