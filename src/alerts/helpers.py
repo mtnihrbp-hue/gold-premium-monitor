@@ -41,7 +41,7 @@ def format_platform_table(markets, previous_markets=None):
             if abs(diff) < 0.01:
                 change = "—"
             else:
-                change = f"{diff:+,,.0f}"
+                change = f"{diff:+,.0f}"
         else:
             change = "—"
         lines.append(f"{name:<12} {price:>15,.0f}   {change:>12}")
