@@ -12,6 +12,12 @@ HEADERS = {
 }
 
 
+# 3s to establish connection, 10s to read response
+REQUEST_TIMEOUT = (5, 10)
+
+# Reject pages larger than 2MB (prevents infinite stream hangs)
+MAX_HTML_SIZE = 3 * 1024 * 1024
+
 def parse_price(text: str) -> float:
     digits = re.sub(r"[^\d]", "", text)
     if not digits:
