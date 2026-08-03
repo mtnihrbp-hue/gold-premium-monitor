@@ -14,9 +14,11 @@ HEADERS = {
     "Accept": "application/json",
 }
 
+
+
 def _try_kitco_sse():
-    """Secondary: Kitco SSE stream."""
-    response = requests.get(API_URL_1, timeout=15)
+    """Primary: Kitco SSE stream."""
+    response = requests.get(API_URL_1, timeout=10)
     response.raise_for_status()
 
     # SSE format: lines like "data: {...json...}"
@@ -41,8 +43,8 @@ def _try_kitco_sse():
     raise RuntimeError("asset_price not found in SSE stream")
 
 def _try_gold_api():
-    """Primary: api.gold-api.com"""
-    response = requests.get(API_URL_2, timeout=15)
+    """Secondary: api.gold-api.com"""
+    response = requests.get(API_URL_2, timeout=10)
     response.raise_for_status()
     data = response.json()
     if "price" not in data:
@@ -52,7 +54,7 @@ def _try_gold_api():
 
 def _try_goldprice_org():
     """Tertiary: goldprice.org public API."""
-    response = requests.get(API_URL_3, headers=HEADERS, timeout=15)
+    response = requests.get(API_URL_3, headers=HEADERS, timeout=10)
     response.raise_for_status()
     data = response.json()
 
