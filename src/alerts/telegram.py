@@ -5,7 +5,7 @@ from datetime import datetime
 import requests
 
 from alerts.helpers import (
-    format_platform_bullets,
+    format_platform_table,
     format_trend_lines,
     format_timestamp,
 )
@@ -40,30 +40,35 @@ def _send(text: str):
         print(f"TELEGRAM ERROR: {e}", file=sys.stderr)
 
 
-def _format_trends(trends):
+def _format_trends(trends, sparkline=""):
     """Format trend block for Telegram message."""
     if not trends:
         return ""
 
     lines = format_trend_lines(trends)
-    spark = trends.get("sparkline", "")
 
     if spark:
-        lines.append(f"<code>{spark}</code>")
+        lines.append(f"Premium Trend: <code>{spark}</code>")
 
     if lines:
         return "\n".join(lines) + "\n"
     return ""
 
 
-def send_processing():
-    """Send a 'processing' heartbeat so user knows workflow is alive."""
-    _send("⏳ <b>Collecting market data...</b>")
+def _format_platforms(markets, previous_markets=None):
+    """Format platforms as monospace table for Telegram."""
+    table_lines = format_platform_table(markets, previous_markets)
+    if not table_lines:
+        return "No platforms available."
+
+    header = f"{'Platform':<12} {'Price':>15}   {'Change':>12}"
+    separator = "-" * 42
+    return f"<pre>{header}\n{separator}\n{chr(10).join(table_lines)}</pre>"
 
 
-def send_daily_recap(world, usd, fair, lowest, premium, markets, trends=None):
-    platform_lines = format_platform_bullets(markets)
-    trend_block = _format_trends(trends)
+def send_daily_recap(world, usd, fair, lowest, premium, markets, trends=None, sparkline="", previous_markets=None):
+    trend_block = _format_trends(trends, sparkline)
+    platform_block = _format_platforms(markets, previous_markets)
 
     text = f"""📊 <b>Daily Gold Report</b>
 
@@ -75,18 +80,17 @@ def send_daily_recap(world, usd, fair, lowest, premium, markets, trends=None):
 <b>USD:</b> {usd:,} IRR
 
 <b>Platforms:</b>
-{chr(10).join(platform_lines)}
+{platform_block}
 
 <i>{format_timestamp()}</i>"""
 
     _send(text)
 
 
-def send_alert(signal, world, usd, fair, lowest, premium, markets, trends=None):
+def send_alert(signal, world, usd, fair, lowest, premium, markets, trends=None, sparkline="", previous_markets=None):
     emoji = {"BUY": "🟢", "SELL": "🔴", "HOLD": "⚪"}
-
-    platform_lines = format_platform_bullets(markets)
-    trend_block = _format_trends(trends)
+    trend_block = _format_trends(trends, sparkline)
+    platform_block = _format_platforms(markets, previous_markets)
 
     text = f"""{emoji.get(signal["signal"], "⚡")} <b>{signal["signal"]} ALERT</b>
 
@@ -100,17 +104,17 @@ def send_alert(signal, world, usd, fair, lowest, premium, markets, trends=None):
 <b>USD:</b> {usd:,} IRR
 
 <b>Platforms:</b>
-{chr(10).join(platform_lines)}
+{platform_block}
 
 <i>{format_timestamp()}</i>"""
 
     _send(text)
 
 
-def send_manual_update(world, usd, fair, lowest, premium, markets, trends=None):
+def send_manual_update(world, usd, fair, lowest, premium, markets, trends=None, sparkline="", previous_markets=None):
     """Send a manual status update to Telegram (on-demand trigger)."""
-    platform_lines = format_platform_bullets(markets)
-    trend_block = _format_trends(trends)
+    trend_block = _format_trends(trends, sparkline)
+    platform_block = _format_platforms(markets, previous_markets)
 
     text = f"""📋 <b>Manual Update</b>
 
@@ -122,7 +126,7 @@ def send_manual_update(world, usd, fair, lowest, premium, markets, trends=None):
 <b>USD:</b> {usd:,} IRR
 
 <b>Platforms:</b>
-{chr(10).join(platform_lines)}
+{platform_block}
 
 <i>{format_timestamp()}</i>"""
 
@@ -133,7 +137,7 @@ def send_data_unavailable(usd=None, markets=None, reason="World gold price unava
     """Send a graceful 'data unavailable' message when core data is missing."""
     lines = []
     if markets:
-        lines = format_platform_bullets(markets)
+        lines = format_platform_table(markets)
 
     usd_line = f"<b>USD:</b> {usd:,} IRR\n" if usd else ""
     platforms_line = "\n<b>Platforms:</b>\n" + "\n".join(lines) if lines else ""
@@ -147,3 +151,8 @@ def send_data_unavailable(usd=None, markets=None, reason="World gold price unava
 <i>{format_timestamp()}</i>"""
 
     _send(text)
+
+
+def send_processing():
+    """Send a 'processing' heartbeat so user knows workflow is alive."""
+    _send("⏳ <b>Collecting market data...</b>")
