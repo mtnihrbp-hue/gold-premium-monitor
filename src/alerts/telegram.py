@@ -47,8 +47,8 @@ def _format_trends(trends, sparkline=""):
 
     lines = format_trend_lines(trends)
 
-    if spark:
-        lines.append(f"Premium Trend: <code>{spark}</code>")
+    if sparkline:
+        lines.append(f"Premium Trend: <code>{sparkline}</code>")
 
     if lines:
         return "\n".join(lines) + "\n"
