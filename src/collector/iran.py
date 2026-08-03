@@ -15,6 +15,7 @@ from collector.parasteh import get_parasteh_price
 from collector.ayyareh import get_ayyareh_price
 from collector.miogold import get_miogold_price
 from collector.eligallery import get_eligold_price
+from collector.daric import get_daric_price
 
 COLLECTORS = [
     get_milli_price,
@@ -25,11 +26,12 @@ COLLECTORS = [
     get_hoorgold_price,
     get_parasteh_price,
     get_miogold_price,
+    get_daric_price,
     get_eligold_price,
 ]
 
 # Hard ceiling: if a collector hangs, we stop waiting after this many seconds
-GLOBAL_COLLECTOR_TIMEOUT = 25
+GLOBAL_COLLECTOR_TIMEOUT = 20
 
 
 def _run_collector(collector):
