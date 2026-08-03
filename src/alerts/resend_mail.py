@@ -52,6 +52,7 @@ def send_daily_recap(
     premium,
     markets,
     trends=None,
+    previous_markets=None,
 ):
     html = f"""
 <div style="font-family:Arial,sans-serif;max-width:650px;">
@@ -62,13 +63,15 @@ def send_daily_recap(
 <tr>
 <th align="left">Platform</th>
 <th align="right">Price</th>
+<th align="right">Change</th>
 </tr>
 
-{format_platform_table_rows(markets)}
+{format_platform_table_rows(markets, previous_markets)}
 
 <tr>
 <td><b>Fair Price</b></td>
 <td align="right"><b>{fair:,.0f}</b></td>
+<td></td>
 </tr>
 
 </table>
@@ -108,6 +111,7 @@ def send_alert(
     premium,
     markets,
     trends=None,
+    previous_markets=None,
 ):
     html = f"""
 <div style="font-family:Arial,sans-serif;max-width:650px;">
@@ -125,13 +129,15 @@ def send_alert(
 <tr>
 <th align="left">Platform</th>
 <th align="right">Price</th>
+<th align="right">Change</th>
 </tr>
 
-{format_platform_table_rows(markets)}
+{format_platform_table_rows(markets, previous_markets)}
 
 <tr>
 <td><b>Fair Price</b></td>
 <td align="right"><b>{fair:,.0f}</b></td>
+<td></td>
 </tr>
 
 </table>
