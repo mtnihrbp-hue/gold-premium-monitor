@@ -13,13 +13,10 @@ from caluclator.gold import (
 )
 
 from caluclator.signals import evaluate_signal
-from caluclator.trends import get_trend_summary
+from caluclator.trends import get_trend_summary, get_market_spread
 from caluclator.sparkline import premium_sparkline
 
-from persistence.state import (
-    load_state,
-    save_state,
-)
+from persistence.state import load_state, save_state
 
 from alerts.resend_mail import (
     send_daily_recap as send_email_recap,
@@ -44,16 +41,11 @@ from validation.data import (
 
 
 def load_config():
-    with open(
-        "config/config.json",
-        "r",
-        encoding="utf-8",
-    ) as f:
+    with open("config/config.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def _fallback_world_from_history(history):
-    """Return last world gold price from today if <6 hours old."""
     if not history:
         return None
     last = history[-1]
@@ -75,34 +67,28 @@ def _fallback_world_from_history(history):
 
 def main():
     config = load_config()
-
     thresholds = config["thresholds"]
     email_cfg = config["email"]
-
-    ####################################################
-    # Restore memory
-    ####################################################
 
     state = load_state()
     history = state["history"]
     last_alert = state["last_alert"]
-
     is_scheduled = os.environ.get("SCHEDULED_RUN", "false").lower() == "true"
 
-    ####################################################
-    # Heartbeat for manual triggers
-    ####################################################
+    # Previous markets for change calculation
+    previous_markets = {}
+    if history:
+        prev_markets = history[-1].get("markets", {})
+        previous_markets = {k: float(v) for k, v in prev_markets.items() if v is not None}
 
+    # Heartbeat for manual triggers
     if not is_scheduled:
         try:
             send_telegram_processing()
         except Exception as e:
             print(f"ERROR: Telegram processing heartbeat failed: {e}")
 
-    ####################################################
     # Collect
-    ####################################################
-
     print("\nCOLLECT")
     print("-" * 40)
 
@@ -144,11 +130,7 @@ def main():
         print(f"\nERROR: Market data invalid: {e}. Skipping.")
         return
 
-    ####################################################
-    # If world gold is completely unavailable, send
-    # a graceful unavailable message with what we have.
-    ####################################################
-
+    # If world gold unavailable
     if world is None:
         print("\nERROR: World gold price unavailable and no recent fallback.")
         try:
@@ -161,30 +143,21 @@ def main():
             print(f"ERROR: Telegram unavailable msg failed: {e}")
 
         if usd is not None:
-            history.append(
-                {
-                    "timestamp": datetime.now().isoformat(),
-                    "world_gold": None,
-                    "usd": usd,
-                    "fair_price": None,
-                    "lowest_market": find_lowest_market_price(markets),
-                    "premium": None,
-                    "markets": {
-                        k: v["price"]
-                        for k, v in markets.items()
-                        if v["status"] == "OK"
-                    },
-                }
-            )
+            history.append({
+                "timestamp": datetime.now().isoformat(),
+                "world_gold": None,
+                "usd": usd,
+                "fair_price": None,
+                "lowest_market": find_lowest_market_price(markets),
+                "premium": None,
+                "markets": {k: v["price"] for k, v in markets.items() if v["status"] == "OK"},
+            })
             limit = thresholds.get("history_limit", 30)
             state["history"] = history[-limit:]
             save_state(state)
         return
 
-    ####################################################
     # Calculate
-    ####################################################
-
     fair = calculate_fair_price(world, usd) * 10
 
     try:
@@ -200,18 +173,14 @@ def main():
 
     premium = premium_percent(fair, lowest)
 
-    ####################################################
     # Trends
-    ####################################################
-
     trends = get_trend_summary(history)
     spark = premium_sparkline(history, width=20)
-    trends["sparkline"] = spark
 
-    ####################################################
-    # Previous values
-    ####################################################
+    # Market spread
+    spread, high_name, low_name = get_market_spread(markets)
 
+    # Previous premium
     if history:
         previous_premium = history[-1]["premium"]
         if previous_premium is None:
@@ -219,10 +188,7 @@ def main():
     else:
         previous_premium = premium
 
-    ####################################################
     # Signal
-    ####################################################
-
     signal = evaluate_signal(
         current_premium=premium,
         previous_premium=previous_premium,
@@ -230,24 +196,27 @@ def main():
         thresholds=thresholds,
     )
 
-    ####################################################
     # Console output
-    ####################################################
-
     print("\nCALCULATE")
     print("-" * 40)
-    for name, info in markets.items():
+    for name in sorted(markets.keys()):
+        info = markets[name]
         print(f"  {name:<15} {info['price']:>15,.0f}")
     print(f"  {'-' * 32}")
     print(f"  Fair Price: {fair:,.0f}")
     print(f"  Lowest:     {lowest:,.0f}")
     print(f"  Premium:    {premium:.2f}%")
+    if spread is not None:
+        print(f"  Spread:     {spread:,.0f} ({high_name} vs {low_name})")
 
     print("\nTRENDS")
     print("-" * 40)
-    print(f"  Recent Trend: {trends['arrow']} ({trends['arrow_diff']:.2f}%)")
-    if trends["ma7"] is not None:
-        print(f"  7-Day MA:     {trends['ma7']:.2f}%")
+    if trends.get("arrow_pct") is not None:
+        print(f"  Fair Price Trend: {trends['arrow']} ({trends['arrow_pct']:+.2f}%)")
+    if trends.get("vs_yesterday_pct") is not None:
+        print(f"  vs Yesterday:     {trends['vs_yesterday_pct']:+.2f}%")
+    if trends.get("ma7") is not None:
+        print(f"  7-Day Avg Fair:   {trends['ma7']:,.0f}")
 
     print(f"\nLast Alert: {last_alert}")
 
@@ -257,55 +226,34 @@ def main():
         print(f"  {signal['signal']}")
         print(f"  {signal['reason']}")
 
-    ####################################################
     # History
-    ####################################################
-
-    history.append(
-        {
-            "timestamp": datetime.now().isoformat(),
-            "world_gold": world,
-            "usd": usd,
-            "fair_price": fair,
-            "lowest_market": lowest,
-            "premium": premium,
-            "markets": {
-                k: v["price"]
-                for k, v in markets.items()
-                if v["status"] == "OK"
-            },
-        }
-    )
+    history.append({
+        "timestamp": datetime.now().isoformat(),
+        "world_gold": world,
+        "usd": usd,
+        "fair_price": fair,
+        "lowest_market": lowest,
+        "premium": premium,
+        "markets": {k: v["price"] for k, v in markets.items() if v["status"] == "OK"},
+    })
 
     limit = thresholds.get("history_limit", 30)
     history = history[-limit:]
     state["history"] = history
 
-    ####################################################
     # Alert history
-    ####################################################
-
     if signal:
         state["last_alert"] = signal["new_alert_type"]
-        state["alert_history"].append(
-            {
-                "timestamp": datetime.now().isoformat(),
-                "signal": signal["signal"],
-                "premium": premium,
-                "reason": signal["reason"],
-            }
-        )
-
-    ####################################################
-    # Save
-    ####################################################
+        state["alert_history"].append({
+            "timestamp": datetime.now().isoformat(),
+            "signal": signal["signal"],
+            "premium": premium,
+            "reason": signal["reason"],
+        })
 
     save_state(state)
 
-    ####################################################
-    # Alert Email + Telegram (isolated)
-    ####################################################
-
+    # Alerts
     should_send_alert = (
         signal
         and signal["signal"] in ("BUY", "SELL")
@@ -314,41 +262,34 @@ def main():
 
     if should_send_alert:
         try:
-            send_email_alert(
-                signal, world, usd, fair, lowest, premium, markets, trends=trends,
-            )
+            send_email_alert(signal, world, usd, fair, lowest, premium, markets,
+                             trends=trends, previous_markets=previous_markets)
         except Exception as e:
             print(f"ERROR: Email alert failed: {e}")
-
         try:
-            send_telegram_alert(
-                signal, world, usd, fair, lowest, premium, markets, trends=trends,
-            )
+            send_telegram_alert(signal, world, usd, fair, lowest, premium, markets,
+                                trends=trends, sparkline=spark, previous_markets=previous_markets)
         except Exception as e:
             print(f"ERROR: Telegram alert failed: {e}")
 
-    ####################################################
-    # Daily Report (isolated, scheduled only)
-    ####################################################
-
+    # Daily Report
     if email_cfg.get("send_daily_recap", True) and is_scheduled:
         try:
-            send_email_recap(world, usd, fair, lowest, premium, markets, trends=trends)
+            send_email_recap(world, usd, fair, lowest, premium, markets,
+                             trends=trends, previous_markets=previous_markets)
         except Exception as e:
             print(f"ERROR: Email daily recap failed: {e}")
-
         try:
-            send_telegram_recap(world, usd, fair, lowest, premium, markets, trends=trends)
+            send_telegram_recap(world, usd, fair, lowest, premium, markets,
+                                trends=trends, sparkline=spark, previous_markets=previous_markets)
         except Exception as e:
             print(f"ERROR: Telegram daily recap failed: {e}")
 
-    ####################################################
-    # Manual Update (non-scheduled runs only)
-    ####################################################
-
+    # Manual Update
     if not is_scheduled and not should_send_alert:
         try:
-            send_telegram_manual(world, usd, fair, lowest, premium, markets, trends=trends)
+            send_telegram_manual(world, usd, fair, lowest, premium, markets,
+                                 trends=trends, sparkline=spark, previous_markets=previous_markets)
         except Exception as e:
             print(f"ERROR: Telegram manual update failed: {e}")
 
