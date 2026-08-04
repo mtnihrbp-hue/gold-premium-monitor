@@ -287,3 +287,41 @@ This project follows the principles documented in `Prompt_Guide.md`:
 - Goal-driven execution
 
 When contributing, please read `PROJECT_MEMORY.md` for architectural context.
+
+
+
+
+##############
+## Database Architecture
+
+Sprint 1 introduces a Neon PostgreSQL persistence layer for long-term historical storage.
+
+### Why Neon?
+
+- **Free tier**: 3 GB storage, auto-suspend when idle (you pay nothing 22 hours/day)
+- **Serverless connections**: Designed for ephemeral GitHub Actions runners
+- **PostgreSQL**: Full SQL support for future analytics (window functions, time-series queries)
+- **No concurrency conflicts**: Unlike SQLite-in-repo, multiple workflows can write safely
+
+### Setup
+
+1. **Create a Neon project** at [neon.tech](https://neon.tech) (free tier)
+2. **Copy the connection string** from your Neon dashboard
+3. **Add `DATABASE_URL` to your GitHub repository secrets**:
+   - Go to Settings → Secrets and variables → Actions
+   - Add `DATABASE_URL` with your connection string:
+     ```
+     postgresql://user:password@host.neon.tech/database?sslmode=require
+     ```
+
+### Local Development
+
+```bash
+# Set the environment variable
+export DATABASE_URL="postgresql://user:password@host.neon.tech/database?sslmode=require"
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Create tables
+python -m src.database.init
