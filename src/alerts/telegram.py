@@ -10,7 +10,6 @@ from alerts.helpers import (
     format_timestamp,
 )
 
-
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
@@ -103,13 +102,18 @@ def _format_trends(trends=None, sparkline=None):
     if trends:
         lines.extend(format_trend_lines(trends))
 
-        if sparkline is None:
-            sparkline = trends.get("sparkline")
+        # Replace sparkline with directional sentence
+        premium_direction = trends.get("premium_direction")
+        if premium_direction:
+            lines.append(premium_direction)
 
-    if sparkline:
-        lines.append(
-            f"Premium Trend: <code>{html.escape(str(sparkline))}</code>"
-        )
+    # Sparkline removed — no longer rendered
+    # if sparkline is None:
+    #     sparkline = trends.get("sparkline")
+    # if sparkline:
+    #     lines.append(
+    #         f"Premium Trend: `{html.escape(str(sparkline))}`"
+    #     )
 
     if not lines:
         return ""
@@ -132,18 +136,18 @@ def _format_platforms(markets, previous_markets=None):
 
     header = (
         f"{'Platform':<12} "
-        f"{'Price':>15}   "
+        f"{'Price':>15} "
         f"{'Change':>12}"
     )
 
     separator = "-" * 42
 
     return (
-        "<pre>"
+        "```\n"
         f"{header}\n"
         f"{separator}\n"
         f"{chr(10).join(table_lines)}"
-        "</pre>"
+        "\n```"
     )
 
 
