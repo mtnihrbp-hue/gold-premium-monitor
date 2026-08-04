@@ -81,6 +81,13 @@ def main():
         prev_markets = history[-1].get("markets", {})
         previous_markets = {k: float(v) for k, v in prev_markets.items() if v is not None}
 
+
+    changes = {}
+    if previous_markets:
+        for name, info in markets.items():
+            if info["status"] == "OK" and name in previous_markets:
+                changes[name] = info["price"] - previous_markets[name]
+    
     # Heartbeat for manual triggers
     if not is_scheduled:
         try:
