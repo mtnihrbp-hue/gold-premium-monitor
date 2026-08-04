@@ -73,19 +73,18 @@ def get_7day_ma(history):
 # ─── Fair price trends (new) ───
 
 def get_fair_price_trend(history):
-    """Return fair price trend over last 3 days.
+    """Return fair price trend comparing the last two consecutive readings.
 
     Returns:
         (diff, pct, arrow) where diff is absolute change,
         pct is percentage change, arrow is ↑/↓/→.
     """
-    values = _get_daily_values(history, "fair_price")
+    values = [h["fair_price"] for h in history if h.get("fair_price") is not None]
     if len(values) < 2:
         return None, None, "→"
 
-    recent = values[-3:]
-    diff = recent[-1] - recent[0]
-    pct = (diff / recent[0] * 100) if recent[0] else 0
+    diff = values[-1] - values[-2]
+    pct = (diff / values[-2] * 100) if values[-2] else 0
 
     if abs(pct) < 0.1:
         return diff, pct, "→"
@@ -154,11 +153,30 @@ def get_trend_summary(history):
             "vs_yesterday_diff": float | None,
             "vs_yesterday_pct": float | None,
             "history_length": int,
+            "premium_direction": str,
         }
     """
     diff, pct, arrow = get_fair_price_trend(history)
     ma7 = get_fair_price_7day_ma(history)
     vs_diff, vs_pct = get_fair_price_vs_yesterday(history)
+
+    # Premium direction sentence (replaces sparkline)
+    premiums = [h["premium"] for h in history if h.get("premium") is not None]
+    premium_direction = ""
+    if len(premiums) >= 2:
+        window = min(5, len(premiums))
+        recent_premiums = premiums[-window:]
+        p_diff = recent_premiums[-1] - recent_premiums[0]
+        if abs(p_diff) >= 0.05:
+            direction = "rising" if p_diff > 0 else "falling"
+            premium_direction = (
+                f"Premium {direction} by {abs(p_diff):.2f}% "
+                f"over last {window} check{'s' if window > 1 else ''}"
+            )
+        else:
+            premium_direction = "Premium stable"
+    else:
+        premium_direction = "Premium trend: insufficient data"
 
     return {
         "arrow": arrow,
@@ -168,4 +186,5 @@ def get_trend_summary(history):
         "vs_yesterday_diff": vs_diff,
         "vs_yesterday_pct": vs_pct,
         "history_length": len(history),
+        "premium_direction": premium_direction,
     }
