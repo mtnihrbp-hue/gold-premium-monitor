@@ -640,3 +640,35 @@ Add Kitco collector unit test
 ```
 
 The assistant should read the repository before making architectural changes.
+
+
+-----------------------
+
+
+## Sprint 1 Completed — 2026-08-04
+
+### Added
+- Neon PostgreSQL persistence layer via SQLAlchemy ORM
+- Tables: `market_snapshots`, `platform_prices`, `system_events`
+- Database module: `src/database/` (connection, models, repository, init)
+- Automated tests: `tests/test_database.py` (5 tests, SQLite in-memory)
+- KPI checker: `kpi/sprint_01_kpi.py` (validates against real Neon)
+- `requirements.txt`: +sqlalchemy, +psycopg2-binary
+
+### Modified
+- `src/main.py`: Computes `platform_changes`, saves snapshot to DB after signal generation. DB failure is caught and logged — never crashes the app.
+- `src/caluclator/trends.py`: Fixed `get_fair_price_trend()` bug. Now compares last 2 consecutive readings instead of 3-day aggregated window. Arrow direction is now correct for consecutive runs.
+- `src/alerts/telegram.py`: Replaced ASCII sparkline with directional sentence: "Premium falling by 0.41% over last 5 checks" (or rising/stable).
+
+### Architecture Decision
+- JSON `state.json` retained for hysteresis/last_alert runtime state
+- PostgreSQL handles historical snapshots and platform prices
+- Dual-write strategy: JSON for state machine, Postgres for analytics
+
+### Next Sprint Ready
+- Historical data is now queryable via `get_snapshots(days=N)`
+- Foundation ready for: sentiment radar, regime detector, prediction engine
+
+----------------------
+
+
