@@ -3,8 +3,8 @@
 Validates the Neon PostgreSQL persistence layer against real credentials.
 
 Usage:
-    export DATABASE_URL="postgresql://user:pass@host/db"
-    python -m kpi.sprint_01_kpi
+    set DATABASE_URL=postgresql://user:pass@host/db
+    python -c "import sys; sys.path.insert(0, 'src'); from kpi.sprint_01_kpi import run_kpi; run_kpi()"
 """
 
 import sys
@@ -13,12 +13,15 @@ sys.path.insert(0, "src")
 
 from datetime import datetime
 
+from sqlalchemy import text
+
 from database.connection import get_engine, init_db
 from database.repository import (
     save_market_snapshot,
     get_latest_market_snapshot,
     get_snapshots,
 )
+import database.repository as repo
 
 
 def _banner():
@@ -33,7 +36,7 @@ def _check_connection():
         if engine is None:
             raise RuntimeError("DATABASE_URL not set")
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         print("Database connection: PASS")
         return True
     except Exception as e:
@@ -91,12 +94,18 @@ def _check_read():
 
 def _check_failure_handling():
     try:
-        from database import connection
-        orig = connection.get_session
-        connection.get_session = lambda: None
+        # Patch the get_session that repository actually uses
+        orig = repo.get_session
+        repo.get_session = lambda: None
+
         result = get_latest_market_snapshot()
-        connection.get_session = orig
+        snapshots = get_snapshots(days=7)
+
+        # Restore
+        repo.get_session = orig
+
         assert result is None
+        assert snapshots == []
         print("Failure handling: PASS")
         return True
     except Exception as e:
