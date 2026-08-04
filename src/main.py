@@ -81,13 +81,6 @@ def main():
         prev_markets = history[-1].get("markets", {})
         previous_markets = {k: float(v) for k, v in prev_markets.items() if v is not None}
 
-
-    changes = {}
-    if previous_markets:
-        for name, info in markets.items():
-            if info["status"] == "OK" and name in previous_markets:
-                changes[name] = info["price"] - previous_markets[name]
-    
     # Heartbeat for manual triggers
     if not is_scheduled:
         try:
@@ -104,21 +97,21 @@ def main():
         try:
             validate_world_gold(world)
         except Exception as e:
-            print(f"  World Gold   validation failed: {e}")
+            print(f" World Gold validation failed: {e}")
             world = None
 
     if world is None:
         world = _fallback_world_from_history(history)
         if world:
-            print(f"  World Gold   fallback from history: ${world:,.2f} (<6h old)")
+            print(f" World Gold fallback from history: ${world:,.2f} (<6h old)")
         else:
-            print("  World Gold   NO DATA")
+            print(" World Gold NO DATA")
 
     try:
         usd = get_usd_sell_rate()
         validate_usd_rate(usd)
     except Exception as e:
-        print(f"  USD Rate     FAILED: {e}")
+        print(f" USD Rate FAILED: {e}")
         usd = None
 
     raw_markets = get_market_prices()
@@ -126,10 +119,10 @@ def main():
     for name, info in raw_markets.items():
         status = info.get("status", "UNKNOWN")
         if status == "OK":
-            print(f"  {name:<15} OK")
+            print(f" {name:<15} OK")
         else:
             err = status.replace("ERROR: ", "") if status.startswith("ERROR: ") else status
-            print(f"  {name:<15} {err}")
+            print(f" {name:<15} {err}")
 
     try:
         markets = validate_market_prices(raw_markets)
@@ -137,9 +130,16 @@ def main():
         print(f"\nERROR: Market data invalid: {e}. Skipping.")
         return
 
+    # Compute per-platform changes for database and notifications
+    platform_changes = {}
+    if previous_markets:
+        for name, info in markets.items():
+            if info["status"] == "OK" and name in previous_markets:
+                platform_changes[name] = info["price"] - previous_markets[name]
+
     # If world gold unavailable
     if world is None:
-        print("\nERROR: World gold price unavailable and no recent fallback.")
+        print("\nERROR: World gold price unavailable and no recent cached data.")
         try:
             send_telegram_unavailable(
                 usd=usd,
@@ -208,30 +208,30 @@ def main():
     print("-" * 40)
     for name in sorted(markets.keys()):
         info = markets[name]
-        print(f"  {name:<15} {info['price']:>15,.0f}")
-    print(f"  {'-' * 32}")
-    print(f"  Fair Price: {fair:,.0f}")
-    print(f"  Lowest:     {lowest:,.0f}")
-    print(f"  Premium:    {premium:.2f}%")
+        print(f" {name:<15} {info['price']:>15,.0f}")
+    print(f" {'-' * 32}")
+    print(f" Fair Price: {fair:,.0f}")
+    print(f" Lowest: {lowest:,.0f}")
+    print(f" Premium: {premium:.2f}%")
     if spread is not None:
-        print(f"  Spread:     {spread:,.0f} ({high_name} vs {low_name})")
+        print(f" Spread: {spread:,.0f} ({high_name} vs {low_name})")
 
     print("\nTRENDS")
     print("-" * 40)
     if trends.get("arrow_pct") is not None:
-        print(f"  Fair Price Trend: {trends['arrow']} ({trends['arrow_pct']:+.2f}%)")
+        print(f" Fair Price Trend: {trends['arrow']} ({trends['arrow_pct']:+.2f}%)")
     if trends.get("vs_yesterday_pct") is not None:
-        print(f"  vs Yesterday:     {trends['vs_yesterday_pct']:+.2f}%")
+        print(f" vs Yesterday: {trends['vs_yesterday_pct']:+.2f}%")
     if trends.get("ma7") is not None:
-        print(f"  7-Day Avg Fair:   {trends['ma7']:,.0f}")
+        print(f" 7-Day Avg Fair: {trends['ma7']:,.0f}")
 
     print(f"\nLast Alert: {last_alert}")
 
     if signal:
         print("\nSIGNAL")
         print("-" * 40)
-        print(f"  {signal['signal']}")
-        print(f"  {signal['reason']}")
+        print(f" {signal['signal']}")
+        print(f" {signal['reason']}")
 
     # History
     history.append({
@@ -259,6 +259,33 @@ def main():
         })
 
     save_state(state)
+
+    # Save to database (non-blocking — failure never crashes the app)
+    try:
+        from database.repository import save_market_snapshot
+
+        platform_prices = []
+        for name, info in markets.items():
+            if info["status"] == "OK":
+                platform_prices.append({
+                    "platform_name": name,
+                    "price_irr": info["price"],
+                    "change_irr": platform_changes.get(name),
+                })
+
+        save_market_snapshot(
+            timestamp=datetime.now(),
+            fair_price=fair,
+            premium_percent=premium,
+            world_gold_usd=world,
+            usd_irr=usd,
+            signal=signal["signal"] if signal else None,
+            confidence=None,
+            platform_prices=platform_prices,
+        )
+        print("\nDB: Snapshot saved")
+    except Exception as e:
+        print(f"\nDB ERROR: {e}")
 
     # Alerts
     should_send_alert = (
