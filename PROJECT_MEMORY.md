@@ -669,6 +669,8 @@ The assistant should read the repository before making architectural changes.
 - Historical data is now queryable via `get_snapshots(days=N)`
 - Foundation ready for: sentiment radar, regime detector, prediction engine
 
+SPRINT 1 COMPLETE. All 5 KPI checks passed. Your Neon database is live and working.
+
 ----------------------
 
 
