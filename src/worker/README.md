@@ -48,3 +48,11 @@ curl -X POST \
   "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
   -H "Content-Type: application/json" \
   -d '{"url":"https://your-worker.your-subdomain.workers.dev"}'
+
+### | Problem                 | Cause                    | Fix                                        |
+| ----------------------- | ------------------------ | ------------------------------------------ |
+| "Unauthorized" in logs  | Wrong `TELEGRAM_CHAT_ID` | Check your actual chat ID via @userinfobot |
+| "Trigger failed"        | Invalid `GITHUB_TOKEN`   | Regenerate PAT with `repo` scope           |
+| No response in Telegram | Webhook not set          | Run the webhook setup curl command above   |
+| Duplicate messages      | Telegram retries         | Worker always returns 200 OK quickly       |
+
