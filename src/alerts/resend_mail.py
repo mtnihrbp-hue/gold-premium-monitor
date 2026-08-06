@@ -52,6 +52,7 @@ def send_daily_recap(
     premium,
     markets,
     trends=None,
+    momentun=None,
     previous_markets=None,
 ):
     html = f"""
