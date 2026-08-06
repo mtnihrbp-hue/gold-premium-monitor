@@ -39,3 +39,12 @@ npm install -g wrangler
 wrangler login
 # Edit wrangler.toml if needed
 wrangler deploy src/worker/telegram-trigger.js
+
+
+### Webhook Setup
+After deploying, tell Telegram where to send updates:
+
+curl -X POST \
+  "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://your-worker.your-subdomain.workers.dev"}'
