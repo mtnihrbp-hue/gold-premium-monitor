@@ -1,11 +1,4 @@
-"""SQLAlchemy ORM models for the Gold Premium Monitor database.
-
-Tables:
-- market_snapshots: one row per complete market calculation cycle
-- platform_prices: one row per platform price observation
-- system_events: future intelligence events (created empty for SP2+)
-- market_hypotheses: reasoning snapshots for meta-learning (SP3 foundation)
-"""
+"""SQLAlchemy ORM models."""
 
 from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.sql import func
