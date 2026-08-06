@@ -4,36 +4,15 @@ Replaces the noisy 'last N checks' approach with daily average comparisons
 anchored to today and yesterday's full data.
 """
 
-from datetime import datetime, timedelta
-
 
 def build_momentum_context(current_premium: float, session) -> dict:
     """Build a momentum context dict for alerts.
 
     Returns:
         {
-            "premium_vs_today": {
-                "avg": float,
-                "diff": float,
-                "min": float,
-                "max": float,
-                "count": int,
-                "label": str,
-                "emoji": str,
-            } or None,
-            "premium_vs_yesterday": {
-                "avg": float,
-                "diff": float,
-                "date": str,
-                "label": str,
-            } or None,
-            "candlestick": {
-                "open": float,
-                "high": float,
-                "low": float,
-                "close": float,
-                "avg": float,
-            } or None,
+            "premium_vs_today": {...} or None,
+            "premium_vs_yesterday": {...} or None,
+            "candlestick": {...} or None,
             "verbal_direction": str,
         }
     """
