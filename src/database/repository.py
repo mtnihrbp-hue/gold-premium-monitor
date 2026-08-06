@@ -1,8 +1,4 @@
-"""Database repository for market snapshot operations.
-
-All database writes are wrapped in transactions.
-Read operations return None / [] when the database is unavailable.
-"""
+"""Database repository for market snapshot operations."""
 
 from datetime import datetime, timedelta
 
@@ -22,26 +18,6 @@ def save_market_snapshot(
     confidence=None,
     platform_prices=None,
 ):
-    """Save a market snapshot and associated platform prices.
-
-    Args:
-        timestamp: datetime of the observation
-        fair_price: calculated fair price (IRR)
-        premium_percent: premium percentage
-        world_gold_usd: world gold price in USD/oz (optional)
-        usd_irr: USD sell rate in IRR (optional)
-        signal: BUY / SELL / HOLD / None (optional)
-        confidence: model confidence 0-1 (optional, SP1 always None)
-        platform_prices: list of dicts with keys:
-            platform_name (str), price_irr (int/float), change_irr (optional)
-
-    Returns:
-        snapshot id (int)
-
-    Raises:
-        RuntimeError: if database is not configured
-        Exception: re-raised after rollback on write failure
-    """
     session = get_session()
     if session is None:
         raise RuntimeError("Database not configured (DATABASE_URL missing)")
@@ -57,7 +33,7 @@ def save_market_snapshot(
             confidence=confidence,
         )
         session.add(snapshot)
-        session.flush()  # assign id
+        session.flush()
 
         if platform_prices:
             for pp in platform_prices:
@@ -81,7 +57,6 @@ def save_market_snapshot(
 
 
 def get_latest_market_snapshot():
-    """Return the most recent market snapshot, or None if unavailable."""
     session = get_session()
     if session is None:
         return None
@@ -96,12 +71,6 @@ def get_latest_market_snapshot():
 
 
 def get_snapshots(days=30):
-    """Return market snapshots from the last N days.
-
-    Returns:
-        List of MarketSnapshot objects, newest first.
-        Empty list if database is unavailable.
-    """
     session = get_session()
     if session is None:
         return []
@@ -117,29 +86,15 @@ def get_snapshots(days=30):
         session.close()
 
 
-# --- Daily Premium Stats (Task C) ---
-
 def get_daily_premium_stats(target_date, session):
-    """Return premium statistics for a given calendar day.
-
-    Args:
-        target_date: datetime.date
-        session: active SQLAlchemy session
-
-    Returns:
-        dict with avg, min, max, count, open, close
-        or None if no data for that day.
-    """
     results = (
         session.query(MarketSnapshot)
         .filter(func.date(MarketSnapshot.timestamp) == target_date)
         .order_by(MarketSnapshot.timestamp.asc())
         .all()
     )
-
     if not results:
         return None
-
     premiums = [float(r.premium_percent) for r in results]
     return {
         "avg": round(sum(premiums) / len(premiums), 4),
@@ -152,19 +107,8 @@ def get_daily_premium_stats(target_date, session):
 
 
 def get_premium_momentum_context(current_premium, session):
-    """Return full momentum context comparing current premium to daily averages.
-
-    Args:
-        current_premium: float, current premium percent
-        session: active SQLAlchemy session
-
-    Returns:
-        dict with premium_vs_today, premium_vs_yesterday, candlestick,
-        verbal_direction. See caluclator/momentum.py for structure.
-    """
     today = datetime.now().date()
     yesterday = today - timedelta(days=1)
-
     today_stats = get_daily_premium_stats(today, session)
     yesterday_stats = get_daily_premium_stats(yesterday, session)
 
@@ -205,7 +149,6 @@ def get_premium_momentum_context(current_premium, session):
             "label": label,
         }
 
-    # Verbal direction based on strongest available signal
     if yesterday_stats:
         diff = current_premium - yesterday_stats["avg"]
     elif today_stats:
@@ -218,7 +161,6 @@ def get_premium_momentum_context(current_premium, session):
 
 
 def _label_premium_diff(diff):
-    """Return (label, emoji) for a premium difference."""
     if diff < -0.05:
         return "Discount Deepening", "▼"
     elif diff > 0.05:
@@ -228,15 +170,12 @@ def _label_premium_diff(diff):
 
 
 def _verbal_direction(premium, diff):
-    """Return verbal momentum direction."""
     if abs(diff) < 0.05:
         return "Neutral"
     if diff < 0:
         return "Toward Buy"
     return "Toward Sell"
 
-
-# --- Market Hypotheses (SP3 Foundation) ---
 
 def save_hypothesis(
     session,
@@ -248,11 +187,6 @@ def save_hypothesis(
     model_version=None,
     source=None,
 ):
-    """Save a new market hypothesis.
-
-    Returns:
-        hypothesis id (int)
-    """
     hypothesis = MarketHypothesis(
         hypothesis_type=hypothesis_type,
         description=description,
@@ -270,11 +204,6 @@ def save_hypothesis(
 
 
 def resolve_hypothesis(session, hypothesis_id, actual_outcome, result, failure_reason=None):
-    """Resolve a hypothesis with actual outcome.
-
-    Returns:
-        True if hypothesis was found and updated, False otherwise.
-    """
     hypothesis = (
         session.query(MarketHypothesis)
         .filter(MarketHypothesis.id == hypothesis_id)
@@ -282,7 +211,6 @@ def resolve_hypothesis(session, hypothesis_id, actual_outcome, result, failure_r
     )
     if not hypothesis:
         return False
-
     hypothesis.resolved_at = datetime.now()
     hypothesis.actual_outcome = actual_outcome
     hypothesis.result = result
@@ -292,11 +220,6 @@ def resolve_hypothesis(session, hypothesis_id, actual_outcome, result, failure_r
 
 
 def get_hypothesis_accuracy(session, hypothesis_type=None, days=30):
-    """Return accuracy stats for hypotheses.
-
-    Returns:
-        dict with total, correct, partially_correct, wrong, accuracy_rate
-    """
     since = datetime.now() - timedelta(days=days)
     query = session.query(MarketHypothesis).filter(
         MarketHypothesis.resolved_at >= since,
@@ -313,8 +236,6 @@ def get_hypothesis_accuracy(session, hypothesis_type=None, days=30):
     correct = sum(1 for r in results if r.result == "Correct")
     partial = sum(1 for r in results if r.result == "Partially Correct")
     wrong = sum(1 for r in results if r.result == "Wrong")
-
-    # Weighted accuracy: correct = 1.0, partial = 0.5
     weighted = (correct + partial * 0.5) / total if total else 0
 
     return {
@@ -322,3 +243,5 @@ def get_hypothesis_accuracy(session, hypothesis_type=None, days=30):
         "correct": correct,
         "partially_correct": partial,
         "wrong": wrong,
+        "accuracy_rate": round(weighted, 4),
+    }
