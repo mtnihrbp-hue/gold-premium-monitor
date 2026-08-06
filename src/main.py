@@ -14,7 +14,7 @@ from caluclator.gold import (
 
 from caluclator.signals import evaluate_signal
 from caluclator.trends import get_trend_summary, get_market_spread
-from caluclator.sparkline import premium_sparkline
+from caluclator.momentum import build_momentum_context
 
 from persistence.state import load_state, save_state
 
@@ -38,6 +38,8 @@ from validation.data import (
     validate_market_prices,
     validate_fair_price,
 )
+
+from database.connection import get_session
 
 
 def load_config():
@@ -182,7 +184,6 @@ def main():
 
     # Trends
     trends = get_trend_summary(history)
-    spark = premium_sparkline(history, width=20)
 
     # Market spread
     spread, high_name, low_name = get_market_spread(markets)
@@ -202,6 +203,16 @@ def main():
         last_alert_type=last_alert,
         thresholds=thresholds,
     )
+
+    # Momentum (DB-backed, non-blocking)
+    momentum = None
+    try:
+        session = get_session()
+        if session:
+            momentum = build_momentum_context(premium, session)
+            session.close()
+    except Exception as e:
+        print(f"Momentum build failed: {e}")
 
     # Console output
     print("\nCALCULATE")
@@ -224,6 +235,17 @@ def main():
         print(f" vs Yesterday: {trends['vs_yesterday_pct']:+.2f}%")
     if trends.get("ma7") is not None:
         print(f" 7-Day Avg Fair: {trends['ma7']:,.0f}")
+
+    if momentum:
+        print("\nMOMENTUM")
+        print("-" * 40)
+        vs_today = momentum.get("premium_vs_today")
+        vs_yesterday = momentum.get("premium_vs_yesterday")
+        if vs_today:
+            print(f" Premium vs today: {vs_today['diff']:+.2f}% ({vs_today['label']})")
+        if vs_yesterday:
+            print(f" Premium vs yesterday: {vs_yesterday['diff']:+.2f}%")
+        print(f" Direction: {momentum.get('verbal_direction', 'Neutral')}")
 
     print(f"\nLast Alert: {last_alert}")
 
@@ -296,34 +318,44 @@ def main():
 
     if should_send_alert:
         try:
-            send_email_alert(signal, world, usd, fair, lowest, premium, markets,
-                             trends=trends, previous_markets=previous_markets)
+            send_email_alert(
+                signal, world, usd, fair, lowest, premium, markets,
+                trends=trends, momentum=momentum, previous_markets=previous_markets
+            )
         except Exception as e:
             print(f"ERROR: Email alert failed: {e}")
         try:
-            send_telegram_alert(signal, world, usd, fair, lowest, premium, markets,
-                                trends=trends, sparkline=spark, previous_markets=previous_markets)
+            send_telegram_alert(
+                signal, world, usd, fair, lowest, premium, markets,
+                trends=trends, momentum=momentum, previous_markets=previous_markets
+            )
         except Exception as e:
             print(f"ERROR: Telegram alert failed: {e}")
 
     # Daily Report
     if email_cfg.get("send_daily_recap", True) and is_scheduled:
         try:
-            send_email_recap(world, usd, fair, lowest, premium, markets,
-                             trends=trends, previous_markets=previous_markets)
+            send_email_recap(
+                world, usd, fair, lowest, premium, markets,
+                trends=trends, momentum=momentum, previous_markets=previous_markets
+            )
         except Exception as e:
             print(f"ERROR: Email daily recap failed: {e}")
         try:
-            send_telegram_recap(world, usd, fair, lowest, premium, markets,
-                                trends=trends, sparkline=spark, previous_markets=previous_markets)
+            send_telegram_recap(
+                world, usd, fair, lowest, premium, markets,
+                trends=trends, momentum=momentum, previous_markets=previous_markets
+            )
         except Exception as e:
             print(f"ERROR: Telegram daily recap failed: {e}")
 
     # Manual Update
     if not is_scheduled and not should_send_alert:
         try:
-            send_telegram_manual(world, usd, fair, lowest, premium, markets,
-                                 trends=trends, sparkline=spark, previous_markets=previous_markets)
+            send_telegram_manual(
+                world, usd, fair, lowest, premium, markets,
+                trends=trends, momentum=momentum, previous_markets=previous_markets
+            )
         except Exception as e:
             print(f"ERROR: Telegram manual update failed: {e}")
 
