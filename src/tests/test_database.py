@@ -1,8 +1,4 @@
-"""Tests for database repository layer.
-
-Covers Sprint 1 snapshot operations + Task C daily stats and hypotheses.
-Uses SQLite in-memory for isolation.
-"""
+"""Tests for database repository layer (Sprint 1 + Task C)."""
 
 import os
 import unittest
@@ -44,7 +40,6 @@ class TestDatabaseOperations(unittest.TestCase):
             signal="BUY",
         )
         self.assertIsInstance(sid, int)
-
         latest = get_latest_market_snapshot()
         self.assertIsNotNone(latest)
         self.assertEqual(float(latest.premium_percent), -2.5)
@@ -61,22 +56,18 @@ class TestDatabaseOperations(unittest.TestCase):
             fair_price=100000000,
             premium_percent=-3.0,
         )
-
         recent = get_snapshots(days=30)
         self.assertEqual(len(recent), 1)
 
     def test_daily_premium_stats(self):
         today = datetime.now().date()
         base = datetime.combine(today, datetime.min.time())
-
-        # Seed 3 snapshots today
         for i, premium in enumerate([-3.0, -4.0, -3.5]):
             save_market_snapshot(
                 timestamp=base + timedelta(hours=i * 4),
                 fair_price=100000000,
                 premium_percent=premium,
             )
-
         stats = get_daily_premium_stats(today, self.session)
         self.assertIsNotNone(stats)
         self.assertEqual(stats["count"], 3)
@@ -97,14 +88,11 @@ class TestDatabaseOperations(unittest.TestCase):
         base_today = datetime.combine(today, datetime.min.time())
         base_yesterday = datetime.combine(yesterday, datetime.min.time())
 
-        # Yesterday: avg = -3.0
         save_market_snapshot(
             timestamp=base_yesterday + timedelta(hours=12),
             fair_price=100000000,
             premium_percent=-3.0,
         )
-
-        # Today: avg = -4.0
         for i, premium in enumerate([-4.0, -4.2, -3.8]):
             save_market_snapshot(
                 timestamp=base_today + timedelta(hours=i * 4),
@@ -113,19 +101,12 @@ class TestDatabaseOperations(unittest.TestCase):
             )
 
         context = get_premium_momentum_context(-4.10, self.session)
-
         self.assertIsNotNone(context["premium_vs_today"])
         self.assertIsNotNone(context["premium_vs_yesterday"])
         self.assertIsNotNone(context["candlestick"])
-
-        # Today avg = -4.0, current = -4.1 → diff = -0.1
         self.assertAlmostEqual(context["premium_vs_today"]["diff"], -0.1, places=2)
         self.assertEqual(context["premium_vs_today"]["label"], "Discount Deepening")
-
-        # Yesterday avg = -3.0, current = -4.1 → diff = -1.1
         self.assertAlmostEqual(context["premium_vs_yesterday"]["diff"], -1.1, places=2)
-
-        # Direction: diff < 0 → Toward Buy
         self.assertEqual(context["verbal_direction"], "Toward Buy")
 
     def test_premium_momentum_no_history(self):
@@ -173,7 +154,6 @@ class TestDatabaseOperations(unittest.TestCase):
         self.assertFalse(success)
 
     def test_hypothesis_accuracy(self):
-        # Create and resolve hypotheses
         for result in ["Correct", "Correct", "Wrong", "Partially Correct"]:
             hid = save_hypothesis(
                 self.session,
@@ -189,7 +169,6 @@ class TestDatabaseOperations(unittest.TestCase):
         self.assertEqual(stats["correct"], 2)
         self.assertEqual(stats["partially_correct"], 1)
         self.assertEqual(stats["wrong"], 1)
-        # Weighted: (2 + 0.5) / 4 = 0.625
         self.assertAlmostEqual(stats["accuracy_rate"], 0.625, places=3)
 
     def test_hypothesis_accuracy_empty(self):
