@@ -4,6 +4,7 @@ Tables:
 - market_snapshots: one row per complete market calculation cycle
 - platform_prices: one row per platform price observation
 - system_events: future intelligence events (created empty for SP2+)
+- market_hypotheses: reasoning snapshots for meta-learning (SP3 foundation)
 """
 
 from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Text, JSON
@@ -46,3 +47,22 @@ class SystemEvent(Base):
     source = Column(String(100), nullable=True)
     description = Column(Text, nullable=True)
     metadata_json = Column(JSON, nullable=True)
+
+
+class MarketHypothesis(Base):
+    __tablename__ = "market_hypotheses"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    created_at = Column(DateTime, server_default=func.now())
+    hypothesis_type = Column(String(50), nullable=False)
+    description = Column(Text, nullable=False)
+    expected_outcome = Column(String(100), nullable=True)
+    horizon_hours = Column(Integer, nullable=True)
+    basis_json = Column(JSON, nullable=True)
+    predicted_at = Column(DateTime, nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
+    actual_outcome = Column(String(100), nullable=True)
+    result = Column(String(20), nullable=True)
+    failure_reason = Column(Text, nullable=True)
+    model_version = Column(String(20), nullable=True)
+    source = Column(String(50), nullable=True)
