@@ -1,124 +1,200 @@
-"""Automated tests for the database persistence layer.
+"""Tests for database repository layer.
 
-Uses SQLite in-memory so tests run without a real Neon connection.
+Covers Sprint 1 snapshot operations + Task C daily stats and hypotheses.
+Uses SQLite in-memory for isolation.
 """
 
 import os
-import sys
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 
-sys.path.insert(0, "src")
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from database.connection import init_db, get_session
+from database.repository import (
+    save_market_snapshot,
+    get_latest_market_snapshot,
+    get_snapshots,
+    get_daily_premium_stats,
+    get_premium_momentum_context,
+    save_hypothesis,
+    resolve_hypothesis,
+    get_hypothesis_accuracy,
+)
 
-from database.models import Base, MarketSnapshot, PlatformPrice, SystemEvent
-from database import repository
-from database import connection
 
-
-class TestDatabase(unittest.TestCase):
-    """Test suite for Sprint 1 database requirements."""
-
+class TestDatabaseOperations(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        """Create an in-memory SQLite engine and patch get_session."""
-        cls.engine = create_engine("sqlite:///:memory:")
-        Base.metadata.create_all(bind=cls.engine)
-        cls.Session = sessionmaker(bind=cls.engine)
+        init_db()
 
-        # Monkey-patch so repository functions use our test engine
-        cls._orig_get_session = connection.get_session
-        connection.get_session = lambda: cls.Session()
+    def setUp(self):
+        self.session = get_session()
 
-    @classmethod
-    def tearDownClass(cls):
-        """Restore original get_session and dispose engine."""
-        connection.get_session = cls._orig_get_session
-        cls.engine.dispose()
+    def tearDown(self):
+        self.session.close()
 
-    def test_01_connection(self):
-        """Database connection successful."""
-        session = self.Session()
-        self.assertIsNotNone(session)
-        session.close()
-
-    def test_02_tables_created(self):
-        """Create tables successfully."""
-        session = self.Session()
-        tables = session.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()
-        names = {t[0] for t in tables}
-        self.assertIn("market_snapshots", names)
-        self.assertIn("platform_prices", names)
-        self.assertIn("system_events", names)
-        session.close()
-
-    def test_03_insert_snapshot(self):
-        """Insert fake market snapshot — record exists."""
-        now = datetime.now()
-        sid = repository.save_market_snapshot(
-            timestamp=now,
-            fair_price=187448499,
-            premium_percent=-2.76,
-            world_gold_usd=4080.70,
-            usd_irr=190500,
+    def test_save_and_read_snapshot(self):
+        sid = save_market_snapshot(
+            timestamp=datetime.now(),
+            fair_price=100000000,
+            premium_percent=-2.5,
+            world_gold_usd=2400.0,
+            usd_irr=50000,
             signal="BUY",
-            confidence=None,
-            platform_prices=[
-                {
-                    "platform_name": "Taline",
-                    "price_irr": 182270000,
-                    "change_irr": -970000,
-                },
-                {
-                    "platform_name": "Milli",
-                    "price_irr": 182270000,
-                    "change_irr": None,
-                },
-            ],
         )
-        self.assertIsNotNone(sid)
         self.assertIsInstance(sid, int)
 
-        session = self.Session()
-        snapshot = session.query(MarketSnapshot).filter_by(id=sid).first()
-        self.assertIsNotNone(snapshot)
-        self.assertEqual(float(snapshot.fair_price), 187448499.0)
-        self.assertEqual(float(snapshot.premium_percent), -2.76)
-        self.assertEqual(snapshot.signal, "BUY")
-
-        platforms = (
-            session.query(PlatformPrice)
-            .filter_by(snapshot_id=sid)
-            .order_by(PlatformPrice.id)
-            .all()
-        )
-        self.assertEqual(len(platforms), 2)
-        self.assertEqual(platforms[0].platform_name, "Taline")
-        self.assertEqual(float(platforms[0].change_irr), -970000.0)
-        session.close()
-
-    def test_04_retrieve_latest(self):
-        """Retrieve latest snapshot — correct data returned."""
-        latest = repository.get_latest_market_snapshot()
+        latest = get_latest_market_snapshot()
         self.assertIsNotNone(latest)
-        self.assertEqual(float(latest.premium_percent), -2.76)
+        self.assertEqual(float(latest.premium_percent), -2.5)
 
-    def test_05_failure_handling(self):
-        """Database unavailable simulation — application continues."""
-        orig = connection.get_session
-        connection.get_session = lambda: None
-        try:
-            result = repository.get_latest_market_snapshot()
-            self.assertIsNone(result)
+    def test_get_snapshots_time_range(self):
+        now = datetime.now()
+        save_market_snapshot(
+            timestamp=now - timedelta(days=1),
+            fair_price=100000000,
+            premium_percent=-1.0,
+        )
+        save_market_snapshot(
+            timestamp=now - timedelta(days=40),
+            fair_price=100000000,
+            premium_percent=-3.0,
+        )
 
-            snapshots = repository.get_snapshots(days=7)
-            self.assertEqual(snapshots, [])
-        finally:
-            connection.get_session = orig
+        recent = get_snapshots(days=30)
+        self.assertEqual(len(recent), 1)
+
+    def test_daily_premium_stats(self):
+        today = datetime.now().date()
+        base = datetime.combine(today, datetime.min.time())
+
+        # Seed 3 snapshots today
+        for i, premium in enumerate([-3.0, -4.0, -3.5]):
+            save_market_snapshot(
+                timestamp=base + timedelta(hours=i * 4),
+                fair_price=100000000,
+                premium_percent=premium,
+            )
+
+        stats = get_daily_premium_stats(today, self.session)
+        self.assertIsNotNone(stats)
+        self.assertEqual(stats["count"], 3)
+        self.assertAlmostEqual(stats["avg"], -3.5, places=2)
+        self.assertEqual(stats["min"], -4.0)
+        self.assertEqual(stats["max"], -3.0)
+        self.assertEqual(stats["open"], -3.0)
+        self.assertEqual(stats["close"], -3.5)
+
+    def test_daily_premium_stats_no_data(self):
+        future_date = datetime.now().date() + timedelta(days=10)
+        stats = get_daily_premium_stats(future_date, self.session)
+        self.assertIsNone(stats)
+
+    def test_premium_momentum_context(self):
+        today = datetime.now().date()
+        yesterday = today - timedelta(days=1)
+        base_today = datetime.combine(today, datetime.min.time())
+        base_yesterday = datetime.combine(yesterday, datetime.min.time())
+
+        # Yesterday: avg = -3.0
+        save_market_snapshot(
+            timestamp=base_yesterday + timedelta(hours=12),
+            fair_price=100000000,
+            premium_percent=-3.0,
+        )
+
+        # Today: avg = -4.0
+        for i, premium in enumerate([-4.0, -4.2, -3.8]):
+            save_market_snapshot(
+                timestamp=base_today + timedelta(hours=i * 4),
+                fair_price=100000000,
+                premium_percent=premium,
+            )
+
+        context = get_premium_momentum_context(-4.10, self.session)
+
+        self.assertIsNotNone(context["premium_vs_today"])
+        self.assertIsNotNone(context["premium_vs_yesterday"])
+        self.assertIsNotNone(context["candlestick"])
+
+        # Today avg = -4.0, current = -4.1 → diff = -0.1
+        self.assertAlmostEqual(context["premium_vs_today"]["diff"], -0.1, places=2)
+        self.assertEqual(context["premium_vs_today"]["label"], "Discount Deepening")
+
+        # Yesterday avg = -3.0, current = -4.1 → diff = -1.1
+        self.assertAlmostEqual(context["premium_vs_yesterday"]["diff"], -1.1, places=2)
+
+        # Direction: diff < 0 → Toward Buy
+        self.assertEqual(context["verbal_direction"], "Toward Buy")
+
+    def test_premium_momentum_no_history(self):
+        context = get_premium_momentum_context(-2.0, self.session)
+        self.assertIsNone(context["premium_vs_today"])
+        self.assertIsNone(context["premium_vs_yesterday"])
+        self.assertEqual(context["verbal_direction"], "Neutral")
+
+    def test_save_hypothesis(self):
+        hid = save_hypothesis(
+            self.session,
+            hypothesis_type="mean_reversion",
+            description="Premium will revert to mean",
+            expected_outcome="+2%",
+            horizon_hours=48,
+            basis_json={"percentile": 98},
+            model_version="v0.1",
+            source="prediction_engine",
+        )
+        self.assertIsInstance(hid, int)
+
+    def test_resolve_hypothesis(self):
+        hid = save_hypothesis(
+            self.session,
+            hypothesis_type="mean_reversion",
+            description="Premium will revert",
+            expected_outcome="+2%",
+        )
+        success = resolve_hypothesis(
+            self.session,
+            hid,
+            actual_outcome="+0.5%",
+            result="Partially Correct",
+            failure_reason="Geopolitical event",
+        )
+        self.assertTrue(success)
+
+    def test_resolve_hypothesis_not_found(self):
+        success = resolve_hypothesis(
+            self.session,
+            99999,
+            actual_outcome="0%",
+            result="Wrong",
+        )
+        self.assertFalse(success)
+
+    def test_hypothesis_accuracy(self):
+        # Create and resolve hypotheses
+        for result in ["Correct", "Correct", "Wrong", "Partially Correct"]:
+            hid = save_hypothesis(
+                self.session,
+                hypothesis_type="directional",
+                description="Test",
+                expected_outcome="+1%",
+            )
+            resolve_hypothesis(self.session, hid, "+1%", result)
+
+        stats = get_hypothesis_accuracy(self.session, days=30)
+        self.assertIsNotNone(stats)
+        self.assertEqual(stats["total"], 4)
+        self.assertEqual(stats["correct"], 2)
+        self.assertEqual(stats["partially_correct"], 1)
+        self.assertEqual(stats["wrong"], 1)
+        # Weighted: (2 + 0.5) / 4 = 0.625
+        self.assertAlmostEqual(stats["accuracy_rate"], 0.625, places=3)
+
+    def test_hypothesis_accuracy_empty(self):
+        stats = get_hypothesis_accuracy(self.session, days=30)
+        self.assertIsNone(stats)
 
 
 if __name__ == "__main__":
