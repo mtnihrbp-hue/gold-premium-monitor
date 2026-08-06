@@ -1,13 +1,10 @@
-"""Initialize the database schema.
+"""Initialize database tables.
 
-Usage:
-    python -m database.init
-
-Requires DATABASE_URL environment variable to be set.
+Run: python -m src.database.init
 """
 
 from database.connection import init_db
 
 if __name__ == "__main__":
     init_db()
-    print("Database initialized successfully.")
+    print("Database tables created successfully.")
