@@ -10,8 +10,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
-from database.connection import init_db, get_session
-from database.repository import (
+from src.database.connection import init_db, get_session
+from src.database.repository import (
     save_market_snapshot,
     get_latest_market_snapshot,
     get_snapshots,
