@@ -1,17 +1,17 @@
 """Tests for database repository layer (Sprint 1 + Task C)."""
 
+import sys
 
+sys.path.insert(0, "src")
+
+import os
 import unittest
 from datetime import datetime, timedelta
 
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
-
-
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
-from src.database.connection import init_db, get_session
-from src.database.repository import (
+from database.connection import init_db, get_session
+from database.repository import (
     save_market_snapshot,
     get_latest_market_snapshot,
     get_snapshots,
