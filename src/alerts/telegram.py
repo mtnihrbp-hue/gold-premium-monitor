@@ -68,7 +68,7 @@ def _number(value, decimals=2):
     if value is None:
         return "N/A"
     try:
-        return f"{float(value):,.0f}"
+        return f"{float(value):,.2f}"
     except Exception:
         return str(value)
 
@@ -113,6 +113,8 @@ def _build_message(
     lines.append(f"Fair Price:  {_money(fair)}")
     lines.append(f"Lowest:      {_money(lowest)}")
     lines.append(f"Premium:     {_number(premium)}%")
+    lines.append(f"World Gold:  {_number(world)} USD/oz")
+    lines.append(f"USD:         {_money(usd)} IRR")
     lines.append("")
 
     # MOMENTUM
