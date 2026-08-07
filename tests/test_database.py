@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
-from database.connection import init_db, get_session
+from database.connection import init_db, get_session, Base
 from database.repository import (
     save_market_snapshot,
     get_latest_market_snapshot,
@@ -32,6 +32,10 @@ class TestDatabaseOperations(unittest.TestCase):
         self.session = get_session()
 
     def tearDown(self):
+        # Wipe all tables between tests to prevent data leakage
+        for table in reversed(Base.metadata.sorted_tables):
+            self.session.execute(table.delete())
+        self.session.commit()
         self.session.close()
 
     def test_save_and_read_snapshot(self):
