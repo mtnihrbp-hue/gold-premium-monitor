@@ -1,11 +1,12 @@
 """Tests for premium momentum analysis."""
 
+import sys
+
+sys.path.insert(0, "src")
+
 import unittest
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-
-from src.caluclator.momentum import _fallback_momentum
+from caluclator.momentum import _fallback_momentum
 
 
 class TestFallbackMomentum(unittest.TestCase):
