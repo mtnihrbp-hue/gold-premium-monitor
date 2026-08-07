@@ -55,10 +55,6 @@ def _send(text: str):
         print(f"TELEGRAM ERROR: {e}", file=sys.stderr)
 
 
-# -----------------------------
-# Safe format helpers
-# -----------------------------
-
 def _money(value):
     if value is None:
         return "N/A"
@@ -77,10 +73,6 @@ def _number(value, decimals=2):
         return str(value)
 
 
-# -----------------------------
-# Platform formatting
-# -----------------------------
-
 def _format_platforms(markets, previous_markets=None):
     table_lines = format_platform_table(markets, previous_markets)
     if not table_lines:
@@ -94,10 +86,6 @@ def _format_platforms(markets, previous_markets=None):
     parts.append("```")
     return "\n".join(parts)
 
-
-# -----------------------------
-# Message builder
-# -----------------------------
 
 def _build_message(
     header_emoji,
@@ -114,7 +102,6 @@ def _build_message(
     signal=None,
     reason=None,
 ):
-    """Build the full 4-section Telegram message."""
     lines = []
     lines.append(f"{header_emoji} {header_text}")
     lines.append("")
@@ -171,10 +158,6 @@ def _build_message(
     return "\n".join(lines)
 
 
-# -----------------------------
-# Daily recap
-# -----------------------------
-
 def send_daily_recap(
     world,
     usd,
@@ -201,10 +184,6 @@ def send_daily_recap(
     )
     _send(text)
 
-
-# -----------------------------
-# Alert
-# -----------------------------
 
 def send_alert(
     signal,
@@ -236,10 +215,6 @@ def send_alert(
     _send(text)
 
 
-# -----------------------------
-# Manual update
-# -----------------------------
-
 def send_manual_update(
     world,
     usd,
@@ -267,10 +242,6 @@ def send_manual_update(
     _send(text)
 
 
-# -----------------------------
-# Missing data message
-# -----------------------------
-
 def send_data_unavailable(
     usd=None,
     markets=None,
@@ -297,3 +268,7 @@ def send_data_unavailable(
     lines.append(f"_{format_timestamp()}_")
 
     _send("\n".join(lines))
+
+
+def send_processing():
+    _send("⏳ **Collecting market data...**")
