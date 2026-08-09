@@ -20,15 +20,7 @@ def format_platform_bullets(markets, previous_markets=None):
 
 
 def format_platform_table(markets, previous_markets=None):
-    """Format valid platforms as a sorted table with price change.
-
-    Args:
-        markets: current markets dict {name: {price, status}}
-        previous_markets: flat dict {name: price} from previous run
-
-    Returns:
-        List of formatted strings, alphabetically sorted.
-    """
+    """Format valid platforms as a sorted table with price change."""
     lines = []
     for name in sorted(markets.keys()):
         info = markets[name]
@@ -49,10 +41,7 @@ def format_platform_table(markets, previous_markets=None):
 
 
 def format_platform_table_rows(markets, previous_markets=None):
-    """Format valid platforms as HTML table rows for Email.
-
-    Includes a Change column compared to previous run.
-    """
+    """Format valid platforms as HTML table rows for Email."""
     rows = ""
     for name in sorted(markets.keys()):
         info = markets[name]
@@ -124,6 +113,7 @@ def format_momentum_block(momentum):
     candle = momentum.get("candlestick")
     verbal = momentum.get("verbal_direction", "Neutral")
 
+    # Premium label line — always show, even when vs_today is None (R4)
     if vs_today:
         lines.append(
             f"Premium:         {vs_today['emoji']} {vs_today['label']}"
@@ -131,6 +121,9 @@ def format_momentum_block(momentum):
         lines.append(
             f"  vs today avg:  {vs_today['diff']:+.2f}%"
         )
+    else:
+        lines.append("Premium:         —")
+        lines.append("  vs today avg:  — (first run today)")
 
     if vs_yesterday:
         lines.append(
@@ -138,14 +131,18 @@ def format_momentum_block(momentum):
             f"({vs_yesterday['date']} avg: {vs_yesterday['avg']:+.2f}%)"
         )
 
+    # Candlestick — hide range bar when n < 2 (R2)
     if candle:
-        lines.append(
-            f"Candle:          {candle['low']:+.2f}% ━━━━ {candle['high']:+.2f}%  "
-            f"(avg {candle['avg']:+.2f}%, n={vs_today['count'] if vs_today else '?'})"
-        )
+        n = vs_today["count"] if vs_today else 0
+        if n >= 2:
+            lines.append(
+                f"Candle:          {candle['low']:+.2f}% ━━━━ {candle['high']:+.2f}%  "
+                f"(avg {candle['avg']:+.2f}%, n={n})"
+            )
+        else:
+            lines.append(f"Candle:          — (insufficient data, n={n})")
 
     lines.append(f"Direction:       {verbal}")
-
     return lines
 
 
