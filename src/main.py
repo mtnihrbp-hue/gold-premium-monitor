@@ -204,15 +204,18 @@ def main():
         thresholds=thresholds,
     )
 
-    # Momentum (DB-backed, non-blocking)
+    # Momentum + Input Directions (DB-backed, non-blocking)
     momentum = None
+    input_directions = None
     try:
         session = get_session()
         if session:
             momentum = build_momentum_context(premium, session)
+            from database.repository import get_input_directions
+            input_directions = get_input_directions(world, usd, session)
             session.close()
     except Exception as e:
-        print(f"Momentum build failed: {e}")
+        print(f"Momentum/Directions build failed: {e}")
 
     # Console output
     print("\nCALCULATE")
@@ -246,6 +249,16 @@ def main():
         if vs_yesterday:
             print(f" Premium vs yesterday: {vs_yesterday['diff']:+.2f}%")
         print(f" Direction: {momentum.get('verbal_direction', 'Neutral')}")
+
+    if input_directions:
+        print("\nINPUT DIRECTIONS")
+        print("-" * 40)
+        wd = input_directions.get("world")
+        if wd:
+            print(f" World Gold: {wd['arrow']} ({wd['pct']:+.2f}%) stale={wd['stale_count']}")
+        ud = input_directions.get("usd")
+        if ud:
+            print(f" USD: {ud['arrow']} ({ud['pct']:+.2f}%) stale={ud['stale_count']}")
 
     print(f"\nLast Alert: {last_alert}")
 
@@ -282,7 +295,7 @@ def main():
 
     save_state(state)
 
-    # Save to database (non-blocking — failure never crashes the app)
+    # Save to database (non-blocking)
     try:
         from database.repository import save_market_snapshot
 
@@ -327,7 +340,8 @@ def main():
         try:
             send_telegram_alert(
                 signal, world, usd, fair, lowest, premium, markets,
-                trends=trends, momentum=momentum, previous_markets=previous_markets
+                trends=trends, momentum=momentum, previous_markets=previous_markets,
+                input_directions=input_directions,
             )
         except Exception as e:
             print(f"ERROR: Telegram alert failed: {e}")
@@ -344,7 +358,8 @@ def main():
         try:
             send_telegram_recap(
                 world, usd, fair, lowest, premium, markets,
-                trends=trends, momentum=momentum, previous_markets=previous_markets
+                trends=trends, momentum=momentum, previous_markets=previous_markets,
+                input_directions=input_directions,
             )
         except Exception as e:
             print(f"ERROR: Telegram daily recap failed: {e}")
@@ -354,7 +369,8 @@ def main():
         try:
             send_telegram_manual(
                 world, usd, fair, lowest, premium, markets,
-                trends=trends, momentum=momentum, previous_markets=previous_markets
+                trends=trends, momentum=momentum, previous_markets=previous_markets,
+                input_directions=input_directions,
             )
         except Exception as e:
             print(f"ERROR: Telegram manual update failed: {e}")
