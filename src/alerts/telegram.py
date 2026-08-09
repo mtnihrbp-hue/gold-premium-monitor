@@ -101,7 +101,9 @@ def _build_message(
     previous_markets=None,
     signal=None,
     reason=None,
+    input_directions=None,
 ):
+    """Build the full 4-section Telegram message."""
     lines = []
     lines.append(f"{header_emoji} {header_text}")
     lines.append("")
@@ -113,8 +115,24 @@ def _build_message(
     lines.append(f"Fair Price:  {_money(fair)}")
     lines.append(f"Lowest:      {_money(lowest)}")
     lines.append(f"Premium:     {_number(premium)}%")
-    lines.append(f"World Gold:  {_number(world)} USD/oz")
-    lines.append(f"USD:         {_money(usd)} IRR")
+
+    # World Gold with direction (R1)
+    world_line = f"World Gold:  {_number(world)} USD/oz"
+    if input_directions and input_directions.get("world"):
+        wd = input_directions["world"]
+        world_line += f"  {wd['arrow']} ({wd['pct']:+.2f}%)"
+        if wd["stale_count"] >= 3:
+            world_line += f" [stale {wd['stale_count']} runs]"
+    lines.append(world_line)
+
+    # USD with direction (R1)
+    usd_line = f"USD:         {_money(usd)} IRR"
+    if input_directions and input_directions.get("usd"):
+        ud = input_directions["usd"]
+        usd_line += f"  {ud['arrow']} ({ud['pct']:+.2f}%)"
+        if ud["stale_count"] >= 3:
+            usd_line += f" [stale {ud['stale_count']} runs]"
+    lines.append(usd_line)
     lines.append("")
 
     # MOMENTUM
@@ -125,8 +143,7 @@ def _build_message(
         lines.append("📈 MOMENTUM")
         lines.append(SEPARATOR)
         lines.extend(trend_lines)
-        if trend_lines and momentum_lines:
-            lines.append("")
+        # REMOVED blank line between trend and momentum (R4)
         lines.extend(momentum_lines)
         lines.append("")
 
@@ -170,6 +187,7 @@ def send_daily_recap(
     trends=None,
     momentum=None,
     previous_markets=None,
+    input_directions=None,
 ):
     text = _build_message(
         "📊",
@@ -183,6 +201,7 @@ def send_daily_recap(
         momentum=momentum,
         markets=markets,
         previous_markets=previous_markets,
+        input_directions=input_directions,
     )
     _send(text)
 
@@ -198,6 +217,7 @@ def send_alert(
     trends=None,
     momentum=None,
     previous_markets=None,
+    input_directions=None,
 ):
     text = _build_message(
         "⚡",
@@ -213,6 +233,7 @@ def send_alert(
         previous_markets=previous_markets,
         signal=signal["signal"],
         reason=signal.get("reason"),
+        input_directions=input_directions,
     )
     _send(text)
 
@@ -227,6 +248,7 @@ def send_manual_update(
     trends=None,
     momentum=None,
     previous_markets=None,
+    input_directions=None,
 ):
     text = _build_message(
         "📋",
@@ -240,6 +262,7 @@ def send_manual_update(
         momentum=momentum,
         markets=markets,
         previous_markets=previous_markets,
+        input_directions=input_directions,
     )
     _send(text)
 
