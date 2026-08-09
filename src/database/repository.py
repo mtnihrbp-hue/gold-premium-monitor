@@ -1,4 +1,8 @@
-"""Database repository for market snapshot operations."""
+"""Database repository for market snapshot operations.
+
+All database writes are wrapped in transactions.
+Read operations return None / [] when the database is unavailable.
+"""
 
 from datetime import datetime, timedelta
 
@@ -18,6 +22,7 @@ def save_market_snapshot(
     confidence=None,
     platform_prices=None,
 ):
+    """Save a market snapshot and associated platform prices."""
     session = get_session()
     if session is None:
         raise RuntimeError("Database not configured (DATABASE_URL missing)")
@@ -57,6 +62,7 @@ def save_market_snapshot(
 
 
 def get_latest_market_snapshot():
+    """Return the most recent market snapshot, or None if unavailable."""
     session = get_session()
     if session is None:
         return None
@@ -71,6 +77,7 @@ def get_latest_market_snapshot():
 
 
 def get_snapshots(days=30):
+    """Return market snapshots from the last N days."""
     session = get_session()
     if session is None:
         return []
@@ -86,7 +93,10 @@ def get_snapshots(days=30):
         session.close()
 
 
+# --- Daily Premium Stats (Task C) ---
+
 def get_daily_premium_stats(target_date, session):
+    """Return premium statistics for a given calendar day."""
     results = (
         session.query(MarketSnapshot)
         .filter(func.date(MarketSnapshot.timestamp) == target_date)
@@ -107,6 +117,7 @@ def get_daily_premium_stats(target_date, session):
 
 
 def get_premium_momentum_context(current_premium, session):
+    """Return full momentum context comparing current premium to daily averages."""
     today = datetime.now().date()
     yesterday = today - timedelta(days=1)
     today_stats = get_daily_premium_stats(today, session)
@@ -149,10 +160,11 @@ def get_premium_momentum_context(current_premium, session):
             "label": label,
         }
 
-    if yesterday_stats:
-        diff = current_premium - yesterday_stats["avg"]
-    elif today_stats:
+    # Verbal direction: use SAME diff as the label (today first, then yesterday)
+    if today_stats:
         diff = current_premium - today_stats["avg"]
+    elif yesterday_stats:
+        diff = current_premium - yesterday_stats["avg"]
     else:
         diff = 0.0
 
@@ -161,6 +173,7 @@ def get_premium_momentum_context(current_premium, session):
 
 
 def _label_premium_diff(diff):
+    """Return (label, emoji) for a premium difference."""
     if diff < -0.05:
         return "Discount Deepening", "▼"
     elif diff > 0.05:
@@ -170,12 +183,97 @@ def _label_premium_diff(diff):
 
 
 def _verbal_direction(premium, diff):
+    """Return verbal momentum direction."""
     if abs(diff) < 0.05:
         return "Neutral"
     if diff < 0:
         return "Toward Buy"
     return "Toward Sell"
 
+
+# --- Input Directions (Refinement R1) ---
+
+def get_input_directions(world, usd, session):
+    """Return direction indicators for world gold and USD.
+
+    Compares current values to the most recent previous snapshot.
+    Also counts consecutive unchanged values (stale detection).
+
+    Returns:
+        {
+            "world": {"arrow": str, "pct": float, "stale_count": int},
+            "usd": {"arrow": str, "pct": float, "stale_count": int},
+        }
+    """
+    if world is None or usd is None:
+        return {
+            "world": {"arrow": "→", "pct": 0.0, "stale_count": 0},
+            "usd": {"arrow": "→", "pct": 0.0, "stale_count": 0},
+        }
+
+    recent = (
+        session.query(MarketSnapshot)
+        .filter(MarketSnapshot.world_gold_usd.isnot(None))
+        .filter(MarketSnapshot.usd_irr.isnot(None))
+        .order_by(MarketSnapshot.timestamp.desc())
+        .limit(20)
+        .all()
+    )
+
+    result = {
+        "world": {"arrow": "→", "pct": 0.0, "stale_count": 0},
+        "usd": {"arrow": "→", "pct": 0.0, "stale_count": 0},
+    }
+
+    if not recent:
+        return result
+
+    # World gold direction vs most recent snapshot
+    prev_world = float(recent[0].world_gold_usd) if recent[0].world_gold_usd else None
+    if prev_world and prev_world != 0:
+        pct = ((world - prev_world) / prev_world) * 100
+        result["world"]["pct"] = round(pct, 2)
+        if abs(pct) < 0.01:
+            result["world"]["arrow"] = "→"
+        elif pct > 0:
+            result["world"]["arrow"] = "↑"
+        else:
+            result["world"]["arrow"] = "↓"
+
+    # USD direction vs most recent snapshot
+    prev_usd = float(recent[0].usd_irr) if recent[0].usd_irr else None
+    if prev_usd and prev_usd != 0:
+        pct = ((usd - prev_usd) / prev_usd) * 100
+        result["usd"]["pct"] = round(pct, 2)
+        if abs(pct) < 0.01:
+            result["usd"]["arrow"] = "→"
+        elif pct > 0:
+            result["usd"]["arrow"] = "↑"
+        else:
+            result["usd"]["arrow"] = "↓"
+
+    # Stale detection: count consecutive unchanged values in DB
+    stale_world = 0
+    for r in recent:
+        if r.world_gold_usd is not None and abs(float(r.world_gold_usd) - world) < 0.01:
+            stale_world += 1
+        else:
+            break
+
+    stale_usd = 0
+    for r in recent:
+        if r.usd_irr is not None and abs(float(r.usd_irr) - usd) < 0.01:
+            stale_usd += 1
+        else:
+            break
+
+    result["world"]["stale_count"] = stale_world
+    result["usd"]["stale_count"] = stale_usd
+
+    return result
+
+
+# --- Market Hypotheses (SP3 Foundation) ---
 
 def save_hypothesis(
     session,
@@ -187,6 +285,7 @@ def save_hypothesis(
     model_version=None,
     source=None,
 ):
+    """Save a new market hypothesis."""
     hypothesis = MarketHypothesis(
         hypothesis_type=hypothesis_type,
         description=description,
@@ -204,6 +303,7 @@ def save_hypothesis(
 
 
 def resolve_hypothesis(session, hypothesis_id, actual_outcome, result, failure_reason=None):
+    """Resolve a hypothesis with actual outcome."""
     hypothesis = (
         session.query(MarketHypothesis)
         .filter(MarketHypothesis.id == hypothesis_id)
@@ -220,6 +320,7 @@ def resolve_hypothesis(session, hypothesis_id, actual_outcome, result, failure_r
 
 
 def get_hypothesis_accuracy(session, hypothesis_type=None, days=30):
+    """Return accuracy stats for hypotheses."""
     since = datetime.now() - timedelta(days=days)
     query = session.query(MarketHypothesis).filter(
         MarketHypothesis.resolved_at >= since,
