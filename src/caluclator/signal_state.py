@@ -1,16 +1,16 @@
 """Signal state orchestrator — pipelines observations into decisions.
 
-SP-A: Orchestrates Valuation → Momentum → Structure → Conflict → Hysteresis.
+SP-A: Valuation → Momentum → Structure → Conflict → Hysteresis.
 """
 
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from src.caluclator.valuation import evaluate_valuation
-from src.caluclator.momentum import get_premium_direction, evaluate_momentum
-from src.caluclator.structure import evaluate_structure
-from src.caluclator.conflict import evaluate_conflict, build_reason
+from caluclator.valuation import evaluate_valuation
+from caluclator.momentum import get_premium_direction, evaluate_momentum
+from caluclator.structure import evaluate_structure
+from caluclator.conflict import evaluate_conflict, build_reason
 
 
 @dataclass
@@ -63,62 +63,29 @@ def build_signal_state(
     snapshot_id: int,
     timestamp: Optional[datetime] = None,
 ) -> SignalState:
-    """Orchestrate the full signal intelligence pipeline.
-
-    Pipeline:
-        MARKET OBSERVATIONS
-                ↓
-            VALUATION
-                ↓
-            MOMENTUM
-                ↓
-        MARKET STRUCTURE
-                ↓
-          SIGNAL CONFLICT
-                ↓
-       CANDIDATE DECISION
-                ↓
-       HYSTERESIS GATE
-                ↓
-       FINAL DECISION
-
-    Args:
-        premium: current premium percentage
-        fair_price: calculated fair price
-        lowest_price: lowest platform price observed
-        markets: dict of {name: {price, status, ...}}
-        previous_premium: previous premium for direction (None if unavailable)
-        thresholds: config dict with buy_premium, sell_premium, etc.
-        last_alert: last alert decision for hysteresis (None if first run)
-        snapshot_id: FK to market_snapshots
-        timestamp: optional timestamp (defaults to utcnow)
-
-    Returns:
-        fully populated SignalState
-    """
+    """Orchestrate the full signal intelligence pipeline."""
     if timestamp is None:
         timestamp = datetime.utcnow()
 
-    # 1. VALUATION — cheap, fair, or expensive?
+    # 1. VALUATION
     valuation = evaluate_valuation(premium, thresholds)
 
-    # 2. MOMENTUM — improving, weakening, or neutral?
+    # 2. MOMENTUM
     premium_direction = get_premium_direction(premium, previous_premium)
     momentum = evaluate_momentum(premium_direction)
 
-    # 3. STRUCTURE — what are platforms doing?
+    # 3. STRUCTURE
     structure_result = evaluate_structure(markets, fair_price)
     structure = structure_result["state"]
 
-    # 4. CONFLICT — do signals align?
+    # 4. CONFLICT → CANDIDATE
     conflict, candidate_decision = evaluate_conflict(valuation, momentum, structure)
 
-    # 5. HYSTERESIS — cooldown gate on candidate decision
-    # Import here to avoid circular dependency at module load time
-    from src.caluclator.signals import apply_hysteresis
+    # 5. HYSTERESIS → FINAL
+    from caluclator.signals import apply_hysteresis
     final_decision = apply_hysteresis(candidate_decision, last_alert, thresholds)
 
-    # 6. REASON — human-readable explanation
+    # 6. REASON
     reason = build_reason(
         valuation=valuation,
         momentum=momentum,
