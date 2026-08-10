@@ -59,3 +59,46 @@ class MarketHypothesis(Base):
     failure_reason = Column(Text, nullable=True)
     model_version = Column(String(20), nullable=True)
     source = Column(String(50), nullable=True)
+
+class MarketState(Base):
+    """Interpreted market state for a single snapshot.
+
+    Kept separate from market_snapshots because:
+      - market_snapshots = raw observations (stable schema)
+      - market_states    = interpreted state (evolves with intelligence)
+      - SP-B will add columns here without touching raw data
+    """
+
+    __tablename__ = "market_states"
+
+    id = Column(Integer, primary_key=True)
+    snapshot_id = Column(
+        Integer,
+        ForeignKey("market_snapshots.id"),
+        nullable=False,
+    )
+
+    # Valuation
+    valuation_state = Column(String(20), nullable=False)
+
+    # Momentum
+    momentum_state = Column(String(20), nullable=False)
+    premium_direction = Column(String(30), nullable=False)
+
+    # Structure
+    structure_state = Column(String(20), nullable=False)
+    platform_average = Column(Numeric(20, 2))
+    platform_high = Column(Numeric(20, 2))
+    platform_low = Column(Numeric(20, 2))
+    platform_spread = Column(Numeric(20, 2))
+    platforms_below_fair = Column(Integer)
+    platforms_above_fair = Column(Integer)
+
+    # Conflict & Decision
+    conflict_state = Column(String(30), nullable=False)
+    candidate_decision = Column(String(10), nullable=False)
+    final_decision = Column(String(10), nullable=False)
+    reason = Column(Text)
+
+    timestamp = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
