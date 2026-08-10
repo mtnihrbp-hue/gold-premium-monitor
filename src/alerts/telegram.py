@@ -3,6 +3,8 @@ import sys
 import html
 
 import requests
+from typing import Optional
+
 
 from alerts.helpers import (
     format_platform_table,
@@ -293,6 +295,100 @@ def send_data_unavailable(
     lines.append(f"_{format_timestamp()}_")
 
     _send("\n".join(lines))
+
+
+def format_decision_section(state: "SignalState") -> str:
+    """Format the SP-A DECISION section for Telegram alerts.
+
+    Example:
+        ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+        ⚡ DECISION
+        ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+        Market State:
+          Valuation:  CHEAP
+          Momentum:   DISCOUNT WIDENING
+          Structure:  DISCOUNT DOMINANT
+          Conflict:   SUPPORTIVE
+
+        Candidate:   BUY
+        Final:       🟢 BUY
+
+        Reason:
+          Market deeply discounted. Discount widening ...
+
+    Args:
+        state: populated SignalState
+
+    Returns:
+        formatted string ready for Telegram
+    """
+    emoji_map = {
+        "BUY": "🟢",
+        "SELL": "🔴",
+        "WAIT": "⚪",
+        "UNKNOWN": "⚫",
+    }
+
+    # Normalize underscores to spaces for display
+    momentum_display = state.premium_direction.replace("_", " ")
+    structure_display = state.structure.replace("_", " ")
+
+    lines = [
+        "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
+        "⚡ DECISION",
+        "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
+        "Market State:",
+        f"  Valuation:  {state.valuation}",
+        f"  Momentum:   {momentum_display}",
+        f"  Structure:  {structure_display}",
+        f"  Conflict:   {state.conflict}",
+        "",
+        f"Candidate:   {state.candidate_decision}",
+        f"Final:       {emoji_map.get(state.final_decision, '⚪')} {state.final_decision}",
+        "",
+        "Reason:",
+        f"  {state.reason}",
+    ]
+
+    return "\n".join(lines)
+
+
+def format_full_alert(
+    state: "SignalState",
+    price_section: Optional[str] = None,
+    trend_section: Optional[str] = None,
+    momentum_section: Optional[str] = None,
+) -> str:
+    """Assemble complete 4-section Telegram alert.
+
+    Sections (in order):
+        1. PRICE     (existing)
+        2. TREND     (existing)
+        3. MOMENTUM  (existing, Task C)
+        4. DECISION  (new, SP-A)
+
+    Args:
+        state: populated SignalState
+        price_section: pre-formatted PRICE section string
+        trend_section: pre-formatted TREND section string
+        momentum_section: pre-formatted MOMENTUM section string
+
+    Returns:
+        complete alert string
+    """
+    sections = []
+
+    if price_section:
+        sections.append(price_section)
+    if trend_section:
+        sections.append(trend_section)
+    if momentum_section:
+        sections.append(momentum_section)
+
+    sections.append(format_decision_section(state))
+
+    return "\n\n".join(sections)
+
 
 
 def send_processing():
