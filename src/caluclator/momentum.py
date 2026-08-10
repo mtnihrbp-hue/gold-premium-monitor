@@ -1,12 +1,12 @@
 """Premium momentum analysis using historical database data.
 
 SP-A ADDITIONS:
-  - get_premium_direction(): explicit discount/premium terminology
-  - evaluate_momentum(): maps direction to IMPROVING/NEUTRAL/WEAKENING
+- get_premium_direction(): explicit discount/premium terminology
+- evaluate_momentum(): maps direction to IMPROVING/NEUTRAL/WEAKENING
 
 PRESERVED:
-  - build_momentum_context() (Task C)
-  - _fallback_momentum() (Task C)
+- build_momentum_context() (Task C)
+- _fallback_momentum() (Task C)
 """
 
 from typing import Optional
@@ -20,14 +20,14 @@ def get_premium_direction(current_premium: float, previous_premium: Optional[flo
     """Determine premium direction with explicit discount/premium terminology.
 
     For negative premium (discount):
-      current < previous (more negative)  → DISCOUNT_WIDENING
-      current > previous (less negative)  → DISCOUNT_NARROWING
-      |diff| < 0.05%                      → DISCOUNT_STABLE
+    current < previous (more negative) → DISCOUNT_WIDENING
+    current > previous (less negative) → DISCOUNT_NARROWING
+    |diff| < 0.05% → DISCOUNT_STABLE
 
     For positive premium:
-      current > previous (more positive)  → PREMIUM_WIDENING
-      current < previous (less positive)  → PREMIUM_NARROWING
-      |diff| < 0.05%                      → PREMIUM_STABLE
+    current > previous (more positive) → PREMIUM_WIDENING
+    current < previous (less positive) → PREMIUM_NARROWING
+    |diff| < 0.05% → PREMIUM_STABLE
     """
     if previous_premium is None:
         return "DISCOUNT_STABLE" if current_premium < 0 else "PREMIUM_STABLE"
@@ -55,11 +55,11 @@ def get_premium_direction(current_premium: float, previous_premium: Optional[flo
 def evaluate_momentum(premium_direction: str, fair_trend: Optional[dict] = None) -> str:
     """Map premium direction to momentum state.
 
-    IMPROVING  = discount widening  (cheaper for buyer)
-                 or premium narrowing (cheaper for buyer)
-    WEAKENING  = discount narrowing (pricier for buyer)
-                 or premium widening (pricier for buyer)
-    NEUTRAL    = stable or unrecognized
+    IMPROVING = discount widening (cheaper for buyer)
+    or premium narrowing (cheaper for buyer)
+    WEAKENING = discount narrowing (pricier for buyer)
+    or premium widening (pricier for buyer)
+    NEUTRAL = stable or unrecognized
     """
     if premium_direction in ("DISCOUNT_WIDENING", "PREMIUM_NARROWING"):
         return "IMPROVING"
