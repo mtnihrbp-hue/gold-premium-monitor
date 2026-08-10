@@ -1,21 +1,25 @@
-"""Signal state orchestrator — pipelines observations into decisions.
+"""Signal state orchestrator — builds the complete market state pipeline.
 
-SP-A: Valuation → Momentum → Structure → Conflict → Hysteresis.
+Deterministic, no ML.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Dict, Any, Optional
 
 from caluclator.valuation import evaluate_valuation
 from caluclator.momentum import get_premium_direction, evaluate_momentum
 from caluclator.structure import evaluate_structure
 from caluclator.conflict import evaluate_conflict, build_reason
+from caluclator.signals import apply_hysteresis
 
 
 @dataclass
 class SignalState:
-    """Complete market state after full signal pipeline evaluation."""
+    """Complete interpreted market state for a single snapshot.
+
+    Inputs + Valuation + Momentum + Structure + Conflict + Decision.
+    """
 
     # Inputs
     premium: float
@@ -23,33 +27,32 @@ class SignalState:
     lowest_price: float
 
     # Valuation
-    valuation: str          # CHEAP | FAIR | EXPENSIVE | UNKNOWN
+    valuation: str = "UNKNOWN"
 
     # Momentum
-    momentum: str           # IMPROVING | NEUTRAL | WEAKENING | UNKNOWN
-    premium_direction: str  # DISCOUNT_WIDENING | DISCOUNT_NARROWING | DISCOUNT_STABLE
-                            # PREMIUM_WIDENING | PREMIUM_NARROWING | PREMIUM_STABLE
+    momentum: str = "UNKNOWN"
+    premium_direction: str = "DISCOUNT_STABLE"
 
     # Structure
-    structure: str          # DISCOUNT_DOMINANT | PREMIUM_DOMINANT | MIXED | UNKNOWN
-    platform_average: float
-    platform_high: float
-    platform_low: float
-    platform_spread: float
-    platforms_below_fair: int
-    platforms_above_fair: int
+    structure: str = "UNKNOWN"
+    platform_average: float = 0.0
+    platform_high: float = 0.0
+    platform_low: float = 0.0
+    platform_spread: float = 0.0
+    platforms_below_fair: int = 0
+    platforms_above_fair: int = 0
 
     # Conflict
-    conflict: str           # SUPPORTIVE | CAUTION | SUPPORTIVE_FOR_SELL | NEUTRAL | UNKNOWN
+    conflict: str = "UNKNOWN"
 
     # Decision
-    candidate_decision: str # BUY | WAIT | SELL | UNKNOWN
-    final_decision: str     # BUY | WAIT | SELL | UNKNOWN (after hysteresis)
-    reason: str             # Human-readable explanation
+    candidate_decision: str = "UNKNOWN"
+    final_decision: str = "UNKNOWN"
+    reason: str = ""
 
     # Meta
-    timestamp: datetime
-    snapshot_id: int        # FK to market_snapshots
+    timestamp: datetime = field(default_factory=datetime.now)
+    snapshot_id: int = 0
 
 
 def build_signal_state(
@@ -60,32 +63,41 @@ def build_signal_state(
     previous_premium: Optional[float],
     thresholds: dict,
     last_alert: Optional[str],
-    snapshot_id: int,
-    timestamp: Optional[datetime] = None,
+    snapshot_id: int = 0,
 ) -> SignalState:
-    """Orchestrate the full signal intelligence pipeline."""
-    if timestamp is None:
-        timestamp = datetime.utcnow()
+    """Orchestrate the full signal state pipeline.
 
-    # 1. VALUATION
+    Args:
+        premium: current premium percentage
+        fair_price: calculated fair price
+        lowest_price: lowest market price
+        markets: dict of {name: {price, status, ...}}
+        previous_premium: previous premium for direction calculation
+        thresholds: config dict with buy_premium, sell_premium
+        last_alert: last alert type sent (BUY, SELL, or None)
+        snapshot_id: FK to market_snapshots (updated after DB save)
+
+    Returns:
+        fully populated SignalState
+    """
+    # Valuation
     valuation = evaluate_valuation(premium, thresholds)
 
-    # 2. MOMENTUM
+    # Momentum
     premium_direction = get_premium_direction(premium, previous_premium)
     momentum = evaluate_momentum(premium_direction)
 
-    # 3. STRUCTURE
+    # Structure
     structure_result = evaluate_structure(markets, fair_price)
     structure = structure_result["state"]
 
-    # 4. CONFLICT → CANDIDATE
-    conflict, candidate_decision = evaluate_conflict(valuation, momentum, structure)
+    # Conflict
+    conflict, candidate = evaluate_conflict(valuation, momentum, structure)
 
-    # 5. HYSTERESIS → FINAL
-    from caluclator.signals import apply_hysteresis
-    final_decision = apply_hysteresis(candidate_decision, last_alert, thresholds)
+    # Hysteresis gate
+    final = apply_hysteresis(candidate, last_alert, thresholds)
 
-    # 6. REASON
+    # Human-readable reason
     reason = build_reason(
         valuation=valuation,
         momentum=momentum,
@@ -102,16 +114,16 @@ def build_signal_state(
         momentum=momentum,
         premium_direction=premium_direction,
         structure=structure,
-        platform_average=structure_result.get("platform_average", 0.0),
-        platform_high=structure_result.get("platform_high", 0.0),
-        platform_low=structure_result.get("platform_low", 0.0),
-        platform_spread=structure_result.get("platform_spread", 0.0),
-        platforms_below_fair=structure_result.get("platforms_below_fair", 0),
-        platforms_above_fair=structure_result.get("platforms_above_fair", 0),
+        platform_average=structure_result["platform_average"],
+        platform_high=structure_result["platform_high"],
+        platform_low=structure_result["platform_low"],
+        platform_spread=structure_result["platform_spread"],
+        platforms_below_fair=structure_result["platforms_below_fair"],
+        platforms_above_fair=structure_result["platforms_above_fair"],
         conflict=conflict,
-        candidate_decision=candidate_decision,
-        final_decision=final_decision,
+        candidate_decision=candidate,
+        final_decision=final,
         reason=reason,
-        timestamp=timestamp,
+        timestamp=datetime.now(),
         snapshot_id=snapshot_id,
     )
