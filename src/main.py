@@ -1,11 +1,7 @@
 import json
 import os
 from datetime import datetime
-
-from typing import Any, Dict, Optional
-
-from caluclator.signal_state import build_signal_state, SignalState
-from database.repository import save_market_state
+from dataclasses import replace
 
 from collector.kitco import get_world_gold_price
 from collector.bonbast import get_usd_sell_rate
@@ -18,6 +14,7 @@ from caluclator.gold import (
 )
 
 from caluclator.signals import evaluate_signal
+from caluclator.signal_state import build_signal_state, SignalState
 from caluclator.trends import get_trend_summary, get_market_spread
 from caluclator.momentum import build_momentum_context
 
@@ -45,6 +42,7 @@ from validation.data import (
 )
 
 from database.connection import get_session
+from database.repository import save_market_snapshot, save_market_state
 
 
 def load_config():
@@ -201,12 +199,24 @@ def main():
     else:
         previous_premium = premium
 
-    # Signal
+    # Legacy signal (preserved for backward compatibility)
     signal = evaluate_signal(
         current_premium=premium,
         previous_premium=previous_premium,
         last_alert_type=last_alert,
         thresholds=thresholds,
+    )
+
+    # SP-A: Build signal state (snapshot_id placeholder — updated after DB save)
+    signal_state = build_signal_state(
+        premium=premium,
+        fair_price=fair,
+        lowest_price=lowest,
+        markets=markets,
+        previous_premium=previous_premium,
+        thresholds=thresholds,
+        last_alert=last_alert,
+        snapshot_id=0,
     )
 
     # Momentum + Input Directions (DB-backed, non-blocking)
@@ -265,6 +275,16 @@ def main():
         if ud:
             print(f" USD: {ud['arrow']} ({ud['pct']:+.2f}%) stale={ud['stale_count']}")
 
+    # SP-A console output
+    print("\nSP-A STATE")
+    print("-" * 40)
+    print(f" Valuation:   {signal_state.valuation}")
+    print(f" Momentum:    {signal_state.momentum} ({signal_state.premium_direction})")
+    print(f" Structure:   {signal_state.structure}")
+    print(f" Conflict:    {signal_state.conflict}")
+    print(f" Candidate:   {signal_state.candidate_decision}")
+    print(f" Final:       {signal_state.final_decision}")
+
     print(f"\nLast Alert: {last_alert}")
 
     if signal:
@@ -301,9 +321,8 @@ def main():
     save_state(state)
 
     # Save to database (non-blocking)
+    snapshot_id = None
     try:
-        from database.repository import save_market_snapshot
-
         platform_prices = []
         for name, info in markets.items():
             if info["status"] == "OK":
@@ -313,19 +332,28 @@ def main():
                     "change_irr": platform_changes.get(name),
                 })
 
-        save_market_snapshot(
+        snapshot_id = save_market_snapshot(
             timestamp=datetime.now(),
             fair_price=fair,
             premium_percent=premium,
             world_gold_usd=world,
             usd_irr=usd,
-            signal=signal["signal"] if signal else None,
+            signal=signal_state.final_decision,
             confidence=None,
             platform_prices=platform_prices,
         )
         print("\nDB: Snapshot saved")
     except Exception as e:
-        print(f"\nDB ERROR: {e}")
+        print(f"\nDB ERROR (snapshot): {e}")
+
+    # SP-A: Save interpreted market state
+    if snapshot_id is not None:
+        try:
+            signal_state = replace(signal_state, snapshot_id=snapshot_id)
+            save_market_state(signal_state)
+            print("DB: Market state saved")
+        except Exception as e:
+            print(f"DB ERROR (market state): {e}")
 
     # Alerts
     should_send_alert = (
@@ -347,6 +375,7 @@ def main():
                 signal, world, usd, fair, lowest, premium, markets,
                 trends=trends, momentum=momentum, previous_markets=previous_markets,
                 input_directions=input_directions,
+                signal_state=signal_state,
             )
         except Exception as e:
             print(f"ERROR: Telegram alert failed: {e}")
@@ -365,6 +394,7 @@ def main():
                 world, usd, fair, lowest, premium, markets,
                 trends=trends, momentum=momentum, previous_markets=previous_markets,
                 input_directions=input_directions,
+                signal_state=signal_state,
             )
         except Exception as e:
             print(f"ERROR: Telegram daily recap failed: {e}")
@@ -376,52 +406,10 @@ def main():
                 world, usd, fair, lowest, premium, markets,
                 trends=trends, momentum=momentum, previous_markets=previous_markets,
                 input_directions=input_directions,
+                signal_state=signal_state,
             )
         except Exception as e:
             print(f"ERROR: Telegram manual update failed: {e}")
-
-
-def run_signal_pipeline(
-    snapshot: Any,
-    markets: Dict[str, Any],
-    previous_premium: Optional[float],
-    thresholds: dict,
-    last_alert: Optional[str],
-    session: Any,
-) -> SignalState:
-    """Run the full SP-A signal pipeline and persist state.
-
-    Call this after saving the market_snapshot and before sending alerts.
-
-    Args:
-        snapshot: MarketSnapshot ORM instance (needs .id, .premium,
-                  .fair_price, .lowest_price)
-        markets: dict of platform data {name: {price, status, ...}}
-        previous_premium: previous cycle's premium (None on first run)
-        thresholds: config dict with buy_premium, sell_premium, cooldown_hours
-        last_alert: last final_decision that was actually sent (for hysteresis)
-        session: SQLAlchemy DB session
-
-    Returns:
-        fully populated SignalState (already persisted to DB)
-    """
-    state = build_signal_state(
-        premium=snapshot.premium,
-        fair_price=snapshot.fair_price,
-        lowest_price=snapshot.lowest_price,
-        markets=markets,
-        previous_premium=previous_premium,
-        thresholds=thresholds,
-        last_alert=last_alert,
-        snapshot_id=snapshot.id,
-    )
-
-    # Persist interpreted state to market_states table
-    save_market_state(session, state)
-
-    return state
-
-
 
 
 if __name__ == "__main__":
