@@ -346,3 +346,53 @@ def get_hypothesis_accuracy(session, hypothesis_type=None, days=30):
         "wrong": wrong,
         "accuracy_rate": round(weighted, 4),
     }
+
+
+def save_market_state(session: Session, state: "SignalState") -> MarketState:
+    """Persist a SignalState to the market_states table.
+
+    Args:
+        session: SQLAlchemy session
+        state: populated SignalState dataclass
+
+    Returns:
+        persisted MarketState ORM instance
+    """
+    db_state = MarketState(
+        snapshot_id=state.snapshot_id,
+        valuation_state=state.valuation,
+        momentum_state=state.momentum,
+        premium_direction=state.premium_direction,
+        structure_state=state.structure,
+        platform_average=state.platform_average,
+        platform_high=state.platform_high,
+        platform_low=state.platform_low,
+        platform_spread=state.platform_spread,
+        platforms_below_fair=state.platforms_below_fair,
+        platforms_above_fair=state.platforms_above_fair,
+        conflict_state=state.conflict,
+        candidate_decision=state.candidate_decision,
+        final_decision=state.final_decision,
+        reason=state.reason,
+        timestamp=state.timestamp,
+    )
+    session.add(db_state)
+    session.commit()
+    session.refresh(db_state)
+    return db_state
+
+
+def get_latest_market_state(session: Session) -> Optional[MarketState]:
+    """Fetch the most recent market state.
+
+    Args:
+        session: SQLAlchemy session
+
+    Returns:
+        latest MarketState or None if table is empty
+    """
+    return (
+        session.query(MarketState)
+        .order_by(MarketState.timestamp.desc())
+        .first()
+    )
