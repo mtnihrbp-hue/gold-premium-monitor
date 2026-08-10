@@ -4,16 +4,18 @@ All database writes are wrapped in transactions.
 Read operations return None / [] when the database is unavailable.
 """
 
-
-from sdatabase.models import MarketState
-
 from datetime import datetime, timedelta
 
-from sqlalchemy import func, Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from database.connection import get_session
-from database.models import MarketSnapshot, PlatformPrice, MarketHypothesis, MarketState
-
+from database.models import (
+    MarketSnapshot,
+    PlatformPrice,
+    MarketHypothesis,
+    MarketState,
+)
 
 
 def save_market_snapshot(
@@ -164,7 +166,6 @@ def get_premium_momentum_context(current_premium, session):
             "label": label,
         }
 
-    # Verbal direction: use SAME diff as the label (today first, then yesterday)
     if today_stats:
         diff = current_premium - today_stats["avg"]
     elif yesterday_stats:
@@ -198,17 +199,7 @@ def _verbal_direction(premium, diff):
 # --- Input Directions (Refinement R1) ---
 
 def get_input_directions(world, usd, session):
-    """Return direction indicators for world gold and USD.
-
-    Compares current values to the most recent previous snapshot.
-    Also counts consecutive unchanged values (stale detection).
-
-    Returns:
-        {
-            "world": {"arrow": str, "pct": float, "stale_count": int},
-            "usd": {"arrow": str, "pct": float, "stale_count": int},
-        }
-    """
+    """Return direction indicators for world gold and USD."""
     if world is None or usd is None:
         return {
             "world": {"arrow": "→", "pct": 0.0, "stale_count": 0},
@@ -232,7 +223,6 @@ def get_input_directions(world, usd, session):
     if not recent:
         return result
 
-    # World gold direction vs most recent snapshot
     prev_world = float(recent[0].world_gold_usd) if recent[0].world_gold_usd else None
     if prev_world and prev_world != 0:
         pct = ((world - prev_world) / prev_world) * 100
@@ -244,7 +234,6 @@ def get_input_directions(world, usd, session):
         else:
             result["world"]["arrow"] = "↓"
 
-    # USD direction vs most recent snapshot
     prev_usd = float(recent[0].usd_irr) if recent[0].usd_irr else None
     if prev_usd and prev_usd != 0:
         pct = ((usd - prev_usd) / prev_usd) * 100
@@ -256,7 +245,6 @@ def get_input_directions(world, usd, session):
         else:
             result["usd"]["arrow"] = "↓"
 
-    # Stale detection: count consecutive unchanged values in DB
     stale_world = 0
     for r in recent:
         if r.world_gold_usd is not None and abs(float(r.world_gold_usd) - world) < 0.01:
@@ -352,51 +340,65 @@ def get_hypothesis_accuracy(session, hypothesis_type=None, days=30):
     }
 
 
-def save_market_state(session: Session, state: "SignalState") -> MarketState:
+# --- SP-A: Market State Persistence ---
+
+def save_market_state(state: "SignalState") -> int:
     """Persist a SignalState to the market_states table.
 
     Args:
-        session: SQLAlchemy session
         state: populated SignalState dataclass
 
     Returns:
-        persisted MarketState ORM instance
+        id of persisted MarketState record
     """
-    db_state = MarketState(
-        snapshot_id=state.snapshot_id,
-        valuation_state=state.valuation,
-        momentum_state=state.momentum,
-        premium_direction=state.premium_direction,
-        structure_state=state.structure,
-        platform_average=state.platform_average,
-        platform_high=state.platform_high,
-        platform_low=state.platform_low,
-        platform_spread=state.platform_spread,
-        platforms_below_fair=state.platforms_below_fair,
-        platforms_above_fair=state.platforms_above_fair,
-        conflict_state=state.conflict,
-        candidate_decision=state.candidate_decision,
-        final_decision=state.final_decision,
-        reason=state.reason,
-        timestamp=state.timestamp,
-    )
-    session.add(db_state)
-    session.commit()
-    session.refresh(db_state)
-    return db_state
+    session = get_session()
+    if session is None:
+        raise RuntimeError("Database not configured (DATABASE_URL missing)")
+
+    try:
+        db_state = MarketState(
+            snapshot_id=state.snapshot_id,
+            valuation_state=state.valuation,
+            momentum_state=state.momentum,
+            premium_direction=state.premium_direction,
+            structure_state=state.structure,
+            platform_average=state.platform_average,
+            platform_high=state.platform_high,
+            platform_low=state.platform_low,
+            platform_spread=state.platform_spread,
+            platforms_below_fair=state.platforms_below_fair,
+            platforms_above_fair=state.platforms_above_fair,
+            conflict_state=state.conflict,
+            candidate_decision=state.candidate_decision,
+            final_decision=state.final_decision,
+            reason=state.reason,
+            timestamp=state.timestamp,
+        )
+        session.add(db_state)
+        session.commit()
+        session.refresh(db_state)
+        return db_state.id
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 
-def get_latest_market_state(session: Session) -> Optional[MarketState]:
+def get_latest_market_state():
     """Fetch the most recent market state.
-
-    Args:
-        session: SQLAlchemy session
 
     Returns:
         latest MarketState or None if table is empty
     """
-    return (
-        session.query(MarketState)
-        .order_by(MarketState.timestamp.desc())
-        .first()
-    )
+    session = get_session()
+    if session is None:
+        return None
+    try:
+        return (
+            session.query(MarketState)
+            .order_by(MarketState.timestamp.desc())
+            .first()
+        )
+    finally:
+        session.close()
