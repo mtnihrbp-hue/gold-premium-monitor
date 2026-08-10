@@ -2,8 +2,8 @@
 
 SP-A CHANGES:
   - Preserves existing evaluate_signal() for backward compatibility.
-  - Extracts apply_hysteresis() so the conflict engine can reuse it.
-  - Adds evaluate_market_state() as new entry point for SignalState.
+  - Adds apply_hysteresis() for the new SignalState pipeline.
+  - Adds evaluate_market_state() as new entry point.
 """
 
 from datetime import datetime, timedelta
@@ -11,27 +11,86 @@ from typing import Optional
 
 
 # ---------------------------------------------------------------------------
-# SP-A ADDITION: apply_hysteresis()
+# EXISTING FUNCTION — PRESERVED (main.py + test_signals.py depend on this)
+# ---------------------------------------------------------------------------
+
+def evaluate_signal(
+    current_premium: float,
+    previous_premium: float,
+    last_alert_type: Optional[str],
+    thresholds: dict,
+) -> Optional[dict]:
+    """Legacy signal evaluator — preserved for existing callers.
+
+    Args:
+        current_premium: current premium percentage
+        previous_premium: previous premium percentage
+        last_alert_type: last alert that was sent ("BUY", "SELL", or None)
+        thresholds: dict with buy_premium_percent, sell_premium_percent,
+                    min_change_for_alert
+
+    Returns:
+        None if no alert should be sent,
+        or {"signal": str, "new_alert_type": str|None, "reason": str}
+    """
+    buy_threshold = thresholds.get("buy_premium_percent", -1.5)
+    sell_threshold = thresholds.get("sell_premium_percent", 3.0)
+    min_change = thresholds.get("min_change_for_alert", 0.5)
+
+    # Determine zone
+    if current_premium <= buy_threshold:
+        zone = "BUY"
+    elif current_premium >= sell_threshold:
+        zone = "SELL"
+    else:
+        zone = "HOLD"
+
+    # Neutral zone — reset any active alert
+    if zone == "HOLD":
+        if last_alert_type in ("BUY", "SELL"):
+            return {
+                "signal": "HOLD",
+                "new_alert_type": None,
+                "reason": (
+                    f"Premium returned to neutral zone ({current_premium:.2f}%). "
+                    "Alert reset."
+                ),
+            }
+        return None
+
+    # zone is BUY or SELL
+    if last_alert_type == zone:
+        if previous_premium is not None:
+            drift = abs(current_premium - previous_premium)
+            if drift < min_change:
+                return None  # Suppress — not enough change
+
+    reason = f"Premium {current_premium:.2f}% — {zone} threshold triggered."
+    return {
+        "signal": zone,
+        "new_alert_type": zone,
+        "reason": reason,
+    }
+
+
+# ---------------------------------------------------------------------------
+# SP-A ADDITION: apply_hysteresis
 # ---------------------------------------------------------------------------
 
 def apply_hysteresis(
     candidate: str,
     last_alert: Optional[str],
     thresholds: dict,
-    last_alert_time: Optional[datetime] = None,
 ) -> str:
-    """Apply hysteresis gate to candidate decision.
+    """Apply simple hysteresis gate to candidate decision.
 
-    Preserves existing evaluate_signal() cooldown behavior:
-      - If candidate == BUY and last_alert == BUY within cooldown → WAIT
-      - If candidate == SELL and last_alert == SELL within cooldown → WAIT
-      - Otherwise pass candidate through unchanged
+    If candidate == last_alert, suppress to WAIT (cooldown).
+    Otherwise pass through unchanged.
 
     Args:
-        candidate: candidate decision from conflict matrix (BUY | WAIT | SELL | UNKNOWN)
-        last_alert: last alert that was actually sent (BUY | SELL | WAIT | None)
-        thresholds: config dict with cooldown_hours (default 24)
-        last_alert_time: timestamp of last_alert for cooldown check
+        candidate: BUY | WAIT | SELL | UNKNOWN from conflict matrix
+        last_alert: last alert that was actually sent (BUY | SELL | None)
+        thresholds: config dict (cooldown_hours reserved for future use)
 
     Returns:
         final decision after hysteresis gate
@@ -39,56 +98,14 @@ def apply_hysteresis(
     if candidate not in ("BUY", "SELL"):
         return candidate if candidate else "WAIT"
 
-    if last_alert == candidate and last_alert_time is not None:
-        cooldown_hours = thresholds.get("cooldown_hours", 24)
-        elapsed = datetime.utcnow() - last_alert_time
-        if elapsed < timedelta(hours=cooldown_hours):
-            return "WAIT"
+    if last_alert == candidate:
+        return "WAIT"
 
     return candidate
 
 
 # ---------------------------------------------------------------------------
-# EXISTING FUNCTION — PRESERVED (SP-A does not change behavior)
-# ---------------------------------------------------------------------------
-
-def evaluate_signal(
-    premium: float,
-    thresholds: dict,
-    last_alert: Optional[str] = None,
-    last_alert_time: Optional[datetime] = None,
-) -> str:
-    """Legacy signal evaluator — preserved for existing callers.
-
-    New code should use build_signal_state() from signal_state.py,
-    which delegates hysteresis to apply_hysteresis().
-
-    Args:
-        premium: current premium percentage
-        thresholds: dict with buy_premium, sell_premium, cooldown_hours
-        last_alert: last alert decision for cooldown check
-        last_alert_time: timestamp of last alert
-
-    Returns:
-        BUY | SELL | WAIT
-    """
-    buy_threshold = thresholds.get("buy_premium", -1.5)
-    sell_threshold = thresholds.get("sell_premium", 2.0)
-
-    # Raw threshold candidate
-    if premium <= buy_threshold:
-        candidate = "BUY"
-    elif premium >= sell_threshold:
-        candidate = "SELL"
-    else:
-        return "WAIT"
-
-    # Hysteresis gate
-    return apply_hysteresis(candidate, last_alert, thresholds, last_alert_time)
-
-
-# ---------------------------------------------------------------------------
-# SP-A ADDITION: evaluate_market_state()
+# SP-A ADDITION: evaluate_market_state
 # ---------------------------------------------------------------------------
 
 def evaluate_market_state(signal_state: "SignalState") -> str:
