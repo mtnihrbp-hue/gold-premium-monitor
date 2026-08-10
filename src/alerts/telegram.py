@@ -1,16 +1,26 @@
+"""Telegram alert formatter and sender.
+
+SP-A CHANGES:
+- Preserves all existing public functions (send_alert, send_manual_update,
+  send_data_unavailable, send_processing, send_daily_recap).
+- Adds format_decision_section() for SP-A market state breakdown.
+- Replaces ASCII sparkline with directional sentence (per project memory).
+"""
+
 import os
 import sys
 import html
 
 import requests
+from typing import Optional
 
 from alerts.helpers import (
     format_platform_table,
     format_trend_lines,
+    format_timestamp,
     format_momentum_block,
     format_market_structure,
     format_market_structure_block,
-    format_timestamp,
     SEPARATOR,
 )
 
@@ -19,10 +29,6 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 
 def _send(text: str):
-    """Send a Telegram message.
-
-    Telegram failures are intentionally non-fatal.
-    """
     if not TELEGRAM_BOT_TOKEN:
         print("TELEGRAM SKIP: TELEGRAM_BOT_TOKEN not set", file=sys.stderr)
         return
@@ -50,11 +56,8 @@ def _send(text: str):
         print(f"TELEGRAM OK: message sent to chat {TELEGRAM_CHAT_ID}")
 
     except requests.exceptions.HTTPError as e:
-        status = e.response.status_code if e.response is not None else "UNKNOWN"
-        body = e.response.text if e.response is not None else str(e)
-
         print(
-            f"TELEGRAM ERROR HTTP {status}: {body}",
+            f"TELEGRAM ERROR HTTP {e.response.status_code}: {e.response.text}",
             file=sys.stderr,
         )
 
@@ -65,7 +68,6 @@ def _send(text: str):
 def _money(value):
     if value is None:
         return "N/A"
-
     try:
         return f"{float(value):,.0f}"
     except Exception:
@@ -75,7 +77,6 @@ def _money(value):
 def _number(value, decimals=2):
     if value is None:
         return "N/A"
-
     try:
         return f"{float(value):,.{decimals}f}"
     except Exception:
@@ -84,7 +85,6 @@ def _number(value, decimals=2):
 
 def _format_platforms(markets, previous_markets=None):
     table_lines = format_platform_table(markets, previous_markets)
-
     if not table_lines:
         return "No platforms available."
 
@@ -94,214 +94,190 @@ def _format_platforms(markets, previous_markets=None):
     parts = ["```", header, separator]
     parts.extend(table_lines)
     parts.append("```")
-
     return "\n".join(parts)
 
 
-def _signal_state_lines(signal_state):
-    """Format SP-A normalized signal state.
+# ---------------------------------------------------------------------------
+# SP-A: Decision section formatter
+# ---------------------------------------------------------------------------
 
-    This deliberately exposes state rather than reproducing the
-    internal decision algorithm.
+def format_decision_section(signal_state) -> str:
+    """Format the SP-A DECISION section for Telegram.
+
+    Args:
+        signal_state: SignalState dataclass with valuation, momentum,
+                      structure, conflict, candidate_decision,
+                      final_decision, reason.
+
+    Returns:
+        HTML-formatted string for the DECISION block.
     """
     if signal_state is None:
-        return []
+        return ""
 
-    valuation = getattr(signal_state, "valuation", None)
-    momentum = getattr(signal_state, "momentum", None)
-    premium_direction = getattr(signal_state, "premium_direction", None)
-    structure = getattr(signal_state, "structure", None)
-    conflict = getattr(signal_state, "conflict", None)
-    candidate = getattr(signal_state, "candidate_decision", None)
-    final = getattr(signal_state, "final_decision", None)
-
-    lines = []
-
-    if valuation is not None:
-        lines.append(f"Valuation:    {html.escape(str(valuation))}")
-
-    if momentum is not None:
-        momentum_text = str(momentum)
-
-        if premium_direction:
-            momentum_text += f" ({premium_direction})"
-
-        lines.append(
-            f"Momentum:     {html.escape(momentum_text)}"
-        )
-
-    if structure is not None:
-        lines.append(
-            f"Structure:    {html.escape(str(structure))}"
-        )
-
-    if conflict is not None:
-        lines.append(
-            f"Conflict:     {html.escape(str(conflict))}"
-        )
-
-    if candidate is not None:
-        lines.append(
-            f"Candidate:    {html.escape(str(candidate))}"
-        )
-
-    if final is not None:
-        lines.append(
-            f"Decision:     <b>{html.escape(str(final))}</b>"
-        )
-
-    return lines
-
-
-def _signal_state_block(signal_state):
-    lines = _signal_state_lines(signal_state)
-
-    if not lines:
-        return []
-
-    return [
+    lines = [
         SEPARATOR,
-        "SIGNAL STATE",
+        "⚡ <b>DECISION</b>",
         SEPARATOR,
-        *lines,
+        "",
+        "<b>Market State:</b>",
+        f"  Valuation:  <code>{signal_state.valuation}</code>",
+        f"  Momentum:   <code>{signal_state.momentum}</code> ({signal_state.premium_direction.replace('_', ' ')})",
+        f"  Structure:  <code>{signal_state.structure.replace('_', ' ')}</code>",
+        f"  Conflict:   <code>{signal_state.conflict.replace('_', ' ')}</code>",
+        "",
+        f"Candidate:   <code>{signal_state.candidate_decision}</code>",
     ]
 
+    # Final decision with emoji
+    final = signal_state.final_decision
+    if final == "BUY":
+        final_line = "Final:       🟢 <b>BUY</b>"
+    elif final == "SELL":
+        final_line = "Final:       🔴 <b>SELL</b>"
+    elif final == "WAIT":
+        final_line = "Final:       ⚪ <b>WAIT</b>"
+    else:
+        final_line = f"Final:       <code>{final}</code>"
+    lines.append(final_line)
 
-def _market_block(
+    # Reason
+    if signal_state.reason:
+        lines.extend(["", "<b>Reason:</b>", f"  {signal_state.reason}"])
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _format_input_directions(input_directions) -> str:
+    """Format input directions section."""
+    if not input_directions:
+        return ""
+
+    lines = [SEPARATOR, "📊 <b>INPUT DIRECTIONS</b>", SEPARATOR, ""]
+    wd = input_directions.get("world")
+    if wd:
+        stale = f" stale={wd['stale_count']}" if wd.get("stale_count") else ""
+        lines.append(
+            f"World Gold: {wd['arrow']} ({wd['pct']:+.2f}%){stale}"
+        )
+    ud = input_directions.get("usd")
+    if ud:
+        stale = f" stale={ud['stale_count']}" if ud.get("stale_count") else ""
+        lines.append(
+            f"USD Rate:   {ud['arrow']} ({ud['pct']:+.2f}%){stale}"
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _format_trends_section(trends) -> str:
+    """Format trends section with directional sentence (no sparkline)."""
+    if not trends:
+        return ""
+
+    lines = [SEPARATOR, "📈 <b>TRENDS</b>", SEPARATOR, ""]
+
+    trend_lines = format_trend_lines(trends)
+    if trend_lines:
+        lines.extend(trend_lines)
+    else:
+        lines.append("No trend data available.")
+
+    # Directional sentence replaces sparkline
+    premium_direction = trends.get("premium_direction", "")
+    if premium_direction:
+        lines.append("")
+        lines.append(premium_direction)
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _format_momentum_section(momentum) -> str:
+    """Format momentum section."""
+    if not momentum:
+        return ""
+
+    lines = [SEPARATOR, "🌊 <b>MOMENTUM</b>", SEPARATOR, ""]
+    block = format_momentum_block(momentum)
+    if block:
+        lines.extend(block)
+    else:
+        lines.append("No momentum data available.")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _format_structure_section(markets, fair_price) -> str:
+    """Format market structure section."""
+    structure = format_market_structure(markets, fair_price)
+    if not structure:
+        return ""
+
+    lines = [SEPARATOR, "🏛 <b>MARKET STRUCTURE</b>", SEPARATOR, ""]
+    block = format_market_structure_block(structure)
+    lines.extend(block)
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _build_common_body(
     world,
     usd,
     fair,
     lowest,
     premium,
+    markets,
     trends=None,
     momentum=None,
-    markets=None,
+    previous_markets=None,
     input_directions=None,
-):
-    lines = [
-        SEPARATOR,
-        "MARKET",
-        SEPARATOR,
-        f"Fair Price:  {_money(fair)}",
-        f"Lowest:      {_money(lowest)}",
-        f"Premium:     {_number(premium)}%",
-    ]
+    signal_state=None,
+) -> str:
+    """Build the common message body shared by all alert types."""
+    lines = []
 
-    trend_lines = format_trend_lines(trends)
+    # Timestamp
+    lines.append(f"<b>{format_timestamp()}</b>")
+    lines.append("")
 
-    if trend_lines:
-        lines.extend(trend_lines)
+    # Inputs
+    lines.append(f"World Gold: ${_money(world)}  |  USD: {_money(usd)} IRR")
+    lines.append("")
 
-    if world is not None:
-        lines.append(
-            f"World Gold:  {_number(world)} USD/oz"
-        )
+    # Fair / Lowest / Premium
+    lines.append(f"Fair Price:  {_money(fair)} IRR")
+    lines.append(f"Lowest:      {_money(lowest)} IRR")
+    lines.append(f"Premium:     {_number(premium)}%")
+    lines.append("")
 
-    if usd is not None:
-        lines.append(
-            f"USD:         {_money(usd)} IRR"
-        )
+    # Platform table
+    lines.append(_format_platforms(markets, previous_markets))
+    lines.append("")
 
-    momentum_lines = format_momentum_block(momentum)
+    # SP-A Decision section
+    if signal_state is not None:
+        lines.append(format_decision_section(signal_state))
 
-    if momentum_lines:
-        lines.extend([
-            "",
-            SEPARATOR,
-            "MOMENTUM",
-            SEPARATOR,
-            *momentum_lines,
-        ])
+    # Trends (directional sentence, no sparkline)
+    lines.append(_format_trends_section(trends))
 
-    if markets:
-        structure = format_market_structure(markets, fair)
+    # Momentum
+    lines.append(_format_momentum_section(momentum))
 
-        if structure:
-            structure_lines = format_market_structure_block(structure)
+    # Market Structure
+    lines.append(_format_structure_section(markets, fair))
 
-            if structure_lines:
-                lines.extend([
-                    "",
-                    SEPARATOR,
-                    "MARKET STRUCTURE",
-                    SEPARATOR,
-                    *structure_lines,
-                ])
+    # Input Directions
+    lines.append(_format_input_directions(input_directions))
 
-    if input_directions:
-        lines.extend([
-            "",
-            "INPUT DIRECTIONS",
-        ])
-
-        world_direction = input_directions.get("world")
-
-        if world_direction:
-            lines.append(
-                f"World Gold: {world_direction.get('arrow', '→')} "
-                f"({world_direction.get('pct', 0):+.2f}%)"
-            )
-
-        usd_direction = input_directions.get("usd")
-
-        if usd_direction:
-            lines.append(
-                f"USD:        {usd_direction.get('arrow', '→')} "
-                f"({usd_direction.get('pct', 0):+.2f}%)"
-            )
-
-    return lines
+    return "\n".join(lines)
 
 
-def send_processing():
-    """Heartbeat used by manual runs."""
-    _send(
-        "\n".join([
-            "GOLDPremium:",
-            "Processing market data...",
-            format_timestamp(),
-        ])
-    )
-
-
-def send_data_unavailable(
-    usd=None,
-    markets=None,
-    reason="Market data unavailable.",
-):
-    """Notify Telegram that required data is unavailable."""
-    lines = [
-        "GOLDPremium:",
-        "",
-        "DATA UNAVAILABLE",
-        "",
-        html.escape(str(reason)),
-    ]
-
-    if usd is not None:
-        lines.extend([
-            "",
-            f"USD: {_money(usd)} IRR",
-        ])
-
-    if markets:
-        valid_count = sum(
-            1
-            for info in markets.values()
-            if info.get("status") == "OK"
-        )
-
-        lines.append(
-            f"Platforms available: {valid_count}"
-        )
-
-    lines.extend([
-        "",
-        format_timestamp(),
-    ])
-
-    _send("\n".join(lines))
-
+# ---------------------------------------------------------------------------
+# PUBLIC API — preserved for all existing callers
+# ---------------------------------------------------------------------------
 
 def send_alert(
     signal,
@@ -317,60 +293,43 @@ def send_alert(
     input_directions=None,
     signal_state=None,
 ):
-    """Send BUY/SELL alert.
+    """Send a BUY/SELL alert via Telegram.
 
-    Existing main.py signature is preserved.
+    Args:
+        signal: dict with keys "signal", "new_alert_type", "reason"
+        world: world gold price in USD
+        usd: USD/IRR rate
+        fair: fair price in IRR
+        lowest: lowest market price in IRR
+        premium: premium percentage
+        markets: dict of platform data
+        trends: optional trends dict
+        momentum: optional momentum dict
+        previous_markets: optional previous market prices
+        input_directions: optional input directions dict
+        signal_state: optional SignalState dataclass
     """
-    signal_name = signal.get("signal", "UNKNOWN")
-    reason = signal.get("reason", "")
+    alert_type = signal.get("signal", "ALERT") if signal else "ALERT"
+    reason = signal.get("reason", "") if signal else ""
 
-    lines = [
-        "GOLDPremium:",
-        "",
-        f"<b>{html.escape(str(signal_name))} ALERT</b>",
-        "",
-    ]
+    if alert_type == "BUY":
+        header = "🟢 <b>BUY SIGNAL</b> 🟢"
+    elif alert_type == "SELL":
+        header = "🔴 <b>SELL SIGNAL</b> 🔴"
+    else:
+        header = f"⚡ <b>{alert_type} SIGNAL</b>"
 
-    lines.extend(
-        _market_block(
-            world=world,
-            usd=usd,
-            fair=fair,
-            lowest=lowest,
-            premium=premium,
-            trends=trends,
-            momentum=momentum,
-            markets=markets,
-            input_directions=input_directions,
-        )
+    body = _build_common_body(
+        world, usd, fair, lowest, premium, markets,
+        trends=trends,
+        momentum=momentum,
+        previous_markets=previous_markets,
+        input_directions=input_directions,
+        signal_state=signal_state,
     )
 
-    state_lines = _signal_state_block(signal_state)
-
-    if state_lines:
-        lines.extend([""] + state_lines)
-
-    if markets:
-        lines.extend([
-            "",
-            SEPARATOR,
-            "PLATFORMS",
-            SEPARATOR,
-            _format_platforms(markets, previous_markets),
-        ])
-
-    lines.extend([
-        "",
-        SEPARATOR,
-        "DECISION",
-        SEPARATOR,
-        f"Signal: <b>{html.escape(str(signal_name))}</b>",
-        f"Reason: {html.escape(str(reason))}",
-        "",
-        format_timestamp(),
-    ])
-
-    _send("\n".join(lines))
+    message = f"{header}\n\n{reason}\n\n{body}"
+    _send(message)
 
 
 def send_manual_update(
@@ -386,51 +345,47 @@ def send_manual_update(
     input_directions=None,
     signal_state=None,
 ):
-    """Send a manual market update.
+    """Send a manual update (no active signal) via Telegram."""
+    header = "📊 <b>MANUAL UPDATE</b>"
 
-    Preserves the existing main.py call signature.
-    """
+    body = _build_common_body(
+        world, usd, fair, lowest, premium, markets,
+        trends=trends,
+        momentum=momentum,
+        previous_markets=previous_markets,
+        input_directions=input_directions,
+        signal_state=signal_state,
+    )
+
+    message = f"{header}\n\n{body}"
+    _send(message)
+
+
+def send_data_unavailable(usd=None, markets=None, reason=None):
+    """Send a data-unavailable notification."""
     lines = [
-        "GOLDPremium:",
+        "⚠️ <b>DATA UNAVAILABLE</b>",
         "",
-        "<b>MANUAL UPDATE</b>",
+        f"{reason or 'Unable to fetch required market data.'}",
         "",
     ]
 
-    lines.extend(
-        _market_block(
-            world=world,
-            usd=usd,
-            fair=fair,
-            lowest=lowest,
-            premium=premium,
-            trends=trends,
-            momentum=momentum,
-            markets=markets,
-            input_directions=input_directions,
-        )
-    )
-
-    state_lines = _signal_state_block(signal_state)
-
-    if state_lines:
-        lines.extend([""] + state_lines)
-
+    if usd is not None:
+        lines.append(f"USD Rate: {_money(usd)} IRR")
     if markets:
-        lines.extend([
-            "",
-            SEPARATOR,
-            "PLATFORMS",
-            SEPARATOR,
-            _format_platforms(markets, previous_markets),
-        ])
+        lines.append("")
+        lines.append("<b>Available Platforms:</b>")
+        for name, info in sorted(markets.items()):
+            if info.get("status") == "OK":
+                lines.append(f"  {name}: {_money(info.get('price'))}")
 
-    lines.extend([
-        "",
-        format_timestamp(),
-    ])
+    message = "\n".join(lines)
+    _send(message)
 
-    _send("\n".join(lines))
+
+def send_processing():
+    """Send a processing heartbeat (manual trigger)."""
+    _send("⏳ <b>Processing...</b> Gathering market data.")
 
 
 def send_daily_recap(
@@ -446,45 +401,17 @@ def send_daily_recap(
     input_directions=None,
     signal_state=None,
 ):
-    """Send scheduled daily Telegram recap."""
-    lines = [
-        "GOLDPremium:",
-        "",
-        "<b>DAILY RECAP</b>",
-        "",
-    ]
+    """Send the daily scheduled recap via Telegram."""
+    header = "📅 <b>DAILY RECAP</b>"
 
-    lines.extend(
-        _market_block(
-            world=world,
-            usd=usd,
-            fair=fair,
-            lowest=lowest,
-            premium=premium,
-            trends=trends,
-            momentum=momentum,
-            markets=markets,
-            input_directions=input_directions,
-        )
+    body = _build_common_body(
+        world, usd, fair, lowest, premium, markets,
+        trends=trends,
+        momentum=momentum,
+        previous_markets=previous_markets,
+        input_directions=input_directions,
+        signal_state=signal_state,
     )
 
-    state_lines = _signal_state_block(signal_state)
-
-    if state_lines:
-        lines.extend([""] + state_lines)
-
-    if markets:
-        lines.extend([
-            "",
-            SEPARATOR,
-            "PLATFORMS",
-            SEPARATOR,
-            _format_platforms(markets, previous_markets),
-        ])
-
-    lines.extend([
-        "",
-        format_timestamp(),
-    ])
-
-    _send("\n".join(lines))
+    message = f"{header}\n\n{body}"
+    _send(message)
