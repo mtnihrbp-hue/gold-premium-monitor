@@ -1,5 +1,7 @@
 """SQLAlchemy ORM models."""
 
+from datetime import datetime
+
 from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.sql import func
 
@@ -60,6 +62,7 @@ class MarketHypothesis(Base):
     model_version = Column(String(20), nullable=True)
     source = Column(String(50), nullable=True)
 
+
 class MarketState(Base):
     """Interpreted market state for a single snapshot.
 
@@ -71,7 +74,7 @@ class MarketState(Base):
 
     __tablename__ = "market_states"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     snapshot_id = Column(
         Integer,
         ForeignKey("market_snapshots.id"),
