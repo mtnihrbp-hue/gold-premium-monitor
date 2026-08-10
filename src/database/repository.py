@@ -4,12 +4,16 @@ All database writes are wrapped in transactions.
 Read operations return None / [] when the database is unavailable.
 """
 
+
+from sdatabase.models import MarketState
+
 from datetime import datetime, timedelta
 
-from sqlalchemy import func
+from sqlalchemy import func, Session
 
 from database.connection import get_session
-from database.models import MarketSnapshot, PlatformPrice, MarketHypothesis
+from database.models import MarketSnapshot, PlatformPrice, MarketHypothesis, MarketState
+
 
 
 def save_market_snapshot(
