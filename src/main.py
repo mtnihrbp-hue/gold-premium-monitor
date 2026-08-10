@@ -2,6 +2,11 @@ import json
 import os
 from datetime import datetime
 
+from typing import Any, Dict, Optional
+
+from caluclator.signal_state import build_signal_state, SignalState
+from database.repository import save_market_state
+
 from collector.kitco import get_world_gold_price
 from collector.bonbast import get_usd_sell_rate
 from collector.iran import get_market_prices
@@ -374,6 +379,49 @@ def main():
             )
         except Exception as e:
             print(f"ERROR: Telegram manual update failed: {e}")
+
+
+def run_signal_pipeline(
+    snapshot: Any,
+    markets: Dict[str, Any],
+    previous_premium: Optional[float],
+    thresholds: dict,
+    last_alert: Optional[str],
+    session: Any,
+) -> SignalState:
+    """Run the full SP-A signal pipeline and persist state.
+
+    Call this after saving the market_snapshot and before sending alerts.
+
+    Args:
+        snapshot: MarketSnapshot ORM instance (needs .id, .premium,
+                  .fair_price, .lowest_price)
+        markets: dict of platform data {name: {price, status, ...}}
+        previous_premium: previous cycle's premium (None on first run)
+        thresholds: config dict with buy_premium, sell_premium, cooldown_hours
+        last_alert: last final_decision that was actually sent (for hysteresis)
+        session: SQLAlchemy DB session
+
+    Returns:
+        fully populated SignalState (already persisted to DB)
+    """
+    state = build_signal_state(
+        premium=snapshot.premium,
+        fair_price=snapshot.fair_price,
+        lowest_price=snapshot.lowest_price,
+        markets=markets,
+        previous_premium=previous_premium,
+        thresholds=thresholds,
+        last_alert=last_alert,
+        snapshot_id=snapshot.id,
+    )
+
+    # Persist interpreted state to market_states table
+    save_market_state(session, state)
+
+    return state
+
+
 
 
 if __name__ == "__main__":
