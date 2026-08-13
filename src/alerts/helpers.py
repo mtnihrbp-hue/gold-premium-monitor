@@ -96,13 +96,30 @@ def format_trend_lines(trends):
 
 # --- Task C: Momentum & Market Structure formatting ---
 
-SEPARATOR = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
+SEPARATOR = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
+
+
+def _canonical_premium_label(diff):
+    """Map premium diff to canonical SP-A terminology.
+
+    Replaces legacy phrases (Discount Deepening, Premium Expanding, Stable)
+    with canonical vocabulary.
+    """
+    if diff is None:
+        return "→", "STABLE"
+    if diff < -0.05:
+        return "▼", "DISCOUNT WIDENING"
+    elif diff > 0.05:
+        return "▲", "PREMIUM WIDENING"
+    else:
+        return "→", "STABLE"
 
 
 def format_momentum_block(momentum):
     """Format momentum section for Telegram.
 
     Returns a list of strings. Empty list if no momentum data.
+    Uses canonical SP-A terminology (not legacy labels).
     """
     if not momentum:
         return []
@@ -113,22 +130,23 @@ def format_momentum_block(momentum):
     candle = momentum.get("candlestick")
     verbal = momentum.get("verbal_direction", "Neutral")
 
-    # Premium label line — always show, even when vs_today is None (R4)
+    # Premium label line — use canonical terminology (SP-A stabilization)
     if vs_today:
-        lines.append(
-            f"Premium:         {vs_today['emoji']} {vs_today['label']}"
-        )
-        lines.append(
-            f"  vs today avg:  {vs_today['diff']:+.2f}%"
-        )
+        diff = vs_today.get("diff")
+        emoji, label = _canonical_premium_label(diff)
+        lines.append(f"Premium:         {emoji} {label}")
+        lines.append(f"  vs today avg:  {diff:+.2f}%" if diff is not None else "  vs today avg:  —")
     else:
         lines.append("Premium:         —")
         lines.append("  vs today avg:  — (first run today)")
 
     if vs_yesterday:
+        y_diff = vs_yesterday.get("diff")
+        y_avg = vs_yesterday.get("avg")
+        y_date = vs_yesterday.get("date", "")
         lines.append(
-            f"  vs yesterday:  {vs_yesterday['diff']:+.2f}% "
-            f"({vs_yesterday['date']} avg: {vs_yesterday['avg']:+.2f}%)"
+            f"  vs yesterday:  {y_diff:+.2f}% "
+            f"({y_date} avg: {y_avg:+.2f}%)"
         )
 
     # Candlestick — hide range bar when n < 2 (R2)
