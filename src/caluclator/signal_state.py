@@ -106,6 +106,13 @@ def build_signal_state(
         conflict=conflict,
     )
 
+    # SP-A STABILIZATION: explain when candidate differs from final
+    if candidate != final:
+        if candidate in ("BUY", "SELL") and final == "WAIT":
+            reason += " Candidate conditions are met, but the transition is not yet confirmed by hysteresis."
+        else:
+            reason += f" Candidate is {candidate}, but final decision is {final}."
+
     return SignalState(
         premium=premium,
         fair_price=fair_price,
