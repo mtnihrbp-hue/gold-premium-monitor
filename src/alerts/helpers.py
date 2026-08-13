@@ -99,6 +99,17 @@ def format_trend_lines(trends):
 SEPARATOR = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
 
 
+def _canonical_premium_label(diff):
+    """Map premium diff to canonical SP-A terminology."""
+    if diff is None:
+        return "→", "STABLE"
+    if diff < -0.05:
+        return "▼", "DISCOUNT WIDENING"
+    elif diff > 0.05:
+        return "▲", "PREMIUM WIDENING"
+    else:
+        return "→", "STABLE"
+
 def format_momentum_block(momentum):
     """Format momentum section for Telegram.
 
@@ -115,9 +126,11 @@ def format_momentum_block(momentum):
 
     # Premium label line — always show, even when vs_today is None (R4)
     if vs_today:
-        lines.append(
-            f"Premium:         {vs_today['emoji']} {vs_today['label']}"
-        )
+        
+        diff = vs_today.get("diff")
+        emoji, label = _canonical_premium_label(diff)
+        lines.append(f"Premium:         {emoji} {label}")
+        
         lines.append(
             f"  vs today avg:  {vs_today['diff']:+.2f}%"
         )
