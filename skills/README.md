@@ -1,42 +1,44 @@
 # KIMI Skills
 
-These files are reusable behavioral modules for AI developers working on Gold Premium Monitor.
+Reusable behavior instructions for AI developers working on Gold Premium Monitor.
 
 ## Load order
 
 1. `core-engineering.md`
 2. `repository-onboarding.md`
 3. `sprint-execution.md`
-4. Task-specific skills as needed
-5. The current sprint prompt / user task
+4. Task-specific specialist skills
+5. Current sprint prompt / explicit user task
 
-Do not load every specialist skill for every task. Load only what is relevant.
+Do not load every specialist skill for every task.
 
 ## Skills
 
 - `core-engineering.md` — permanent engineering behavior
-- `repository-onboarding.md` — how to orient to a new conversation/repository state
-- `sprint-execution.md` — branch, implementation, verification, KPI, release discipline
-- `market-analyst.md` — market-analysis vocabulary and decision philosophy
-- `telegram-product.md` — Telegram as the user-facing cockpit and command/navigation model
-- `data-and-neon.md` — Neon, historical memory, data quality and persistence principles
-- `llm-news-intelligence.md` — future LLM/news architecture and boundaries
-- `validation-and-release.md` — tests, KPI, regression and completion gates
+- `repository-onboarding.md` — repository orientation
+- `sprint-execution.md` — sprint scope, branch discipline, tests, KPI, release
+- `branch-management.md` — simple Git workflow for a beginner
+- `market-analyst.md` — valuation, momentum, conflict and decision philosophy
+- `telegram-product.md` — Telegram cockpit, hierarchy and future command model
+- `data-and-neon.md` — Neon, historical memory, data quality and persistence
+- `llm-news-intelligence.md` — future LLM/news boundaries for SP-B+
+- `validation-and-release.md` — validation and completion gates
+- `new-conversation-bootstrap.md` — starting a fresh KIMI conversation
 
 ## Authority
 
 `PROJECT_MEMORY.md` is the project-specific architectural memory.
 
-The skills define AI behavior and reusable operating rules.
+These skills define reusable AI behavior and operating rules.
 
 The current sprint prompt defines the exact task scope.
 
-When these conflict:
+When sources conflict, prefer:
 
-1. Current explicit user requirement
+1. Explicit current user requirement
 2. Current sprint specification
 3. `PROJECT_MEMORY.md`
-4. Relevant skill
+4. Relevant specialist skill
 5. General engineering preference
 
-Never silently override higher-priority project constraints.
+Never silently override a higher-priority constraint.
