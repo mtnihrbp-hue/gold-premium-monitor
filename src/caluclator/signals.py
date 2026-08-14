@@ -1,9 +1,9 @@
 """Signal evaluation — threshold logic with hysteresis cooldown.
 
 SP-A CHANGES:
-  - Preserves existing evaluate_signal() for backward compatibility.
-  - Adds apply_hysteresis() for the new SignalState pipeline.
-  - Adds evaluate_market_state() as new entry point.
+- Preserves existing evaluate_signal() for backward compatibility.
+- Adds apply_hysteresis() for the new SignalState pipeline.
+- Adds evaluate_market_state() as new entry point.
 """
 
 from datetime import datetime, timedelta
@@ -108,7 +108,7 @@ def apply_hysteresis(
 # SP-A ADDITION: evaluate_market_state
 # ---------------------------------------------------------------------------
 
-def evaluate_market_state(signal_state: "SignalState") -> str:
+def evaluate_market_state(signal_state) -> str:
     """New entry point — returns final decision from a computed SignalState.
 
     Args:
