@@ -30,10 +30,7 @@ def format_platform_table(markets, previous_markets=None):
         prev = previous_markets.get(name) if previous_markets else None
         if prev is not None:
             diff = price - prev
-            if abs(diff) < 0.01:
-                change = "—"
-            else:
-                change = f"{diff:+,.0f}"
+            change = "—" if abs(diff) < 0.01 else f"{diff:+,.0f}"
         else:
             change = "—"
         lines.append(f"{name:<12} {price:>15,.0f} {change:>12}")
@@ -71,10 +68,7 @@ def format_platform_table_rows(markets, previous_markets=None):
 
 
 def format_trend_lines(trends):
-    """Format trend info as text lines.
-
-    Returns a list of strings. Empty list if no trends available.
-    """
+    """Format trend info as text lines."""
     if not trends:
         return []
 
@@ -82,7 +76,6 @@ def format_trend_lines(trends):
     arrow = trends.get("arrow", "→")
     diff = trends.get("arrow_diff")
     pct = trends.get("arrow_pct")
-    ma7 = trends.get("ma7")
     vs_diff = trends.get("vs_yesterday_diff")
     vs_pct = trends.get("vs_yesterday_pct")
 
@@ -94,33 +87,30 @@ def format_trend_lines(trends):
     return lines
 
 
-# --- Task C: Momentum & Market Structure formatting ---
-
 SEPARATOR = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
 
 
-def _canonical_premium_label(diff):
-    """Map premium diff to canonical SP-A terminology.
+def canonical_premium_direction(current_premium, diff):
+    """Return canonical premium/discount terminology.
 
-    Replaces legacy phrases (Discount Deepening, Premium Expanding, Stable)
-    with canonical vocabulary.
+    The sign of current_premium identifies discount vs premium; diff
+    identifies widening vs narrowing. This mirrors SP-A analytical state.
     """
-    if diff is None:
-        return "→", "STABLE"
-    if diff < -0.05:
-        return "▼", "DISCOUNT WIDENING"
-    elif diff > 0.05:
-        return "▲", "PREMIUM WIDENING"
-    else:
+    if diff is None or current_premium is None:
         return "→", "STABLE"
 
+    threshold = 0.05
+    if abs(diff) < threshold:
+        return "→", "DISCOUNT STABLE" if current_premium < 0 else "PREMIUM STABLE"
 
-def format_momentum_block(momentum):
-    """Format momentum section for Telegram.
+    if current_premium < 0:
+        return ("▼", "DISCOUNT WIDENING") if diff < 0 else ("▲", "DISCOUNT NARROWING")
 
-    Returns a list of strings. Empty list if no momentum data.
-    Uses canonical SP-A terminology (not legacy labels).
-    """
+    return ("▲", "PREMIUM WIDENING") if diff > 0 else ("▼", "PREMIUM NARROWING")
+
+
+def format_momentum_block(momentum, current_premium=None):
+    """Format momentum section using canonical SP-A terminology."""
     if not momentum:
         return []
 
@@ -130,10 +120,9 @@ def format_momentum_block(momentum):
     candle = momentum.get("candlestick")
     verbal = momentum.get("verbal_direction", "Neutral")
 
-    # Premium label line — use canonical terminology (SP-A stabilization)
     if vs_today:
         diff = vs_today.get("diff")
-        emoji, label = _canonical_premium_label(diff)
+        emoji, label = canonical_premium_direction(current_premium, diff)
         lines.append(f"Premium:         {emoji} {label}")
         lines.append(f"  vs today avg:  {diff:+.2f}%" if diff is not None else "  vs today avg:  —")
     else:
@@ -144,12 +133,9 @@ def format_momentum_block(momentum):
         y_diff = vs_yesterday.get("diff")
         y_avg = vs_yesterday.get("avg")
         y_date = vs_yesterday.get("date", "")
-        lines.append(
-            f"  vs yesterday:  {y_diff:+.2f}% "
-            f"({y_date} avg: {y_avg:+.2f}%)"
-        )
+        if y_diff is not None and y_avg is not None:
+            lines.append(f"  vs yesterday:  {y_diff:+.2f}% ({y_date} avg: {y_avg:+.2f}%)")
 
-    # Candlestick — hide range bar when n < 2 (R2)
     if candle:
         n = vs_today["count"] if vs_today else 0
         if n >= 2:
@@ -165,12 +151,7 @@ def format_momentum_block(momentum):
 
 
 def format_market_structure(markets, fair_price):
-    """Build market structure data for alerts.
-
-    Returns dict with platform_count, spread, high_name, high_price,
-    low_name, low_price, consensus_label.
-    Returns None if fewer than 2 valid platforms.
-    """
+    """Build market structure data for alerts."""
     valid = [
         (name, info["price"])
         for name, info in markets.items()
@@ -183,7 +164,6 @@ def format_market_structure(markets, fair_price):
     highest = max(valid, key=lambda x: x[1])
     lowest = min(valid, key=lambda x: x[1])
     spread = highest[1] - lowest[1]
-
     below_fair = sum(1 for _, price in valid if price < fair_price)
     above_fair = sum(1 for _, price in valid if price >= fair_price)
 
@@ -206,21 +186,17 @@ def format_market_structure(markets, fair_price):
 
 
 def format_market_structure_block(structure):
-    """Format market structure section for Telegram.
-
-    Returns a list of strings. Empty list if no structure data.
-    """
+    """Format market structure section for Telegram."""
     if not structure:
         return []
 
-    lines = [
+    return [
         f"Platforms:   {structure['platform_count']} active",
         f"Spread:      {structure['spread']:,.0f}",
         f"  High: {structure['high_name']} ({structure['high_price']:,.0f})",
         f"  Low:  {structure['low_name']} ({structure['low_price']:,.0f})",
         f"Consensus:   {structure['consensus_label']}",
     ]
-    return lines
 
 
 def format_timestamp():
