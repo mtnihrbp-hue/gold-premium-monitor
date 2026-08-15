@@ -193,7 +193,7 @@ def calculate_similarity(
         valuation=candidate.valuation_state,
         momentum=candidate.momentum_state,
         premium_direction=getattr(candidate, "premium_direction", "UNKNOWN"),
-        structure=candidate.structure_state,
+        structure=getattr(candidate, "structure_state", "UNKNOWN"),  # ← FIX: was direct access
         conflict=getattr(candidate, "conflict_state", "UNKNOWN"),
         candidate_decision=getattr(candidate, "candidate_decision", "UNKNOWN"),
         final_decision=getattr(candidate, "final_decision", "UNKNOWN"),
