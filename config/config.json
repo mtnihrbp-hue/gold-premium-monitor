@@ -9,5 +9,11 @@
   "email": {
     "send_daily_recap": true,
     "send_alerts": true
+  },
+  "historical_intelligence": {
+    "premium_tolerance": 1.0,
+    "lookback_days": 90,
+    "max_results": 20,
+    "min_sample_size": 3
   }
 }
