@@ -15,5 +15,12 @@
     "lookback_days": 90,
     "max_results": 20,
     "min_sample_size": 3
+  },
+  "news": {
+    "enabled": true,
+    "sources": [],
+    "fetch_interval_minutes": 30,
+    "classification_mode": "keyword",
+    "max_items_per_source": 20
   }
 }
