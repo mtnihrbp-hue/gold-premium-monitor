@@ -18,7 +18,11 @@
   },
   "news": {
     "enabled": true,
-    "sources": [],
+    "sources": [
+      "https://www.tasnimnews.com/fa/rss/feed",
+      "https://www.mehrnews.com/rss",
+      "https://www.tehrantimes.com/rss"
+    ],
     "fetch_interval_minutes": 30,
     "classification_mode": "keyword",
     "max_items_per_source": 20
