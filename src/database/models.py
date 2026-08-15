@@ -105,3 +105,42 @@ class MarketState(Base):
 
     timestamp = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+##########
+
+
+class NewsEvent(Base):
+    """Structured news event for market intelligence.
+
+    SP-B.2: deterministic keyword-classified external events.
+    SP-B.3: may enhance with LLM interpretation.
+    """
+
+    __tablename__ = "news_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, nullable=False)
+    source = Column(String(200), nullable=False)
+    url = Column(String(500), nullable=True)
+    dedup_key = Column(String(32), nullable=True, index=True)
+    raw_headline = Column(String(500), nullable=False)
+    raw_summary = Column(Text, nullable=True)
+
+    # Classification (deterministic in SP-B.2)
+    event_type = Column(String(50), nullable=False)
+    topic = Column(String(100), nullable=True)
+    relevance = Column(String(20), nullable=False)
+
+    # Market direction expectations (conservative)
+    expected_usd_direction = Column(String(20), nullable=True)
+    expected_gold_direction = Column(String(20), nullable=True)
+    expected_duration = Column(String(20), nullable=True)
+    impact = Column(String(20), nullable=True)
+    confidence = Column(String(20), nullable=True)
+    uncertainty_notes = Column(Text, nullable=True)
+
+    classification_method = Column(String(20), nullable=False)
+    processed_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+
