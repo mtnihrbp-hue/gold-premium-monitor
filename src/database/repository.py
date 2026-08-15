@@ -529,3 +529,139 @@ def get_similar_market_states(
             reference_momentum=getattr(reference_state, "momentum", "UNKNOWN"),
             reference_structure=getattr(reference_state, "structure", "UNKNOWN"),
         )
+
+
+
+
+# --- SP-B.2: News Intelligence Repository ---
+
+def save_news_event(news_event: dict) -> int:
+    """Save a classified news event to the database.
+
+    Args:
+        news_event: dict with keys matching NewsEvent model
+
+    Returns:
+        event id, or -1 on failure
+    """
+    from database.models import NewsEvent
+
+    session = get_session()
+    if session is None:
+        print("DB unavailable — news event not saved")
+        return -1
+
+    try:
+        event = NewsEvent(
+            timestamp=news_event.get("published_at", datetime.now()),
+            source=news_event.get("source", "unknown"),
+            url=news_event.get("url") or None,
+            dedup_key=news_event.get("dedup_key") or None,
+            raw_headline=news_event.get("title", ""),
+            raw_summary=news_event.get("summary") or None,
+            event_type=news_event.get("event_type", "UNKNOWN"),
+            topic=news_event.get("topic") or None,
+            relevance=news_event.get("relevance", "UNKNOWN"),
+            expected_usd_direction=news_event.get("expected_usd_direction") or None,
+            expected_gold_direction=news_event.get("expected_gold_direction") or None,
+            expected_duration=news_event.get("expected_duration") or None,
+            impact=news_event.get("impact") or None,
+            confidence=news_event.get("confidence") or None,
+            uncertainty_notes=news_event.get("uncertainty_notes") or None,
+            classification_method=news_event.get("classification_method", "KEYWORD"),
+            processed_at=datetime.now(),
+        )
+        session.add(event)
+        session.commit()
+        return event.id
+    except Exception as e:
+        print(f"DB save failed (save_news_event): {e}")
+        session.rollback()
+        return -1
+    finally:
+        session.close()
+
+
+def news_event_exists(dedup_key: str) -> bool:
+    """Check if a news event with the given dedup key already exists.
+
+    Non-blocking: returns False if DB unavailable.
+    """
+    from database.models import NewsEvent
+
+    session = get_session()
+    if session is None:
+        return False
+
+    try:
+        if dedup_key:
+            since = datetime.now() - timedelta(days=7)
+            count = (
+                session.query(NewsEvent)
+                .filter(NewsEvent.created_at >= since)
+                .filter(NewsEvent.dedup_key == dedup_key)
+                .count()
+            )
+            return count > 0
+        return False
+    except Exception as e:
+        print(f"DB query failed (news_event_exists): {e}")
+        return False
+    finally:
+        session.close()
+
+
+def get_recent_news_events(hours: int = 24, limit: int = 100) -> list:
+    """Get recent news events ordered by timestamp desc.
+
+    Non-blocking: returns [] if DB unavailable.
+    """
+    from database.models import NewsEvent
+
+    session = get_session()
+    if session is None:
+        return []
+
+    try:
+        since = datetime.now() - timedelta(hours=hours)
+        return (
+            session.query(NewsEvent)
+            .filter(NewsEvent.timestamp >= since)
+            .order_by(NewsEvent.timestamp.desc())
+            .limit(limit)
+            .all()
+        )
+    except Exception as e:
+        print(f"DB query failed (get_recent_news_events): {e}")
+        return []
+    finally:
+        session.close()
+
+
+def get_news_events_by_type(event_type: str, hours: int = 24, limit: int = 100) -> list:
+    """Get news events filtered by event type.
+
+    Non-blocking: returns [] if DB unavailable.
+    """
+    from database.models import NewsEvent
+
+    session = get_session()
+    if session is None:
+        return []
+
+    try:
+        since = datetime.now() - timedelta(hours=hours)
+        return (
+            session.query(NewsEvent)
+            .filter(NewsEvent.event_type == event_type)
+            .filter(NewsEvent.timestamp >= since)
+            .order_by(NewsEvent.timestamp.desc())
+            .limit(limit)
+            .all()
+        )
+    except Exception as e:
+        print(f"DB query failed (get_news_events_by_type): {e}")
+        return []
+    finally:
+        session.close()
+
