@@ -3,6 +3,14 @@
 Deterministic similarity engine for market state comparison.
 No prediction. No scoring. No LLM.
 
+Similarity model:
+  Primary (hard):    valuation, momentum, premium distance
+  Secondary (soft):  structure, USD/IRR direction, XAU/USD direction
+
+Soft-match rule:
+  If both sides have a known value (not UNKNOWN/None/empty),
+  they must match. Otherwise, no blocking.
+
 Uses existing market_states + market_snapshots tables.
 """
 
@@ -29,6 +37,8 @@ class SimilarStateResult:
     conflict: str
     candidate_decision: str
     final_decision: str
+    usd_direction: str = "UNKNOWN"
+    xau_direction: str = "UNKNOWN"
     platform_count: int = 0
     platform_spread: float = 0.0
     premium_distance: float = 0.0
@@ -92,6 +102,27 @@ class HistoricalComparison:
 # Similarity engine
 # ---------------------------------------------------------------------------
 
+def _soft_match(field_a: Optional[str], field_b: Optional[str]) -> bool:
+    """Soft-match: both known and equal, or either unknown/None/empty.
+
+    Known = truthy and not "UNKNOWN".
+    """
+    a_known = _is_known(field_a)
+    b_known = _is_known(field_b)
+    if a_known and b_known:
+        return field_a == field_b
+    return True  # at least one unknown → no blocking
+
+
+def _is_known(value) -> bool:
+    """Return True if value is a known/non-empty categorical value."""
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return value.strip() not in ("", "UNKNOWN")
+    return True
+
+
 def calculate_similarity(
     reference: Dict[str, Any],
     candidate: Any,  # MarketState-like object
@@ -99,20 +130,22 @@ def calculate_similarity(
 ) -> Optional[SimilarStateResult]:
     """Determine if a candidate state is similar to the reference.
 
-    Deterministic rules:
+    Deterministic rules (hard requirements — any failure → no match):
       1. Exact match on valuation_state
       2. Exact match on momentum_state
-      3. Exact match on structure_state
-      4. Premium within tolerance
+      3. Premium within tolerance
+
+    Context filters (soft requirements — both known and different → no match):
+      4. structure_state
+      5. usd_direction
+      6. xau_direction
 
     Returns None if any rule fails.
     """
-    # Categorical exact-match check
+    # --- Hard requirements ---
     if getattr(candidate, "valuation_state", None) != reference.get("valuation"):
         return None
     if getattr(candidate, "momentum_state", None) != reference.get("momentum"):
-        return None
-    if getattr(candidate, "structure_state", None) != reference.get("structure"):
         return None
 
     # Premium proximity check (join through snapshot)
@@ -126,6 +159,25 @@ def calculate_similarity(
 
     premium_distance = abs(candidate_premium - ref_premium)
     if premium_distance > premium_tolerance:
+        return None
+
+    # --- Soft / context filters ---
+    if not _soft_match(
+        getattr(candidate, "structure_state", None),
+        reference.get("structure"),
+    ):
+        return None
+
+    if not _soft_match(
+        getattr(candidate, "usd_direction", None),
+        reference.get("usd_direction"),
+    ):
+        return None
+
+    if not _soft_match(
+        getattr(candidate, "xau_direction", None),
+        reference.get("xau_direction"),
+    ):
         return None
 
     # Build result
@@ -145,6 +197,8 @@ def calculate_similarity(
         conflict=getattr(candidate, "conflict_state", "UNKNOWN"),
         candidate_decision=getattr(candidate, "candidate_decision", "UNKNOWN"),
         final_decision=getattr(candidate, "final_decision", "UNKNOWN"),
+        usd_direction=_extract_direction(candidate, "usd_direction"),
+        xau_direction=_extract_direction(candidate, "xau_direction"),
         platform_count=_extract_platform_count(candidate),
         platform_spread=float(getattr(candidate, "platform_spread", 0) or 0),
         premium_distance=round(premium_distance, 4),
@@ -165,7 +219,9 @@ def build_historical_comparison(
     """Build a complete historical comparison from reference + candidate states.
 
     Args:
-        reference: dict with keys: premium, valuation, momentum, structure
+        reference: dict with keys:
+            premium, valuation, momentum, structure,
+            usd_direction (optional), xau_direction (optional)
         candidates: list of MarketState-like objects (from DB query)
         config: optional dict with lookback_days, premium_tolerance, max_results
 
@@ -203,16 +259,22 @@ def build_historical_comparison(
 
 def _extract_premium(candidate) -> Optional[float]:
     """Extract premium from a candidate state object."""
-    # If candidate has a joined snapshot with premium_percent
     if hasattr(candidate, "snapshot") and candidate.snapshot is not None:
         val = getattr(candidate.snapshot, "premium_percent", None)
         if val is not None:
             return float(val)
-    # Fallback: try premium_percent attribute directly
     val = getattr(candidate, "premium_percent", None)
     if val is not None:
         return float(val)
     return None
+
+
+def _extract_direction(candidate, attr_name: str) -> str:
+    """Extract a direction attribute, normalizing to UNKNOWN if missing."""
+    val = getattr(candidate, attr_name, None)
+    if val is None or (isinstance(val, str) and val.strip() == ""):
+        return "UNKNOWN"
+    return str(val)
 
 
 def _extract_platform_count(candidate) -> int:
