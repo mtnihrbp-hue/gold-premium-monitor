@@ -402,3 +402,130 @@ def get_latest_market_state():
         )
     finally:
         session.close()
+
+
+
+# --- SP-B.1: Historical Intelligence Queries ---
+
+def get_market_states_by_criteria(
+    valuation=None,
+    momentum=None,
+    structure=None,
+    premium_min=None,
+    premium_max=None,
+    days=None,
+    limit=100,
+):
+    """Query market_states with optional categorical + premium + date filters.
+
+    Joins with market_snapshots to include premium_percent.
+    Returns list of MarketState objects with .snapshot joined.
+    Non-blocking: returns [] if DB unavailable.
+
+    Args:
+        valuation: CHEAP | FAIR | EXPENSIVE | None (no filter)
+        momentum: IMPROVING | NEUTRAL | WEAKENING | None
+        structure: DISCOUNT_DOMINANT | PREMIUM_DOMINANT | MIXED | None
+        premium_min: minimum premium_percent (inclusive)
+        premium_max: maximum premium_percent (inclusive)
+        days: lookback window in days from now
+        limit: max results to return
+
+    Returns:
+        List of MarketState objects (with joined snapshot for premium access)
+    """
+    session = get_session()
+    if session is None:
+        return []
+
+    try:
+        query = (
+            session.query(MarketState)
+            .join(MarketSnapshot, MarketState.snapshot_id == MarketSnapshot.id)
+            .order_by(MarketState.timestamp.desc())
+        )
+
+        if valuation is not None:
+            query = query.filter(MarketState.valuation_state == valuation)
+        if momentum is not None:
+            query = query.filter(MarketState.momentum_state == momentum)
+        if structure is not None:
+            query = query.filter(MarketState.structure_state == structure)
+        if premium_min is not None:
+            query = query.filter(MarketSnapshot.premium_percent >= premium_min)
+        if premium_max is not None:
+            query = query.filter(MarketSnapshot.premium_percent <= premium_max)
+        if days is not None:
+            since = datetime.now() - timedelta(days=days)
+            query = query.filter(MarketState.timestamp >= since)
+
+        return query.limit(limit).all()
+    except Exception as e:
+        print(f"DB query failed (get_market_states_by_criteria): {e}")
+        return []
+    finally:
+        session.close()
+
+
+def get_similar_market_states(
+    reference_state,
+    premium_tolerance=1.0,
+    days=90,
+    max_results=20,
+):
+    """Fetch historical states similar to a reference SignalState.
+
+    Deterministic similarity:
+      1. Exact match on valuation, momentum, structure
+      2. Premium within tolerance (via joined snapshot)
+      3. Within lookback window
+      4. Sorted by premium distance (asc), then recency (desc)
+
+    Args:
+        reference_state: SignalState-like object with
+            valuation, momentum, premium_direction, structure, premium
+        premium_tolerance: max premium difference for match (default 1.0%)
+        days: lookback window in days (default 90)
+        max_results: max results to return (default 20)
+
+    Returns:
+        HistoricalComparison with matched states
+    """
+    from intelligence.historical import build_historical_comparison
+
+    try:
+        # Fetch candidates with same categorical state
+        candidates = get_market_states_by_criteria(
+            valuation=getattr(reference_state, "valuation", None),
+            momentum=getattr(reference_state, "momentum", None),
+            structure=getattr(reference_state, "structure", None),
+            days=days,
+            limit=500,
+        )
+
+        # Build reference dict for similarity engine
+        reference_dict = {
+            "premium": getattr(reference_state, "premium", None),
+            "valuation": getattr(reference_state, "valuation", None),
+            "momentum": getattr(reference_state, "momentum", None),
+            "structure": getattr(reference_state, "structure", None),
+        }
+
+        config = {
+            "premium_tolerance": premium_tolerance,
+            "lookback_days": days,
+            "max_results": max_results,
+        }
+
+        comparison = build_historical_comparison(reference_dict, candidates, config)
+        return comparison
+    except Exception as e:
+        print(f"DB query failed (get_similar_market_states): {e}")
+        # Return empty comparison on failure
+        from intelligence.historical import HistoricalComparison
+        return HistoricalComparison(
+            reference_premium=getattr(reference_state, "premium", 0.0),
+            reference_valuation=getattr(reference_state, "valuation", "UNKNOWN"),
+            reference_momentum=getattr(reference_state, "momentum", "UNKNOWN"),
+            reference_structure=getattr(reference_state, "structure", "UNKNOWN"),
+        )
