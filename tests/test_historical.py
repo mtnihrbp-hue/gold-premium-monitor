@@ -16,6 +16,8 @@ from intelligence.historical import (
     build_historical_comparison,
     SimilarStateResult,
     HistoricalComparison,
+    _soft_match,
+    _is_known,
 )
 
 
@@ -37,12 +39,45 @@ class MockState:
 
 
 # ---------------------------------------------------------------------------
-# 1. calculate_similarity — exact categorical match
+# 0. Soft-match primitives
+# ---------------------------------------------------------------------------
+
+def test_soft_match_both_known_equal():
+    """Both known and equal → match."""
+    assert _soft_match("RISING", "RISING")
+    print("PASS: test_soft_match_both_known_equal")
+
+
+def test_soft_match_both_known_different():
+    """Both known and different → no match."""
+    assert not _soft_match("RISING", "FALLING")
+    print("PASS: test_soft_match_both_known_different")
+
+
+def test_soft_match_one_unknown():
+    """One unknown → no blocking."""
+    assert _soft_match("RISING", "UNKNOWN")
+    assert _soft_match("UNKNOWN", "RISING")
+    assert _soft_match("RISING", None)
+    assert _soft_match(None, "RISING")
+    assert _soft_match("RISING", "")
+    print("PASS: test_soft_match_one_unknown")
+
+
+def test_soft_match_both_unknown():
+    """Both unknown → no blocking."""
+    assert _soft_match("UNKNOWN", "UNKNOWN")
+    assert _soft_match(None, None)
+    print("PASS: test_soft_match_both_unknown")
+
+
+# ---------------------------------------------------------------------------
+# 1. Primary hard requirements
 # ---------------------------------------------------------------------------
 
 def test_similarity_exact_match():
-    """Same valuation, momentum, structure + premium within tolerance → match."""
-    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "structure": "DISCOUNT_DOMINANT"}
+    """Same valuation, momentum + premium within tolerance → match."""
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING"}
     candidate = MockState(
         id=1, snapshot_id=10,
         valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
@@ -61,8 +96,8 @@ def test_similarity_exact_match():
 
 
 def test_similarity_valuation_mismatch():
-    """Different valuation → no match."""
-    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "structure": "DISCOUNT_DOMINANT"}
+    """Different valuation → no match (hard requirement)."""
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING"}
     candidate = MockState(
         id=1, snapshot_id=10,
         valuation_state="FAIR", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
@@ -74,8 +109,8 @@ def test_similarity_valuation_mismatch():
 
 
 def test_similarity_momentum_mismatch():
-    """Different momentum → no match."""
-    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "structure": "DISCOUNT_DOMINANT"}
+    """Different momentum → no match (hard requirement)."""
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING"}
     candidate = MockState(
         id=1, snapshot_id=10,
         valuation_state="CHEAP", momentum_state="WEAKENING", structure_state="DISCOUNT_DOMINANT",
@@ -86,35 +121,22 @@ def test_similarity_momentum_mismatch():
     print("PASS: test_similarity_momentum_mismatch")
 
 
-def test_similarity_structure_mismatch():
-    """Different structure → no match."""
-    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "structure": "DISCOUNT_DOMINANT"}
-    candidate = MockState(
-        id=1, snapshot_id=10,
-        valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="MIXED",
-        snapshot=MockSnapshot(premium_percent=-3.0),
-    )
-    result = calculate_similarity(ref, candidate)
-    assert result is None, "Expected no match due to structure mismatch"
-    print("PASS: test_similarity_structure_mismatch")
-
-
 def test_similarity_premium_out_of_tolerance():
-    """Premium difference exceeds tolerance → no match."""
-    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "structure": "DISCOUNT_DOMINANT"}
+    """Premium difference exceeds tolerance → no match (hard requirement)."""
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING"}
     candidate = MockState(
         id=1, snapshot_id=10,
         valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
         snapshot=MockSnapshot(premium_percent=-5.5),
     )
     result = calculate_similarity(ref, candidate, premium_tolerance=1.0)
-    assert result is None, "Expected no match due to premium out of tolerance (2.5% > 1.0%)"
+    assert result is None, "Expected no match due to premium out of tolerance"
     print("PASS: test_similarity_premium_out_of_tolerance")
 
 
 def test_similarity_premium_at_boundary():
     """Premium exactly at tolerance boundary → match."""
-    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "structure": "DISCOUNT_DOMINANT"}
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING"}
     candidate = MockState(
         id=1, snapshot_id=10,
         valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
@@ -127,7 +149,224 @@ def test_similarity_premium_at_boundary():
 
 
 # ---------------------------------------------------------------------------
-# 2. rank_similar_states
+# 2. Secondary soft requirements — structure
+# ---------------------------------------------------------------------------
+
+def test_similarity_structure_both_known_mismatch():
+    """Both structure known and different → no match (soft filter)."""
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "structure": "DISCOUNT_DOMINANT"}
+    candidate = MockState(
+        id=1, snapshot_id=10,
+        valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="MIXED",
+        snapshot=MockSnapshot(premium_percent=-3.0),
+    )
+    result = calculate_similarity(ref, candidate)
+    assert result is None, "Expected no match when both structures known and different"
+    print("PASS: test_similarity_structure_both_known_mismatch")
+
+
+def test_similarity_structure_unknown_no_block():
+    """Structure UNKNOWN on candidate → no blocking."""
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "structure": "DISCOUNT_DOMINANT"}
+    candidate = MockState(
+        id=1, snapshot_id=10,
+        valuation_state="CHEAP", momentum_state="IMPROVING",
+        snapshot=MockSnapshot(premium_percent=-3.0),
+        # no structure_state attribute → UNKNOWN
+    )
+    result = calculate_similarity(ref, candidate)
+    assert result is not None, "Expected match when candidate structure is unknown"
+    print("PASS: test_similarity_structure_unknown_no_block")
+
+
+def test_similarity_structure_reference_unknown_no_block():
+    """Structure UNKNOWN on reference → no blocking."""
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "structure": "UNKNOWN"}
+    candidate = MockState(
+        id=1, snapshot_id=10,
+        valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="MIXED",
+        snapshot=MockSnapshot(premium_percent=-3.0),
+    )
+    result = calculate_similarity(ref, candidate)
+    assert result is not None, "Expected match when reference structure is unknown"
+    print("PASS: test_similarity_structure_reference_unknown_no_block")
+
+
+def test_similarity_structure_both_known_match():
+    """Both structure known and same → match."""
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "structure": "DISCOUNT_DOMINANT"}
+    candidate = MockState(
+        id=1, snapshot_id=10,
+        valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
+        snapshot=MockSnapshot(premium_percent=-3.0),
+    )
+    result = calculate_similarity(ref, candidate)
+    assert result is not None, "Expected match when structures match"
+    print("PASS: test_similarity_structure_both_known_match")
+
+
+# ---------------------------------------------------------------------------
+# 3. Secondary soft requirements — USD/IRR direction
+# ---------------------------------------------------------------------------
+
+def test_similarity_usd_match():
+    """Matching USD direction when both known → match."""
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "usd_direction": "RISING"}
+    candidate = MockState(
+        id=1, snapshot_id=10,
+        valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
+        usd_direction="RISING",
+        snapshot=MockSnapshot(premium_percent=-3.0),
+    )
+    result = calculate_similarity(ref, candidate)
+    assert result is not None, "Expected match with matching USD direction"
+    assert result.usd_direction == "RISING"
+    print("PASS: test_similarity_usd_match")
+
+
+def test_similarity_usd_mismatch_rejects():
+    """Different USD direction when both known → no match."""
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "usd_direction": "RISING"}
+    candidate = MockState(
+        id=1, snapshot_id=10,
+        valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
+        usd_direction="FALLING",
+        snapshot=MockSnapshot(premium_percent=-3.0),
+    )
+    result = calculate_similarity(ref, candidate)
+    assert result is None, "Expected no match when USD directions differ"
+    print("PASS: test_similarity_usd_mismatch_rejects")
+
+
+def test_similarity_usd_unknown_no_block():
+    """UNKNOWN USD direction → no fabricated blocking."""
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "usd_direction": "RISING"}
+    candidate = MockState(
+        id=1, snapshot_id=10,
+        valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
+        # no usd_direction → UNKNOWN
+        snapshot=MockSnapshot(premium_percent=-3.0),
+    )
+    result = calculate_similarity(ref, candidate)
+    assert result is not None, "Expected match when candidate USD direction is unknown"
+    print("PASS: test_similarity_usd_unknown_no_block")
+
+
+def test_similarity_usd_reference_unknown_no_block():
+    """Reference USD direction UNKNOWN → no blocking."""
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "usd_direction": "UNKNOWN"}
+    candidate = MockState(
+        id=1, snapshot_id=10,
+        valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
+        usd_direction="FALLING",
+        snapshot=MockSnapshot(premium_percent=-3.0),
+    )
+    result = calculate_similarity(ref, candidate)
+    assert result is not None, "Expected match when reference USD direction is unknown"
+    print("PASS: test_similarity_usd_reference_unknown_no_block")
+
+
+# ---------------------------------------------------------------------------
+# 4. Secondary soft requirements — XAU/USD direction
+# ---------------------------------------------------------------------------
+
+def test_similarity_xau_match():
+    """Matching XAU direction when both known → match."""
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "xau_direction": "FALLING"}
+    candidate = MockState(
+        id=1, snapshot_id=10,
+        valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
+        xau_direction="FALLING",
+        snapshot=MockSnapshot(premium_percent=-3.0),
+    )
+    result = calculate_similarity(ref, candidate)
+    assert result is not None, "Expected match with matching XAU direction"
+    assert result.xau_direction == "FALLING"
+    print("PASS: test_similarity_xau_match")
+
+
+def test_similarity_xau_mismatch_rejects():
+    """Different XAU direction when both known → no match."""
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "xau_direction": "FALLING"}
+    candidate = MockState(
+        id=1, snapshot_id=10,
+        valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
+        xau_direction="RISING",
+        snapshot=MockSnapshot(premium_percent=-3.0),
+    )
+    result = calculate_similarity(ref, candidate)
+    assert result is None, "Expected no match when XAU directions differ"
+    print("PASS: test_similarity_xau_mismatch_rejects")
+
+
+def test_similarity_xau_unknown_no_block():
+    """UNKNOWN XAU direction → no fabricated blocking."""
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "xau_direction": "FALLING"}
+    candidate = MockState(
+        id=1, snapshot_id=10,
+        valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
+        # no xau_direction → UNKNOWN
+        snapshot=MockSnapshot(premium_percent=-3.0),
+    )
+    result = calculate_similarity(ref, candidate)
+    assert result is not None, "Expected match when candidate XAU direction is unknown"
+    print("PASS: test_similarity_xau_unknown_no_block")
+
+
+def test_similarity_xau_reference_unknown_no_block():
+    """Reference XAU direction UNKNOWN → no blocking."""
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "xau_direction": "UNKNOWN"}
+    candidate = MockState(
+        id=1, snapshot_id=10,
+        valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
+        xau_direction="RISING",
+        snapshot=MockSnapshot(premium_percent=-3.0),
+    )
+    result = calculate_similarity(ref, candidate)
+    assert result is not None, "Expected match when reference XAU direction is unknown"
+    print("PASS: test_similarity_xau_reference_unknown_no_block")
+
+
+# ---------------------------------------------------------------------------
+# 5. Combined secondary filters
+# ---------------------------------------------------------------------------
+
+def test_similarity_multiple_soft_filters():
+    """All soft filters match → success."""
+    ref = {
+        "premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING",
+        "structure": "DISCOUNT_DOMINANT", "usd_direction": "RISING", "xau_direction": "FALLING",
+    }
+    candidate = MockState(
+        id=1, snapshot_id=10,
+        valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
+        usd_direction="RISING", xau_direction="FALLING",
+        snapshot=MockSnapshot(premium_percent=-3.0),
+    )
+    result = calculate_similarity(ref, candidate)
+    assert result is not None
+    print("PASS: test_similarity_multiple_soft_filters")
+
+
+def test_similarity_one_soft_filter_fails():
+    """One soft filter fails (both known, different) → reject."""
+    ref = {
+        "premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING",
+        "structure": "DISCOUNT_DOMINANT", "usd_direction": "RISING", "xau_direction": "FALLING",
+    }
+    candidate = MockState(
+        id=1, snapshot_id=10,
+        valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
+        usd_direction="RISING", xau_direction="RISING",  # mismatch
+        snapshot=MockSnapshot(premium_percent=-3.0),
+    )
+    result = calculate_similarity(ref, candidate)
+    assert result is None, "Expected no match when one soft filter mismatches"
+    print("PASS: test_similarity_one_soft_filter_fails")
+
+
+# ---------------------------------------------------------------------------
+# 6. Ranking
 # ---------------------------------------------------------------------------
 
 def test_rank_by_premium_distance():
@@ -174,12 +413,12 @@ def test_rank_tiebreaker_recency():
 
 
 # ---------------------------------------------------------------------------
-# 3. build_historical_comparison
+# 7. build_historical_comparison
 # ---------------------------------------------------------------------------
 
 def test_comparison_finds_matches():
     """Multiple candidates, some match."""
-    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "structure": "DISCOUNT_DOMINANT"}
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING"}
     candidates = [
         MockState(
             id=1, snapshot_id=10,
@@ -208,7 +447,7 @@ def test_comparison_finds_matches():
 
 def test_comparison_no_matches():
     """No candidates match → empty result."""
-    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "structure": "DISCOUNT_DOMINANT"}
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING"}
     candidates = [
         MockState(
             id=1, snapshot_id=10,
@@ -224,7 +463,7 @@ def test_comparison_no_matches():
 
 def test_comparison_respects_max_results():
     """max_results limits output."""
-    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "structure": "DISCOUNT_DOMINANT"}
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING"}
     candidates = []
     for i in range(10):
         candidates.append(MockState(
@@ -240,7 +479,7 @@ def test_comparison_respects_max_results():
 
 def test_comparison_sufficient_data_threshold():
     """3+ matches = sufficient data."""
-    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "structure": "DISCOUNT_DOMINANT"}
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING"}
     candidates = [
         MockState(
             id=i, snapshot_id=i,
@@ -257,7 +496,7 @@ def test_comparison_sufficient_data_threshold():
 
 def test_comparison_insufficient_data():
     """<3 matches = insufficient data."""
-    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "structure": "DISCOUNT_DOMINANT"}
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING"}
     candidates = [
         MockState(
             id=1, snapshot_id=1,
@@ -272,7 +511,7 @@ def test_comparison_insufficient_data():
 
 
 # ---------------------------------------------------------------------------
-# 4. HistoricalComparison.to_text
+# 8. HistoricalComparison.to_text
 # ---------------------------------------------------------------------------
 
 def test_text_output_contains_reference():
@@ -342,12 +581,12 @@ def test_text_output_no_prediction():
 
 
 # ---------------------------------------------------------------------------
-# 5. Edge cases
+# 9. Edge cases
 # ---------------------------------------------------------------------------
 
 def test_similarity_missing_premium():
     """Candidate with no premium data → no match."""
-    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING", "structure": "DISCOUNT_DOMINANT"}
+    ref = {"premium": -3.0, "valuation": "CHEAP", "momentum": "IMPROVING"}
     candidate = MockState(
         id=1, snapshot_id=10,
         valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
@@ -360,7 +599,7 @@ def test_similarity_missing_premium():
 
 def test_similarity_none_reference_premium():
     """Reference with None premium → no match."""
-    ref = {"premium": None, "valuation": "CHEAP", "momentum": "IMPROVING", "structure": "DISCOUNT_DOMINANT"}
+    ref = {"premium": None, "valuation": "CHEAP", "momentum": "IMPROVING"}
     candidate = MockState(
         id=1, snapshot_id=10,
         valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
@@ -395,23 +634,50 @@ def test_comparison_empty_candidates():
 
 if __name__ == "__main__":
     tests = [
+        # Soft-match primitives
+        test_soft_match_both_known_equal,
+        test_soft_match_both_known_different,
+        test_soft_match_one_unknown,
+        test_soft_match_both_unknown,
+        # Primary hard requirements
         test_similarity_exact_match,
         test_similarity_valuation_mismatch,
         test_similarity_momentum_mismatch,
-        test_similarity_structure_mismatch,
         test_similarity_premium_out_of_tolerance,
         test_similarity_premium_at_boundary,
+        # Secondary soft — structure
+        test_similarity_structure_both_known_mismatch,
+        test_similarity_structure_unknown_no_block,
+        test_similarity_structure_reference_unknown_no_block,
+        test_similarity_structure_both_known_match,
+        # Secondary soft — USD
+        test_similarity_usd_match,
+        test_similarity_usd_mismatch_rejects,
+        test_similarity_usd_unknown_no_block,
+        test_similarity_usd_reference_unknown_no_block,
+        # Secondary soft — XAU
+        test_similarity_xau_match,
+        test_similarity_xau_mismatch_rejects,
+        test_similarity_xau_unknown_no_block,
+        test_similarity_xau_reference_unknown_no_block,
+        # Combined soft filters
+        test_similarity_multiple_soft_filters,
+        test_similarity_one_soft_filter_fails,
+        # Ranking
         test_rank_by_premium_distance,
         test_rank_tiebreaker_recency,
+        # Comparison
         test_comparison_finds_matches,
         test_comparison_no_matches,
         test_comparison_respects_max_results,
         test_comparison_sufficient_data_threshold,
         test_comparison_insufficient_data,
+        # Text
         test_text_output_contains_reference,
         test_text_output_no_matches,
         test_text_output_insufficient_warning,
         test_text_output_no_prediction,
+        # Edge cases
         test_similarity_missing_premium,
         test_similarity_none_reference_premium,
         test_rank_empty_list,
