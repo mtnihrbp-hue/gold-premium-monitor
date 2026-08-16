@@ -228,7 +228,7 @@ if __name__ == "__main__":
     for t in tests:
         try:
             t()
-n            passed += 1
+            passed += 1
         except AssertionError as e:
             print(f"FAIL: {t.__name__}: {e}")
             failed += 1
