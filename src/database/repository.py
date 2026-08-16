@@ -810,6 +810,153 @@ def get_price_observations_by_instrument(instrument: str, limit: int = 100, hour
 ########
 
 
+# --- PRE-SP-C.2: Analysis Snapshots ---
+
+def save_analysis_snapshot(
+    analysis_timestamp: datetime,
+    source_run_id: str,
+    market_snapshot_id: int = None,
+    market_state_id: int = None,
+    xau_usd: float = None,
+    usd_irr: float = None,
+    rep_gold_price: float = None,
+    premium_percent: float = None,
+    valuation_state: str = "UNKNOWN",
+    momentum_state: str = "UNKNOWN",
+    structure_state: str = "UNKNOWN",
+    analysis_window: str = None,
+    data_quality_json: dict = None,
+) -> int:
+    """Save an analysis snapshot to the database.
+
+    Non-blocking: returns -1 on DB failure.
+
+    Args:
+        analysis_timestamp: scheduled analysis timestamp
+        source_run_id: deterministic unique run identifier
+        market_snapshot_id: FK to market_snapshots
+        market_state_id: FK to market_states
+        xau_usd: world gold price at analysis time
+        usd_irr: USD/IRR rate at analysis time
+        rep_gold_price: representative Iranian gold price
+        premium_percent: premium/discount percent
+        valuation_state: CHEAP | FAIR | EXPENSIVE | UNKNOWN
+        momentum_state: IMPROVING | NEUTRAL | WEAKENING | UNKNOWN
+        structure_state: DISCOUNT_DOMINANT | PREMIUM_DOMINANT | MIXED | UNKNOWN
+        analysis_window: descriptive window label
+        data_quality_json: per-component quality tracking
+
+    Returns:
+        snapshot id, or -1 on failure
+    """
+    from database.models import AnalysisSnapshot
+
+    session = get_session()
+    if session is None:
+        print("DB unavailable — analysis snapshot not saved")
+        return -1
+
+    try:
+        snap = AnalysisSnapshot(
+            snapshot_type="analysis",
+            analysis_timestamp=analysis_timestamp,
+            source_run_id=source_run_id,
+            market_snapshot_id=market_snapshot_id,
+            market_state_id=market_state_id,
+            xau_usd=xau_usd,
+            usd_irr=usd_irr,
+            rep_gold_price=rep_gold_price,
+            premium_percent=premium_percent,
+            valuation_state=valuation_state,
+            momentum_state=momentum_state,
+            structure_state=structure_state,
+            analysis_window=analysis_window,
+            data_quality_json=data_quality_json,
+        )
+        session.add(snap)
+        session.commit()
+        return snap.id
+    except Exception as e:
+        print(f"DB save failed (save_analysis_snapshot): {e}")
+        session.rollback()
+        return -1
+    finally:
+        session.close()
+
+
+def get_latest_analysis_snapshot():
+    """Return the most recent analysis snapshot, or None if unavailable."""
+    from database.models import AnalysisSnapshot
+
+    session = get_session()
+    if session is None:
+        return None
+    try:
+        return (
+            session.query(AnalysisSnapshot)
+            .order_by(AnalysisSnapshot.analysis_timestamp.desc())
+            .first()
+        )
+    except Exception as e:
+        print(f"DB query failed (get_latest_analysis_snapshot): {e}")
+        return None
+    finally:
+        session.close()
+
+
+def get_analysis_snapshots(limit: int = 100, hours: int = None):
+    """Get analysis snapshots ordered by timestamp desc.
+
+    Non-blocking: returns [] if DB unavailable.
+    """
+    from database.models import AnalysisSnapshot
+
+    session = get_session()
+    if session is None:
+        return []
+
+    try:
+        query = session.query(AnalysisSnapshot).order_by(
+            AnalysisSnapshot.analysis_timestamp.desc()
+        )
+        if hours is not None:
+            since = datetime.now() - timedelta(hours=hours)
+            query = query.filter(AnalysisSnapshot.analysis_timestamp >= since)
+        return query.limit(limit).all()
+    except Exception as e:
+        print(f"DB query failed (get_analysis_snapshots): {e}")
+        return []
+    finally:
+        session.close()
+
+
+def analysis_snapshot_exists(source_run_id: str) -> bool:
+    """Check if an analysis snapshot with the given run ID already exists.
+
+    Non-blocking: returns False if DB unavailable.
+    """
+    from database.models import AnalysisSnapshot
+
+    session = get_session()
+    if session is None:
+        return False
+
+    try:
+        count = (
+            session.query(AnalysisSnapshot)
+            .filter(AnalysisSnapshot.source_run_id == source_run_id)
+            .count()
+        )
+        return count > 0
+    except Exception as e:
+        print(f"DB query failed (analysis_snapshot_exists): {e}")
+        return False
+    finally:
+        session.close()
+
+#########
+
+
 
 
 
