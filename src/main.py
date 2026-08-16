@@ -42,8 +42,15 @@ from validation.data import (
 )
 
 from database.connection import get_session
-from database.repository import save_market_snapshot, save_market_state
+from database.repository import (
+    save_market_snapshot,
+    save_market_state,
+    save_price_observation,
+)
 
+from intelligence.freshness import evaluate_freshness
+
+###### End of Imports
 
 def load_config():
     with open("config/config.json", "r", encoding="utf-8") as f:
