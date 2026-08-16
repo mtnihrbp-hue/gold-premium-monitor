@@ -14,7 +14,7 @@ The project must remain explainable, testable, resilient and free-tier compatibl
 
 ## 2. Core Distinctions
 
-These distinctions are architectural invariants:
+These are architectural invariants:
 
 ```text
 CHEAP ≠ BUY
@@ -30,61 +30,81 @@ LLM INTERPRETATION ≠ QUANTITATIVE CALCULATION
 
 The deterministic quantitative engine measures the market.
 
-Future intelligence layers interpret context.
+External intelligence interprets context.
 
 The decision engine combines evidence.
 
 ---
 
-## 3. Current Architecture
+## 3. Current Status
 
 ```text
-XAU/USD ────────┐
-USD/IRR ────────┼──> Market Calculation
-Platforms ──────┘          |
-                            v
-                       Fair Value
-                            |
-                       Premium/Discount
-                            |
-             +--------------+--------------+
-             |              |              |
-             v              v              v
-        Valuation       Momentum       Structure
-             |              |              |
-             +--------------+--------------+
-                            |
-                         Conflict
-                            |
-                    Candidate Decision
-                            |
-                        Hysteresis
-                            |
-                      Final Decision
-                            |
-                    +-------+-------+
-                    |               |
-                 Telegram         Email
-                            |
-                           Neon
-                     Historical Memory
+SP-A              COMPLETE / FROZEN
+SP-B.1            COMPLETE
+SP-B.2            COMPLETE
+SP-B.3–B.5        NOT IMPLEMENTED
+PRE-SP-C DETOUR   NEXT
+SP-C              FUTURE
 ```
 
-SP-A is the deterministic baseline.
+SP-A is already part of the completed `main` baseline and should be treated as frozen. Future work enriches the baseline rather than redesigning it.
 
-SP-B will enrich this baseline with external market intelligence.
+The active development branch is currently `SP-B`.
 
-SP-C will use historical state/outcome data for prediction and learning.
+SP-B must not be merged into `main` until the pre-SP-C architecture detour is completed, validated, and the remaining SP-B scope is explicitly reviewed.
 
 ---
 
-## 4. Data Inputs
+## 4. Current Architecture
+
+```text
+XAU/USD ────────┐
+USD/IRR ────────┼──> Quantitative Market Engine
+Platforms ──────┘               |
+                                v
+                           Fair Value
+                                |
+                         Premium/Discount
+                                |
+                  +-------------+-------------+
+                  |             |             |
+                  v             v             v
+             Valuation      Momentum      Structure
+                  |             |             |
+                  +-------------+-------------+
+                                |
+                             Conflict
+                                |
+                        Candidate Decision
+                                |
+                            Hysteresis
+                                |
+                          Final Decision
+                                |
+                         Historical Memory
+                                |
+                   +------------+-------------+
+                   |                          |
+                Live Wing                Analysis Wing
+                   |                          |
+                /Update                 scheduled system run
+                   |                          |
+                   +------------+-------------+
+                                |
+                               Neon
+```
+
+The next architecture stage adds an explicit intelligence/analysis wing around the frozen deterministic baseline.
+
+---
+
+## 5. Data Inputs
 
 ### World Gold
 
 Primary global gold data is collected through the existing Kitco-related collector and its fallback chain.
 
-If live world-gold data is unavailable, the existing application may fall back to a recent cached value when the fallback rules permit it.
+If live world-gold data is unavailable, the existing application may fall back to a recent cached value when fallback rules permit it.
 
 ### USD/IRR
 
@@ -109,31 +129,27 @@ Collector failures must remain isolated and must not crash the whole monitor.
 
 ---
 
-## 5. Fair Price and Premium
+## 6. Fair Price and Premium
 
 Theoretical fair price is derived from world gold and USD/IRR using the existing implementation.
 
-The project currently calculates the application value using the existing `calculate_fair_price()` flow.
-
-Premium/discount is defined as:
+Premium/discount is:
 
 ```text
 (market_price - fair_price) / fair_price
 ```
 
-Negative premium = market price below fair value = discount.
+Negative premium = discount.
 
-Positive premium = market price above fair value = premium.
+Positive premium = premium.
 
-Do not create a second fair-value calculation without explicit approval.
+Do not introduce a second fair-price calculation without explicit approval.
 
 ---
 
-## 6. Data Quality
+## 7. Data Quality and Fallbacks
 
-A market state is valid only when required inputs satisfy the existing validation rules.
-
-The application already validates ranges and minimum market-source availability.
+A market state is valid only when required inputs satisfy existing validation rules.
 
 Missing data must become:
 
@@ -143,19 +159,19 @@ UNKNOWN
 
 when no valid fallback exists.
 
-Never convert missing data into zero or invent a value.
+Never convert missing data into zero or fabricate a value.
+
+Collector failures, RSS failures, LLM failures and Neon failures must be isolated whenever safely possible.
 
 Fallback behavior is a core project requirement.
 
 ---
 
-## 7. Persistence
+## 8. Persistence
 
 Neon PostgreSQL is the project's long-term historical memory.
 
-GitHub Actions Cache continues to provide runtime state persistence for `state.json`.
-
-These are different responsibilities:
+Runtime state and historical memory are different responsibilities:
 
 ```text
 state.json / GitHub Cache
@@ -165,15 +181,20 @@ Neon PostgreSQL
     = historical market memory and future analytics
 ```
 
-Database failure is non-fatal.
+Current persisted concepts include:
 
-The market monitor must continue operating using existing fallback/state behavior if Neon is unavailable.
+- `market_snapshots`
+- `platform_prices`
+- `market_states`
+- `news_events`
+
+Future analysis-snapshot and hypothesis/outcome structures must remain separate from raw market observations.
 
 ---
 
-## 8. SP-A — Deterministic Market State
+## 9. Deterministic Market State Baseline
 
-SP-A establishes a normalized state pipeline:
+The frozen market-state pipeline is:
 
 ```text
 Valuation
@@ -193,24 +214,7 @@ Hysteresis
 Final Decision
 ```
 
-### 8.1 Valuation
-
-States:
-
-```text
-CHEAP
-FAIR
-EXPENSIVE
-UNKNOWN
-```
-
-Existing premium thresholds remain the basis for valuation zones.
-
-The thresholds may remain configurable.
-
-### 8.2 Premium Direction
-
-Canonical user-facing terminology:
+Canonical premium terminology:
 
 ```text
 DISCOUNT WIDENING
@@ -222,28 +226,17 @@ PREMIUM NARROWING
 PREMIUM STABLE
 ```
 
-For negative premium:
+For a negative premium:
 
-- becoming more negative = `DISCOUNT WIDENING`
-- becoming less negative = `DISCOUNT NARROWING`
+- more negative = `DISCOUNT WIDENING`
+- less negative = `DISCOUNT NARROWING`
 
-For positive premium:
+For a positive premium:
 
-- becoming more positive = `PREMIUM WIDENING`
-- becoming less positive = `PREMIUM NARROWING`
+- more positive = `PREMIUM WIDENING`
+- less positive = `PREMIUM NARROWING`
 
-### 8.3 Momentum
-
-Buyer-oriented momentum states:
-
-```text
-IMPROVING
-NEUTRAL
-WEAKENING
-UNKNOWN
-```
-
-Current interpretation:
+Momentum remains buyer-oriented:
 
 ```text
 DISCOUNT WIDENING → IMPROVING
@@ -251,264 +244,372 @@ DISCOUNT NARROWING → WEAKENING
 DISCOUNT STABLE → NEUTRAL
 ```
 
-and the corresponding positive-premium cases use the same buyer-oriented interpretation.
+"Improving" means the opportunity is improving for a buyer. It does not mean gold price itself is necessarily rising.
 
-"Improving" means the market opportunity is improving for the buyer; it does not mean the underlying gold price is necessarily rising.
+The conflict matrix is deterministic. Do not replace it with an opaque weighted score without explicit approval.
 
-### 8.4 Market Structure
+---
 
-Structure is derived from valid platform observations.
+## 10. Historical Intelligence — SP-B.1 COMPLETE
 
-Current states:
+SP-B.1 provides deterministic historical state comparison.
 
-```text
-DISCOUNT_DOMINANT
-PREMIUM_DOMINANT
-MIXED
-UNKNOWN
-```
+Matching uses:
 
-The system also tracks:
+### Hard requirements
 
-- active platform count
-- platform average
-- highest platform
-- lowest platform
-- spread
-- number below fair
-- number above fair
+- valuation
+- momentum
+- premium distance within configured tolerance
 
-Platform average is retained as analytical data but is not an independent SP-A decision criterion.
+### Soft/context matches
 
-### 8.5 Conflict Matrix
+- market structure
+- USD/IRR direction when known
+- XAU/USD direction when known
 
-The SP-A decision matrix is deterministic and hardcoded.
+If a secondary field is unknown on either side, it must not fabricate a value and must not block the comparison solely because it is unavailable.
 
-Important examples:
+SP-B.1 does not predict or forecast.
 
-```text
-CHEAP + IMPROVING + DISCOUNT_DOMINANT
-    → SUPPORTIVE
-    → BUY
+It is historical context only.
 
-CHEAP + WEAKENING + DISCOUNT_DOMINANT
-    → CAUTION
-    → WAIT
-```
+---
 
-Do not replace the matrix with an opaque score without explicit approval.
+## 11. News Intelligence — SP-B.2 COMPLETE
 
-### 8.6 Candidate vs Final
-
-SP-A intentionally exposes two decision stages:
+SP-B.2 provides a structured external-news pipeline:
 
 ```text
-Candidate Decision
+RSS / manual input
         ↓
-Hysteresis
+Normalization
         ↓
-Final Decision
+Deduplication
+        ↓
+Deterministic relevance/classification
+        ↓
+Structured news event
+        ↓
+Neon
 ```
 
-It is valid for:
+The deterministic classifier uses a controlled event vocabulary and conservative `UNKNOWN` / `UNCERTAIN` outcomes.
 
-```text
-Candidate: BUY
-Final: WAIT
-```
+Current news configuration is free-source and configurable.
 
-The meaning is that current market-state conditions support a BUY candidate, but the hysteresis/state-transition rules have not authorized a new BUY transition.
+SP-B.2 does not:
 
-Do not collapse these states.
+- issue BUY/SELL decisions
+- predict prices
+- run LLM narratives
 
 ---
 
-## 9. Telegram Product Model
+## 12. Remaining SP-B Scope
 
-Telegram is the primary user-facing cockpit.
+The original SP-B roadmap contains:
 
-The current operational command is `Update` for an on-demand snapshot.
+### SP-B.3 — LLM Interpretation
 
-The architecture should support future commands such as:
+Not implemented.
+
+Planned role:
+
+- interpret structured news
+- combine news with SP-A state and historical context
+- create bounded narrative
+- degrade gracefully when Groq is unavailable
+
+### SP-B.4 — Telegram Intelligence Commands
+
+Not implemented.
+
+Planned commands include:
 
 ```text
-Update
-Analysis
-Sentiment
-History
-Risk
-Health/KPI
+/Analysis
+/History
+/News
+/Radar
 ```
 
-These future commands should provide deeper views rather than continually enlarging the primary message.
+`/Update` remains the live snapshot.
 
-### Current message hierarchy
+### SP-B.5 — Market Intelligence Radar
+
+Not implemented.
+
+Planned role:
 
 ```text
-Market
-Decision / Market State
-Trends
-Momentum
-Market Structure
-Platforms
-Timestamp
+SP-A state
++
+historical context
++
+news context
++
+regime / market mood
+        ↓
+Radar
 ```
 
-Input directions for world gold and USD are part of the **Market** context, not a separate intelligence section.
-
-The platform table remains at the bottom because it is raw evidence/inspection data.
-
-Avoid unexplained scores and decorative visualizations.
-
-ASCII visualizations are deferred until their semantics are clearly defined and useful.
+Prediction and learning remain outside SP-B.
 
 ---
 
-## 10. Telegram Terminology Rule
+## 13. Pre-SP-C Architecture Detour
 
-The Telegram layer must use the same canonical premium/discount vocabulary as the analytical engine.
+Before SP-C prediction/learning begins, the project must define the architecture between the live market monitor and the future learning system.
 
-Presentation code must not independently reinterpret market states.
+The detour will establish:
 
-The formatter should consume already-derived analytical state whenever possible.
+- live user-triggered snapshots versus system-generated analysis snapshots
+- scheduled analysis cadence, initially expected around 30–60 minutes
+- technical-analysis data model
+- representative Iranian market-price candle source and fallback chain
+- support/resistance architecture
+- XAU/USD technical context
+- USD/IRR technical context
+- future PAXG reference-input role
+- analysis read models for Telegram
+- historical outcome/evaluation contract
+- separation of user-triggered data collection from reusable system analysis
 
-This prevents the analytical engine and user interface from describing the same market condition differently.
+This is architecture/design work first.
+
+No prediction model should be implemented until these contracts are explicit and testable.
 
 ---
 
-## 11. News and LLM Boundary
+## 14. Live Wing vs Analysis Wing
 
-SP-B will introduce external market intelligence.
+### Live Wing
 
-The intended separation is:
+Primary command:
 
 ```text
-Deterministic engine
-    = measures the market
-
-LLM/news layer
-    = interprets external information
-
-Decision layer
-    = combines evidence
+/Update
 ```
 
-The LLM must never invent:
+Meaning:
 
-- fair price
-- premium
-- USD/IRR
+> What is happening in the market right now?
+
+The live path should remain relatively lightweight and current.
+
+Conceptually:
+
+```text
+collect
+→ validate
+→ calculate
+→ frozen market state
+→ display
+```
+
+### Analysis Wing
+
+System-triggered on a scheduled cadence.
+
+Initial target:
+
+```text
+30–60 minutes
+```
+
+Meaning:
+
+> What does the system currently understand about the market?
+
+Eventually:
+
+```text
+current market
++
+SP-A state
++
+technical analysis
++
+historical context
++
+news intelligence
++
+regime / market mood
++
+LLM narrative
+        ↓
+analysis snapshot
+        ↓
+Neon
+```
+
+The analysis snapshot is system-generated and reusable by multiple Telegram users.
+
+Prediction/learning should use analysis snapshots, not arbitrary user-request snapshots.
+
+---
+
+## 15. Technical Analysis Direction
+
+Technical analysis will be an independent analytical layer.
+
+Planned Telegram command:
+
+```text
+/Technical
+```
+
+Potential inputs:
+
 - XAU/USD
+- USD/IRR
+- representative Iranian gold price
+- trend
+- moving averages
+- RSI
+- ATR / volatility
 - support/resistance
-- historical outcomes
+- price structure
+- representative-market candle
 
-The LLM may produce structured market events such as:
+The candle must represent a market-price series, not the premium series.
 
-- event type
-- topic
-- expected USD direction
-- expected Iranian-gold direction
-- expected duration
-- impact
-- confidence
-- uncertainty
-
-LLM failure must degrade to `UNKNOWN` and never crash the market monitor.
-
-The project remains free-tier constrained.
-
----
-
-## 12. Historical Intelligence Direction
-
-Neon should eventually allow queries such as:
+Initial representative-platform fallback concept:
 
 ```text
-What happened after similar premium states?
-
-What happened when USD was falling and gold was rising?
-
-What happened during previous PANIC/RELIEF regimes?
-
-How often did news expectations match subsequent price behavior?
+Milli
+  ↓
+Ayyareh
+  ↓
+WallGold
 ```
 
-Historical similarity must remain transparent and sample-size aware.
-
-Insufficient historical data must be reported as insufficient data, not turned into artificial confidence.
+A robust future reference-price method may be evaluated later, but the first implementation must remain deterministic and explainable.
 
 ---
 
-## 13. Prediction and Learning Direction
+## 16. PAXG Role
 
-Prediction comes after sufficient state history exists.
+PAXG is an external gold-market reference input, not a replacement for the Iranian fair-price calculation.
 
-Future predictions should be tracked as hypotheses with:
+Its eventual role belongs in the global-gold context layer of the Analysis Wing.
 
-- timestamp
-- state at prediction time
-- predicted direction/movement
-- horizon
-- confidence
+The Iranian market model must remain anchored in its own local USD/IRR and platform data.
+
+---
+
+## 17. Telegram Product Model
+
+Telegram is the presentation/cockpit layer.
+
+Current command:
+
+```text
+/Update
+```
+
+Future commands may include:
+
+```text
+/Technical
+/Analysis
+/History
+/News
+/Radar
+/Health
+```
+
+The main update message should not become the dumping ground for every analytical feature.
+
+Detailed platform evidence remains near the bottom.
+
+Presentation code should consume analytical state rather than recompute it.
+
+---
+
+## 18. Analysis Snapshot Contract — Future
+
+The exact schema is to be designed during the pre-SP-C detour.
+
+The conceptual distinction is:
+
+```text
+LIVE_SNAPSHOT
+    = user-triggered current observation
+
+ANALYSIS_SNAPSHOT
+    = system-triggered analytical observation
+```
+
+The two must remain distinguishable in persistent storage.
+
+A future analysis snapshot is expected to reference:
+
+- market observation
+- market state
+- technical state
+- historical context
+- news context
+- regime/mood
+- analytical narrative
+- data-quality status
+
+Do not implement this schema before the detour is approved.
+
+---
+
+## 19. Prediction and Learning — SP-C Future
+
+SP-C will eventually evaluate hypotheses and observed outcomes.
+
+Future prediction records must preserve:
+
+- prediction timestamp
+- source analysis snapshot
+- prediction horizon
+- predicted movement/state
+- confidence based on evidence
 - evidence/reason
 - actual outcome
-- prediction error
+- error
+- model/version information
 
-The system should learn from its own mistakes without obscuring whether an error originated in data, interpretation, regime detection or decision logic.
+The system should learn from observed outcomes without hiding whether an error originated in:
+
+- data
+- technical analysis
+- news interpretation
+- regime detection
+- decision logic
+- model assumptions
+
+SP-C must not begin until the pre-SP-C detour defines the outcome/evaluation contract.
 
 ---
 
-## 14. Engineering Invariants
+## 20. Engineering Invariants
 
 1. Collectors collect; they do not decide.
-2. Calculators calculate; they do not fetch external data.
-3. Notification formatters format; they do not reimplement analytical logic.
-4. Persistence stores; it does not become a hidden calculation layer.
-5. Telegram is the cockpit, not the brain.
-6. LLM output is contextual intelligence, not quantitative truth.
-7. External failures are non-fatal whenever safely possible.
-8. Unknown is preferable to fabricated data.
-9. Every sprint has automated tests and an executable KPI.
-10. Future-sprint functionality must not leak into the current sprint.
+2. Calculators calculate; they do not fetch external news.
+3. Intelligence interprets context; it does not invent quantitative truth.
+4. Notification formatters format; they do not reimplement analytical logic.
+5. Persistence stores; it does not become a hidden calculation layer.
+6. Telegram is the cockpit, not the brain.
+7. Unknown is preferable to fabricated data.
+8. External failures are non-fatal whenever safely possible.
+9. Every sprint/sub-sprint requires automated tests and an executable KPI.
+10. Future-sprint functionality must not leak into the current task.
 11. Small, surgical changes are preferred over broad refactors.
+12. Do not declare completion without executable verification.
 
 ---
 
-## 15. Branch and Sprint Model
+## 21. Skills for AI Developers
 
-Stable code lives on `main`.
+Reusable AI behavior is under `skills/`.
 
-Sprint branches are temporary development lines.
-
-Current process:
-
-```text
-main
-  ↓
-SP-A
-  ↓
-SP-A-Edited / refinement
-  ↓
-verification
-  ↓
-merge to main
-  ↓
-SP-A branches can be deleted
-  ↓
-create next sprint branch
-```
-
-Never force-push unless explicitly required.
-
-Never declare a sprint complete without the required tests and KPI.
-
----
-
-## 16. Skills for AI Developers
-
-Reusable AI behavior is stored under `skills/`.
-
-The load order is:
+Load order:
 
 1. `core-engineering.md`
 2. `repository-onboarding.md`
@@ -516,38 +617,60 @@ The load order is:
 4. task-specific specialist skills
 5. current sprint prompt/user requirement
 
-The project memory describes the architecture.
+`PROJECT_MEMORY.md` describes project-specific architecture.
 
-The skills describe reusable AI behavior.
+Skills describe reusable AI behavior.
 
-The current sprint prompt defines the exact task.
+The current task/prompt defines the exact implementation scope.
 
 ---
 
-## 17. Current State Before SP-B
+## 22. Branch and Sprint Model
 
-SP-A must be frozen before SP-B begins.
+Stable code lives on `main`.
 
-The immediate stabilization sequence is:
+Sprint development happens on dedicated branches.
+
+Current active development branch:
 
 ```text
-SP-A-Edited
-    ↓
-Telegram/presentation verification
-    ↓
-README + PROJECT_MEMORY verification
-    ↓
-compile/import tests
-    ↓
-full test suite
-    ↓
-SP-A KPI
-    ↓
-merge to main
-    ↓
-delete temporary SP-A branches
-    ↓
-start SP-B
+SP-B
 ```
 
-Do not begin SP-B until this sequence is complete.
+Do not merge SP-B into `main` yet.
+
+The pre-SP-C architecture detour will be designed and validated on the active development line first.
+
+After that detour is complete, review the remaining SP-B.3–B.5 scope and explicitly decide whether to:
+
+- complete it before merging, or
+- redefine/close it based on the approved architecture.
+
+Never force-push unless explicitly required.
+
+Never delete stable tags.
+
+---
+
+## 23. Current Next Step
+
+The next task is:
+
+```text
+PRE-SP-C ARCHITECTURE DETOUR
+```
+
+The detour must produce:
+
+1. Analysis Wing architecture
+2. Live vs Analysis separation
+3. analysis-snapshot contract
+4. technical-analysis contract
+5. representative-price/candle contract
+6. support/resistance design boundary
+7. PAXG integration boundary
+8. Telegram analytical read-model design
+9. historical outcome/evaluation contract
+10. WBS with independent KPIs
+
+No prediction model should be implemented during this detour.
