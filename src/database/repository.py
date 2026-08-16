@@ -664,4 +664,155 @@ def get_news_events_by_type(event_type: str, hours: int = 24, limit: int = 100) 
         return []
     finally:
         session.close()
+######
+
+
+
+# --- PRE-SP-C.1: Price Observations ---
+
+def save_price_observation(
+    instrument: str,
+    source: str,
+    timestamp: datetime,
+    price: float,
+    freshness: str = "UNKNOWN",
+    collection_run_id: str = None,
+) -> int:
+    """Save a price observation to the canonical time-series layer.
+
+    Non-blocking: returns -1 on DB failure so market execution continues.
+
+    Args:
+        instrument: XAUUSD | USD/IRR | PAXG | REP_IRAN_GOLD
+        source: collector source name
+        timestamp: observation timestamp
+        price: observed price
+        freshness: FRESH | STALE | UNKNOWN
+        collection_run_id: traceable collection cycle ID
+
+    Returns:
+        observation id, or -1 on failure
+    """
+    from database.models import PriceObservation
+
+    session = get_session()
+    if session is None:
+        print("DB unavailable — price observation not saved")
+        return -1
+
+    try:
+        obs = PriceObservation(
+            instrument=instrument,
+            source=source,
+            timestamp=timestamp,
+            price=price,
+            freshness=freshness,
+            collection_run_id=collection_run_id,
+        )
+        session.add(obs)
+        session.commit()
+        return obs.id
+    except Exception as e:
+        print(f"DB save failed (save_price_observation): {e}")
+        session.rollback()
+        return -1
+    finally:
+        session.close()
+
+
+def get_price_observations(
+    instrument: str = None,
+    source: str = None,
+    limit: int = 100,
+    hours: int = None,
+):
+    """Get price observations with optional filtering.
+
+    Non-blocking: returns [] if DB unavailable.
+
+    Args:
+        instrument: filter by instrument
+        source: filter by source
+        limit: max results
+        hours: lookback window from now
+
+    Returns:
+        List of PriceObservation objects, ordered by timestamp DESC.
+    """
+    from database.models import PriceObservation
+
+    session = get_session()
+    if session is None:
+        return []
+
+    try:
+        query = session.query(PriceObservation).order_by(
+            PriceObservation.timestamp.desc()
+        )
+
+        if instrument is not None:
+            query = query.filter(PriceObservation.instrument == instrument)
+        if source is not None:
+            query = query.filter(PriceObservation.source == source)
+        if hours is not None:
+            since = datetime.now() - timedelta(hours=hours)
+            query = query.filter(PriceObservation.timestamp >= since)
+
+        return query.limit(limit).all()
+    except Exception as e:
+        print(f"DB query failed (get_price_observations): {e}")
+        return []
+    finally:
+        session.close()
+
+
+def get_latest_price_observation(instrument: str = None, source: str = None):
+    """Return the most recent price observation, or None if unavailable.
+
+    Args:
+        instrument: optional instrument filter
+        source: optional source filter
+
+    Returns:
+        Latest PriceObservation or None.
+    """
+    from database.models import PriceObservation
+
+    session = get_session()
+    if session is None:
+        return None
+
+    try:
+        query = session.query(PriceObservation).order_by(
+            PriceObservation.timestamp.desc()
+        )
+        if instrument is not None:
+            query = query.filter(PriceObservation.instrument == instrument)
+        if source is not None:
+            query = query.filter(PriceObservation.source == source)
+        return query.first()
+    except Exception as e:
+        print(f"DB query failed (get_latest_price_observation): {e}")
+        return None
+    finally:
+        session.close()
+
+
+def get_price_observations_by_instrument(instrument: str, limit: int = 100, hours: int = None):
+    """Convenience wrapper: get observations for a specific instrument.
+
+    Non-blocking: returns [] if DB unavailable.
+    """
+    return get_price_observations(
+        instrument=instrument, limit=limit, hours=hours
+    )
+
+########
+
+
+
+
+
+
+
 
