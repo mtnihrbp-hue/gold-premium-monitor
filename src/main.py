@@ -77,6 +77,11 @@ def _fallback_world_from_history(history):
     return last.get("world_gold")
 
 
+def _generate_collection_run_id():
+    """Generate a deterministic collection run ID for traceability."""
+    return f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+
 def main():
     config = load_config()
     thresholds = config["thresholds"]
