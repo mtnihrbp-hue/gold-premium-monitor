@@ -91,6 +91,8 @@ def main():
     history = state["history"]
     last_alert = state["last_alert"]
     is_scheduled = os.environ.get("SCHEDULED_RUN", "false").lower() == "true"
+        # Collection run ID for traceability
+    collection_run_id = _generate_collection_run_id()
 
     # Previous markets for change calculation
     previous_markets = {}
