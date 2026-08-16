@@ -171,4 +171,55 @@ class PriceObservation(Base):
         Index("idx_price_obs_run_id", "collection_run_id"),
     )
 
+########
 
+
+
+class AnalysisSnapshot(Base):
+    """System-generated analysis snapshot for the Analysis Wing.
+
+    PRE-SP-C.2: scheduled analysis foundation.
+    Distinguishable from live user-triggered snapshots.
+    References existing tables for lineage; stores key values for queryability.
+    """
+
+    __tablename__ = "analysis_snapshots"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    snapshot_type = Column(String(20), nullable=False, default="analysis")
+    analysis_timestamp = Column(DateTime, nullable=False)
+    source_run_id = Column(String(128), nullable=False, unique=True)
+    analysis_window = Column(String(32), nullable=True)
+
+    # Lineage: references to existing tables
+    market_snapshot_id = Column(
+        Integer,
+        ForeignKey("market_snapshots.id"),
+        nullable=True,
+    )
+    market_state_id = Column(
+        Integer,
+        ForeignKey("market_states.id"),
+        nullable=True,
+    )
+
+    # Core market values (denormalized for self-containment)
+    xau_usd = Column(Numeric(10, 2), nullable=True)
+    usd_irr = Column(Numeric(20, 2), nullable=True)
+    rep_gold_price = Column(Numeric(20, 2), nullable=True)
+    premium_percent = Column(Numeric(10, 4), nullable=True)
+
+    # Deterministic state fields (from market_state)
+    valuation_state = Column(String(20), nullable=False, default="UNKNOWN")
+    momentum_state = Column(String(20), nullable=False, default="UNKNOWN")
+    structure_state = Column(String(20), nullable=False, default="UNKNOWN")
+
+    # Data quality tracking (extensible)
+    data_quality_json = Column(JSON, nullable=True)
+
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_analysis_snap_ts", "analysis_timestamp"),
+        Index("idx_analysis_snap_run_id", "source_run_id"),
+    )
