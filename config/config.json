@@ -6,6 +6,9 @@
     "min_change_for_alert": 0.5,
     "history_limit": 30
   },
+  "freshness": {
+    "stale_threshold_minutes": 15
+  },
   "email": {
     "send_daily_recap": true,
     "send_alerts": true
