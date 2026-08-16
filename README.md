@@ -1,4 +1,4 @@
-```markdown
+
 # Gold Premium Monitor
 
 A decision-support monitor for the Iranian 18K physical-gold market.
