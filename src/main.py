@@ -154,6 +154,59 @@ def main():
             if info["status"] == "OK" and name in previous_markets:
                 platform_changes[name] = info["price"] - previous_markets[name]
 
+
+
+    # --- PRE-SP-C.1: Save price observations (non-blocking) ---
+    now = datetime.now()
+    stale_threshold = config.get("freshness", {}).get("stale_threshold_minutes", 15)
+
+    if world is not None:
+        try:
+            freshness = evaluate_freshness(now, now, stale_threshold)
+            save_price_observation(
+                instrument="XAUUSD",
+                source="kitco_fallback",
+                timestamp=now,
+                price=world,
+                freshness=freshness,
+                collection_run_id=collection_run_id,
+            )
+            print(" Price observation: XAUUSD saved")
+        except Exception as e:
+            print(f" Price observation XAUUSD failed: {e}")
+
+    if usd is not None:
+        try:
+            freshness = evaluate_freshness(now, now, stale_threshold)
+            save_price_observation(
+                instrument="USD/IRR",
+                source="bonbast",
+                timestamp=now,
+                price=usd,
+                freshness=freshness,
+                collection_run_id=collection_run_id,
+            )
+            print(" Price observation: USD/IRR saved")
+        except Exception as e:
+            print(f" Price observation USD/IRR failed: {e}")
+
+    for name, info in markets.items():
+        if info["status"] == "OK" and info.get("price") is not None:
+            try:
+                freshness = evaluate_freshness(now, now, stale_threshold)
+                save_price_observation(
+                    instrument="REP_IRAN_GOLD",
+                    source=name.lower(),
+                    timestamp=now,
+                    price=info["price"],
+                    freshness=freshness,
+                    collection_run_id=collection_run_id,
+                )
+            except Exception as e:
+                print(f" Price observation {name} failed: {e}")
+    # --- End PRE-SP-C.1 ---
+
+   
     # If world gold unavailable
     if world is None:
         print("\nERROR: World gold price unavailable and no recent cached data.")
