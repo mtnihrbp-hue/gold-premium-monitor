@@ -8,6 +8,8 @@ from sqlalchemy.sql import func
 from database.connection import Base
 
 
+#from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Text, JSON
+
 class MarketSnapshot(Base):
     __tablename__ = "market_snapshots"
 
@@ -142,5 +144,31 @@ class NewsEvent(Base):
     classification_method = Column(String(20), nullable=False)
     processed_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
+
+###########
+
+
+class PriceObservation(Base):
+    """Canonical time-series observation for technical analysis.
+
+    PRE-SP-C.1: dedicated time-series layer, separate from market_snapshots.
+    Instruments: XAUUSD, USD/IRR, PAXG, REP_IRAN_GOLD.
+    """
+
+    __tablename__ = "price_observations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    instrument = Column(String(20), nullable=False)
+    source = Column(String(50), nullable=False)
+    timestamp = Column(DateTime, nullable=False)
+    price = Column(Numeric(20, 4), nullable=False)
+    freshness = Column(String(20), nullable=False, default="UNKNOWN")
+    collection_run_id = Column(String(64), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_price_obs_instrument_ts", "instrument", "timestamp"),
+        Index("idx_price_obs_run_id", "collection_run_id"),
+    )
 
 
