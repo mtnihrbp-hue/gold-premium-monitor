@@ -13,8 +13,7 @@ from caluclator.gold import (
     premium_percent,
 )
 
-from caluclator.signals import evaluate_signal
-from caluclator.signal_state import build_signal_state, SignalState
+from caluclator.signal_state import build_signal_state
 from caluclator.trends import get_trend_summary, get_market_spread
 from caluclator.momentum import build_momentum_context
 
@@ -91,7 +90,6 @@ def main():
     history = state["history"]
     last_alert = state["last_alert"]
     is_scheduled = os.environ.get("SCHEDULED_RUN", "false").lower() == "true"
-        # Collection run ID for traceability
     collection_run_id = _generate_collection_run_id()
 
     # Previous markets for change calculation
@@ -156,8 +154,6 @@ def main():
             if info["status"] == "OK" and name in previous_markets:
                 platform_changes[name] = info["price"] - previous_markets[name]
 
-
-
     # --- PRE-SP-C.1: Save price observations (non-blocking) ---
     now = datetime.now()
     stale_threshold = config.get("freshness", {}).get("stale_threshold_minutes", 15)
@@ -208,7 +204,6 @@ def main():
                 print(f" Price observation {name} failed: {e}")
     # --- End PRE-SP-C.1 ---
 
-   
     # If world gold unavailable
     if world is None:
         print("\nERROR: World gold price unavailable and no recent cached data.")
@@ -266,15 +261,7 @@ def main():
     else:
         previous_premium = premium
 
-    # Legacy signal (preserved for backward compatibility)
-    signal = evaluate_signal(
-        current_premium=premium,
-        previous_premium=previous_premium,
-        last_alert_type=last_alert,
-        thresholds=thresholds,
-    )
-
-    # SP-A: Build signal state (snapshot_id placeholder — updated after DB save)
+    # SP-A is the sole decision authority for alerts.
     signal_state = build_signal_state(
         premium=premium,
         fair_price=fair,
@@ -285,6 +272,15 @@ def main():
         last_alert=last_alert,
         snapshot_id=0,
     )
+
+    # Build an alert record only from the final deterministic decision.
+    signal = None
+    if signal_state.final_decision in ("BUY", "SELL"):
+        signal = {
+            "signal": signal_state.final_decision,
+            "new_alert_type": signal_state.final_decision,
+            "reason": signal_state.reason or f"Final decision: {signal_state.final_decision}.",
+        }
 
     # Momentum + Input Directions (DB-backed, non-blocking)
     momentum = None
@@ -375,7 +371,7 @@ def main():
     history = history[-limit:]
     state["history"] = history
 
-    # Alert history
+    # Alert history is updated only for a final BUY/SELL decision.
     if signal:
         state["last_alert"] = signal["new_alert_type"]
         state["alert_history"].append({
@@ -422,7 +418,7 @@ def main():
         except Exception as e:
             print(f"DB ERROR (market state): {e}")
 
-    # Alerts
+    # Alerts are driven only by the deterministic final decision.
     should_send_alert = (
         signal
         and signal["signal"] in ("BUY", "SELL")
@@ -433,7 +429,8 @@ def main():
         try:
             send_email_alert(
                 signal, world, usd, fair, lowest, premium, markets,
-                trends=trends, momentum=momentum, previous_markets=previous_markets
+                trends=trends, momentum=momentum, previous_markets=previous_markets,
+                signal_state=signal_state,
             )
         except Exception as e:
             print(f"ERROR: Email alert failed: {e}")
