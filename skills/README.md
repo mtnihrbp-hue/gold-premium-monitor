@@ -1,44 +1,75 @@
-# KIMI Skills
+# AI Developer Skills
 
-Reusable behavior instructions for AI developers working on Gold Premium Monitor.
+The `skills/` directory contains reusable operating instructions for AI coding agents. It is a **behavior layer**, not the project architecture or sprint specification.
 
-## Load order
+## Documentation authority
+
+Use the repository documents in this order:
+
+1. **Current user/task requirement** — exact scope for the current change.
+2. **`PROJECT_MEMORY.md`** — canonical project architecture, implemented state, invariants, contracts, and current development position.
+3. **`README.md`** — human-facing project orientation, setup, navigation, and concise status.
+4. **`Prompt_Guide.md`** — generic AI engineering behavior; it must not be used as a project-state record.
+5. **`skills/`** — reusable execution behavior and specialist guidance.
+6. **Source code, tests, and KPI** — executable implementation truth and verification evidence.
+
+When documentation conflicts with executable behavior, report the discrepancy and follow the current approved task plus repository implementation evidence.
+
+## Required load order for a new AI coding session
 
 1. `core-engineering.md`
 2. `repository-onboarding.md`
 3. `sprint-execution.md`
-4. Task-specific specialist skills
-5. Current sprint prompt / explicit user task
+4. `PROJECT_MEMORY.md`
+5. Task-specific specialist skill(s)
+6. Current sprint prompt/task
 
 Do not load every specialist skill for every task.
 
 ## Skills
 
 - `core-engineering.md` — permanent engineering behavior
-- `repository-onboarding.md` — repository orientation
-- `sprint-execution.md` — sprint scope, branch discipline, tests, KPI, release
-- `branch-management.md` — simple Git workflow for a beginner
+- `repository-onboarding.md` — repository orientation and source-of-truth rules
+- `sprint-execution.md` — scope, branch discipline, tests, KPI, release
+- `branch-management.md` — branch and Git workflow
 - `market-analyst.md` — valuation, momentum, conflict and decision philosophy
-- `telegram-product.md` — Telegram cockpit, hierarchy and future command model
-- `data-and-neon.md` — Neon, historical memory, data quality and persistence
-- `llm-news-intelligence.md` — future LLM/news boundaries for SP-B+
-- `validation-and-release.md` — validation and completion gates
-- `new-conversation-bootstrap.md` — starting a fresh KIMI conversation
+- `telegram-product.md` — Telegram cockpit and read-model boundaries
+- `data-and-neon.md` — raw observations, Neon persistence and data quality
+- `llm-news-intelligence.md` — external intelligence and LLM boundaries
+- `validation-and-release.md` — verification and completion gates
+- `new-conversation-bootstrap.md` — bootstrap prompt for a fresh AI session
 
-## Authority
+## Non-duplication rule
 
-`PROJECT_MEMORY.md` is the project-specific architectural memory.
+Skills should explain **how an AI agent should operate**. They should not copy the entire architecture or sprint roadmap from `PROJECT_MEMORY.md`.
 
-These skills define reusable AI behavior and operating rules.
+When a project fact changes, update `PROJECT_MEMORY.md` first. Update a specialist skill only when its reusable behavior or boundary also changes.
 
-The current sprint prompt defines the exact task scope.
+## Current architecture anchors
 
-When sources conflict, prefer:
+The project must preserve these boundaries:
 
-1. Explicit current user requirement
-2. Current sprint specification
-3. `PROJECT_MEMORY.md`
-4. Relevant specialist skill
-5. General engineering preference
+```text
+Quantitative Engine
+    = measures market facts
 
-Never silently override a higher-priority constraint.
+Intelligence Layer
+    = interprets external context
+
+Decision Engine
+    = evaluates evidence
+```
+
+And:
+
+```text
+CHEAP ≠ BUY
+VALUATION ≠ MOMENTUM
+CANDIDATE ≠ FINAL DECISION
+NEWS ≠ MARKET DATA
+LLM ≠ MARKET CALCULATION
+```
+
+Telegram is the cockpit, not the brain.
+
+Neon stores historical memory; raw observations, interpreted states, and future evaluation records remain distinct.
