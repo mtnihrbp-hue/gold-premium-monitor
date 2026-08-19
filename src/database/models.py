@@ -217,6 +217,16 @@ class AnalysisSnapshot(Base):
     # Data quality tracking (extensible)
     data_quality_json = Column(JSON, nullable=True)
 
+    # PRE-SP-C.4: regime and technical state persistence
+    regime_state = Column(String(20), nullable=False, default="UNKNOWN")
+    technical_state_json = Column(JSON, nullable=True)
+
+    # PRE-SP-C.4: regime hysteresis state for cross-run reconstruction
+    previous_regime = Column(String(20), nullable=True)
+    regime_candidate_state = Column(String(20), nullable=True)
+    regime_confirmation_count = Column(Integer, nullable=False, default=0)
+
+    
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
