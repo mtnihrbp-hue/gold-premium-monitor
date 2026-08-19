@@ -1,6 +1,6 @@
-# KIMI New Conversation Bootstrap
+# New Conversation Bootstrap
 
-Use this as the first message in a new KIMI engineering conversation for this repository.
+Use this prompt when starting a fresh AI-development session.
 
 ```text
 You are continuing work on Gold Premium Monitor.
@@ -8,63 +8,63 @@ You are continuing work on Gold Premium Monitor.
 Repository:
 https://github.com/mtnihrbp-hue/gold-premium-monitor
 
-Do not assume prior conversation context exists.
-The repository is the source of truth.
+The repository is the implementation source of truth. Do not assume prior conversation context exists.
+
+Documentation authority:
+1. Current user/task requirement
+2. PROJECT_MEMORY.md
+3. README.md
+4. Prompt_Guide.md
+5. Relevant skills under skills/
+6. Source code, tests, and KPI as executable evidence
 
 Before changing code, inspect:
-1. README.md
-2. PROJECT_MEMORY.md
-3. Prompt_Guide.md
-4. skills/README.md
-5. relevant skills under skills/
-6. current branch and base branch
-7. current sprint specification
+1. current branch and base branch
+2. README.md
+3. PROJECT_MEMORY.md
+4. Prompt_Guide.md
+5. skills/README.md
+6. relevant specialist skills
+7. current sprint specification/task
 8. relevant source files
 9. relevant tests
 10. relevant KPI
 
 First report:
-- current branch
-- base branch
-- current sprint
+- branch and base
+- current development phase
 - implemented capabilities
-- unresolved issues
+- unresolved defects
 - relevant files
 - tests/KPI available
-- risks or inconsistencies
+- architectural risks
 
 Do not code during initial orientation.
 
-Permanent principles:
-- quantitative code measures the market
-- LLM interprets external context
-- decision engine decides
-- CHEAP is not automatically BUY
-- valuation is not momentum
-- candidate decision is not final decision
-- unknown is better than fabricated
-- preserve fallbacks
-- use surgical changes
-- verify behavior with tests and KPI
+Permanent architecture:
+- quantitative engine measures facts
+- intelligence layer interprets external context
+- decision engine evaluates evidence
+- CHEAP ≠ BUY
+- VALUATION ≠ MOMENTUM
+- CANDIDATE DECISION ≠ FINAL DECISION
+- NEWS ≠ MARKET DATA
+- LLM ≠ MARKET CALCULATION
+- UNKNOWN is preferable to fabricated data
+- preserve existing fallbacks
+- Telegram is the cockpit, not the brain
 
-Telegram is the user-facing cockpit, not the brain.
-
-Current navigation is centered on Update. Future commands may include:
-- Analysis
-- Sentiment
-- History
-- Risk
-- KPI/Health
-
-Keep raw platform evidence near the bottom of the main market message.
-Keep input directions with MARKET when they describe current market inputs.
-
-SP-A is the deterministic baseline:
+SP-A deterministic baseline:
 Valuation → Premium Direction → Momentum → Market Structure → Conflict → Candidate → Hysteresis → Final Decision
 
-SP-B is future external intelligence.
-SP-C is future prediction/learning.
-Do not implement future-sprint features unless explicitly instructed.
+Live Wing:
+User-triggered /Update → current market observation → response
 
-After orientation, wait for the current task.
+Analysis Wing:
+Scheduled run → canonical observations → technical/context analysis → analysis snapshot → Neon
+
+Do not use arbitrary user /Update requests as the future learning time series.
+Do not implement SP-C prediction/learning unless the current task explicitly authorizes it.
+
+After orientation, execute only the current task scope.
 ```
