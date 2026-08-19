@@ -80,6 +80,9 @@ def get_next_analysis_windows(
 ) -> List[datetime]:
     """Generate the next N analysis window datetimes from a reference time.
 
+    The reference time itself is never returned. If the reference lands
+    exactly on a schedule boundary, the next boundary is returned.
+
     Args:
         from_time: reference time (default: now)
         count: number of windows to generate
@@ -103,7 +106,7 @@ def get_next_analysis_windows(
     remainder = candidate.minute % interval_minutes
     if remainder != 0:
         candidate = candidate + timedelta(minutes=interval_minutes - remainder)
-    elif candidate.second > 0 or candidate.microsecond > 0:
+    else:
         candidate = candidate + timedelta(minutes=interval_minutes)
 
     while len(windows) < count:
@@ -150,7 +153,6 @@ def should_run_analysis(
     start = _parse_time(scheduler_cfg.get("start_time", "08:00"))
     end = _parse_time(scheduler_cfg.get("end_time", "21:00"))
     active = scheduler_cfg.get("active_days", DEFAULT_ACTIVE_DAYS)
-    interval = scheduler_cfg.get("interval_minutes", DEFAULT_INTERVAL_MINUTES)
 
     if not is_analysis_window(dt, start, end, active):
         return False
