@@ -29,10 +29,19 @@ def get_invi_price():
     
     # Method 2: Direct regex extraction as fallback
     match = re.search(r'"current_price":"(\d+)"', response.text)
+    raw_text = match.group(1)
     if match:
         return {
-            "platform": "Invi",
-            "price": match.group(1)*100,
+            "Platform": "Invi",
+            "Price": match.group(1),
+            "currency": "IRR",
+            "raw":raw_text,
+            "timestamp": None
         }
     
     raise ValueError("Could not extract current_price from the page")
+
+# Usage
+if __name__ == "__main__":
+    result = get_invi_price()
+    print(json.dumps(result, indent=2))
