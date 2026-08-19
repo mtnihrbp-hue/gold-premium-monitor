@@ -2,24 +2,36 @@
 
 ## Purpose
 
-Treat Telegram as the primary user-facing cockpit of the monitor.
+Telegram is the user-facing cockpit. Analytical truth lives in the quantitative, intelligence, and decision layers; Telegram presents it and provides read-only navigation.
 
-The analytical engine lives in code. Telegram presents the state and provides navigation into deeper analysis.
+## Current command model
 
-## Navigation model
+Implemented today:
 
-The bot currently has a manual `Update` flow.
+- `/Update` — live, user-triggered market snapshot
 
-The design must remain ready for future commands/buttons such as:
+Planned Analysis Wing read models:
 
-- Update
-- Analysis
-- Sentiment
-- History
-- Risk
-- KPI/Health
+- `/Technical` — deterministic technical analysis
+- `/Analysis` — latest persisted analysis snapshot
+- `/History` — historical context
+- `/News` — structured recent news
+- `/Radar` — combined read model over persisted analytical state
+- `/Health` — system/data-quality status
 
-Do not put every analytical detail into the main update message. Future commands should provide deeper inspection.
+Do not invent commands such as Sentiment or Risk as current product contracts unless `PROJECT_MEMORY.md` explicitly adds them.
+
+## Live vs Analysis
+
+```text
+/Update
+= current user-triggered observation
+
+/Analysis and future read models
+= persisted system-generated analytical state
+```
+
+A user request must not silently become an Analysis Wing execution or historical learning observation.
 
 ## Main message hierarchy
 
@@ -38,13 +50,7 @@ header
 → timestamp
 ```
 
-Keep the detailed platform table near the bottom. It is raw evidence and operational inspection data.
-
-## Market section
-
-Input directions belong under MARKET when they describe the current state of XAU/USD and USD/IRR.
-
-Avoid a separate top-level section when it merely repeats market inputs.
+Keep detailed raw platform evidence near the bottom.
 
 ## Decision section
 
@@ -58,93 +64,15 @@ Expose:
 - final decision
 - reason
 
-Make Candidate vs Final understandable.
+Candidate and final must remain visibly distinct.
 
-Example:
-
-```text
-Candidate: BUY
-Final: WAIT
-
-Reason:
-BUY conditions are present, but the hysteresis/transition state has not confirmed a new BUY alert.
-```
-
-Do not hide meaningful disagreement between state and final decision.
-
-## Human readability
-
-Use plain analytical words:
-
-- CHEAP
-- FAIR
-- EXPENSIVE
-- IMPROVING
-- WEAKENING
-- NEUTRAL
-- DISCOUNT WIDENING
-- DISCOUNT NARROWING
-- FEAR
-- NORMAL
-- PANIC
-
-Avoid unexplained numeric scores as the primary interface.
-
-Do not use decorative bar charts unless explicitly approved.
-
-## Momentum candle
-
-The candle/range view is useful when enough historical observations exist.
-
-Do not make the candle disappear merely because the current day has no observations if a valid recent completed window exists.
-
-A future candle representation may use compact ASCII because it can communicate range more efficiently than prose.
-
-However:
-
-- it must be deterministic
-- it must be labeled
-- it must not imply precision beyond the data
-- it must have a plain-text fallback
-- insufficient history must be shown explicitly
-
-Example concept:
-
-```text
-Discount range
--4.42% ─────●──── -3.69%
-             current
-```
-
-Do not implement this representation merely as cosmetic work. Add it only when the underlying candle/range semantics are clearly defined and tested.
+**Alert rule:** external BUY/SELL alerts are driven only by the deterministic `final_decision`. A `Candidate: BUY` with `Final: WAIT` is not a BUY alert.
 
 ## Formatting rules
 
 - Exactly one application header per message.
 - Do not duplicate `GOLDPremium:`.
-- Do not duplicate market facts across multiple sections without a reason.
+- Do not recompute market facts in presentation code.
 - Preserve transport failure isolation.
-- Telegram formatting must never change analytical calculations.
-
-## Future commands
-
-When commands are added, separate:
-
-```text
-Update
-= latest observation
-
-Analysis
-= deeper interpretation
-
-Sentiment
-= external/contextual intelligence
-
-History
-= historical evidence
-
-Health/KPI
-= system verification
-```
-
-Do not make one command responsible for every purpose.
+- Formatting must never alter analytical calculations.
+- Prefer deterministic plain-language labels over unexplained scores.
