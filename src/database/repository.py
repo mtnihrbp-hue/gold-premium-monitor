@@ -826,6 +826,12 @@ def save_analysis_snapshot(
     structure_state: str = "UNKNOWN",
     analysis_window: str = None,
     data_quality_json: dict = None,
+    # PRE-SP-C.4 fields
+    regime_state: str = "UNKNOWN",
+    technical_state_json: dict = None,
+    previous_regime: str = None,
+    regime_candidate_state: str = None,
+    regime_confirmation_count: int = 0,
 ) -> int:
     """Save an analysis snapshot to the database.
 
