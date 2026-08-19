@@ -16,6 +16,7 @@ from collector.ayyareh import get_ayyareh_price
 from collector.miogold import get_miogold_price
 from collector.eligallery import get_eligold_price
 from collector.daric import get_daric_price
+from collector.invi import get_invi_price
 
 COLLECTORS = [
     get_milli_price,
@@ -27,6 +28,7 @@ COLLECTORS = [
     get_parasteh_price,
     get_miogold_price,
     get_daric_price,
+    get_invi_price,
     get_eligold_price,
 ]
 
