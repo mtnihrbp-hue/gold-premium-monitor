@@ -878,6 +878,11 @@ def save_analysis_snapshot(
             structure_state=structure_state,
             analysis_window=analysis_window,
             data_quality_json=data_quality_json,
+            regime_state=regime_state,
+            technical_state_json=technical_state_json,
+            previous_regime=previous_regime,
+            regime_candidate_state=regime_candidate_state,
+            regime_confirmation_count=regime_confirmation_count,
         )
         session.add(snap)
         session.commit()
