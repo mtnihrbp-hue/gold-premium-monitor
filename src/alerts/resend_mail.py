@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 
 import resend
 
@@ -52,7 +51,7 @@ def send_daily_recap(
     premium,
     markets,
     trends=None,
-    momentun=None,
+    momentum=None,
     previous_markets=None,
 ):
     html = f"""
@@ -112,16 +111,29 @@ def send_alert(
     premium,
     markets,
     trends=None,
+    momentum=None,
     previous_markets=None,
+    signal_state=None,
 ):
+    if signal_state is not None:
+        alert_type = signal_state.final_decision
+        if alert_type not in {"BUY", "SELL"}:
+            return
+        reason = signal_state.reason or ""
+    else:
+        alert_type = signal.get("signal") if signal else None
+        if alert_type not in {"BUY", "SELL"}:
+            return
+        reason = signal.get("reason", "") if signal else ""
+
     html = f"""
 <div style="font-family:Arial,sans-serif;max-width:650px;">
 
-<h2>{signal["signal"]} ALERT</h2>
+<h2>{alert_type} ALERT</h2>
 
 <p>
 <b>
-{signal["reason"]}
+{reason}
 </b>
 </p>
 
@@ -164,6 +176,6 @@ Generated:
 """
 
     _send(
-        f"{signal['signal']} Gold Alert",
+        f"{alert_type} Gold Alert",
         html,
     )
