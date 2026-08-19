@@ -19,8 +19,6 @@
     "active_days": [0, 1, 2, 3, 4, 5, 6]
   },
 
-
-  
   "email": {
     "send_daily_recap": true,
     "send_alerts": true
@@ -41,5 +39,31 @@
     "fetch_interval_minutes": 30,
     "classification_mode": "keyword",
     "max_items_per_source": 20
+  },
+  
+  "representative_price": {
+    "fallback_sources": ["Milli", "Ayyareh", "WallGold"],
+    "freshness_required": "FRESH"
+  },
+  "support_resistance": {
+    "lookback_periods": 20,
+    "cluster_tolerance_percent": 0.3,
+    "min_history": 10,
+    "neighborhood_size": 1
+  },
+  "regime": {
+    "stress_thresholds": {
+      "premium_magnitude": 2.0,
+      "premium_change": 1.0,
+      "volatility": 1.5,
+      "usd_change": 0.5,
+      "platform_spread": 500000,
+      "news_density": 3
+    },
+    "confirmation_periods": 2,
+    "hysteresis_enabled": true
   }
+
+
+  
 }
