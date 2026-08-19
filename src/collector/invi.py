@@ -32,7 +32,7 @@ def get_invi_price():
     if match:
         return {
             "platform": "Invi",
-            "current_price": match.group(1),
+            "current_price": match.group(1)*100,
         }
     
     raise ValueError("Could not extract current_price from the page")
