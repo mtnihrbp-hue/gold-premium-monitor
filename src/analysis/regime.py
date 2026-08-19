@@ -113,6 +113,27 @@ class RegimeClassifier:
         self._candidate_state = None
         self._confirmation_count = 0
 
+
+    def restore_state(
+        self,
+        previous_state: Optional[str] = None,
+        candidate_state: Optional[str] = None,
+        confirmation_count: int = 0,
+    ):
+        """Restore hysteresis state from a persisted snapshot.
+
+        Used by the Analysis Wing to reconstruct regime state across
+        independent scheduled runs (e.g., GitHub Actions).
+
+        Args:
+            previous_state: last confirmed regime state
+            candidate_state: current candidate regime state
+            confirmation_count: current confirmation progress
+        """
+        self._previous_state = previous_state
+        self._candidate_state = candidate_state
+        self._confirmation_count = confirmation_count
+
     # ------------------------------------------------------------------
     # Internal logic
     # ------------------------------------------------------------------
