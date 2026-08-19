@@ -33,7 +33,7 @@ def get_invi_price():
     if match:
         return {
             "Platform": "Invi",
-            "Price": match.group(1),
+            "Price": match.group(1)*100,
             "currency": "IRR",
             "raw":raw_text,
             "timestamp": None
@@ -41,7 +41,3 @@ def get_invi_price():
     
     raise ValueError("Could not extract current_price from the page")
 
-# Usage
-if __name__ == "__main__":
-    result = get_invi_price()
-    print(json.dumps(result, indent=2))
