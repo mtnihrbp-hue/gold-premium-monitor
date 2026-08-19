@@ -4,42 +4,53 @@
 
 Preserve the project's historical memory and data-quality discipline.
 
-## Database
+## Database authority
 
-Neon PostgreSQL is the project's production historical store.
+Neon PostgreSQL is the production historical store for the monitor.
 
-Do not introduce SQLite or Supabase as an intermediate solution unless explicitly approved.
+The canonical repository schema is:
+
+```text
+sql/neon_schema.sql
+```
+
+When database structure changes, update the repository schema file as part of the same approved change and keep the Neon database synchronized.
 
 ## Data layers
 
-Keep these concepts separate:
+Keep these separate:
 
 ```text
-market observations
-≠
-interpreted market state
-≠
-prediction outcome
+raw market observations
+        ≠
+interpreted market states
+        ≠
+analysis snapshots
+        ≠
+future prediction/outcome records
 ```
 
-Raw observations should remain queryable.
+### Current core tables
 
-Interpreted states should remain queryable.
+- `market_snapshots` — market observations used by the existing monitor
+- `platform_prices` — platform-level market evidence
+- `market_states` — deterministic interpreted state
+- `news_events` — structured external events
+- `price_observations` — canonical raw time-series observations
+- `analysis_snapshots` — system-generated analytical snapshots
 
-Future predictions/outcomes should be linked to the state that generated them.
+Raw observations must remain queryable. Interpreted states must remain queryable. Future evaluation records should link back to the analysis snapshot that generated the hypothesis.
 
-## Historical memory
+## PRE-SP-C observation rules
 
-The purpose of Neon is not just logging.
+Canonical instruments include:
 
-Historical data must eventually support questions such as:
+- `XAUUSD`
+- `USD/IRR`
+- `REP_IRAN_GOLD`
+- `PAXG` when a reliable collector exists
 
-- What happened after similar premium conditions?
-- What happened when USD was near resistance?
-- How often did BUY candidates become successful outcomes?
-- Which news events historically mattered?
-
-Design new schemas so future analysis remains possible.
+Irregular user-triggered `/Update` calls must not become the canonical technical time series.
 
 ## Data quality
 
@@ -48,7 +59,7 @@ Unknown is better than fabricated.
 Use explicit states such as:
 
 - `UNKNOWN`
-- `INSUFFICIENT DATA`
+- `INSUFFICIENT_DATA`
 - `DEGRADED`
 
 Do not turn missing values into zero unless zero is semantically valid.
@@ -57,11 +68,7 @@ Do not turn missing values into zero unless zero is semantically valid.
 
 Neon failure must not crash the core market monitor.
 
-Preserve existing fallback behavior.
-
-Collectors may fail independently.
-
-Optional intelligence may become `UNKNOWN` while quantitative monitoring continues.
+Collectors may fail independently. Optional intelligence may become `UNKNOWN` while quantitative monitoring continues.
 
 ## Numeric integrity
 
@@ -77,11 +84,9 @@ Do not allow an LLM to invent:
 
 These belong to deterministic code and stored data.
 
-## Future historical analysis
+## Historical analysis
 
 Always expose sample size before interpreting historical evidence.
-
-Never call a three-observation pattern a reliable probability.
 
 Prefer:
 
