@@ -1,5 +1,41 @@
--- Gold Premium Monitor — canonical Neon schema used by PRE-SP-C.
--- Apply to the project's active Neon branch/database.
+-- Gold Premium Monitor — canonical Neon schema (PRE-SP-C.4)
+--
+-- This file is the repository-side canonical schema definition.
+-- For an existing Neon database, use sql/neon_migration_c4.sql first.
+-- This complete schema is intended to document the target structure.
+
+-- ============================================================
+-- 1. MARKET SNAPSHOTS (SP-A)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS market_snapshots (
+    id SERIAL PRIMARY KEY,
+    timestamp TIMESTAMP NOT NULL,
+    fair_price NUMERIC(20, 2) NOT NULL,
+    premium_percent NUMERIC(10, 4) NOT NULL,
+    world_gold_usd NUMERIC(10, 2),
+    usd_irr NUMERIC(20, 2),
+    signal VARCHAR(10),
+    confidence NUMERIC(5, 4),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- 2. PLATFORM PRICES (SP-A)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS platform_prices (
+    id SERIAL PRIMARY KEY,
+    snapshot_id INTEGER REFERENCES market_snapshots(id) NOT NULL,
+    platform_name VARCHAR(50) NOT NULL,
+    price_irr NUMERIC(20, 2) NOT NULL,
+    change_irr NUMERIC(20, 2),
+    timestamp TIMESTAMP NOT NULL
+);
+
+-- ============================================================
+-- 3. MARKET STATES (SP-A)
+-- ============================================================
 
 CREATE TABLE IF NOT EXISTS market_states (
     id SERIAL PRIMARY KEY,
@@ -22,6 +58,73 @@ CREATE TABLE IF NOT EXISTS market_states (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- ============================================================
+-- 4. SYSTEM EVENTS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS system_events (
+    id SERIAL PRIMARY KEY,
+    timestamp TIMESTAMP NOT NULL,
+    event_type VARCHAR(50) NOT NULL,
+    source VARCHAR(100),
+    description TEXT,
+    metadata_json TEXT
+);
+
+-- ============================================================
+-- 5. MARKET HYPOTHESES / FUTURE EVALUATION FOUNDATION
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS market_hypotheses (
+    id SERIAL PRIMARY KEY,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    hypothesis_type VARCHAR(50) NOT NULL,
+    description TEXT NOT NULL,
+    expected_outcome VARCHAR(100),
+    horizon_hours INTEGER,
+    basis_json TEXT,
+    predicted_at TIMESTAMP,
+    resolved_at TIMESTAMP,
+    actual_outcome VARCHAR(100),
+    result VARCHAR(20),
+    failure_reason TEXT,
+    model_version VARCHAR(20),
+    source VARCHAR(50)
+);
+
+-- ============================================================
+-- 6. NEWS EVENTS (SP-B.2)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS news_events (
+    id SERIAL PRIMARY KEY,
+    timestamp TIMESTAMP NOT NULL,
+    source VARCHAR(200) NOT NULL,
+    url VARCHAR(500),
+    dedup_key VARCHAR(32),
+    raw_headline VARCHAR(500) NOT NULL,
+    raw_summary TEXT,
+    event_type VARCHAR(50) NOT NULL,
+    topic VARCHAR(100),
+    relevance VARCHAR(20) NOT NULL,
+    expected_usd_direction VARCHAR(20),
+    expected_gold_direction VARCHAR(20),
+    expected_duration VARCHAR(20),
+    impact VARCHAR(20),
+    confidence VARCHAR(20),
+    uncertainty_notes TEXT,
+    classification_method VARCHAR(20) NOT NULL,
+    processed_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_news_events_dedup_key
+    ON news_events(dedup_key);
+
+-- ============================================================
+-- 7. CANONICAL PRICE OBSERVATIONS (PRE-SP-C.1)
+-- ============================================================
+
 CREATE TABLE IF NOT EXISTS price_observations (
     id SERIAL PRIMARY KEY,
     instrument VARCHAR(50) NOT NULL,
@@ -42,6 +145,10 @@ CREATE INDEX IF NOT EXISTS idx_price_observations_source_timestamp
 CREATE INDEX IF NOT EXISTS idx_price_observations_collection_run
     ON price_observations(collection_run_id);
 
+-- ============================================================
+-- 8. ANALYSIS SNAPSHOTS (PRE-SP-C.2 + PRE-SP-C.4)
+-- ============================================================
+
 CREATE TABLE IF NOT EXISTS analysis_snapshots (
     id SERIAL PRIMARY KEY,
     snapshot_type VARCHAR(30) NOT NULL DEFAULT 'analysis',
@@ -57,10 +164,18 @@ CREATE TABLE IF NOT EXISTS analysis_snapshots (
     valuation_state VARCHAR(20),
     momentum_state VARCHAR(20),
     structure_state VARCHAR(30),
+
+    regime_state VARCHAR(20) NOT NULL DEFAULT 'UNKNOWN',
+    technical_state_json TEXT,
+    previous_regime VARCHAR(20),
+    regime_candidate_state VARCHAR(20),
+    regime_confirmation_count INTEGER NOT NULL DEFAULT 0,
+
     data_quality_json TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_analysis_snapshots_source_run_id UNIQUE (source_run_id),
-    CONSTRAINT chk_analysis_snapshot_type CHECK (snapshot_type IN ('analysis', 'live'))
+
+    CONSTRAINT uq_analysis_snapshots_source_run_id
+        UNIQUE (source_run_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_analysis_snapshots_timestamp
@@ -74,3 +189,37 @@ CREATE INDEX IF NOT EXISTS idx_analysis_snapshots_market_snapshot
 
 CREATE INDEX IF NOT EXISTS idx_analysis_snapshots_market_state
     ON analysis_snapshots(market_state_id);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'chk_analysis_snapshot_type'
+          AND conrelid = 'analysis_snapshots'::regclass
+    ) THEN
+        ALTER TABLE analysis_snapshots
+            ADD CONSTRAINT chk_analysis_snapshot_type
+            CHECK (snapshot_type IN ('analysis', 'live'));
+    END IF;
+END $$;
+
+-- ============================================================
+-- 9. VERIFICATION
+-- ============================================================
+
+SELECT
+    table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name IN (
+      'market_snapshots',
+      'platform_prices',
+      'market_states',
+      'system_events',
+      'market_hypotheses',
+      'news_events',
+      'price_observations',
+      'analysis_snapshots'
+  )
+ORDER BY table_name;
