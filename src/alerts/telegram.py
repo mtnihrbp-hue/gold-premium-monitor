@@ -163,20 +163,29 @@ def _build_message(message_type_header, reason, body):
 
 
 def send_alert(signal, world, usd, fair, lowest, premium, markets, trends=None, momentum=None, previous_markets=None, input_directions=None, signal_state=None):
-    alert_type = signal.get("signal", "ALERT") if signal else "ALERT"
-    reason = signal.get("reason", "") if signal else ""
-    header = f"🟢 <b>BUY SIGNAL</b> 🟢" if alert_type == "BUY" else (f"🔴 <b>SELL SIGNAL</b> 🔴" if alert_type == "SELL" else f"⚡ <b>{alert_type} SIGNAL</b>")
+    if signal_state is not None:
+        alert_type = signal_state.final_decision
+        if alert_type not in {"BUY", "SELL"}:
+            return
+        reason = signal_state.reason or ""
+    else:
+        alert_type = signal.get("signal", "ALERT") if signal else "ALERT"
+        if alert_type not in {"BUY", "SELL"}:
+            return
+        reason = signal.get("reason", "") if signal else ""
+
+    header = f"<b>{alert_type} SIGNAL</b>"
     body = _build_common_body(world, usd, fair, lowest, premium, markets, trends, momentum, previous_markets, input_directions, signal_state)
     _send(_build_message(header, reason, body))
 
 
 def send_manual_update(world, usd, fair, lowest, premium, markets, trends=None, momentum=None, previous_markets=None, input_directions=None, signal_state=None):
     body = _build_common_body(world, usd, fair, lowest, premium, markets, trends, momentum, previous_markets, input_directions, signal_state)
-    _send(_build_message("📊 <b>MANUAL UPDATE</b>", "", body))
+    _send(_build_message("<b>MANUAL UPDATE</b>", "", body))
 
 
 def send_data_unavailable(usd=None, markets=None, reason=None):
-    lines = [APP_HEADER, "", "⚠️ <b>DATA UNAVAILABLE</b>", "", reason or "Unable to fetch required market data."]
+    lines = [APP_HEADER, "", "<b>DATA UNAVAILABLE</b>", "", reason or "Unable to fetch required market data."]
     if usd is not None:
         lines.append(f"USD Rate: {_money(usd)} IRR")
     if markets:
@@ -186,9 +195,9 @@ def send_data_unavailable(usd=None, markets=None, reason=None):
 
 
 def send_processing():
-    _send(f"{APP_HEADER}\n\n⏳ <b>Processing...</b> Gathering market data.")
+    _send(f"{APP_HEADER}\n\n<b>Processing...</b> Gathering market data.")
 
 
 def send_daily_recap(world, usd, fair, lowest, premium, markets, trends=None, momentum=None, previous_markets=None, input_directions=None, signal_state=None):
     body = _build_common_body(world, usd, fair, lowest, premium, markets, trends, momentum, previous_markets, input_directions, signal_state)
-    _send(_build_message("📅 <b>DAILY RECAP</b>", "", body))
+    _send(_build_message("<b>DAILY RECAP</b>", "", body))
