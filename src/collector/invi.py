@@ -35,6 +35,7 @@ def get_invi_price():
             return {
                 "platform": "Invi",
                 "price": _normalize_price(current_price),
+                "status": "OK",
             }
     except (KeyError, json.JSONDecodeError, AttributeError, TypeError, ValueError):
         # Fallback to regex method
@@ -47,6 +48,7 @@ def get_invi_price():
         return {
             "platform": "Invi",
             "price": _normalize_price(raw_text),
+            "status": "OK",
         }
 
     raise ValueError("Could not extract current_price from the page")
