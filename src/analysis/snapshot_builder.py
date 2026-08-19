@@ -1,26 +1,185 @@
 """Analysis Snapshot builder.
 
-PRE-SP-C.2: assembles analysis snapshots from existing market data.
-Separates system-triggered analysis from user-triggered live snapshots.
+PRE-SP-C.4: integrates representative price, technical structure, and regime
+into the scheduled analysis snapshot. Reconstructs regime hysteresis from the
+latest persisted snapshot so state survives across independent scheduled runs.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict
 
 from database.repository import (
     save_analysis_snapshot,
     analysis_snapshot_exists,
     get_latest_market_snapshot,
     get_latest_market_state,
+    get_latest_analysis_snapshot,
+    get_price_observations_by_instrument,
+    get_recent_news_events,
+    get_snapshots,
 )
 from analysis.scheduler import generate_source_run_id
+from analysis.representative_price import get_representative_price
+from analysis.structure import build_structure_state
+from analysis.regime import RegimeClassifier
+
+
+def _compute_price_volatility(prices: list) -> float:
+    """Compute normalized volatility as coefficient of variation (%).
+
+    Args:
+        prices: list of float prices (oldest → newest)
+
+    Returns:
+        volatility as percentage, or 0.0 if insufficient data.
+    """
+    if len(prices) < 2:
+        return 0.0
+    mean_price = sum(prices) / len(prices)
+    if mean_price == 0:
+        return 0.0
+    variance = sum((p - mean_price) ** 2 for p in prices) / len(prices)
+    std_dev = variance ** 0.5
+    return (std_dev / mean_price) * 100
+
+
+def _compute_usd_change() -> float:
+    """Compute recent USD/IRR percent change from canonical observations.
+
+    Returns:
+        percent change, or 0.0 if insufficient data.
+    """
+    obs = get_price_observations_by_instrument("USD/IRR", limit=2)
+    if len(obs) < 2:
+        return 0.0
+    latest = float(obs[0].price)
+    previous = float(obs[1].price)
+    if previous == 0:
+        return 0.0
+    return ((latest - previous) / previous) * 100
+
+
+def _compute_premium_change() -> float:
+    """Compute recent premium percent change from market snapshots.
+
+    Returns:
+        premium change, or 0.0 if insufficient data.
+    """
+    snaps = get_snapshots(days=1)
+    if len(snaps) < 2:
+        return 0.0
+    latest = float(snaps[0].premium_percent)
+    previous = float(snaps[1].premium_percent)
+    return latest - previous
+
+
+def _gather_regime_evidence(
+    market_snapshot,
+    market_state,
+    config: Optional[Dict] = None,
+) -> Dict:
+    """Gather evidence for regime classification from canonical sources.
+
+    Args:
+        market_snapshot: latest MarketSnapshot or None
+        market_state: latest MarketState or None
+        config: optional configuration dict
+
+    Returns:
+        evidence dict for RegimeClassifier.classify()
+    """
+    evidence = {}
+
+    if market_snapshot and market_snapshot.premium_percent is not None:
+        evidence["premium_percent"] = float(market_snapshot.premium_percent)
+
+    evidence["premium_change"] = _compute_premium_change()
+
+    # Volatility from recent REP_IRAN_GOLD observations
+    price_obs = get_price_observations_by_instrument("REP_IRAN_GOLD", limit=20)
+    if len(price_obs) >= 2:
+        prices = [float(o.price) for o in reversed(price_obs)]
+        evidence["volatility"] = _compute_price_volatility(prices)
+
+    evidence["usd_change"] = _compute_usd_change()
+
+    if market_state and market_state.platform_spread is not None:
+        evidence["platform_spread"] = float(market_state.platform_spread)
+
+    # External event stress
+    news = get_recent_news_events(hours=6)
+    high_impact = [n for n in news if n.relevance in ("HIGH", "CRITICAL")]
+    evidence["high_impact_news_count"] = len(high_impact)
+
+    return evidence
+
+
+def _build_technical_state_json(
+    rep_price,
+    structure_state,
+) -> Optional[Dict]:
+    """Serialize technical analysis result into machine-readable JSON.
+
+    Args:
+        rep_price: RepresentativePrice result
+        structure_state: StructureState result
+
+    Returns:
+        dict suitable for technical_state_json column.
+    """
+    if rep_price is None and structure_state is None:
+        return None
+
+    tech_json = {
+        "representative_price": None,
+        "support_levels": [],
+        "resistance_levels": [],
+        "structure_status": "UNKNOWN",
+    }
+
+    if rep_price is not None:
+        tech_json["representative_price"] = {
+            "price": rep_price.price,
+            "source": rep_price.source,
+            "status": rep_price.status,
+        }
+
+    if structure_state is not None:
+        tech_json["structure_status"] = structure_state.status
+        tech_json["support_levels"] = [
+            {
+                "price": l.price,
+                "touches": l.touches,
+                "strength": l.strength,
+                "source": l.source,
+                "lookback": l.lookback,
+            }
+            for l in structure_state.support_levels
+        ]
+        tech_json["resistance_levels"] = [
+            {
+                "price": l.price,
+                "touches": l.touches,
+                "strength": l.strength,
+                "source": l.source,
+                "lookback": l.lookback,
+            }
+            for l in structure_state.resistance_levels
+        ]
+
+    return tech_json
 
 
 def build_analysis_snapshot(
     analysis_timestamp: Optional[datetime] = None,
-    config: Optional[dict] = None,
+    config: Optional[Dict] = None,
 ) -> int:
     """Build and save an analysis snapshot from the latest market data.
+
+    Integrates PRE-SP-C.3 analytical primitives:
+    - representative price
+    - technical structure (support/resistance)
+    - regime classification with cross-run hysteresis reconstruction
 
     Non-blocking: returns -1 on failure or if snapshot already exists.
 
@@ -36,20 +195,56 @@ def build_analysis_snapshot(
 
     source_run_id = generate_source_run_id(analysis_timestamp)
 
+    # Idempotency: do not create duplicate snapshots
     if analysis_snapshot_exists(source_run_id):
         print(f"Analysis snapshot {source_run_id} already exists — skipping")
         return -1
 
+    # Fetch latest market data
     market_snapshot = get_latest_market_snapshot()
     market_state = get_latest_market_state()
 
+    # --- PRE-SP-C.4: Reconstruct regime hysteresis from last snapshot ---
+    last_snap = get_latest_analysis_snapshot()
+    regime_cfg = (config or {}).get("regime", {})
+    classifier = RegimeClassifier(regime_cfg)
+
+    if last_snap is not None:
+        classifier.restore_state(
+            previous_state=last_snap.regime_state,
+            candidate_state=last_snap.regime_candidate_state,
+            confirmation_count=last_snap.regime_confirmation_count or 0,
+        )
+
+    # --- PRE-SP-C.4: Build representative price ---
+    rep_price = get_representative_price()
+
+    # --- PRE-SP-C.4: Build technical structure ---
+    sr_cfg = (config or {}).get("support_resistance", {})
+    structure_state = build_structure_state(
+        instrument="REP_IRAN_GOLD",
+        lookback=sr_cfg.get("lookback_periods", 20),
+        cluster_tolerance_percent=sr_cfg.get("cluster_tolerance_percent", 0.3),
+        min_history=sr_cfg.get("min_history", 10),
+        neighborhood_size=sr_cfg.get("neighborhood_size", 1),
+    )
+
+    # --- PRE-SP-C.4: Classify regime ---
+    evidence = _gather_regime_evidence(market_snapshot, market_state, config)
+    regime_result = classifier.classify(evidence)
+
+    # --- Build data quality tracking ---
     data_quality = {
         "market_snapshot": "AVAILABLE" if market_snapshot else "UNAVAILABLE",
         "market_state": "AVAILABLE" if market_state else "UNAVAILABLE",
         "xau_usd": "AVAILABLE" if market_snapshot and market_snapshot.world_gold_usd else "UNAVAILABLE",
         "usd_irr": "AVAILABLE" if market_snapshot and market_snapshot.usd_irr else "UNAVAILABLE",
+        "representative_price": "AVAILABLE" if rep_price and rep_price.status == "AVAILABLE" else "UNAVAILABLE",
+        "technical_structure": structure_state.status,
+        "regime": regime_result.state,
     }
 
+    # Extract values with safe defaults
     xau_usd = None
     usd_irr = None
     premium_percent = None
@@ -62,15 +257,18 @@ def build_analysis_snapshot(
 
     valuation_state = "UNKNOWN"
     momentum_state = "UNKNOWN"
-    structure_state = "UNKNOWN"
+    structure_state_val = "UNKNOWN"
     market_state_id = None
     if market_state:
         valuation_state = market_state.valuation_state or "UNKNOWN"
         momentum_state = market_state.momentum_state or "UNKNOWN"
-        structure_state = market_state.structure_state or "UNKNOWN"
+        structure_state_val = market_state.structure_state or "UNKNOWN"
         market_state_id = market_state.id
 
-    rep_gold_price = None
+    rep_gold_price = rep_price.price if rep_price else None
+
+    # Serialize technical and regime evidence
+    technical_state_json = _build_technical_state_json(rep_price, structure_state)
 
     return save_analysis_snapshot(
         analysis_timestamp=analysis_timestamp,
@@ -83,6 +281,12 @@ def build_analysis_snapshot(
         premium_percent=premium_percent,
         valuation_state=valuation_state,
         momentum_state=momentum_state,
-        structure_state=structure_state,
+        structure_state=structure_state_val,
         data_quality_json=data_quality,
+        # PRE-SP-C.4 fields
+        regime_state=regime_result.state,
+        technical_state_json=technical_state_json,
+        previous_regime=regime_result.previous_state,
+        regime_candidate_state=classifier._candidate_state,
+        regime_confirmation_count=classifier._confirmation_count,
     )
