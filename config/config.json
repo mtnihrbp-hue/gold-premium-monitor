@@ -9,8 +9,6 @@
   "freshness": {
     "stale_threshold_minutes": 15
   },
-
-  
   "scheduler": {
     "timezone": "Asia/Tehran",
     "start_time": "08:00",
@@ -18,7 +16,6 @@
     "interval_minutes": 30,
     "active_days": [0, 1, 2, 3, 4, 5, 6]
   },
-
   "email": {
     "send_daily_recap": true,
     "send_alerts": true
@@ -40,7 +37,6 @@
     "classification_mode": "keyword",
     "max_items_per_source": 20
   },
-  
   "representative_price": {
     "fallback_sources": ["Milli", "Ayyareh", "WallGold"],
     "freshness_required": "FRESH"
@@ -60,15 +56,12 @@
       "platform_spread": 500000,
       "news_density": 3
     },
-    "outcome_evaluation": {
-        "horizons_hours": [1, 6, 24],
-        "target_tolerance_minutes": 15,
-        "flat_movement_tolerance": 0.01
-    } 
-    
     "confirmation_periods": 2,
     "hysteresis_enabled": true
+  },
+  "outcome_evaluation": {
+    "horizons_hours": [1, 6, 24],
+    "target_tolerance_minutes": 15,
+    "flat_movement_tolerance": 0.01
   }
-
-  
 }
