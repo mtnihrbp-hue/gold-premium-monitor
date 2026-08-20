@@ -63,5 +63,13 @@
     "horizons_hours": [1, 6, 24],
     "target_tolerance_minutes": 15,
     "flat_movement_tolerance": 0.01
-  }
+  },
+  
+  "evidence": {
+        "schema_version": "1",
+        "news_window_hours": 6,
+        "outcome_lookback_hours": 72,
+        "max_historical_context": 5,
+        "max_outcome_context": 5
+    }
 }
