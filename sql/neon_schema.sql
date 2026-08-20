@@ -268,6 +268,15 @@ CREATE INDEX IF NOT EXISTS idx_analysis_snapshots_intelligence
     ON analysis_snapshots USING GIN (intelligence_result_json);
 
 -- ============================================================
+-- 8.8. ANALYSIS SNAPSHOTS FEATURE EXTENSION (PRE-SP-C.8)
+-- ============================================================
+
+ALTER TABLE analysis_snapshots
+    ADD COLUMN IF NOT EXISTS features_json JSONB;
+
+CREATE INDEX IF NOT EXISTS idx_analysis_snapshots_features
+    ON analysis_snapshots USING GIN (features_json);
+-- ============================================================
 -- 9. VERIFICATION
 -- ============================================================
 
