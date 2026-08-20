@@ -258,6 +258,16 @@ CREATE INDEX IF NOT EXISTS idx_outcome_eval_status
     ON outcome_evaluations(outcome_status);
 
 -- ============================================================
+-- 8.7. ANALYSIS SNAPSHOTS INTELLIGENCE EXTENSION (PRE-SP-C.7)
+-- ============================================================
+
+ALTER TABLE analysis_snapshots
+    ADD COLUMN IF NOT EXISTS intelligence_result_json JSONB;
+
+CREATE INDEX IF NOT EXISTS idx_analysis_snapshots_intelligence
+    ON analysis_snapshots USING GIN (intelligence_result_json);
+
+-- ============================================================
 -- 9. VERIFICATION
 -- ============================================================
 
