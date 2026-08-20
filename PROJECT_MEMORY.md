@@ -18,7 +18,7 @@ When documentation conflicts, prefer the higher-authority source and then execut
 
 ## 1. Project purpose
 
-Gold Premium Monitor is a decision-support monitor for the Iranian 18K physical-gold market. It combines XAU/USD, USD/IRR, Iranian platform prices, fair value, premium/discount analysis, momentum, market structure, historical memory, structured news, canonical observations, scheduled analysis, deterministic technical structure, deterministic market regime, analysis snapshots, and retrospective outcome evaluation.
+Gold Premium Monitor is a decision-support monitor for the Iranian 18K physical-gold market. It combines XAU/USD, USD/IRR, Iranian platform prices, fair value, premium/discount analysis, momentum, market structure, historical memory, structured news, canonical observations, scheduled analysis, deterministic technical structure, deterministic market regime, analysis snapshots, retrospective outcome evaluation, and normalized evidence packaging.
 
 It is not an autonomous trading bot.
 
@@ -58,10 +58,11 @@ SP-B
 ├── PRE-SP-C.2 COMPLETE — Analysis Snapshot + Scheduler Foundation
 ├── PRE-SP-C.3 COMPLETE — Price Structure + Regime
 ├── PRE-SP-C.4 COMPLETE — Analysis Snapshot Integration
-└── PRE-SP-C.5 COMPLETE — Outcome Evaluation Foundation
+├── PRE-SP-C.5 COMPLETE — Outcome Evaluation Foundation
+└── PRE-SP-C.6 COMPLETE — Evidence Package + Market Intelligence Foundation
 
-CURRENT
-└── PRE-SP-C.6 — Evidence Package + Market Intelligence Foundation
+NEXT
+└── Market Intelligence interpretation / bounded LLM layer
 
 SP-C
 └── FUTURE — Prediction + Learning
@@ -154,10 +155,11 @@ scheduled window
 → historical/news context
 → Analysis Snapshot
 → Outcome Evaluation
+→ Evidence Package
 → Neon
 ```
 
-The future intelligence layer consumes a normalized evidence package; it does not replace the deterministic analytical pipeline.
+The future intelligence layer consumes the normalized evidence package; it does not replace the deterministic analytical pipeline.
 
 User count must not multiply scheduled analysis execution.
 
@@ -292,17 +294,17 @@ Neon PostgreSQL is the long-term historical store.
 | `market_states` | Deterministic interpreted state |
 | `news_events` | Structured external events |
 | `price_observations` | Canonical raw technical time series |
-| `analysis_snapshots` | Scheduled analytical history |
+| `analysis_snapshots` | Scheduled analytical history + normalized evidence package |
 | `outcome_evaluations` | Retrospective +1h/+6h/+24h measurements |
 
 Schema authority is split intentionally:
 
 ```text
 sql/neon_schema.sql
-    = canonical TARGET schema
+    = idempotent canonical TARGET schema
 
 sql/neon_migration_*.sql
-    = idempotent migration for EXISTING Neon database
+    = idempotent migrations for EXISTING Neon database
 ```
 
 Never use the complete target schema as a replacement migration against an already-populated Neon database.
@@ -325,22 +327,25 @@ outcome_evaluations
 
 with one row per `(analysis_snapshot_id, horizon_hours)` for the initial horizons `1`, `6`, and `24` hours.
 
-Required constraint:
+C.6 adds:
+
+```text
+evidence_package_json JSONB
+```
+
+with a GIN index for future evidence-component queries.
+
+Required uniqueness:
 
 ```text
 uq_analysis_snapshots_source_run_id
+uq_outcome_eval_snapshot_horizon
 ```
 
 Required snapshot-type constraint:
 
 ```text
 snapshot_type IN ('analysis', 'live')
-```
-
-Outcome evaluation uniqueness:
-
-```text
-uq_outcome_eval_snapshot_horizon
 ```
 
 Database failure must degrade gracefully and must not become a hidden calculation layer.
@@ -367,6 +372,8 @@ LLM must not:
 - override deterministic state
 - independently issue BUY/SELL
 
+C.6 itself does not call an LLM. It creates the deterministic evidence contract consumed by the future intelligence layer.
+
 ## 16. Telegram product model
 
 Telegram is the cockpit, not the brain.
@@ -390,7 +397,7 @@ Planned read models:
 
 Known non-blocking presentation defect: duplicated `GOLDPremium:` application header in manual updates. This is a Telegram presentation cleanup, not an analytical correctness failure.
 
-C.5 does not add outcome-evaluation detail to `/Update`; the Live Wing remains separate from the Analysis/Evaluation Wing.
+C.5/C.6 do not add outcome or evidence-package detail to `/Update`; the Live Wing remains separate from the Analysis/Evaluation Wing.
 
 ## 17. PRE-SP-C.5 — Outcome Evaluation COMPLETE
 
@@ -431,13 +438,11 @@ KPI: **25/25 passed**.
 
 C.5 is retrospective measurement infrastructure only. It does not predict and does not alter the current decision engine.
 
-## 18. C.6 — Evidence Package + Market Intelligence Foundation
+## 18. PRE-SP-C.6 — Evidence Package + Market Intelligence Foundation COMPLETE
 
-C.6 is the current implementation phase.
+C.6 creates a deterministic, auditable evidence package from already-computed and persisted analytical outputs.
 
-Its purpose is to normalize already-computed deterministic outputs into an auditable evidence package that a future intelligence layer can consume.
-
-Target conceptual flow:
+Core flow:
 
 ```text
 canonical facts
@@ -453,7 +458,7 @@ decision engine
 
 The evidence package is not a decision and must not create BUY/SELL behavior.
 
-Expected evidence families include:
+Evidence families include:
 
 ```text
 valuation
@@ -471,7 +476,13 @@ data_quality
 provenance
 ```
 
-The exact implementation contract is not yet verified and must be based on C.6 implementation evidence, not this roadmap text.
+The package has an explicit schema version and deterministic validation. Missing/optional evidence remains explicit rather than fabricated. The package must not contain a decision field as a substitute for the Decision Engine.
+
+C.6 persistence is via `analysis_snapshots.evidence_package_json`.
+
+KPI: **25/25 passed**.
+
+C.6 is an analytical foundation. It does not yet implement bounded LLM interpretation, multi-agent debate, or prediction.
 
 ## 19. Documentation rules
 
@@ -501,18 +512,19 @@ inspect
 
 Never claim COMPLETE without verified evidence.
 
-Current verified evidence:
+Current verified evidence supplied:
 
 ```text
 PRE-SP-C.2 KPI  14/14 PASS
 PRE-SP-C.3 KPI  20/20 PASS
 PRE-SP-C.4 KPI  19/19 PASS
 PRE-SP-C.5 KPI  25/25 PASS
+PRE-SP-C.6 KPI  25/25 PASS
 compileall       PASS
 live smoke        PASS
 ```
 
-Latest verified smoke behavior includes:
+Latest C.6 smoke behavior includes:
 
 - Invi collected and normalized into canonical IRR/gram scale
 - invalid/failed collectors remain isolated
@@ -521,21 +533,21 @@ Latest verified smoke behavior includes:
 - Candidate/Final separation preserved
 - no false external BUY/SELL alert when Final=WAIT
 
-The next post-C.4/C.5 verification is to run the full regression suite after C.6 implementation.
+The full regression suite must still be run as the final pre-merge gate for SP-B.
 
 ## 21. SP-B closure direction
 
 Original SP-B.3/B.4/B.5 names are architectural placeholders, not mandatory module boundaries.
 
-Approved direction:
+Approved direction remains:
 
 | Original | Current role |
 |---|---|
 | SP-B.3 | Analysis Wing / bounded LLM interpretation |
 | SP-B.4 | Telegram analytical read models |
-| SP-B.5 | Combined read model over persisted analysis snapshots |
+| SP-B.5 | Combined read model over persisted analysis snapshots/evidence |
 
-C.6 evidence packaging is a PRE-SP-C foundation and does not automatically become a replacement for those future read-model responsibilities.
+C.6 evidence packaging is now complete and is the input contract for the future bounded intelligence layer.
 
 Do not create duplicate agent/radar layers solely to preserve old sprint names.
 
@@ -551,7 +563,7 @@ canonical observations
 → historical/news context
 → outcome evaluation
 → evidence package
-→ verified read models
+→ bounded intelligence/read models
 → prediction/learning
 ```
 
