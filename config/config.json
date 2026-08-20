@@ -71,5 +71,10 @@
         "outcome_lookback_hours": 72,
         "max_historical_context": 5,
         "max_outcome_context": 5
+    },
+    "intelligence": {
+        "schema_version": "1",
+        "model_provider": "deterministic_fallback",
+        "prompt_version": "1"
     }
 }
