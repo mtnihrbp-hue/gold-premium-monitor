@@ -60,10 +60,15 @@
       "platform_spread": 500000,
       "news_density": 3
     },
+    "outcome_evaluation": {
+        "horizons_hours": [1, 6, 24],
+        "target_tolerance_minutes": 15,
+        "flat_movement_tolerance": 0.01
+    } 
+    
     "confirmation_periods": 2,
     "hysteresis_enabled": true
   }
-
 
   
 }
