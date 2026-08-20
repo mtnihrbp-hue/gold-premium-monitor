@@ -1,8 +1,9 @@
--- Gold Premium Monitor — canonical Neon schema (PRE-SP-C.4)
+-- Gold Premium Monitor — canonical Neon schema (PRE-SP-C.5)
 --
--- This file is the repository-side canonical schema definition.
--- For an existing Neon database, use sql/neon_migration_c4.sql first.
--- This complete schema is intended to document the target structure.
+-- This file is the repository-side canonical target schema.
+-- For an existing Neon database, use the incremental migration files
+-- (for example sql/neon_migration_c4.sql and sql/neon_migration_c5.sql).
+-- Do not use this complete schema as a destructive replacement migration.
 
 -- ============================================================
 -- 1. MARKET SNAPSHOTS (SP-A)
@@ -205,6 +206,53 @@ BEGIN
 END $$;
 
 -- ============================================================
+-- 8.5. OUTCOME EVALUATIONS (PRE-SP-C.5)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS outcome_evaluations (
+    id SERIAL PRIMARY KEY,
+    analysis_snapshot_id INTEGER NOT NULL REFERENCES analysis_snapshots(id),
+    horizon_hours INTEGER NOT NULL,
+
+    reference_time TIMESTAMP NOT NULL,
+    target_time TIMESTAMP NOT NULL,
+    actual_observation_time TIMESTAMP,
+
+    outcome_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+
+    reference_rep_gold_price NUMERIC(20, 4),
+    reference_xau_usd NUMERIC(20, 4),
+    reference_usd_irr NUMERIC(20, 4),
+    reference_premium_percent NUMERIC(10, 4),
+
+    actual_rep_gold_price NUMERIC(20, 4),
+    actual_xau_usd NUMERIC(20, 4),
+    actual_usd_irr NUMERIC(20, 4),
+    actual_premium_percent NUMERIC(10, 4),
+
+    rep_gold_movement_percent NUMERIC(10, 4),
+    rep_gold_direction VARCHAR(10),
+    xau_usd_movement_percent NUMERIC(10, 4),
+    xau_usd_direction VARCHAR(10),
+    usd_irr_movement_percent NUMERIC(10, 4),
+    usd_irr_direction VARCHAR(10),
+    premium_movement_percent NUMERIC(10, 4),
+    premium_direction VARCHAR(10),
+
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP,
+
+    CONSTRAINT uq_outcome_eval_snapshot_horizon
+        UNIQUE (analysis_snapshot_id, horizon_hours)
+);
+
+CREATE INDEX IF NOT EXISTS idx_outcome_eval_target_time
+    ON outcome_evaluations(target_time);
+
+CREATE INDEX IF NOT EXISTS idx_outcome_eval_status
+    ON outcome_evaluations(outcome_status);
+
+-- ============================================================
 -- 9. VERIFICATION
 -- ============================================================
 
@@ -220,6 +268,7 @@ WHERE table_schema = 'public'
       'market_hypotheses',
       'news_events',
       'price_observations',
-      'analysis_snapshots'
+      'analysis_snapshots',
+      'outcome_evaluations'
   )
 ORDER BY table_name;
