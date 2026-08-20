@@ -229,6 +229,8 @@ class AnalysisSnapshot(Base):
     evidence_package_json = Column(JSON, nullable=True)
     # PRE-SP-C.7: bounded market intelligence result
     intelligence_result_json = Column(JSON, nullable=True)
+    # PRE-SP-C.8: analytical feature snapshot
+    features_json = Column(JSON, nullable=True)
 
     
     created_at = Column(DateTime, server_default=func.now())
