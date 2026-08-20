@@ -1,6 +1,6 @@
 # Gold Premium Monitor
 
-Decision-support monitoring for the Iranian 18K physical-gold market. The system combines XAU/USD, USD/IRR, Iranian platform prices, fair value, premium/discount behavior, historical memory, structured news, canonical observations, technical structure, deterministic market regime, analysis snapshots, and retrospective outcome evaluation. It is not an autonomous trading bot.
+Decision-support monitoring for the Iranian 18K physical-gold market. The system combines XAU/USD, USD/IRR, Iranian platform prices, fair value, premium/discount behavior, historical memory, structured news, canonical observations, technical structure, deterministic market regime, analysis snapshots, retrospective outcome evaluation, and a normalized evidence package. It is not an autonomous trading bot.
 
 ## Documentation authority
 
@@ -29,10 +29,11 @@ SP-B
 ├── PRE-SP-C.2 COMPLETE — Analysis Snapshot + Scheduler Foundation
 ├── PRE-SP-C.3 COMPLETE — Price Structure + Regime
 ├── PRE-SP-C.4 COMPLETE — Analysis Snapshot Integration
-└── PRE-SP-C.5 COMPLETE — Outcome Evaluation Foundation
+├── PRE-SP-C.5 COMPLETE — Outcome Evaluation Foundation
+└── PRE-SP-C.6 COMPLETE — Evidence Package + Market Intelligence Foundation
 
-CURRENT
-└── PRE-SP-C.6 — Evidence Package + Market Intelligence Foundation
+NEXT
+└── Bounded Market Intelligence / interpretation layer
 
 SP-C
 └── FUTURE — Prediction + Learning
@@ -66,11 +67,12 @@ Analysis Wing (scheduled)
     → historical/news context
     → Analysis Snapshot
     → Outcome Evaluation
+    → Evidence Package
     → Neon
 
 Future Intelligence Layer
-    → normalized evidence package
-    → interpretation
+    → structured interpretation
+    → bounded intelligence/read models
 ```
 
 Non-negotiable boundaries:
@@ -209,6 +211,56 @@ Invi is not added to that fallback chain.
 
 C.5 KPI: **25/25 passed**.
 
+## PRE-SP-C.6 — Evidence Package + Market Intelligence Foundation
+
+C.6 is complete.
+
+Its purpose is to normalize already-computed deterministic outputs into a structured, auditable evidence package for a future intelligence layer.
+
+Core flow:
+
+```text
+canonical facts
+    ↓
+validated analytical outputs
+    ↓
+normalized evidence package
+    ↓
+future intelligence interpretation
+    ↓
+decision engine
+```
+
+Evidence families include:
+
+```text
+valuation
+momentum
+technical_structure
+regime
+xau_usd
+usd_irr
+representative_gold
+platform_structure
+news_context
+historical_context
+outcome_context
+data_quality
+provenance
+```
+
+The evidence package has an explicit schema version, deterministic validation, provenance, and explicit missing/unknown handling. It must not contain a BUY/SELL decision as a substitute for the Decision Engine.
+
+Persistence:
+
+```text
+analysis_snapshots.evidence_package_json
+```
+
+KPI: **25/25 passed**.
+
+C.6 does not implement bounded LLM interpretation, multi-agent debate, prediction, machine learning, or autonomous trading.
+
 ## Neon database
 
 The repository intentionally separates two SQL roles:
@@ -221,7 +273,7 @@ sql/neon_migration_*.sql
     = safe/idempotent migrations for the EXISTING Neon database
 ```
 
-Do not use the complete schema file as a migration against a populated database. For the active database, run only the appropriate migration for the next schema change and verify its result.
+Do not use the complete schema file as a migration against a populated database. For the active database, run only the appropriate incremental migration and verify its result.
 
 Core persistence responsibilities:
 
@@ -232,7 +284,7 @@ Core persistence responsibilities:
 | `market_states` | Deterministic interpreted market state |
 | `news_events` | Structured external events |
 | `price_observations` | Canonical raw technical series |
-| `analysis_snapshots` | Scheduled analytical history |
+| `analysis_snapshots` | Scheduled analytical history + C.4 state + C.6 evidence package |
 | `outcome_evaluations` | Retrospective +1h/+6h/+24h measurement |
 
 Database failure should degrade gracefully and never become a hidden calculation layer.
@@ -260,7 +312,7 @@ Planned analytical read models:
 
 A duplicated `GOLDPremium:` application header remains a known presentation defect and is separate from analytical correctness.
 
-C.5 does not change `/Update`: outcome evaluation belongs to the Analysis Wing and is not mixed into live user-triggered reporting.
+C.5/C.6 do not change `/Update`: outcome evaluation and evidence packaging belong to the Analysis Wing and are not mixed into live user-triggered reporting.
 
 ## Validation
 
@@ -271,6 +323,7 @@ python kpi/kpi_pre_sp_c2.py
 python kpi/kpi_pre_sp_c3.py
 python kpi/kpi_pre_sp_c4.py
 python kpi/kpi_pre_sp_c5.py
+python kpi/kpi_pre_sp_c6.py
 python src/main.py
 ```
 
@@ -295,18 +348,16 @@ The existing `src/caluclator/` spelling is intentionally preserved for compatibi
 
 ## Next phase
 
-PRE-SP-C.6 is the current implementation phase:
+The next architecture step is the **bounded Market Intelligence / interpretation layer**.
 
-```text
-canonical facts
-    ↓
-validated analytical outputs
-    ↓
-normalized evidence package
-    ↓
-future intelligence interpretation
-```
+It consumes the persisted evidence package and may use an LLM for structured contextual interpretation, but it must not:
 
-The evidence package must remain separate from the decision engine. It will not introduce prediction, machine learning, or autonomous trading behavior.
+- calculate market facts
+- invent technical levels
+- override deterministic states
+- create an independent BUY/SELL authority
+- replace the Decision Engine
+
+The later SP-C prediction/learning layer comes only after this intelligence/read-model foundation is verified.
 
 MIT License
