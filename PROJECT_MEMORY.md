@@ -11,14 +11,14 @@ This file is the **canonical project-specific architecture and current-state mem
 | `Prompt_Guide.md` | Generic AI engineering behavior |
 | `skills/` | Specialist reusable operating rules |
 | `sql/neon_schema.sql` | Canonical target database schema |
-| `sql/neon_migration_c4.sql` | Migration for an existing Neon database |
+| `sql/neon_migration_*.sql` | Migrations for an existing Neon database |
 | `src/`, `tests/`, `kpi/`, CI | Executable evidence |
 
 When documentation conflicts, prefer the higher-authority source and then executable behavior as implementation evidence. Project-state changes are recorded here first.
 
 ## 1. Project purpose
 
-Gold Premium Monitor is a decision-support monitor for the Iranian 18K physical-gold market. It combines XAU/USD, USD/IRR, Iranian platform prices, fair value, premium/discount analysis, momentum, market structure, historical memory, structured news, canonical observations, scheduled analysis, deterministic technical structure, and deterministic market regime.
+Gold Premium Monitor is a decision-support monitor for the Iranian 18K physical-gold market. It combines XAU/USD, USD/IRR, Iranian platform prices, fair value, premium/discount analysis, momentum, market structure, historical memory, structured news, canonical observations, scheduled analysis, deterministic technical structure, deterministic market regime, analysis snapshots, and retrospective outcome evaluation.
 
 It is not an autonomous trading bot.
 
@@ -30,6 +30,7 @@ VALUATION ≠ MOMENTUM
 CANDIDATE DECISION ≠ FINAL DECISION
 NEWS ≠ MARKET DATA
 LLM ≠ MARKET CALCULATION
+EVIDENCE PACKAGE ≠ DECISION
 ```
 
 Layers remain separate:
@@ -56,10 +57,11 @@ SP-B
 ├── PRE-SP-C.1 COMPLETE — Canonical Time Series
 ├── PRE-SP-C.2 COMPLETE — Analysis Snapshot + Scheduler Foundation
 ├── PRE-SP-C.3 COMPLETE — Price Structure + Regime
-└── PRE-SP-C.4 COMPLETE — Analysis Snapshot Integration
+├── PRE-SP-C.4 COMPLETE — Analysis Snapshot Integration
+└── PRE-SP-C.5 COMPLETE — Outcome Evaluation Foundation
 
-NEXT
-└── PRE-SP-C.5 — Outcome Evaluation Foundation
+CURRENT
+└── PRE-SP-C.6 — Evidence Package + Market Intelligence Foundation
 
 SP-C
 └── FUTURE — Prediction + Learning
@@ -150,10 +152,12 @@ scheduled window
 → technical structure
 → regime
 → historical/news context
-→ bounded LLM interpretation
-→ analysis snapshot
+→ Analysis Snapshot
+→ Outcome Evaluation
 → Neon
 ```
+
+The future intelligence layer consumes a normalized evidence package; it does not replace the deterministic analytical pipeline.
 
 User count must not multiply scheduled analysis execution.
 
@@ -271,15 +275,7 @@ Collector contract:
 }
 ```
 
-The source currently exposes `current_price` in a smaller unit. The collector normalizes it by `×1000` before validation. Example:
-
-```text
-199140 source value
-×1000
-199,140,000 IRR/gram
-```
-
-This is a unit normalization, not a market-model adjustment.
+The source exposes `current_price` in a smaller unit. The collector normalizes it by `×1000` before validation. This is a unit normalization, not a market-model adjustment.
 
 Invi is registered in the Iranian platform collector path but is **not** part of the representative-price fallback chain.
 
@@ -297,6 +293,7 @@ Neon PostgreSQL is the long-term historical store.
 | `news_events` | Structured external events |
 | `price_observations` | Canonical raw technical time series |
 | `analysis_snapshots` | Scheduled analytical history |
+| `outcome_evaluations` | Retrospective +1h/+6h/+24h measurements |
 
 Schema authority is split intentionally:
 
@@ -304,7 +301,7 @@ Schema authority is split intentionally:
 sql/neon_schema.sql
     = canonical TARGET schema
 
-sql/neon_migration_c4.sql
+sql/neon_migration_*.sql
     = idempotent migration for EXISTING Neon database
 ```
 
@@ -320,6 +317,14 @@ regime_candidate_state
 regime_confirmation_count
 ```
 
+C.5 adds:
+
+```text
+outcome_evaluations
+```
+
+with one row per `(analysis_snapshot_id, horizon_hours)` for the initial horizons `1`, `6`, and `24` hours.
+
 Required constraint:
 
 ```text
@@ -332,7 +337,11 @@ Required snapshot-type constraint:
 snapshot_type IN ('analysis', 'live')
 ```
 
-Required indexes are maintained by the C.4 migration.
+Outcome evaluation uniqueness:
+
+```text
+uq_outcome_eval_snapshot_horizon
+```
 
 Database failure must degrade gracefully and must not become a hidden calculation layer.
 
@@ -379,11 +388,11 @@ Planned read models:
 /Health
 ```
 
-Known non-blocking presentation defect: duplicated `GOLDPremium:` application header in manual updates. This is a Telegram presentation cleanup, not a C.4 analytical failure.
+Known non-blocking presentation defect: duplicated `GOLDPremium:` application header in manual updates. This is a Telegram presentation cleanup, not an analytical correctness failure.
 
-## 17. PRE-SP-C.5 boundary
+C.5 does not add outcome-evaluation detail to `/Update`; the Live Wing remains separate from the Analysis/Evaluation Wing.
 
-C.5 is separate from C.4.
+## 17. PRE-SP-C.5 — Outcome Evaluation COMPLETE
 
 C.4 answers:
 
@@ -393,19 +402,78 @@ C.5 answers:
 
 > What happened after time T?
 
-Initial outcome horizons:
+Implementation includes:
 
 ```text
-+1h
-+6h
-+24h
+analysis snapshot
+    ↓
++1h / +6h / +24h target
+    ↓
+nearest valid future canonical observation within tolerance
+    ↓
+movement + direction + actual observation time
+    ↓
+outcome_evaluations
 ```
 
-Use wall-clock targets, nearest valid observations within configured tolerance, no initial interpolation, and explicit `INSUFFICIENT_DATA` when target observations are unavailable.
+Rules:
 
-Do not start prediction/learning before the outcome foundation exists.
+- target is anchored to `analysis_timestamp`
+- future observation must be strictly after the snapshot timestamp
+- no interpolation
+- missing target data becomes `INSUFFICIENT_DATA`
+- one unavailable series does not invalidate other series
+- evaluation is idempotent by snapshot + horizon
+- historical backfill is supported
+- Invi does not enter representative-price outcome fallback
 
-## 18. Documentation rules
+KPI: **25/25 passed**.
+
+C.5 is retrospective measurement infrastructure only. It does not predict and does not alter the current decision engine.
+
+## 18. C.6 — Evidence Package + Market Intelligence Foundation
+
+C.6 is the current implementation phase.
+
+Its purpose is to normalize already-computed deterministic outputs into an auditable evidence package that a future intelligence layer can consume.
+
+Target conceptual flow:
+
+```text
+canonical facts
+    ↓
+validated analytical outputs
+    ↓
+normalized evidence package
+    ↓
+future intelligence interpretation
+    ↓
+decision engine
+```
+
+The evidence package is not a decision and must not create BUY/SELL behavior.
+
+Expected evidence families include:
+
+```text
+valuation
+momentum
+technical_structure
+regime
+xau_usd
+usd_irr
+representative_gold
+platform_structure
+news_context
+historical_context
+outcome_context
+data_quality
+provenance
+```
+
+The exact implementation contract is not yet verified and must be based on C.6 implementation evidence, not this roadmap text.
+
+## 19. Documentation rules
 
 1. Update `PROJECT_MEMORY.md` for every architecture/state change.
 2. Update `README.md` when the human-facing system map changes.
@@ -414,7 +482,7 @@ Do not start prediction/learning before the outcome foundation exists.
 5. Keep database schema and migration files synchronized with the intended Neon state.
 6. Executable evidence outranks prose when verifying implementation.
 
-## 19. Verification standard
+## 20. Verification standard
 
 Every change:
 
@@ -433,28 +501,29 @@ inspect
 
 Never claim COMPLETE without verified evidence.
 
-Current verified evidence supplied:
+Current verified evidence:
 
 ```text
 PRE-SP-C.2 KPI  14/14 PASS
 PRE-SP-C.3 KPI  20/20 PASS
 PRE-SP-C.4 KPI  19/19 PASS
+PRE-SP-C.5 KPI  25/25 PASS
 compileall       PASS
 live smoke        PASS
 ```
 
-Latest smoke run also showed:
+Latest verified smoke behavior includes:
 
-- Daric timed out and was isolated
-- Invi collector executed successfully but its source unit was initially discarded by validation because it had not yet been normalized; this has since been corrected in `src/collector/invi.py`
+- Invi collected and normalized into canonical IRR/gram scale
+- invalid/failed collectors remain isolated
 - XAU/USD and USD/IRR observations saved
 - market snapshot/state saved
-- `Candidate=WAIT`, `Final=WAIT`
-- no false external BUY/SELL alert
+- Candidate/Final separation preserved
+- no false external BUY/SELL alert when Final=WAIT
 
-Post-fix Invi validation must be rerun before declaring the collector operational in production.
+The next post-C.4/C.5 verification is to run the full regression suite after C.6 implementation.
 
-## 20. SP-B closure direction
+## 21. SP-B closure direction
 
 Original SP-B.3/B.4/B.5 names are architectural placeholders, not mandatory module boundaries.
 
@@ -466,9 +535,11 @@ Approved direction:
 | SP-B.4 | Telegram analytical read models |
 | SP-B.5 | Combined read model over persisted analysis snapshots |
 
+C.6 evidence packaging is a PRE-SP-C foundation and does not automatically become a replacement for those future read-model responsibilities.
+
 Do not create duplicate agent/radar layers solely to preserve old sprint names.
 
-## 21. SP-C gate
+## 22. SP-C gate
 
 Before SP-C prediction/learning:
 
@@ -479,6 +550,7 @@ canonical observations
 → regime layer
 → historical/news context
 → outcome evaluation
+→ evidence package
 → verified read models
 → prediction/learning
 ```
