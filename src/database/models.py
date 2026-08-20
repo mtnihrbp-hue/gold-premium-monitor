@@ -227,7 +227,8 @@ class AnalysisSnapshot(Base):
     regime_confirmation_count = Column(Integer, nullable=False, default=0)
     # PRE-SP-C.6: deterministic evidence package
     evidence_package_json = Column(JSON, nullable=True)
-    
+    # PRE-SP-C.7: bounded market intelligence result
+    intelligence_result_json = Column(JSON, nullable=True)
 
     
     created_at = Column(DateTime, server_default=func.now())
