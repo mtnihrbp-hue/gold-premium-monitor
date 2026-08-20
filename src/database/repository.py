@@ -834,6 +834,8 @@ def save_analysis_snapshot(
     regime_confirmation_count: int = 0,
     # Pre-SP-C.6 fileds:
     evidence_package_json: dict = None,
+    # Pre-SP-C.7 fileds:
+    intelligence_result_json: dict = None,
 
 ) -> int:
     """Save an analysis snapshot to the database.
@@ -887,6 +889,7 @@ def save_analysis_snapshot(
             regime_candidate_state=regime_candidate_state,
             regime_confirmation_count=regime_confirmation_count,
             evidence_package_json=evidence_package_json,
+            intelligence_result_json=intelligence_result_json,
         )
         session.add(snap)
         session.commit()
