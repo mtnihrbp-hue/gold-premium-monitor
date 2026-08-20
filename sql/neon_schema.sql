@@ -253,6 +253,15 @@ CREATE INDEX IF NOT EXISTS idx_outcome_eval_status
     ON outcome_evaluations(outcome_status);
 
 -- ============================================================
+-- 8.6. ANALYSIS SNAPSHOTS EVIDENCE EXTENSION (PRE-SP-C.6)
+-- ============================================================
+
+ALTER TABLE analysis_snapshots
+    ADD COLUMN IF NOT EXISTS evidence_package_json JSONB;
+
+CREATE INDEX IF NOT EXISTS idx_analysis_snapshots_evidence
+    ON analysis_snapshots USING GIN (evidence_package_json);
+-- ============================================================
 -- 9. VERIFICATION
 -- ============================================================
 
