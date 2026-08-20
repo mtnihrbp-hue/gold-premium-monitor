@@ -375,15 +375,26 @@ class KPIPreSPC5(unittest.TestCase):
         self.assertIsNone(ev.actual_premium_percent)
         self.assertEqual(ev.premium_direction, "INSUFFICIENT_DATA")
 
-    # --- KPI-22: DOWN direction ---
+    # --- KPI-22: Direction DOWN ---
     def test_22_direction_down(self):
         now = self.snapshot_time
         self.session.query(PriceObservation).filter(
-            PriceObservation.timestamp > now,
+            PriceObservation.instrument == "XAUUSD",
+            PriceObservation.timestamp == now + timedelta(hours=1),
         ).delete()
         self.session.commit()
         save_price_observation("XAUUSD", "kitco", now + timedelta(hours=1), 2390.0, "FRESH")
+        self.session.query(PriceObservation).filter(
+            PriceObservation.instrument == "USD/IRR",
+            PriceObservation.timestamp == now + timedelta(hours=1),
+        ).delete()
+        self.session.commit()
         save_price_observation("USD/IRR", "bonbast", now + timedelta(hours=1), 49900.0, "FRESH")
+        self.session.query(PriceObservation).filter(
+            PriceObservation.instrument == "REP_IRAN_GOLD",
+            PriceObservation.timestamp == now + timedelta(hours=1),
+        ).delete()
+        self.session.commit()
         save_price_observation("REP_IRAN_GOLD", "milli", now + timedelta(hours=1), 189000000.0, "FRESH")
         evaluate_snapshot(self.snapshot_id, horizons=[1])
         ev = get_outcome_evaluation(self.snapshot_id, 1)
@@ -407,11 +418,24 @@ class KPIPreSPC5(unittest.TestCase):
         expected = self.snapshot_time + timedelta(hours=6)
         self.assertEqual(ev.target_time.replace(microsecond=0), expected.replace(microsecond=0))
 
-    # --- KPI-25: Backfill respects existing complete ---
+    # --- KPI-25: Backfill respects existing complete horizons ---
     def test_25_backfill_respects_complete(self):
-        evaluate_snapshot(self.snapshot_id, horizons=[1])
-        count = backfill_outcome_evaluations(hours=1)
+        configured_horizons = [1, 6, 24]
+        evaluate_snapshot(self.snapshot_id, horizons=configured_horizons)
+
+        count = backfill_outcome_evaluations(
+            hours=1,
+            horizons=configured_horizons,
+        )
         self.assertEqual(count, 0)
+
+        evaluations = get_outcome_evaluations_by_snapshot(self.snapshot_id)
+        complete_horizons = {
+            evaluation.horizon_hours
+            for evaluation in evaluations
+            if evaluation.outcome_status == "COMPLETE"
+        }
+        self.assertEqual(complete_horizons, set(configured_horizons))
 
 
 def run_kpi():
@@ -429,11 +453,10 @@ def run_kpi():
         print("\n🟢 PRE-SP-C.5 COMPLETE")
         return 0
     else:
-        failed = len(result.failures) + len(result.errors)
-        print(f"Result: {passed}/{total} passed, {failed} failed")
+        print(f"Result: {passed}/{total} passed, {len(result.failures) + len(result.errors)} failed")
         print("\n🔴 PRE-SP-C.5 FAILED")
         return 1
 
 
 if __name__ == "__main__":
-    sys.exit(run_kpi())
+    raise SystemExit(run_kpi())
