@@ -886,6 +886,7 @@ def save_analysis_snapshot(
             previous_regime=previous_regime,
             regime_candidate_state=regime_candidate_state,
             regime_confirmation_count=regime_confirmation_count,
+            evidence_package_json=evidence_package_json,
         )
         session.add(snap)
         session.commit()
