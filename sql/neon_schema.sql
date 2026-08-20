@@ -1,8 +1,9 @@
--- Gold Premium Monitor — canonical Neon schema (PRE-SP-C.5)
+-- Gold Premium Monitor — canonical Neon schema (PRE-SP-C.6)
 --
 -- This file is the repository-side canonical target schema.
 -- For an existing Neon database, use the incremental migration files
--- (for example sql/neon_migration_c4.sql and sql/neon_migration_c5.sql).
+-- (for example sql/neon_migration_c4.sql, sql/neon_migration_c5.sql,
+-- and the current C.6 migration) rather than this complete schema.
 -- Do not use this complete schema as a destructive replacement migration.
 
 -- ============================================================
@@ -173,6 +174,7 @@ CREATE TABLE IF NOT EXISTS analysis_snapshots (
     regime_confirmation_count INTEGER NOT NULL DEFAULT 0,
 
     data_quality_json TEXT,
+    evidence_package_json JSONB,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
     CONSTRAINT uq_analysis_snapshots_source_run_id
@@ -190,6 +192,9 @@ CREATE INDEX IF NOT EXISTS idx_analysis_snapshots_market_snapshot
 
 CREATE INDEX IF NOT EXISTS idx_analysis_snapshots_market_state
     ON analysis_snapshots(market_state_id);
+
+CREATE INDEX IF NOT EXISTS idx_analysis_snapshots_evidence
+    ON analysis_snapshots USING GIN (evidence_package_json);
 
 DO $$
 BEGIN
@@ -252,15 +257,6 @@ CREATE INDEX IF NOT EXISTS idx_outcome_eval_target_time
 CREATE INDEX IF NOT EXISTS idx_outcome_eval_status
     ON outcome_evaluations(outcome_status);
 
--- ============================================================
--- 8.6. ANALYSIS SNAPSHOTS EVIDENCE EXTENSION (PRE-SP-C.6)
--- ============================================================
-
-ALTER TABLE analysis_snapshots
-    ADD COLUMN IF NOT EXISTS evidence_package_json JSONB;
-
-CREATE INDEX IF NOT EXISTS idx_analysis_snapshots_evidence
-    ON analysis_snapshots USING GIN (evidence_package_json);
 -- ============================================================
 -- 9. VERIFICATION
 -- ============================================================
