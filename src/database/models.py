@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Text, JSON, Index
+from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Text, JSON, Index, UniqueConstraint
 from sqlalchemy.sql import func
 
 from database.connection import Base
@@ -232,4 +232,52 @@ class AnalysisSnapshot(Base):
     __table_args__ = (
         Index("idx_analysis_snap_ts", "analysis_timestamp"),
         Index("idx_analysis_snap_run_id", "source_run_id"),
+    )
+
+
+############
+
+class OutcomeEvaluation(Base):
+    __tablename__ = "outcome_evaluations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    analysis_snapshot_id = Column(
+        Integer,
+        ForeignKey("analysis_snapshots.id"),
+        nullable=False,
+    )
+    horizon_hours = Column(Integer, nullable=False)
+
+    reference_time = Column(DateTime, nullable=False)
+    target_time = Column(DateTime, nullable=False)
+    actual_observation_time = Column(DateTime, nullable=True)
+
+    outcome_status = Column(String(20), nullable=False, default="PENDING")
+
+    reference_rep_gold_price = Column(Numeric(20, 4), nullable=True)
+    reference_xau_usd = Column(Numeric(20, 4), nullable=True)
+    reference_usd_irr = Column(Numeric(20, 4), nullable=True)
+    reference_premium_percent = Column(Numeric(10, 4), nullable=True)
+
+    actual_rep_gold_price = Column(Numeric(20, 4), nullable=True)
+    actual_xau_usd = Column(Numeric(20, 4), nullable=True)
+    actual_usd_irr = Column(Numeric(20, 4), nullable=True)
+    actual_premium_percent = Column(Numeric(10, 4), nullable=True)
+
+    rep_gold_movement_percent = Column(Numeric(10, 4), nullable=True)
+    rep_gold_direction = Column(String(10), nullable=True)
+    xau_usd_movement_percent = Column(Numeric(10, 4), nullable=True)
+    xau_usd_direction = Column(String(10), nullable=True)
+    usd_irr_movement_percent = Column(Numeric(10, 4), nullable=True)
+    usd_irr_direction = Column(String(10), nullable=True)
+    premium_movement_percent = Column(Numeric(10, 4), nullable=True)
+    premium_direction = Column(String(10), nullable=True)
+
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("analysis_snapshot_id", "horizon_hours", name="uq_outcome_eval_snapshot_horizon"),
+        Index("idx_outcome_eval_target_time", "target_time"),
+        Index("idx_outcome_eval_status", "outcome_status"),
     )
