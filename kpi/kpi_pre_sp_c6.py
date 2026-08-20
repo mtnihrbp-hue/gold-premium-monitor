@@ -68,7 +68,6 @@ class KPIPreSPC6(unittest.TestCase):
     def _seed_data(self):
         now = datetime.now()
 
-        # Market snapshot
         sid = save_market_snapshot(
             timestamp=now,
             fair_price=1900000.0,
@@ -80,7 +79,6 @@ class KPIPreSPC6(unittest.TestCase):
             platform_prices=[],
         )
 
-        # Market state
         ms = MarketState(
             snapshot_id=sid,
             valuation_state="CHEAP",
@@ -102,12 +100,10 @@ class KPIPreSPC6(unittest.TestCase):
         self.session.add(ms)
         self.session.commit()
         self.market_state_id = ms.id
-        self.market_snapshot = self.session.query(
-            __import__('database.models', fromlist=['MarketSnapshot']).MarketSnapshot
-        ).filter_by(id=sid).first()
+        MarketSnapshot = __import__('database.models', fromlist=['MarketSnapshot']).MarketSnapshot
+        self.market_snapshot = self.session.query(MarketSnapshot).filter_by(id=sid).first()
         self.market_state = ms
 
-        # Analysis snapshot
         self.snapshot_time = now
         self.snapshot_id = save_analysis_snapshot(
             analysis_timestamp=now,
@@ -133,7 +129,6 @@ class KPIPreSPC6(unittest.TestCase):
             regime_confirmation_count=0,
         )
 
-        # Seed news
         save_news_event({
             "published_at": now - timedelta(hours=2),
             "source": "test",
@@ -143,7 +138,6 @@ class KPIPreSPC6(unittest.TestCase):
             "classification_method": "KEYWORD",
         })
 
-        # Seed outcome for previous snapshot context
         save_outcome_evaluation(
             analysis_snapshot_id=self.snapshot_id,
             horizon_hours=1,
@@ -247,7 +241,6 @@ class KPIPreSPC6(unittest.TestCase):
     def test_11_historical_present(self):
         pkg = self._build_package()
         self.assertIn("historical_context", pkg)
-        # With seeded market state, similar states may or may not exist
         self.assertIn("status", pkg["historical_context"])
 
     # --- KPI-12: outcome context handled ---
@@ -265,4 +258,108 @@ class KPIPreSPC6(unittest.TestCase):
     # --- KPI-14: provenance preserved ---
     def test_14_provenance_present(self):
         pkg = self._build_package()
-        self.assertIn("provenance", pkg
+        self.assertIn("provenance", pkg)
+        self.assertEqual(pkg["provenance"]["source_run_id"], "test_evidence_001")
+
+    # --- KPI-15: missing optional evidence explicit ---
+    def test_15_missing_explicit(self):
+        pkg = self._build_package(market_state=None)
+        self.assertEqual(pkg["valuation"]["status"], "INSUFFICIENT_DATA")
+        self.assertEqual(pkg["momentum"]["status"], "INSUFFICIENT_DATA")
+
+    # --- KPI-16: UNKNOWN state explicit ---
+    def test_16_unknown_explicit(self):
+        pkg = self._build_package(
+            regime_result=RegimeResult(state="UNKNOWN", previous_state=None)
+        )
+        self.assertEqual(pkg["regime"]["regime_state"], "UNKNOWN")
+
+    # --- KPI-17: no future leakage ---
+    def test_17_no_future_leakage(self):
+        future_time = self.snapshot_time + timedelta(hours=1)
+        pkg = self._build_package()
+        gen_time = datetime.fromisoformat(pkg["generated_at"])
+        self.assertLessEqual(gen_time, self.snapshot_time + timedelta(seconds=5))
+
+    # --- KPI-18: no BUY/SELL decision ---
+    def test_18_no_decision(self):
+        pkg = self._build_package()
+        valid, errors = validate_evidence_package(pkg)
+        self.assertTrue(valid, f"Validation errors: {errors}")
+
+    # --- KPI-19: schema version present ---
+    def test_19_schema_version(self):
+        pkg = self._build_package()
+        self.assertEqual(pkg["schema_version"], EVIDENCE_SCHEMA_VERSION)
+
+    # --- KPI-20: deterministic repeatability ---
+    def test_20_deterministic(self):
+        pkg1 = self._build_package()
+        pkg2 = self._build_package()
+        self.assertEqual(pkg1["schema_version"], pkg2["schema_version"])
+        self.assertEqual(pkg1["valuation"]["valuation_state"], pkg2["valuation"]["valuation_state"])
+
+    # --- KPI-21: package validates ---
+    def test_21_validates(self):
+        pkg = self._build_package()
+        valid, errors = validate_evidence_package(pkg)
+        self.assertTrue(valid)
+        self.assertEqual(len(errors), 0)
+
+    # --- KPI-22: persistence round-trip ---
+    def test_22_persistence_roundtrip(self):
+        from database.models import AnalysisSnapshot
+        pkg = self._build_package()
+        snap = self.session.query(AnalysisSnapshot).filter_by(id=self.snapshot_id).first()
+        snap.evidence_package_json = pkg
+        self.session.commit()
+        self.session.refresh(snap)
+        self.assertIsNotNone(snap.evidence_package_json)
+        self.assertEqual(snap.evidence_package_json["schema_version"], EVIDENCE_SCHEMA_VERSION)
+
+    # --- KPI-23: fallback rep gold status ---
+    def test_23_fallback_status(self):
+        pkg = self._build_package(
+            rep_price=MockRepPrice(price=190000000.0, source="ayyareh", status="AVAILABLE")
+        )
+        self.assertEqual(pkg["representative_gold"]["fallback_status"], "FALLBACK")
+
+    # --- KPI-24: validation catches missing provenance ---
+    def test_24_validation_catches_missing_provenance(self):
+        pkg = self._build_package()
+        pkg.pop("provenance")
+        valid, errors = validate_evidence_package(pkg)
+        self.assertFalse(valid)
+        self.assertTrue(any("provenance" in e.lower() for e in errors))
+
+    # --- KPI-25: data quality tracks missing ---
+    def test_25_data_quality_tracks_missing(self):
+        pkg = self._build_package(
+            data_quality={"overall": "DEGRADED", "xau_usd": "UNAVAILABLE"}
+        )
+        self.assertIn("xau_usd", pkg["data_quality"]["missing"])
+
+
+def run_kpi():
+    loader = unittest.TestLoader()
+    suite = loader.loadTestsFromTestCase(KPIPreSPC6)
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(suite)
+
+    passed = result.testsRun - len(result.failures) - len(result.errors)
+    total = result.testsRun
+
+    print("\n" + "=" * 50)
+    if result.wasSuccessful():
+        print(f"Result: {passed}/{total} passed, 0 failed")
+        print("\n🟢 PRE-SP-C.6 COMPLETE")
+        return 0
+    else:
+        failed = len(result.failures) + len(result.errors)
+        print(f"Result: {passed}/{total} passed, {failed} failed")
+        print("\n🔴 PRE-SP-C.6 FAILED")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(run_kpi())
