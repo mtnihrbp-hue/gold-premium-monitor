@@ -832,6 +832,9 @@ def save_analysis_snapshot(
     previous_regime: str = None,
     regime_candidate_state: str = None,
     regime_confirmation_count: int = 0,
+    # Pre-SP-C.6 fileds:
+    evidence_package_json: dict = None,
+
 ) -> int:
     """Save an analysis snapshot to the database.
 
