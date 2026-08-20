@@ -5,6 +5,7 @@ into the scheduled analysis snapshot. Reconstructs regime hysteresis from the
 latest persisted snapshot so state survives across independent scheduled runs.
 """
 from analysis.outcome_evaluator import run_outcome_evaluation_for_snapshot
+from analysis.evidence_package import build_evidence_package, validate_evidence_package
 
 from datetime import datetime
 from typing import Optional, Dict
@@ -271,6 +272,28 @@ def build_analysis_snapshot(
     # Serialize technical and regime evidence
     technical_state_json = _build_technical_state_json(rep_price, structure_state)
 
+    # --- PRE-SP-C.6: Build deterministic evidence package ---
+    evidence_package = None
+    try:
+        evidence_package = build_evidence_package(
+            analysis_timestamp=analysis_timestamp,
+            source_run_id=source_run_id,
+            market_snapshot=market_snapshot,
+            market_state=market_state,
+            rep_price=rep_price,
+            structure_state=structure_state,
+            regime_result=regime_result,
+            classifier=classifier,
+            data_quality=data_quality,
+            technical_state_json=technical_state_json,
+            config=config,
+        )
+        valid, ev_errors = validate_evidence_package(evidence_package)
+        if not valid:
+            print(f"Evidence package validation warnings: {ev_errors}")
+    except Exception as e:
+        print(f"Evidence package build failed: {e}")
+
     snapshot_id = save_analysis_snapshot(
         analysis_timestamp=analysis_timestamp,
         source_run_id=source_run_id,
@@ -289,11 +312,13 @@ def build_analysis_snapshot(
         previous_regime=regime_result.previous_state,
         regime_candidate_state=classifier._candidate_state,
         regime_confirmation_count=classifier._confirmation_count,
+        evidence_package_json=evidence_package,
     )
 
     # PRE-SP-C.5: non-blocking outcome evaluation
     if snapshot_id is not None and snapshot_id > 0:
         try:
+            from analysis.outcome_evaluator import run_outcome_evaluation_for_snapshot
             run_outcome_evaluation_for_snapshot(snapshot_id, config=config)
         except Exception as e:
             print(f"Outcome evaluation failed for snapshot {snapshot_id}: {e}")
