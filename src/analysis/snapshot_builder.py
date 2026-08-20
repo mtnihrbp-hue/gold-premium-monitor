@@ -7,6 +7,7 @@ latest persisted snapshot so state survives across independent scheduled runs.
 from analysis.outcome_evaluator import run_outcome_evaluation_for_snapshot
 from analysis.evidence_package import build_evidence_package, validate_evidence_package
 from intelligence.market_intelligence import build_intelligence_result, validate_intelligence_result
+from intelligence.features import build_feature_snapshot, validate_feature_snapshot
 
 from datetime import datetime
 from typing import Optional, Dict
@@ -273,7 +274,7 @@ def build_analysis_snapshot(
     # Serialize technical and regime evidence
     technical_state_json = _build_technical_state_json(rep_price, structure_state)
 
-        # --- PRE-SP-C.6: Build deterministic evidence package ---
+    # --- PRE-SP-C.6: Build deterministic evidence package ---
     evidence_package = None
     try:
         evidence_package = build_evidence_package(
@@ -310,6 +311,22 @@ def build_analysis_snapshot(
     except Exception as e:
         print(f"Intelligence build failed: {e}")
 
+    # --- PRE-SP-C.8: Build analytical feature snapshot ---
+    features = None
+    try:
+        features = build_feature_snapshot(
+            analysis_timestamp=analysis_timestamp,
+            current_regime=regime_result.state,
+            previous_regime=regime_result.previous_state,
+            market_state=market_state,
+            config=config,
+        )
+        feat_valid, feat_errors = validate_feature_snapshot(features)
+        if not feat_valid:
+            print(f"Feature validation warnings: {feat_errors}")
+    except Exception as e:
+        print(f"Feature build failed: {e}")
+
     snapshot_id = save_analysis_snapshot(
         analysis_timestamp=analysis_timestamp,
         source_run_id=source_run_id,
@@ -330,6 +347,7 @@ def build_analysis_snapshot(
         regime_confirmation_count=classifier._confirmation_count,
         evidence_package_json=evidence_package,
         intelligence_result_json=intelligence_result,
+        features_json=features,
     )
 
     # PRE-SP-C.5: non-blocking outcome evaluation
