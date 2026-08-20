@@ -966,6 +966,140 @@ def analysis_snapshot_exists(source_run_id: str) -> bool:
         session.close()
 
 #########
+# --- PRE-SP-C.5: Outcome Evaluations ---
+
+def save_outcome_evaluation(
+    analysis_snapshot_id: int,
+    horizon_hours: int,
+    reference_time: datetime,
+    target_time: datetime,
+    actual_observation_time: datetime = None,
+    outcome_status: str = "PENDING",
+    reference_rep_gold_price: float = None,
+    reference_xau_usd: float = None,
+    reference_usd_irr: float = None,
+    reference_premium_percent: float = None,
+    actual_rep_gold_price: float = None,
+    actual_xau_usd: float = None,
+    actual_usd_irr: float = None,
+    actual_premium_percent: float = None,
+    rep_gold_movement_percent: float = None,
+    rep_gold_direction: str = None,
+    xau_usd_movement_percent: float = None,
+    xau_usd_direction: str = None,
+    usd_irr_movement_percent: float = None,
+    usd_irr_direction: str = None,
+    premium_movement_percent: float = None,
+    premium_direction: str = None,
+) -> int:
+    """Save or update an outcome evaluation. Idempotent by (snapshot, horizon)."""
+    from database.models import OutcomeEvaluation
+
+    session = get_session()
+    if session is None:
+        print("DB unavailable — outcome evaluation not saved")
+        return -1
+
+    try:
+        existing = session.query(OutcomeEvaluation).filter(
+            OutcomeEvaluation.analysis_snapshot_id == analysis_snapshot_id,
+            OutcomeEvaluation.horizon_hours == horizon_hours,
+        ).first()
+
+        if existing:
+            existing.reference_time = reference_time
+            existing.target_time = target_time
+            existing.actual_observation_time = actual_observation_time
+            existing.outcome_status = outcome_status
+            existing.reference_rep_gold_price = reference_rep_gold_price
+            existing.reference_xau_usd = reference_xau_usd
+            existing.reference_usd_irr = reference_usd_irr
+            existing.reference_premium_percent = reference_premium_percent
+            existing.actual_rep_gold_price = actual_rep_gold_price
+            existing.actual_xau_usd = actual_xau_usd
+            existing.actual_usd_irr = actual_usd_irr
+            existing.actual_premium_percent = actual_premium_percent
+            existing.rep_gold_movement_percent = rep_gold_movement_percent
+            existing.rep_gold_direction = rep_gold_direction
+            existing.xau_usd_movement_percent = xau_usd_movement_percent
+            existing.xau_usd_direction = xau_usd_direction
+            existing.usd_irr_movement_percent = usd_irr_movement_percent
+            existing.usd_irr_direction = usd_irr_direction
+            existing.premium_movement_percent = premium_movement_percent
+            existing.premium_direction = premium_direction
+            existing.updated_at = datetime.now()
+            session.commit()
+            return existing.id
+
+        ev = OutcomeEvaluation(
+            analysis_snapshot_id=analysis_snapshot_id,
+            horizon_hours=horizon_hours,
+            reference_time=reference_time,
+            target_time=target_time,
+            actual_observation_time=actual_observation_time,
+            outcome_status=outcome_status,
+            reference_rep_gold_price=reference_rep_gold_price,
+            reference_xau_usd=reference_xau_usd,
+            reference_usd_irr=reference_usd_irr,
+            reference_premium_percent=reference_premium_percent,
+            actual_rep_gold_price=actual_rep_gold_price,
+            actual_xau_usd=actual_xau_usd,
+            actual_usd_irr=actual_usd_irr,
+            actual_premium_percent=actual_premium_percent,
+            rep_gold_movement_percent=rep_gold_movement_percent,
+            rep_gold_direction=rep_gold_direction,
+            xau_usd_movement_percent=xau_usd_movement_percent,
+            xau_usd_direction=xau_usd_direction,
+            usd_irr_movement_percent=usd_irr_movement_percent,
+            usd_irr_direction=usd_irr_direction,
+            premium_movement_percent=premium_movement_percent,
+            premium_direction=premium_direction,
+        )
+        session.add(ev)
+        session.commit()
+        return ev.id
+    except Exception as e:
+        print(f"DB save failed (save_outcome_evaluation): {e}")
+        session.rollback()
+        return -1
+    finally:
+        session.close()
+
+
+def get_outcome_evaluation(analysis_snapshot_id: int, horizon_hours: int):
+    from database.models import OutcomeEvaluation
+    session = get_session()
+    if session is None:
+        return None
+    try:
+        return session.query(OutcomeEvaluation).filter(
+            OutcomeEvaluation.analysis_snapshot_id == analysis_snapshot_id,
+            OutcomeEvaluation.horizon_hours == horizon_hours,
+        ).first()
+    except Exception as e:
+        print(f"DB query failed (get_outcome_evaluation): {e}")
+        return None
+    finally:
+        session.close()
+
+
+def get_outcome_evaluations_by_snapshot(analysis_snapshot_id: int):
+    from database.models import OutcomeEvaluation
+    session = get_session()
+    if session is None:
+        return []
+    try:
+        return session.query(OutcomeEvaluation).filter(
+            OutcomeEvaluation.analysis_snapshot_id == analysis_snapshot_id,
+        ).order_by(OutcomeEvaluation.horizon_hours.asc()).all()
+    except Exception as e:
+        print(f"DB query failed (get_outcome_evaluations_by_snapshot): {e}")
+        return []
+    finally:
+        session.close()
+
+############
+
 
 
 
