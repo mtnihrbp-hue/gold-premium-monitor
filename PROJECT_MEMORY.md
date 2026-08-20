@@ -2,44 +2,27 @@
 
 This file is the **canonical project-specific architecture and current-state memory** for maintainers and AI implementation agents.
 
-Documentation responsibilities are intentionally separated:
+## Documentation authority
 
-| Document | Authority | Purpose |
-|---|---|---|
-| `PROJECT_MEMORY.md` | Canonical project memory | Architecture, invariants, implemented state, contracts, current roadmap |
-| `README.md` | Human orientation | Concise system/repository overview |
-| `Prompt_Guide.md` | Generic AI behavior | Reusable engineering discipline; not sprint-state authority |
-| `skills/` | Specialist operating rules | Reusable AI behavior by domain |
-| `sql/neon_schema.sql` | Repository DB schema | Canonical repository-side Neon schema |
-| `src/`, `tests/`, `kpi/`, CI | Executable evidence | Actual implementation and verification |
+| Source | Responsibility |
+|---|---|
+| `PROJECT_MEMORY.md` | Canonical architecture, invariants, implementation state, contracts, roadmap |
+| `README.md` | Human-facing overview |
+| `Prompt_Guide.md` | Generic AI engineering behavior |
+| `skills/` | Specialist reusable operating rules |
+| `sql/neon_schema.sql` | Canonical target database schema |
+| `sql/neon_migration_c4.sql` | Migration for an existing Neon database |
+| `src/`, `tests/`, `kpi/`, CI | Executable evidence |
 
-When documentation conflicts, use the higher-authority source above; use executable behavior as implementation evidence.
+When documentation conflicts, prefer the higher-authority source and then executable behavior as implementation evidence. Project-state changes are recorded here first.
 
 ## 1. Project purpose
 
-Gold Premium Monitor is a decision-support monitor for the Iranian 18K physical-gold market.
+Gold Premium Monitor is a decision-support monitor for the Iranian 18K physical-gold market. It combines XAU/USD, USD/IRR, Iranian platform prices, fair value, premium/discount analysis, momentum, market structure, historical memory, structured news, canonical observations, scheduled analysis, deterministic technical structure, and deterministic market regime.
 
-It combines:
+It is not an autonomous trading bot.
 
-- XAU/USD world gold
-- USD/IRR
-- Iranian gold-platform prices
-- fair-value calculation
-- premium/discount analysis
-- momentum and market structure
-- deterministic market-state logic
-- historical market memory
-- structured news intelligence
-- canonical market observations
-- scheduled Analysis Wing infrastructure
-- deterministic technical structure
-- deterministic market regime
-- future outcome evaluation
-- eventual prediction/learning
-
-It is **not** an autonomous trading bot.
-
-## 2. Architecture invariants
+## 2. Non-negotiable architecture
 
 ```text
 CHEAP ≠ BUY
@@ -49,24 +32,19 @@ NEWS ≠ MARKET DATA
 LLM ≠ MARKET CALCULATION
 ```
 
-The layers remain separate:
+Layers remain separate:
 
 ```text
-Quantitative Engine
-    = measures market facts
-
-Intelligence Layer
-    = interprets external context
-
-Decision Engine
-    = evaluates evidence
+Quantitative Engine = measures facts
+Intelligence Layer  = interprets context
+Decision Engine     = evaluates evidence
 ```
 
 Collectors collect. Calculators calculate. Intelligence interprets. Presentation formats. Persistence stores.
 
 Unknown / insufficient data is preferable to fabricated information.
 
-## 3. Branch and sprint state
+## 3. Development state
 
 ```text
 main
@@ -78,39 +56,37 @@ SP-B
 ├── PRE-SP-C.1 COMPLETE — Canonical Time Series
 ├── PRE-SP-C.2 COMPLETE — Analysis Snapshot + Scheduler Foundation
 ├── PRE-SP-C.3 COMPLETE — Price Structure + Regime
-└── PRE-SP-C.4 NEXT — Analysis Snapshot Integration
+└── PRE-SP-C.4 COMPLETE — Analysis Snapshot Integration
+
+NEXT
+└── PRE-SP-C.5 — Outcome Evaluation Foundation
 
 SP-C
 └── FUTURE — Prediction + Learning
 ```
 
-`SP-B` is the active development line. Do not merge it into `main` until the approved remaining scope, regression tests, KPI, documentation, and diff review are explicitly satisfied.
+`SP-B` is the active development line and must not be merged into `main` until approved scope, regression, KPI, documentation, and diff review are complete.
 
-## 4. Frozen SP-A decision baseline
+## 4. Frozen SP-A baseline
 
 ```text
 Valuation
-    ↓
-Premium Direction
-    ↓
-Momentum
-    ↓
-Market Structure
-    ↓
-Conflict Matrix
-    ↓
-Candidate Decision
-    ↓
-SP-A Hysteresis
-    ↓
-Final Decision
+→ Premium Direction
+→ Momentum
+→ Market Structure
+→ Conflict Matrix
+→ Candidate Decision
+→ SP-A Hysteresis
+→ Final Decision
 ```
 
 For negative premium:
 
-- more negative → `DISCOUNT WIDENING`
-- less negative → `DISCOUNT NARROWING`
-- materially unchanged → `DISCOUNT STABLE`
+```text
+more negative → DISCOUNT WIDENING
+less negative → DISCOUNT NARROWING
+stable        → DISCOUNT STABLE
+```
 
 Buyer-oriented momentum:
 
@@ -124,26 +100,20 @@ Do not replace the explicit conflict matrix with an opaque weighted score withou
 
 ## 5. Alert authority
 
-The deterministic `final_decision` is the **single authority** for external BUY/SELL alerts.
+`final_decision` is the sole external BUY/SELL authority.
 
 ```text
 Candidate: BUY
 Final: WAIT
-        ↓
+    ↓
 NO BUY ALERT
 ```
 
-Legacy premium-threshold evaluation may remain for backward-compatible tests, but it must not independently trigger external alerts.
-
-Telegram and email must respect the same rule when a deterministic `signal_state` is available.
+Legacy threshold evaluation may remain for backward-compatible tests but must not independently trigger external alerts. Telegram and email must preserve this invariant.
 
 ## 6. Live Wing
 
-Purpose:
-
-> What is happening right now?
-
-Primary flow:
+Purpose: what is happening now?
 
 ```text
 /Update
@@ -154,25 +124,13 @@ Primary flow:
 → Telegram
 ```
 
-Properties:
-
-- user-triggered
-- irregular
-- current
-- lightweight
-- not a learning time series
-
-User-triggered `/Update` requests must not become the Analysis Wing's technical history.
+It is user-triggered, irregular, current, lightweight, and not the Analysis Wing's technical history.
 
 ## 7. Analysis Wing
 
-Purpose:
+Purpose: what does the system currently understand about the market?
 
-> What does the system currently understand about the market?
-
-System-triggered analysis is reusable by many Telegram users.
-
-Current scheduling contract:
+Scheduler contract:
 
 | Setting | Value |
 |---|---|
@@ -181,7 +139,7 @@ Current scheduling contract:
 | Window | `08:00` inclusive → `21:00` exclusive |
 | Active days | configurable |
 
-The scheduler's `get_next_analysis_windows()` treats the reference timestamp as already consumed. An exact `09:00` reference therefore produces `09:30` as the next window.
+`get_next_analysis_windows()` treats the reference boundary as already consumed; exact `09:00` therefore yields `09:30` as the next window.
 
 Conceptual flow:
 
@@ -189,20 +147,21 @@ Conceptual flow:
 scheduled window
 → source availability / freshness
 → canonical observations
-→ technical analysis
-→ historical context
-→ news context
-→ regime / market mood
+→ technical structure
+→ regime
+→ historical/news context
 → bounded LLM interpretation
 → analysis snapshot
 → Neon
 ```
 
-## 8. PRE-SP-C.1 — canonical time series
+User count must not multiply scheduled analysis execution.
+
+## 8. PRE-SP-C.1 — canonical observations
 
 `price_observations` is the canonical technical time-series layer.
 
-Conceptually supported instruments:
+Conceptual instruments:
 
 ```text
 XAUUSD
@@ -211,94 +170,53 @@ REP_IRAN_GOLD
 PAXG
 ```
 
+Technical analysis consumes actual price observations, not premium as a proxy candle.
+
 Raw observations remain separate from interpreted states.
 
-Technical analysis must consume actual market-price observations, not premium as a proxy candle.
+## 9. PRE-SP-C.2 — snapshot foundation COMPLETE
 
-## 9. PRE-SP-C.2 — analysis snapshot foundation COMPLETE
+Established:
 
-The foundation establishes `analysis_snapshots` with deterministic `source_run_id` idempotency.
+- `analysis_snapshots`
+- deterministic `source_run_id` idempotency
+- LIVE vs ANALYSIS snapshot distinction
+- scheduled analysis windows
+- canonical Neon persistence
+- final-decision alert authority
+- alert-routing regression coverage
 
-Conceptual distinction:
-
-```text
-LIVE_SNAPSHOT
-    = user-triggered current observation
-
-ANALYSIS_SNAPSHOT
-    = system-triggered analytical observation
-```
-
-Current snapshot fields include:
-
-- snapshot type
-- analysis timestamp
-- source run ID
-- analysis window
-- market snapshot linkage
-- market-state linkage
-- XAU/USD
-- USD/IRR
-- representative Iranian gold price
-- premium percent
-- valuation state
-- momentum state
-- structure state
-- data-quality metadata
-
-PRE-SP-C.2 KPI: **14/14 passed**.
-
-`regime_state` and `technical_state_json` are intentionally **not yet persisted**. Their addition belongs to PRE-SP-C.4, when the snapshot builder integrates the C.3 outputs.
+KPI: **14/14 passed**.
 
 ## 10. PRE-SP-C.3 — Price Structure + Regime COMPLETE
 
-PRE-SP-C.3 creates deterministic analytical primitives without changing the SP-A decision engine and without creating autonomous BUY/SELL logic.
+KPI: **20/20 passed**.
 
-### 10.1 Representative Iranian price
+### Representative Iranian price
 
-The fixed fallback chain is:
+Fixed fallback:
 
 ```text
-Milli
-  ↓
-Ayyareh
-  ↓
-WallGold
-  ↓
-UNKNOWN
+Milli → Ayyareh → WallGold → UNKNOWN
 ```
 
-Rules:
+First valid source wins. Selected source is retained as provenance. This layer uses canonical observations and does not average all platforms.
 
-- first valid source in that order wins
-- invalid/missing prices are skipped
-- all three unavailable → `UNKNOWN`
-- selected source is retained as provenance
-- the module is based on canonical `price_observations`, not the live `markets` dict
-
-This is an actual Iranian market-price series, not premium, fair value, or an all-platform average.
-
-### 10.2 Support / resistance
-
-The technical structure layer is deterministic and uses real market-price observations.
-
-Initial architecture:
+### Support / resistance
 
 ```text
 price observations
 → local extrema
 → clustering / tolerance
-→ strength metadata
-→ support / resistance levels
+→ deterministic strength metadata
+→ support / resistance
 ```
 
-Level metadata includes the analytical evidence needed for reproducibility, including side, level, source/timeframe context, contribution count/strength, and freshness where available.
+Insufficient history remains explicit. No fabricated levels.
 
-Insufficient history is explicit. No technical level is fabricated.
+### Regime
 
-### 10.3 Regime
-
-Approved regime states:
+States:
 
 ```text
 NORMAL
@@ -308,50 +226,66 @@ RELIEF
 UNKNOWN
 ```
 
-Four evidence families are explicitly separated:
+Four evidence families:
 
-| Family | Evidence |
-|---|---|
-| A. Premium Stress | premium magnitude and change |
-| B. Volatility Stress | normalized/volatility measures |
-| C. USD / Market Structure Stress | USD/IRR change, spread, structure evidence |
-| D. External Event Stress | high-impact news/event density |
+1. Premium stress
+2. Volatility stress
+3. USD / market-structure stress
+4. External-event stress
 
-Regime classification is deterministic, configurable, explainable, and uses separate hysteresis from SP-A decision hysteresis.
+Regime hysteresis is distinct from SP-A decision hysteresis.
 
-Mandatory invariant:
+`CHEAP + PANIC` is valid. Regime never issues BUY/SELL.
 
-```text
-Valuation = CHEAP
-Regime = PANIC
-```
+## 11. PRE-SP-C.4 — Analysis Snapshot Integration COMPLETE
 
-is valid.
+C.4 integrates C.3 primitives into persisted `analysis_snapshots`.
 
-Regime does **not** issue BUY/SELL decisions.
-
-### 10.4 C.3 persistence boundary
-
-PRE-SP-C.3 creates analytical primitives only.
-
-Persistence integration belongs to PRE-SP-C.4:
+Persisted C.4 state:
 
 ```text
-C.3 primitives
-    ↓
-C.4 snapshot builder integration
-    ↓
-analysis_snapshots.regime_state
-analysis_snapshots.technical_state_json
+regime_state
+technical_state_json
+previous_regime
+regime_candidate_state
+regime_confirmation_count
 ```
 
-Do not move this boundary earlier without explicit approval.
+Cross-run regime hysteresis is reconstructed from persisted snapshot state. No separate regime table and no file cache are used.
 
-PRE-SP-C.3 KPI: **20/20 passed**.
+KPI: **19/19 passed**.
 
-The supplied smoke test also compiled the new analysis modules successfully and completed a live run with market snapshot/state persistence.
+C.4 includes the Invi collector integration without altering the approved representative fallback chain.
 
-## 11. Neon persistence model
+## 12. Invi collector contract
+
+`src/collector/invi.py` is an additional Iranian market source.
+
+Collector contract:
+
+```python
+{
+    "platform": "Invi",
+    "price": <canonical IRR/gram numeric value>,
+    "status": "OK",
+}
+```
+
+The source currently exposes `current_price` in a smaller unit. The collector normalizes it by `×1000` before validation. Example:
+
+```text
+199140 source value
+×1000
+199,140,000 IRR/gram
+```
+
+This is a unit normalization, not a market-model adjustment.
+
+Invi is registered in the Iranian platform collector path but is **not** part of the representative-price fallback chain.
+
+Collector failure must remain isolated.
+
+## 13. Neon persistence
 
 Neon PostgreSQL is the long-term historical store.
 
@@ -362,41 +296,45 @@ Neon PostgreSQL is the long-term historical store.
 | `market_states` | Deterministic interpreted state |
 | `news_events` | Structured external events |
 | `price_observations` | Canonical raw technical time series |
-| `analysis_snapshots` | System-generated analysis history |
+| `analysis_snapshots` | Scheduled analytical history |
 
-Canonical repository schema:
+Schema authority is split intentionally:
 
 ```text
 sql/neon_schema.sql
+    = canonical TARGET schema
+
+sql/neon_migration_c4.sql
+    = idempotent migration for EXISTING Neon database
 ```
 
+Never use the complete target schema as a replacement migration against an already-populated Neon database.
+
+C.4 `analysis_snapshots` fields include:
+
+```text
+regime_state
+technical_state_json
+previous_regime
+regime_candidate_state
+regime_confirmation_count
+```
+
+Required constraint:
+
+```text
+uq_analysis_snapshots_source_run_id
+```
+
+Required snapshot-type constraint:
+
+```text
+snapshot_type IN ('analysis', 'live')
+```
+
+Required indexes are maintained by the C.4 migration.
+
 Database failure must degrade gracefully and must not become a hidden calculation layer.
-
-## 12. Technical direction after C.3
-
-The technical layer remains deterministic and intentionally small.
-
-Approved future coverage includes:
-
-- XAU/USD trend and momentum
-- USD/IRR trend and volatility
-- representative Iranian price
-- moving averages / RSI / ATR where justified
-- support/resistance
-- multi-timeframe context
-- representative market candle
-
-Do not introduce a large indicator library merely because other trading repositories use one.
-
-## 13. Regime direction after C.3
-
-Regime thresholds must remain explainable and calibratable.
-
-Do not replace the four-family rule structure with a hidden weighted score.
-
-Do not derive regime from valuation alone.
-
-Do not use regime as a direct trading signal.
 
 ## 14. Historical and news intelligence
 
@@ -404,32 +342,25 @@ SP-B.1 is descriptive historical context only.
 
 SP-B.2 is structured external-news context only.
 
-Neither layer independently calculates fair price, premium, technical indicators, or BUY/SELL decisions.
-
-Both are future Analysis Wing inputs.
+Neither independently calculates fair price, premium, technical indicators, or BUY/SELL.
 
 ## 15. LLM boundary
 
-LLM may:
-
-- interpret external information
-- summarize structured evidence
-- connect contextual factors
-- produce bounded narrative
+LLM may summarize and interpret structured context.
 
 LLM must not:
 
 - calculate fair price
 - calculate premium
 - calculate indicators
-- invent support/resistance
+- invent technical levels
 - invent historical statistics
-- override deterministic market state
+- override deterministic state
 - independently issue BUY/SELL
 
 ## 16. Telegram product model
 
-Telegram is the cockpit, not the analytical engine.
+Telegram is the cockpit, not the brain.
 
 Current command:
 
@@ -437,7 +368,7 @@ Current command:
 /Update
 ```
 
-Planned analytical read models:
+Planned read models:
 
 ```text
 /Technical
@@ -448,22 +379,21 @@ Planned analytical read models:
 /Health
 ```
 
-The main update should remain readable and should not become a dump of every future analytical field.
+Known non-blocking presentation defect: duplicated `GOLDPremium:` application header in manual updates. This is a Telegram presentation cleanup, not a C.4 analytical failure.
 
-Known non-blocking presentation defect from the latest smoke test:
+## 17. PRE-SP-C.5 boundary
 
-```text
-GOLDPremium:
-GOLDPremium:
-```
+C.5 is separate from C.4.
 
-The application header is currently duplicated in the produced manual-update message. This is a Telegram presentation defect, not a PRE-SP-C.3 analytical failure, and remains queued for a dedicated cleanup.
+C.4 answers:
 
-## 17. Outcome evaluation foundation
+> What did the system know at time T?
 
-Before SP-C prediction/learning, deterministic outcome evaluation must exist.
+C.5 answers:
 
-Initial horizons:
+> What happened after time T?
+
+Initial outcome horizons:
 
 ```text
 +1h
@@ -471,86 +401,62 @@ Initial horizons:
 +24h
 ```
 
-Use wall-clock targets, nearest valid observations within configured tolerance, no interpolation initially, and explicit `INSUFFICIENT_DATA` when target data is unavailable.
+Use wall-clock targets, nearest valid observations within configured tolerance, no initial interpolation, and explicit `INSUFFICIENT_DATA` when target observations are unavailable.
 
-## 18. Documentation architecture
+Do not start prediction/learning before the outcome foundation exists.
 
-The documentation system has distinct responsibilities:
+## 18. Documentation rules
 
-```text
-PROJECT_MEMORY.md
-    = canonical project state/architecture
-
-README.md
-    = human-facing summary
-
-Prompt_Guide.md
-    = generic AI engineering rules
-
-skills/
-    = specialist operating instructions
-
-sql/neon_schema.sql
-    = repository DB schema
-```
-
-Rules:
-
-1. Update `PROJECT_MEMORY.md` whenever project architecture/state changes.
-2. Update `README.md` when a completed capability changes the human-facing system map.
-3. Do not copy sprint-specific facts into every specialist skill.
-4. Update a specialist skill only when reusable operating behavior changes.
-5. Keep executable evidence in code/tests/KPI; do not replace it with prose.
+1. Update `PROJECT_MEMORY.md` for every architecture/state change.
+2. Update `README.md` when the human-facing system map changes.
+3. Update a specialist skill only when reusable operating behavior changes.
+4. Do not duplicate sprint-specific facts into every skill.
+5. Keep database schema and migration files synchronized with the intended Neon state.
+6. Executable evidence outranks prose when verifying implementation.
 
 ## 19. Verification standard
 
-Every implementation change follows:
+Every change:
 
 ```text
 inspect
 → define change surface
 → implement minimally
 → targeted test
-→ regression suite
+→ regression
 → KPI
+→ smoke test
 → diff review
 → documentation sync
 → branch review
 ```
 
-Required completion evidence is explicit:
+Never claim COMPLETE without verified evidence.
+
+Current verified evidence supplied:
 
 ```text
-PASS
-FAIL
-UNKNOWN
-NOT RUN
+PRE-SP-C.2 KPI  14/14 PASS
+PRE-SP-C.3 KPI  20/20 PASS
+PRE-SP-C.4 KPI  19/19 PASS
+compileall       PASS
+live smoke        PASS
 ```
 
-Never claim a sprint is complete when a mandatory validation layer is still unverified.
+Latest smoke run also showed:
 
-## 20. Current verification record
+- Daric timed out and was isolated
+- Invi collector executed successfully but its source unit was initially discarded by validation because it had not yet been normalized; this has since been corrected in `src/collector/invi.py`
+- XAU/USD and USD/IRR observations saved
+- market snapshot/state saved
+- `Candidate=WAIT`, `Final=WAIT`
+- no false external BUY/SELL alert
 
-Latest user-provided PRE-SP-C.3 evidence:
+Post-fix Invi validation must be rerun before declaring the collector operational in production.
 
-- PRE-SP-C.3 KPI: **20/20 passed**
-- `python -m compileall src`: **PASS**
-- live smoke execution: **PASS**
-- 9/10 platform sources valid in the smoke run; Daric timed out and was isolated
-- XAU/USD and USD/IRR observations persisted successfully
-- market calculation completed
-- market snapshot persisted
-- market state persisted
-- SP-A state remained coherent: `Candidate=BUY`, `Final=WAIT`
-- no external BUY/SELL alert was emitted for the `Final=WAIT` state
-- Telegram delivered the manual update
-- duplicated `GOLDPremium:` header remains a presentation defect
+## 20. SP-B closure direction
 
-A full `pytest -q` result for the post-C.3 branch was not provided in the latest evidence; do not label the whole branch fully verified until it is run.
-
-## 21. SP-B closure direction
-
-Original SP-B.3/B.4/B.5 labels are architectural placeholders, not mandatory module boundaries.
+Original SP-B.3/B.4/B.5 names are architectural placeholders, not mandatory module boundaries.
 
 Approved direction:
 
@@ -560,24 +466,11 @@ Approved direction:
 | SP-B.4 | Telegram analytical read models |
 | SP-B.5 | Combined read model over persisted analysis snapshots |
 
-Do not create duplicate agent/radar layers solely to preserve old sprint naming.
+Do not create duplicate agent/radar layers solely to preserve old sprint names.
 
-## 22. Next phase — PRE-SP-C.4
+## 21. SP-C gate
 
-PRE-SP-C.4 integrates the C.3 analytical primitives into the scheduled Analysis Wing and persisted `analysis_snapshots` layer.
-
-Approved persistence additions:
-
-```text
-analysis_snapshots.regime_state
-analysis_snapshots.technical_state_json
-```
-
-C.4 is the persistence/integration boundary, not C.3.
-
-## 23. SP-C gate
-
-SP-C prediction/learning starts only after:
+Before SP-C prediction/learning:
 
 ```text
 canonical observations
