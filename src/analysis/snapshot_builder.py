@@ -4,6 +4,7 @@ PRE-SP-C.4: integrates representative price, technical structure, and regime
 into the scheduled analysis snapshot. Reconstructs regime hysteresis from the
 latest persisted snapshot so state survives across independent scheduled runs.
 """
+from analysis.outcome_evaluator import run_outcome_evaluation_for_snapshot
 
 from datetime import datetime
 from typing import Optional, Dict
@@ -270,7 +271,7 @@ def build_analysis_snapshot(
     # Serialize technical and regime evidence
     technical_state_json = _build_technical_state_json(rep_price, structure_state)
 
-    return save_analysis_snapshot(
+    snapshot_id = save_analysis_snapshot(
         analysis_timestamp=analysis_timestamp,
         source_run_id=source_run_id,
         market_snapshot_id=market_snapshot_id,
@@ -283,10 +284,18 @@ def build_analysis_snapshot(
         momentum_state=momentum_state,
         structure_state=structure_state_val,
         data_quality_json=data_quality,
-        # PRE-SP-C.4 fields
         regime_state=regime_result.state,
         technical_state_json=technical_state_json,
         previous_regime=regime_result.previous_state,
         regime_candidate_state=classifier._candidate_state,
         regime_confirmation_count=classifier._confirmation_count,
     )
+
+    # PRE-SP-C.5: non-blocking outcome evaluation
+    if snapshot_id is not None and snapshot_id > 0:
+        try:
+            run_outcome_evaluation_for_snapshot(snapshot_id, config=config)
+        except Exception as e:
+            print(f"Outcome evaluation failed for snapshot {snapshot_id}: {e}")
+
+    return snapshot_id
