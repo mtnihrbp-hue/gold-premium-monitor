@@ -1,6 +1,6 @@
 # Gold Premium Monitor
 
-Decision-support monitoring for the Iranian 18K physical-gold market. The system combines XAU/USD, USD/IRR, Iranian platform prices, fair value, premium/discount behavior, historical memory, structured news, canonical observations, technical structure, and deterministic market regime. It is not an autonomous trading bot.
+Decision-support monitoring for the Iranian 18K physical-gold market. The system combines XAU/USD, USD/IRR, Iranian platform prices, fair value, premium/discount behavior, historical memory, structured news, canonical observations, technical structure, deterministic market regime, analysis snapshots, and retrospective outcome evaluation. It is not an autonomous trading bot.
 
 ## Documentation authority
 
@@ -11,7 +11,7 @@ Decision-support monitoring for the Iranian 18K physical-gold market. The system
 | `Prompt_Guide.md` | Generic AI engineering behavior |
 | `skills/` | Specialist reusable operating rules |
 | `sql/neon_schema.sql` | Canonical target database schema |
-| `sql/neon_migration_c4.sql` | Idempotent migration for an existing Neon database |
+| `sql/neon_migration_*.sql` | Idempotent migrations for an existing Neon database |
 | `kpi/`, `src/`, `tests/`, CI | Executable implementation evidence |
 
 Project-state changes belong in `PROJECT_MEMORY.md` first. README summarizes; it does not create an alternate architecture.
@@ -28,10 +28,11 @@ SP-B
 ├── PRE-SP-C.1 COMPLETE — Canonical Time Series
 ├── PRE-SP-C.2 COMPLETE — Analysis Snapshot + Scheduler Foundation
 ├── PRE-SP-C.3 COMPLETE — Price Structure + Regime
-└── PRE-SP-C.4 COMPLETE — Analysis Snapshot Integration
+├── PRE-SP-C.4 COMPLETE — Analysis Snapshot Integration
+└── PRE-SP-C.5 COMPLETE — Outcome Evaluation Foundation
 
-NEXT
-└── PRE-SP-C.5 — Outcome Evaluation Foundation
+CURRENT
+└── PRE-SP-C.6 — Evidence Package + Market Intelligence Foundation
 
 SP-C
 └── FUTURE — Prediction + Learning
@@ -64,7 +65,12 @@ Analysis Wing (scheduled)
     → regime
     → historical/news context
     → Analysis Snapshot
+    → Outcome Evaluation
     → Neon
+
+Future Intelligence Layer
+    → normalized evidence package
+    → interpretation
 ```
 
 Non-negotiable boundaries:
@@ -75,6 +81,7 @@ VALUATION ≠ MOMENTUM
 CANDIDATE ≠ FINAL DECISION
 NEWS ≠ MARKET DATA
 LLM ≠ MARKET CALCULATION
+EVIDENCE PACKAGE ≠ DECISION
 ```
 
 External BUY/SELL alerts are controlled only by `final_decision`. `Candidate: BUY` with `Final: WAIT` must not produce a BUY alert.
@@ -158,15 +165,49 @@ KPI: **19/19 passed**.
 
 ### Invi collector
 
-`src/collector/invi.py` is an additional Iranian market source. Its source value is normalized into the monitor's canonical IRR/gram scale before validation:
-
-```text
-Invi source value 199140
-        ↓ ×1000
-199,140,000 IRR
-```
+`src/collector/invi.py` is an additional Iranian market source. Its source value is normalized into the monitor's canonical IRR/gram scale before validation.
 
 It is registered in the main platform collector path but is **not** part of the approved representative-price fallback chain. If its source value is invalid, the collector is isolated and the remaining market sources continue.
+
+## PRE-SP-C.5 — Outcome Evaluation Foundation
+
+C.5 measures what actually happened after a persisted analysis snapshot. It is retrospective evaluation infrastructure, not prediction.
+
+Initial horizons:
+
+```text
++1h
++6h
++24h
+```
+
+The evaluator uses:
+
+- wall-clock target times
+- nearest valid future canonical observations within tolerance
+- explicit `INSUFFICIENT_DATA`
+- no interpolation
+- no look-ahead leakage
+- idempotent `(analysis_snapshot_id, horizon_hours)` persistence
+- historical backfill support
+
+The primary outcome series are:
+
+```text
+REP_IRAN_GOLD
+XAUUSD
+USD/IRR
+```
+
+Representative historical fallback remains:
+
+```text
+Milli → Ayyareh → WallGold → UNKNOWN
+```
+
+Invi is not added to that fallback chain.
+
+C.5 KPI: **25/25 passed**.
 
 ## Neon database
 
@@ -176,11 +217,11 @@ The repository intentionally separates two SQL roles:
 sql/neon_schema.sql
     = complete canonical TARGET schema
 
-sql/neon_migration_c4.sql
-    = safe/idempotent migration for the EXISTING Neon database
+sql/neon_migration_*.sql
+    = safe/idempotent migrations for the EXISTING Neon database
 ```
 
-Do not use the complete schema file as a migration against a populated database. For the active database, run the migration file and verify `analysis_snapshots` columns, constraints, and indexes.
+Do not use the complete schema file as a migration against a populated database. For the active database, run only the appropriate migration for the next schema change and verify its result.
 
 Core persistence responsibilities:
 
@@ -192,6 +233,7 @@ Core persistence responsibilities:
 | `news_events` | Structured external events |
 | `price_observations` | Canonical raw technical series |
 | `analysis_snapshots` | Scheduled analytical history |
+| `outcome_evaluations` | Retrospective +1h/+6h/+24h measurement |
 
 Database failure should degrade gracefully and never become a hidden calculation layer.
 
@@ -216,7 +258,9 @@ Planned analytical read models:
 /Health
 ```
 
-A duplicated `GOLDPremium:` application header remains a known presentation defect and is separate from C.4 analytical correctness.
+A duplicated `GOLDPremium:` application header remains a known presentation defect and is separate from analytical correctness.
+
+C.5 does not change `/Update`: outcome evaluation belongs to the Analysis Wing and is not mixed into live user-triggered reporting.
 
 ## Validation
 
@@ -226,6 +270,7 @@ pytest -q
 python kpi/kpi_pre_sp_c2.py
 python kpi/kpi_pre_sp_c3.py
 python kpi/kpi_pre_sp_c4.py
+python kpi/kpi_pre_sp_c5.py
 python src/main.py
 ```
 
@@ -250,14 +295,18 @@ The existing `src/caluclator/` spelling is intentionally preserved for compatibi
 
 ## Next phase
 
-PRE-SP-C.5 defines deterministic outcome evaluation for persisted analysis snapshots at initial horizons:
+PRE-SP-C.6 is the current implementation phase:
 
 ```text
-+1h
-+6h
-+24h
+canonical facts
+    ↓
+validated analytical outputs
+    ↓
+normalized evidence package
+    ↓
+future intelligence interpretation
 ```
 
-No prediction or learning begins until the analytical memory and outcome-evaluation foundations are explicit, testable, and empirically evaluable.
+The evidence package must remain separate from the decision engine. It will not introduce prediction, machine learning, or autonomous trading behavior.
 
 MIT License
