@@ -225,6 +225,9 @@ class AnalysisSnapshot(Base):
     previous_regime = Column(String(20), nullable=True)
     regime_candidate_state = Column(String(20), nullable=True)
     regime_confirmation_count = Column(Integer, nullable=False, default=0)
+    # PRE-SP-C.6: deterministic evidence package
+    evidence_package_json = Column(JSON, nullable=True)
+    
 
     
     created_at = Column(DateTime, server_default=func.now())
