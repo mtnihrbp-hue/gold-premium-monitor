@@ -29,7 +29,7 @@ from analysis.evidence_package import (
     validate_evidence_package,
     EVIDENCE_SCHEMA_VERSION,
 )
-from analysis.regime import RegimeClassifier, RegimeResult
+from analysis.regime import RegimeClassifier, RegimeResult, EvidenceFamily
 
 
 class MockRepPrice:
@@ -156,7 +156,13 @@ class KPIPreSPC6(unittest.TestCase):
             "market_state": self.market_state,
             "rep_price": MockRepPrice(price=190000000.0, source="milli", status="AVAILABLE"),
             "structure_state": MockStructureState(status="AVAILABLE"),
-            "regime_result": RegimeResult(state="NORMAL", previous_state="NORMAL"),
+            "regime_result": RegimeResult(
+                state="NORMAL",
+                previous_state="NORMAL",
+                evidence=[],
+                confirmation_count=0,
+                hysteresis_active=False,
+            ),
             "classifier": RegimeClassifier(),
             "data_quality": {
                 "overall": "AVAILABLE",
@@ -270,7 +276,13 @@ class KPIPreSPC6(unittest.TestCase):
     # --- KPI-16: UNKNOWN state explicit ---
     def test_16_unknown_explicit(self):
         pkg = self._build_package(
-            regime_result=RegimeResult(state="UNKNOWN", previous_state=None)
+            regime_result=RegimeResult(
+                state="UNKNOWN",
+                previous_state=None,
+                evidence=[],
+                confirmation_count=0,
+                hysteresis_active=False,
+            )
         )
         self.assertEqual(pkg["regime"]["regime_state"], "UNKNOWN")
 
