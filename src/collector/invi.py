@@ -7,14 +7,20 @@ URL = "https://invi.ir/gold-price/18carat"
 
 
 def _normalize_price(value):
-    """Normalize Invi's current price to the collector contract."""
-    if isinstance(value, (int, float)):
-        return float(value)
+    """Normalize Invi's source value to the monitor's IRR/gram contract.
 
-    digits = re.sub(r"[^\d.]", "", str(value))
-    if not digits:
-        raise ValueError("Invalid Invi current_price")
-    return float(digits)
+    Invi's 18K current_price is exposed in a source unit that is 1/1000
+    of the canonical IRR/gram value used by the monitor.
+    """
+    if isinstance(value, (int, float)):
+        numeric = float(value)
+    else:
+        digits = re.sub(r"[^\d.]", "", str(value))
+        if not digits:
+            raise ValueError("Invalid Invi current_price")
+        numeric = float(digits)
+
+    return numeric * 1000.0
 
 
 def get_invi_price():
