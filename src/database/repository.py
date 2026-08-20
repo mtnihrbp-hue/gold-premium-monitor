@@ -836,6 +836,8 @@ def save_analysis_snapshot(
     evidence_package_json: dict = None,
     # Pre-SP-C.7 fileds:
     intelligence_result_json: dict = None,
+    # Pre-SP-C.8 fileds:
+    features_json: dict = None,
 
 ) -> int:
     """Save an analysis snapshot to the database.
