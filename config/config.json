@@ -77,4 +77,9 @@
         "model_provider": "deterministic_fallback",
         "prompt_version": "1"
     }
+  ,
+    "features": {
+        "price_observation_lookback": 100,
+        "premium_lookback_days": 30
+    }
 }
