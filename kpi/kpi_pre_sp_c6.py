@@ -269,7 +269,7 @@ class KPIPreSPC6(unittest.TestCase):
 
     # --- KPI-15: missing optional evidence explicit ---
     def test_15_missing_explicit(self):
-        pkg = self._build_package(market_state=None)
+        pkg = self._build_package(market_state=None, market_snapshot=None)
         self.assertEqual(pkg["valuation"]["status"], "INSUFFICIENT_DATA")
         self.assertEqual(pkg["momentum"]["status"], "INSUFFICIENT_DATA")
 
