@@ -25,11 +25,13 @@
     "evidence_source": "user-supplied local execution result"
   },
   "latest_verified_repo_state": {
-    "documentation_sync": "IN_PROGRESS",
+    "documentation_sync": "COMPLETE",
     "docs_directory_architecture_status_removed": true,
     "canonical_memory": "PROJECT_MEMORY.md",
     "human_overview": "README.md",
-    "ai_operating_guide": "Prompt_Guide.md"
+    "ai_operating_guide": "Prompt_Guide.md",
+    "machine_continuity_state": ".project_state.json",
+    "c7_migration_record_present": true
   },
   "database_state": {
     "known_last_phase": "PRE-SP-C.9",
@@ -43,11 +45,17 @@
       "features_json",
       "analysis_read_model_json"
     ],
+    "verified_indexes": [
+      "idx_analysis_snapshots_evidence",
+      "idx_analysis_snapshots_intelligence",
+      "idx_analysis_snapshots_features",
+      "idx_analysis_snapshots_read_model"
+    ],
     "neon_write_policy": "APPROVAL_REQUIRED_FOR_SCHEMA_CHANGES"
   },
   "next_phase": {
     "id": "NEXT-PLANNING",
-    "name": "To be architecturally defined after C.9 verification",
+    "name": "Architectural definition of the next bounded intelligence/read-consumer phase",
     "c7_status": "FROZEN",
     "c8_status": "COMPLETE",
     "c9_status": "COMPLETE"
