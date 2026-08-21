@@ -838,6 +838,8 @@ def save_analysis_snapshot(
     intelligence_result_json: dict = None,
     # Pre-SP-C.8 fileds:
     features_json: dict = None,
+    # Pre-SP-C.9 fileds:
+    analysis_read_model_json: dict = None,
 
 ) -> int:
     """Save an analysis snapshot to the database.
@@ -893,6 +895,8 @@ def save_analysis_snapshot(
             evidence_package_json=evidence_package_json,
             intelligence_result_json=intelligence_result_json,
             features_json=features_json,
+            analysis_read_model_json=analysis_read_model_json,
+
         )
         session.add(snap)
         session.commit()
