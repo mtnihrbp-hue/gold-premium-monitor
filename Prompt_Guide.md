@@ -2,7 +2,7 @@
 
 This file defines reusable AI coding behavior. It is **not** a record of project architecture or sprint status.
 
-For project truth, use `PROJECT_MEMORY.md`. For human-facing orientation, use `README.md`. For specialist execution behavior, use `skills/`.
+For project truth, use `PROJECT_MEMORY.md`. For machine-readable continuity state, use `.project_state.json`. For human-facing orientation, use `README.md`. For specialist execution behavior, use `skills/`.
 
 ## Operating priorities
 
@@ -10,16 +10,47 @@ When sources conflict:
 
 1. Current user/task requirement
 2. `PROJECT_MEMORY.md`
-3. `README.md`
-4. Relevant skill
-5. General engineering preference
+3. `.project_state.json` for machine-readable phase/continuity state
+4. `README.md`
+5. Relevant skill
+6. General engineering preference
 
 Never silently override a higher-priority constraint.
+
+## Continuity protocol
+
+Every new AI session must begin with:
+
+```text
+.project_state.json
+→ PROJECT_MEMORY.md
+→ README.md
+→ Prompt_Guide.md
+→ relevant skills
+→ relevant source/tests
+```
+
+`.project_state.json` is the machine-readable continuity ledger. Keep it synchronized with the repository's actual verified state.
+
+At the end of every development phase, synchronize:
+
+```text
+implementation
++ tests
++ regression
++ KPI
++ database state
++ documentation
++ .project_state.json
++ commit
+```
+
+A phase is not COMPLETE if `.project_state.json` and project documentation disagree with executable evidence.
 
 ## Before coding
 
 1. Inspect the repository and current branch.
-2. Read the relevant project memory and specialist skill.
+2. Read `.project_state.json`, `PROJECT_MEMORY.md`, and the relevant specialist skill.
 3. Inspect the actual implementation and tests.
 4. Define the exact change surface.
 5. State material assumptions.
@@ -46,6 +77,7 @@ Do not code during initial architecture orientation unless the task explicitly a
 - Conversation history is context, not proof.
 - Do not invent test results, thresholds, APIs, data, or file structure.
 - When data is unavailable, use `UNKNOWN` or `INSUFFICIENT_DATA` where the architecture defines it.
+- GitHub repository state, executable tests/KPIs, and verified database state outrank conversational assumptions.
 
 ## Financial-system boundaries
 
@@ -53,8 +85,10 @@ For this repository specifically:
 
 ```text
 Quantitative engine = market facts
-Intelligence layer  = context
-Decision engine     = evidence evaluation
+Evidence layer      = validated analytical package
+Intelligence layer  = context / interpretation
+Decision engine     = current deterministic decision authority
+Prediction layer    = future model output only
 ```
 
 Never collapse:
@@ -65,6 +99,8 @@ VALUATION ≠ MOMENTUM
 CANDIDATE ≠ FINAL DECISION
 NEWS ≠ MARKET DATA
 LLM ≠ MARKET CALCULATION
+EVIDENCE PACKAGE ≠ DECISION
+PREDICTION ≠ FACTS / EVIDENCE / INTERPRETATION
 ```
 
 ## Verification loop
@@ -78,6 +114,9 @@ inspect
 → targeted test
 → regression test
 → KPI
+→ database-state review
+→ documentation sync
+→ .project_state.json sync
 → diff review
 → branch review
 ```
