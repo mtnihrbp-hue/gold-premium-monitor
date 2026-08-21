@@ -1,24 +1,21 @@
 # Gold Premium Monitor
 
-Decision-support analytical monitoring for the Iranian 18K physical-gold market. The system combines Iranian platform prices, XAU/USD, USD/IRR, fair value, premium/discount behavior, momentum, market structure, deterministic regime detection, historical memory, structured news, canonical observations, analysis snapshots, retrospective outcome evaluation, evidence packaging, interpretation, and model-ready feature infrastructure.
-
-It is not an autonomous trading bot and does not execute trades.
+Decision-support monitoring and analytical intelligence for the Iranian 18K physical-gold market. The system combines Iranian platform prices, XAU/USD, USD/IRR, fair value, premium/discount behavior, market structure, momentum, deterministic regime detection, historical memory, structured news, canonical observations, analysis snapshots, retrospective outcome evaluation, evidence packaging, structured interpretation, feature intelligence, and an analytical read model. It is not an autonomous trading bot.
 
 ## Documentation authority
 
 | Source | Responsibility |
 |---|---|
-| `PROJECT_MEMORY.md` | Canonical architecture, current state, invariants, contracts, roadmap |
+| `PROJECT_MEMORY.md` | Canonical architecture and current project state |
 | `README.md` | Human-facing overview and repository map |
 | `Prompt_Guide.md` | Generic AI engineering behavior |
+| `.project_state.json` | Machine-readable continuity state for new sessions |
 | `skills/` | Specialist reusable operating rules |
 | `sql/neon_schema.sql` | Canonical target database schema |
-| `sql/neon_migration_*.sql` | Migrations for an existing Neon database |
+| `sql/neon_migration_*.sql` | Idempotent migrations for an existing Neon database |
 | `kpi/`, `src/`, `tests/`, CI | Executable implementation evidence |
 
-Project-state changes belong in `PROJECT_MEMORY.md` first. README is a summary and must not become a competing architecture source.
-
-The former `docs/SP_B_ARCHITECTURE_STATUS.md` duplicated project memory and has been removed.
+Project-state changes belong in `PROJECT_MEMORY.md` first. `.project_state.json` mirrors current phase and continuity state; it does not create a second architecture authority.
 
 ## Current development position
 
@@ -36,13 +33,14 @@ SP-B
 ├── PRE-SP-C.5 COMPLETE — Outcome Evaluation Foundation
 ├── PRE-SP-C.6 COMPLETE — Evidence Package Foundation
 ├── PRE-SP-C.7 COMPLETE — Interpretation Intelligence Layer
-└── PRE-SP-C.8 COMPLETE — Feature Intelligence Layer
+├── PRE-SP-C.8 COMPLETE — Feature Intelligence Layer
+└── PRE-SP-C.9 COMPLETE — Analytical Read Model
 
-CURRENT DIRECTION
-└── Bounded intelligence/read models over persisted evidence and features
+NEXT
+└── Architectural definition of the next bounded intelligence/read-consumer phase
 
-FUTURE
-└── SP-C — Prediction + Learning
+SP-C
+└── FUTURE — Prediction + Learning
 ```
 
 ## Architecture
@@ -50,47 +48,36 @@ FUTURE
 ```text
 MARKET INPUTS
     ↓
-COLLECTION
-    ↓
 VALIDATION
     ↓
-OBSERVATION STORAGE
+CANONICAL OBSERVATION STORAGE
     ↓
-ANALYTICAL ENGINE
+DETERMINISTIC ANALYTICAL ENGINE
     ↓
-EVIDENCE ENGINE
+EVIDENCE PACKAGE
     ↓
-INTERPRETATION ENGINE
+INTERPRETATION
     ↓
-FEATURE FOUNDATION
+FEATURE INTELLIGENCE
+    ↓
+ANALYTICAL READ MODEL
     ↓
 DECISION ENGINE
     ↓
 FUTURE PREDICTION / LEARNING
 ```
 
-The analytical ownership boundary is:
+The core boundaries are:
 
 ```text
-FACTS
-(raw observations)
-    ↓
-EVIDENCE
-(validated analytical package)
-    ↓
-INTERPRETATION
-(structured explanation)
-    ↓
-DECISION
-(current deterministic BUY / WAIT / SELL authority)
-    ↓
-PREDICTION
-(future model output only)
+FACTS          = raw market observations
+EVIDENCE       = validated analytical package
+INTERPRETATION = structured explanation
+DECISION       = current deterministic BUY / WAIT / SELL authority
+PREDICTION     = future model output only
 ```
 
-Prediction is not implemented. Future prediction models must not rewrite facts, evidence, interpretation history, or deterministic decision inputs.
-
-Non-negotiable boundaries:
+Non-negotiable rules:
 
 ```text
 CHEAP ≠ BUY
@@ -99,81 +86,17 @@ CANDIDATE ≠ FINAL DECISION
 NEWS ≠ MARKET DATA
 LLM ≠ MARKET CALCULATION
 EVIDENCE PACKAGE ≠ DECISION
-PREDICTION ≠ FACTS / EVIDENCE / INTERPRETATION
+READ MODEL ≠ DECISION AUTHORITY
+PREDICTION ≠ FACTS / EVIDENCE / INTERPRETATION / FEATURES
 ```
 
-External BUY/SELL alerts are controlled only by `final_decision`. `Candidate: BUY` with `Final: WAIT` must not produce a BUY alert.
+External BUY/SELL alerts are controlled only by `final_decision`.
 
-## Analytical wings
+## PRE-SP-C.1 through PRE-SP-C.4
 
-### Live Wing
+The project has a canonical technical observation series, scheduled analysis snapshots, deterministic technical structure, persisted regime state, and cross-run regime hysteresis.
 
-Purpose: what is happening now?
-
-```text
-/Update
-→ collect
-→ validate
-→ calculate
-→ deterministic market state
-→ Telegram
-```
-
-Telegram is the cockpit, not the analytical engine.
-
-### Analysis Wing
-
-Purpose: what does the system understand about the market at a scheduled point?
-
-```text
-scheduled window
-→ canonical observations
-→ technical structure
-→ regime
-→ historical/news context
-→ Analysis Snapshot
-→ Outcome Evaluation
-→ Evidence Package
-→ Interpretation
-→ Feature Layer
-→ Neon
-```
-
-The Live Wing and Analysis Wing remain separate. Analysis history must not be reconstructed from Telegram output.
-
-## Completed foundations
-
-### PRE-SP-C.1 — Canonical observations
-
-`price_observations` is the canonical technical time-series layer. Technical analysis consumes actual observations rather than premium as a proxy candle.
-
-Conceptual instruments:
-
-```text
-XAUUSD
-USD/IRR
-REP_IRAN_GOLD
-PAXG
-```
-
-### PRE-SP-C.2 — Snapshot + scheduler
-
-Established:
-
-- `analysis_snapshots`
-- deterministic `source_run_id` idempotency
-- LIVE vs ANALYSIS separation
-- 30-minute `Asia/Tehran` scheduling
-- exact-boundary semantics
-- final-decision alert authority
-- Telegram/email alert guards
-- canonical Neon persistence
-
-KPI: **14/14 passed**.
-
-### PRE-SP-C.3 — Price structure + regime
-
-Representative fallback:
+Representative Iranian fallback remains:
 
 ```text
 Milli → Ayyareh → WallGold → UNKNOWN
@@ -189,29 +112,19 @@ RELIEF
 UNKNOWN
 ```
 
-Regime hysteresis is separate from SP-A decision hysteresis. `CHEAP + PANIC` is valid. Regime never issues BUY/SELL.
-
-KPI: **20/20 passed**.
-
-### PRE-SP-C.4 — Analysis snapshot integration
-
-Persisted regime/technical state includes:
+KPI history:
 
 ```text
-regime_state
-technical_state_json
-previous_regime
-regime_candidate_state
-regime_confirmation_count
+C.2 14/14
+C.3 20/20
+C.4 19/19
 ```
 
-KPI: **19/19 passed**.
+`src/collector/invi.py` is an additional Iranian source normalized into canonical IRR/gram scale. It is not part of the representative-price fallback chain and collector failure remains isolated.
 
-The Invi source is normalized into canonical IRR/gram units and is not part of the approved representative fallback chain.
+## PRE-SP-C.5 — Outcome Evaluation
 
-### PRE-SP-C.5 — Outcome evaluation
-
-Measures what actually happened after an analysis snapshot.
+C.5 is retrospective measurement infrastructure, not prediction.
 
 Initial horizons:
 
@@ -221,7 +134,7 @@ Initial horizons:
 +24h
 ```
 
-Rules include nearest valid future observation within tolerance, no interpolation, no look-ahead leakage, explicit `INSUFFICIENT_DATA`, and idempotent persistence.
+Evaluation uses nearest valid future canonical observations within tolerance, no interpolation, strict future-only selection, explicit `INSUFFICIENT_DATA`, and idempotent snapshot/horizon persistence.
 
 Primary outcome series:
 
@@ -233,9 +146,15 @@ USD/IRR
 
 KPI: **25/25 passed**.
 
-### PRE-SP-C.6 — Evidence package
+Persistence:
 
-Creates deterministic, auditable evidence from computed analytical outputs.
+```text
+outcome_evaluations
+```
+
+## PRE-SP-C.6 — Evidence Package
+
+C.6 normalizes existing deterministic analytical outputs into an auditable evidence package.
 
 Evidence families include:
 
@@ -263,91 +182,116 @@ analysis_snapshots.evidence_package_json
 
 KPI: **25/25 passed**.
 
-Evidence is not a decision.
+C.6 does not implement prediction, autonomous trading, or independent BUY/SELL authority.
 
-### PRE-SP-C.7 — Interpretation intelligence
+## PRE-SP-C.7 — Interpretation Intelligence
 
-C.7 separates explanation from facts and evidence. It may describe conditions such as discount narrowing, regime persistence, conflicting evidence, and uncertainty while preserving provenance.
+C.7 consumes the evidence package and produces structured deterministic interpretation.
 
-It does not calculate market facts, invent levels, override deterministic state, or issue independent BUY/SELL decisions.
+It may explain:
 
-KPI: **25/25 passed** as supplied by the completed milestone.
+- valuation context
+- momentum context
+- technical context
+- regime context
+- news context
+- historical context
+- outcome feedback
+- conflicts
+- uncertainty
+- provenance
 
-### PRE-SP-C.8 — Feature intelligence
+It does not calculate market facts and does not create BUY/SELL authority.
 
-C.8 provides deterministic, explainable, model-ready feature infrastructure without implementing prediction.
+Persistence:
+
+```text
+analysis_snapshots.intelligence_result_json
+```
+
+KPI: **25/25 passed**.
+
+## PRE-SP-C.8 — Feature Intelligence
+
+C.8 provides deterministic, explainable, model-ready feature structures without prediction.
 
 Feature families include:
 
 ```text
-Trend
-    SMA / MA
-    EMA
-    price-vs-moving-average relationships
-
-Momentum
-    premium velocity
-    premium acceleration
-    direction persistence
-    divergence / direction change
-
-Volatility
-    rolling volatility
-    range expansion
-    instability
-
-Regime
-    existing regime state
-    regime duration / transition context
-
-Market relationships
-    XAU/USD direction
-    USD/IRR pressure
-    local/external divergence
-
-Structure
-    spread
-    platform consensus
-    consensus ratio
-    discount/structure context
+trend
+momentum
+volatility
+regime
+market relationships
+structure
 ```
 
-C.8 invariants include determinism, no look-ahead, explicit missing/insufficient data, decision separation, schema versioning, persistence roundtrip, data-quality metadata, and reuse of existing regime primitives.
+Examples include SMA/EMA, price-vs-MA, premium velocity/acceleration, persistence, volatility, range expansion, regime reuse, XAU/USD and USD/IRR relationship features, divergence, platform spread, consensus, and discount-dominance features.
 
-Supplied KPI result:
+Persistence:
 
 ```text
-25/25 passed, 0 failed
-PRE-SP-C.8 COMPLETE
+analysis_snapshots.features_json
 ```
 
-## Database
+KPI: **25/25 passed**.
+
+## PRE-SP-C.9 — Analytical Read Model
+
+C.9 is complete.
+
+The read model combines:
+
+```text
+C.6 evidence
+    +
+C.7 interpretation
+    +
+C.8 features
+    ↓
+C.9 analytical read model
+```
+
+It exposes normalized sections for:
+
+```text
+facts
+evidence_summary
+interpretation_summary
+features_summary
+uncertainty
+outcome_history
+decision (read-only reference)
+provenance
+```
+
+The read model does not calculate, decide, or predict.
+
+Persistence:
+
+```text
+analysis_snapshots.analysis_read_model_json
+```
+
+KPI: **23/23 passed**.
+
+## Neon database
 
 Neon PostgreSQL is the long-term historical store.
 
-| Table | Responsibility |
-|---|---|
-| `market_snapshots` | Existing market observations |
-| `platform_prices` | Platform evidence |
-| `market_states` | Deterministic interpreted market state |
-| `news_events` | Structured external events |
-| `price_observations` | Canonical raw technical series |
-| `analysis_snapshots` | Scheduled analytical history + regime state + evidence package |
-| `outcome_evaluations` | Retrospective +1h/+6h/+24h measurements |
-
-SQL roles are intentionally separate:
+Repository SQL uses two roles:
 
 ```text
 sql/neon_schema.sql
-    = canonical target schema
+    = canonical TARGET schema
 
 sql/neon_migration_*.sql
-    = incremental migrations for the existing database
+    = incremental migrations for the EXISTING database
 ```
 
-Do not use the complete target schema as a replacement migration against a populated database. Any future Neon schema change requires an explicit incremental migration and approval.
+Never paste the complete schema into an already-populated production database.
 
-Known snapshot persistence includes:
+The production database is now synchronized through C.9. `analysis_snapshots` contains:
 
 ```text
 regime_state
@@ -355,18 +299,27 @@ technical_state_json
 previous_regime
 regime_candidate_state
 regime_confirmation_count
-evidence_package_json JSONB
+evidence_package_json
+intelligence_result_json
+features_json
+analysis_read_model_json
 ```
+
+The corresponding analytical JSONB indexes are present.
+
+The C.7 migration record was added as `sql/neon_migration_c7.sql` because the repository previously lacked that incremental migration artifact even though C.7 persistence was implemented.
 
 ## Telegram
 
-Current cockpit command:
+Telegram remains the cockpit, not the analytical engine.
+
+Current command:
 
 ```text
 /Update
 ```
 
-Planned read models:
+Planned analytical read models:
 
 ```text
 /Technical
@@ -377,24 +330,37 @@ Planned read models:
 /Health
 ```
 
-Outcome evaluation, evidence packaging, interpretation, and feature infrastructure belong to the Analysis/Intelligence side and are not mixed into `/Update`.
+C.5, C.6, C.7, C.8, and C.9 do not require a redesign of `/Update`.
 
-## Prediction policy
+## Project continuity
 
-Prediction and learning are future components only.
+New AI sessions must reconstruct project state from the repository in this order:
 
-They must not:
+```text
+.project_state.json
+→ PROJECT_MEMORY.md
+→ README.md
+→ Prompt_Guide.md
+→ skills/
+→ relevant source / tests / KPI / SQL
+```
 
-- modify raw observations
-- rewrite evidence packages
-- alter interpretation history
-- override deterministic state
-- bypass the Decision Engine
-- become a hidden calculation layer
+A phase is only complete when the following are synchronized:
 
-No prediction model should start before the bounded intelligence/read-model layer is explicit, testable, historically auditable, and empirically evaluable.
+```text
+implementation
+→ tests
+→ regression
+→ KPI
+→ Neon state
+→ documentation
+→ .project_state.json
+→ commit
+```
 
-## Validation
+## Verification
+
+Use the repository's executable evidence before declaring a phase complete.
 
 ```bash
 python -m compileall src
@@ -404,38 +370,25 @@ python kpi/kpi_pre_sp_c3.py
 python kpi/kpi_pre_sp_c4.py
 python kpi/kpi_pre_sp_c5.py
 python kpi/kpi_pre_sp_c6.py
-python kpi/kpi_pre_sp_c7.py
 python kpi/kpi_pre_sp_c8.py
+python kpi/kpi_pre_sp_c9.py
 python src/main.py
 ```
 
-Never declare a milestone complete without relevant executable evidence.
-
-## Repository map
+Current supplied / verified evidence includes:
 
 ```text
-gold-premium-monitor/
-├── .github/
-├── config/
-├── kpi/
-├── skills/
-├── sql/
-├── src/
-├── tests/
-├── PROJECT_MEMORY.md
-├── Prompt_Guide.md
-├── README.md
-└── requirements.txt
+PRE-SP-C.2  14/14 PASS
+PRE-SP-C.3  20/20 PASS
+PRE-SP-C.4  19/19 PASS
+PRE-SP-C.5  25/25 PASS
+PRE-SP-C.6  25/25 PASS
+PRE-SP-C.7  25/25 PASS
+PRE-SP-C.8  25/25 PASS
+PRE-SP-C.9  23/23 PASS
+compileall  PASS
+live smoke  PASS
+Neon C.7-C.9 reconciliation  PASS
 ```
-
-The existing `src/caluclator/` spelling is intentionally preserved for compatibility.
-
-## Current next phase
-
-PRE-SP-C.8 is complete. The next architectural phase is the **bounded intelligence/read-model layer** over persisted evidence and features.
-
-This layer must remain explainable, deterministic where calculation is involved, auditable against historical evidence, and strictly separated from future prediction.
-
-See `PROJECT_MEMORY.md` for the canonical detailed architecture and project state.
 
 MIT License
