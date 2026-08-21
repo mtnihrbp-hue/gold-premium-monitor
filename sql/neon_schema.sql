@@ -276,6 +276,17 @@ ALTER TABLE analysis_snapshots
 
 CREATE INDEX IF NOT EXISTS idx_analysis_snapshots_features
     ON analysis_snapshots USING GIN (features_json);
+
+-- ============================================================
+-- 8.9. ANALYSIS SNAPSHOTS READ MODEL EXTENSION (PRE-SP-C.9)
+-- ============================================================
+
+ALTER TABLE analysis_snapshots
+    ADD COLUMN IF NOT EXISTS analysis_read_model_json JSONB;
+
+CREATE INDEX IF NOT EXISTS idx_analysis_snapshots_read_model
+    ON analysis_snapshots USING GIN (analysis_read_model_json);
+
 -- ============================================================
 -- 9. VERIFICATION
 -- ============================================================
