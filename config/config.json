@@ -76,10 +76,12 @@
         "schema_version": "1",
         "model_provider": "deterministic_fallback",
         "prompt_version": "1"
-    }
-  ,
+    },
     "features": {
         "price_observation_lookback": 100,
         "premium_lookback_days": 30
+    },
+    "read_model": {
+        "schema_version": "1"
     }
 }
