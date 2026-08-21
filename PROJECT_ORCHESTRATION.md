@@ -1,6 +1,6 @@
 # Gold Premium Monitor — Project Orchestration Protocol
 
-This document defines the project-continuity and cross-system orchestration workflow. It complements `PROJECT_MEMORY.md`, `.project_state.json`, and `PROJECT_OPERATIONS.md` and is intended to prevent state loss when work moves between conversations, AI developers, GitHub, Neon, external scheduling, and Cloudflare.
+This document defines the project-continuity and cross-system orchestration workflow. It complements `PROJECT_MEMORY.md`, `.project_state.json`, `PROJECT_OPERATIONS.md`, `C14_HANDOFF.md`, and `RESEARCH_ADOPTION.md` and prevents state loss between conversations, AI developers, GitHub, Neon, scheduling, and Cloudflare.
 
 ## Canonical project orchestration loop
 
@@ -22,11 +22,9 @@ documentation
 commit
 ```
 
-This sequence is mandatory for every implementation phase, including phases with no database change.
+Mandatory for every implementation phase, including phases with no database change.
 
 ## Runtime control-plane loop
-
-The project also has a separate operational chain:
 
 ```text
 cron-job.org / Telegram
@@ -42,13 +40,26 @@ Analysis Wing or Live Wing
 Neon / Telegram
 ```
 
-`PROJECT_OPERATIONS.md` is the operational authority for this control plane.
+`PROJECT_OPERATIONS.md` is the operational authority.
 
-## Responsibility
+## Two-wing frontend architecture
 
-The orchestration layer verifies that implementation, repository state, database state, executable evidence, documentation, and external runtime state describe the same project state.
+The frontend remains exactly two user-facing wings:
 
-KIMI is the implementation agent. GitHub is the source-of-truth repository. Neon is the live persistence system. `PROJECT_MEMORY.md` is the canonical project architecture/state document. `.project_state.json` is the machine-readable continuity ledger. `PROJECT_OPERATIONS.md` records runtime scheduling and external-control details.
+```text
+LIVE WING
+/Update
+
+ANALYSIS WING
+/Analyze
+/Forecast
+/Technical
+/History
+/News
+/Health
+```
+
+Human forecast feedback is collected inside the Analysis experience. It is not a third frontend wing.
 
 ## Phase completion rule
 
@@ -69,45 +80,32 @@ documentation
 → commit
 ```
 
-## Local KPI verification routine
-
-Normal local verification should begin from the current SP-B branch:
+## Local KPI verification
 
 ```cmd
 git pull origin SP-B
-```
-
-Then run the target KPI explicitly:
-
-```cmd
 python kpi\kpi_pre_sp_cX.py
 ```
 
-For regression, run the previously required KPI suites explicitly rather than relying on a Windows shell wildcard.
-
-`python kpi\kpi_pre_sp_c*.py` should not be treated as the authoritative Windows CMD execution method for the whole suite.
+Run previous KPI suites explicitly for regression. Do not rely on Windows wildcard execution as the authoritative suite runner.
 
 ## KPI engineering standard
 
-KPI suites are executable specifications, not decorative pass/fail wrappers.
-
 Before writing a KPI:
 
-1. Inspect the production implementation and identify the true authoritative source of each expected value.
-2. Define the canonical contract and field names before writing fixtures.
-3. Seed fixtures through the same structural contracts the production code consumes.
-4. Mutate authoritative source inputs when testing state transitions.
-5. Let production code derive computed metadata such as completeness, status, labels, or classifications.
-6. Never mutate a derived metadata field in the fixture and expect production code to trust it when production code recomputes that field.
-7. Use deep copies when mutating nested JSON structures.
-8. A KPI failure caused by a fixture that contradicts production semantics is a KPI defect first, not automatically a product defect.
-9. Do not weaken production logic merely to satisfy an incorrectly constructed KPI.
+1. Inspect production implementation.
+2. Define canonical output contracts and exact field names.
+3. Identify authoritative source inputs.
+4. Seed fixtures through production-compatible contracts.
+5. Mutate authoritative inputs for derived-state tests.
+6. Let production code derive statuses, metadata, labels, and classifications.
+7. Use deep copies for nested JSON mutation.
+8. Never invent post-hoc aliases solely to satisfy a test.
+9. Never weaken production semantics to satisfy a malformed fixture.
 
-C.10, C.11, and C.12 are the reference examples for this rule.
+The repeated C.10–C.13 KPI issues led to this rule being treated as a permanent engineering standard.
 
 ## New-conversation onboarding
-
-A new AI session must read, in order:
 
 ```text
 .project_state.json
@@ -116,113 +114,159 @@ A new AI session must read, in order:
 → Prompt_Guide.md
 → PROJECT_ORCHESTRATION.md
 → PROJECT_OPERATIONS.md
+→ C14_HANDOFF.md when C.14 is active
+→ RESEARCH_ADOPTION.md when research context is relevant
 → skills/
 → relevant source / tests / KPI / SQL
 ```
 
-Conversation history is context, not project proof. Repository files, executable verification, live database inspection, and operational-system inspection establish current truth.
+Repository evidence and live Neon/runtime inspection establish current truth. Conversation history is context, not proof.
 
 ## Database discipline
 
 Never assume repository SQL and Neon production are synchronized.
 
-For every schema-affecting phase:
+For schema-affecting work:
 
-1. Inspect the live Neon production schema.
-2. Compare it with repository migration/schema intent.
-3. Prepare an incremental migration when required.
-4. Test the migration on a temporary Neon branch.
-5. Apply only after authorization.
-6. Verify production schema after application.
-7. Record the resulting database state in project documentation and `.project_state.json`.
+1. inspect Neon production
+2. compare with repository intent
+3. prepare incremental migration
+4. test on temporary Neon branch
+5. apply only after authorization
+6. verify production schema
+7. synchronize repository migration and documentation
 
-When no schema change is required, record that explicitly.
+Do not use `sql/neon_schema.sql` as a destructive replacement for production.
 
-Never use the complete target schema as a destructive replacement for an existing production database.
+## C.14 split
 
-## Handoff discipline
-
-Every implementation handoff to KIMI must state only the information needed to execute the current phase:
+C.14 is intentionally split:
 
 ```text
-CURRENT STATE
-CURRENT CONTRACT
-CHANGE SURFACE
-DATABASE IMPACT
-KPI CONTRACT
-REGRESSION REQUIREMENTS
-NON-GOALS
-ACCEPTANCE CRITERIA
+PRE-SP-C.14A
+Candle & Market-Structure Data Infrastructure
+
+        ↓
+
+PRE-SP-C.14B
+Forecast Features, Baselines, Evaluation & Forecast Engine
 ```
 
-Avoid generic architecture repetition when the canonical documents already contain it.
+C.14A establishes trustworthy persistent candle infrastructure. C.14B evaluates predictive value using that infrastructure.
 
-For KPI sections specifically:
+C.14 is not a single monolithic implementation unit.
+
+## C.14 contracts
+
+### Candle layer
 
 ```text
-AUTHORITATIVE SOURCE INPUTS
-CANONICAL FIELD NAMES
-DERIVED FIELDS
-FIXTURE CONSTRUCTION RULES
-EXPECTED FAILURE MODES
+RAW PLATFORM QUOTES
+   ↓
+CANONICAL OBSERVATIONS
+   ↓
+DERIVED / SOURCE CANDLES
+   ↓
+CANDLE FEATURES
 ```
 
-KIMI completion evidence must identify:
+For derived candles:
 
 ```text
-FILES CHANGED
-TESTS
-KPI
-DATABASE IMPACT
-RUNTIME IMPACT
-COMMIT
-DOCUMENTATION STATE
-REMAINING ISSUES
+OPEN  = first valid observation
+HIGH  = maximum valid observation
+LOW   = minimum valid observation
+CLOSE = last valid observation
 ```
 
-## State synchronization rule
+No interpolation. No forward-fill. No future observations.
 
-When a phase or runtime component changes status, update:
+Platforms with explicit buy/sell semantics preserve separate sides.
+
+Goldika provides explicit buy/sell quotes. Ayyareh raw `goldPrice` and margin/wage fields must be interpreted from the existing collector contract before deriving side prices; raw and derived values remain separate.
+
+### Forecast layer
+
+C.5 is authoritative for labels:
 
 ```text
-PROJECT_MEMORY.md
-.project_state.json
-PROJECT_ORCHESTRATION.md
-PROJECT_OPERATIONS.md when operational state changes
+UP → UP
+FLAT → NEUTRAL
+DOWN → DOWN
+INSUFFICIENT_DATA → INSUFFICIENT_DATA
 ```
 
-Update `README.md` when the human-facing architecture or current development position changes.
-
-Do not create competing architecture-status documents.
-
-## Current verified milestones
+Forecast output may also be:
 
 ```text
-PRE-SP-C.10 COMPLETE
-KPI: 22/22 PASS
-DATABASE CHANGE: NONE
-
-PRE-SP-C.11 COMPLETE
-KPI: 25/25 PASS
-DATABASE CHANGE: NONE
-
-PRE-SP-C.12 COMPLETE
-KPI: 30/30 PASS
-DATABASE CHANGE: NONE
+ABSTAIN
 ```
 
-C.10 establishes deterministic analytical read-model retrieval, completeness classification, historical reconstruction, provenance preservation, decision preservation, and no-current-data / no-future-data leakage.
+Prediction never becomes direct BUY/WAIT/SELL authority.
 
-C.11 establishes a stable consumer envelope over C.10 for downstream Telegram/API/dashboard consumers without creating another calculation or decision layer.
-
-C.12 establishes a deterministic historical feature dataset and leakage-safe labeling contract for future model training.
-
-## Next planned phase
+## C.14 fail-safe principle
 
 ```text
-PRE-SP-C.13 — Analysis Wing Operationalization + Telegram Analytical Commands + Scheduler/cron Integration
+MISSING
+ ↓
+safe deterministic fallback?
+ ├─ YES → fallback + degraded provenance
+ └─ NO  → INSUFFICIENT_DATA / ABSTAIN
 ```
 
-C.13 must operationalize the existing Analysis Wing, establish the external scheduler control plane, expose analytical Telegram commands, and preserve Live Wing isolation.
+Never silently extrapolate absent market data into apparently real facts.
 
-C.13 must not implement forecasting.
+## Human feedback contract
+
+The system objectively evaluates forecasts first. Human feedback is a separate meta-data stream.
+
+Forecast lifecycle:
+
+```text
+GENERATED
+→ PENDING
+→ ELIGIBLE_FOR_REVIEW
+→ OBJECTIVELY_EVALUATED
+→ USER_REVIEWED (optional)
+```
+
+System time, market/outcome time, and user feedback time remain separate.
+
+Human feedback may support model audit and future controlled research, but it must not directly modify production model weights or labels.
+
+Recommended progressive Telegram review:
+
+```text
+Previous forecast review
+[ Very useful ]
+[ Mostly useful ]
+[ Direction right, timing wrong ]
+[ Direction wrong ]
+[ Hard to judge ]
+```
+
+Optional reason layer:
+
+```text
+[ Timing ] [ USD/IRR ] [ World Gold ] [ Local Market ]
+[ Premium ] [ Price Action ] [ News ] [ Hard to judge ]
+```
+
+## Research boundaries
+
+External sources are research inspiration only. See `RESEARCH_ADOPTION.md` for the adoption/defer matrix.
+
+No MT5/broker execution, reinforcement-learning trading agents, autonomous trading, opaque self-modifying prediction, or direct user-feedback online training.
+
+## Current operational truth
+
+```text
+PRE-SP-C.13 COMPLETE
+KPI: 26/26 PASS
+compileall: PASS
+live smoke: PASS
+Neon C.13 reconciliation: COMPLETE
+
+NEXT:
+PRE-SP-C.14A — Candle & Market-Structure Data Infrastructure
+```
