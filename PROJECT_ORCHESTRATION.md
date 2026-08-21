@@ -61,6 +61,29 @@ ANALYSIS WING
 
 Human forecast feedback is collected inside the Analysis experience. It is not a third frontend wing.
 
+## Branch discipline
+
+`SP-B` is the active development branch.
+
+```text
+WRITE / COMMIT → SP-B only
+MAIN → compare/read only unless explicitly authorized
+MERGE SP-B → main → explicit project-level approval only
+```
+
+At the time of this reconciliation, GitHub reports that `SP-B` and `main` are intentionally divergent. `main` is four commits ahead and 198 commits behind `SP-B`.
+
+The four commits on `main` after the common ancestor are recent C.12/C.14 documentation/dataset artifacts, not the SP-A baseline. Their useful content has been reconciled into the active `SP-B` tree where appropriate without merging `main` wholesale.
+
+Reconciliation policy:
+
+- `C14_HANDOFF.md` → copied/recreated on `SP-B`
+- `RESEARCH_ADOPTION.md` → copied/recreated on `SP-B`
+- `PROJECT_ORCHESTRATION.md` → maintained on `SP-B` and is authoritative there
+- `src/intelligence/dataset.py` → retain the verified `SP-B` implementation; do not downgrade it to an older `main` copy
+
+The divergent `main` history must not be merged merely to synchronize documentation.
+
 ## Phase completion rule
 
 A phase is not complete merely because code exists or a KPI passes.
@@ -100,8 +123,8 @@ Before writing a KPI:
 5. Mutate authoritative inputs for derived-state tests.
 6. Let production code derive statuses, metadata, labels, and classifications.
 7. Use deep copies for nested JSON mutation.
-8. Never invent post-hoc aliases solely to satisfy a test.
-9. Never weaken production semantics to satisfy a malformed fixture.
+8. Never invent post-hoc aliases solely to satisfy tests.
+9. Never weaken production semantics to satisfy malformed fixtures.
 
 The repeated C.10–C.13 KPI issues led to this rule being treated as a permanent engineering standard.
 
