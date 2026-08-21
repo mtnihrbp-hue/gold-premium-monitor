@@ -37,13 +37,16 @@
     "non_blocking_source_issue": "Daric timed out and was discarded; 10 valid sources remained"
   },
   "latest_verified_repo_state": {
-    "documentation_sync": "IN_PROGRESS",
+    "documentation_sync": "COMPLETE",
     "canonical_memory": "PROJECT_MEMORY.md",
     "human_overview": "README.md",
     "ai_operating_guide": "Prompt_Guide.md",
     "machine_continuity_state": ".project_state.json",
     "orchestration_protocol": "PROJECT_ORCHESTRATION.md",
-    "operations_protocol": "PROJECT_OPERATIONS.md"
+    "operations_protocol": "PROJECT_OPERATIONS.md",
+    "c14_handoff": "C14_HANDOFF.md",
+    "c14_feedback_terminology": "C14_FEEDBACK_AND_TERMINOLOGY.md",
+    "research_matrix": "RESEARCH_ADOPTION.md"
   },
   "database_state": {
     "known_last_schema_phase": "PRE-SP-C.13",
@@ -62,7 +65,8 @@
       "idx_news_events_dedup_key",
       "expanded outcome direction fields to VARCHAR(20)"
     ],
-    "forecast_training_readiness": "NOT_READY — production history is only beginning to accumulate; empirical walk-forward evidence is still required",
+    "c14a_schema_change": "PLANNED — platform_candles incremental migration",
+    "forecast_training_readiness": "NOT_READY_FOR_DEPLOYMENT — empirical walk-forward history is still required",
     "neon_write_policy": "APPROVAL_REQUIRED_FOR_SCHEMA_CHANGES"
   },
   "runtime_control_plane": {
@@ -77,14 +81,63 @@
   },
   "architecture_wings": {
     "live_wing": "collect -> validate -> calculate -> current deterministic state -> Telegram",
-    "analysis_wing": "scheduled analysis -> snapshots -> outcomes -> evidence -> interpretation -> features -> read model -> consumer -> dataset -> future prediction"
+    "analysis_wing": "scheduled analysis -> snapshots -> outcomes -> evidence -> interpretation -> features -> read model -> consumer -> dataset -> C.14A candles -> C.14B forecast -> C.14C resolution/audit"
+  },
+  "forecast_feedback_architecture": {
+    "frontend_wings": "TWO_ONLY",
+    "human_feedback_location": "Telegram Analysis experience",
+    "objective_outcome_separate_from_human_feedback": true,
+    "online_training_from_user_feedback": false,
+    "forecast_lifecycle": [
+      "GENERATED",
+      "PENDING",
+      "ELIGIBLE_FOR_REVIEW",
+      "OBJECTIVELY_EVALUATED",
+      "USER_REVIEWED_OPTIONAL"
+    ],
+    "separate_clocks": [
+      "forecast_time",
+      "market_outcome_time",
+      "feedback_time"
+    ]
+  },
+  "terminology_policy": {
+    "avoid_user_facing": [
+      "DISCOUNT WIDENING",
+      "DISCOUNT NARROWING"
+    ],
+    "prefer": [
+      "relative rate of change",
+      "acceleration",
+      "Iranian gold is increasing more slowly than its external drivers",
+      "Iranian gold is catching up faster than its external drivers"
+    ],
+    "causal_explanation_requires_evidence": true
+  },
+  "branch_reconciliation": {
+    "policy": "SP-B write/commit only; main compare/read unless explicitly authorized",
+    "main_divergence_at_last_audit": "main was 4 commits ahead and 198 commits behind SP-B",
+    "main_only_content_audited": [
+      "C14_HANDOFF.md",
+      "RESEARCH_ADOPTION.md",
+      "PROJECT_ORCHESTRATION.md",
+      "src/intelligence/dataset.py"
+    ],
+    "reconciled_to_sp_b": [
+      "C14_HANDOFF.md",
+      "RESEARCH_ADOPTION.md",
+      "PROJECT_ORCHESTRATION.md"
+    ],
+    "dataset_policy": "retain the verified SP-B dataset.py rather than downgrade to the older main copy",
+    "merge_main_now": false,
+    "sp_b_close_then_merge_main": true
   },
   "next_phase": {
-    "id": "PRE-SP-C.14",
-    "name": "Empirical Forecast Engine Research and Walk-Forward Evaluation Gate",
+    "id": "PRE-SP-C.14A",
+    "name": "Candle & Market-Structure Data Infrastructure",
     "status": "PLANNING",
-    "default_database_change": false,
-    "goal": "Use the accumulated Analysis Wing history to build and evaluate a leakage-safe UP/NEUTRAL/DOWN forecast engine without granting it direct BUY/SELL authority"
+    "default_database_change": true,
+    "goal": "Create deterministic, persistent, provenance-rich 30-minute platform candle infrastructure from canonical observations before forecast modeling"
   },
   "future_forecast_gate": {
     "target": "Three-state probabilistic direction forecast: UP / NEUTRAL / DOWN",
@@ -127,6 +180,9 @@
       "Prompt_Guide.md",
       "PROJECT_ORCHESTRATION.md",
       "PROJECT_OPERATIONS.md",
+      "C14_HANDOFF.md",
+      "C14_FEEDBACK_AND_TERMINOLOGY.md",
+      "RESEARCH_ADOPTION.md",
       "skills/",
       "relevant_src_and_tests"
     ],
