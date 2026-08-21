@@ -391,4 +391,16 @@ def build_analysis_snapshot(
         except Exception as e:
             print(f"Outcome evaluation failed for snapshot {snapshot_id}: {e}")
 
+    # PRE-SP-C.14A: non-blocking candle build
+    if snapshot_id is not None and snapshot_id > 0:
+        try:
+            from intelligence.candles import run_candle_build_for_snapshot
+            candle_result = run_candle_build_for_snapshot(
+                collection_run_id=source_run_id,
+                timeframe="30m",
+            )
+            print(f" Candle build: {candle_result.get('total_saved', 0)} candles saved")
+        except Exception as e:
+            print(f" Candle build failed: {e}")
+
     return snapshot_id
