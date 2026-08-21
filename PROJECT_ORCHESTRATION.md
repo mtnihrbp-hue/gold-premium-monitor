@@ -59,23 +59,29 @@ git pull origin SP-B
 Then run the target KPI explicitly:
 
 ```cmd
-python kpi\kpi_pre_sp_c10.py
+python kpi\kpi_pre_sp_c11.py
 ```
 
-For regression, run the previously required KPI suites explicitly rather than relying on a Windows shell wildcard:
-
-```cmd
-python kpi\kpi_pre_sp_c2.py
-python kpi\kpi_pre_sp_c3.py
-python kpi\kpi_pre_sp_c4.py
-python kpi\kpi_pre_sp_c5.py
-python kpi\kpi_pre_sp_c6.py
-python kpi\kpi_pre_sp_c8.py
-python kpi\kpi_pre_sp_c9.py
-python kpi\kpi_pre_sp_c10.py
-```
+For regression, run the previously required KPI suites explicitly rather than relying on a Windows shell wildcard.
 
 `python kpi\kpi_pre_sp_c*.py` should not be treated as the authoritative Windows CMD execution method for the whole suite.
+
+## KPI engineering standard
+
+KPI suites are executable specifications, not decorative pass/fail wrappers.
+
+Before writing a KPI:
+
+1. Inspect the production implementation and identify the true source of each expected value.
+2. Seed fixtures through the same structural contracts the production code consumes.
+3. Mutate authoritative source inputs when testing state transitions.
+4. Let production code derive computed metadata such as completeness, status, labels, or classifications.
+5. Never mutate a derived metadata field in the fixture and expect production code to trust it when production code recomputes that field.
+6. Use deep copies when mutating nested JSON structures so tests cannot accidentally mutate shared fixture state.
+7. A KPI failure caused by a fixture that contradicts production semantics is a KPI defect first, not automatically a product defect.
+8. Do not weaken production logic merely to satisfy an incorrectly constructed KPI.
+
+The C.10 and C.11 KPI failures exposed this exact pattern. C.10/C.11 now serve as the reference standard: tests must manipulate authoritative analytical inputs and assert the classifier/interface's actual derived result.
 
 ## New-conversation onboarding
 
@@ -126,6 +132,16 @@ NON-GOALS
 ACCEPTANCE CRITERIA
 ```
 
+For KPI sections specifically, KIMI must also state:
+
+```text
+AUTHORITATIVE SOURCE INPUTS
+DERIVED FIELDS
+FIXTURE CONSTRUCTION RULES
+EXPECTED FAILURE MODES
+NO-METADATA-HARDCODING RULE
+```
+
 KIMI completion evidence must identify:
 
 ```text
@@ -151,22 +167,28 @@ Update `README.md` when the human-facing architecture or current development pos
 
 Do not create competing architecture-status documents.
 
-## Current verified milestone
+## Current verified milestones
 
 ```text
 PRE-SP-C.10 COMPLETE
 KPI: 22/22 PASS
 DATABASE CHANGE: NONE
+
+PRE-SP-C.11 COMPLETE
+KPI: 25/25 PASS
+DATABASE CHANGE: NONE
 ```
 
 C.10 establishes deterministic analytical read-model retrieval, completeness classification, historical reconstruction, provenance preservation, decision preservation, and no-current-data / no-future-data leakage.
 
+C.11 establishes a stable consumer envelope over C.10 for downstream Telegram/API/dashboard consumers without creating another calculation or decision layer.
+
 ## Next planned phase
 
 ```text
-PRE-SP-C.11 — Analytical Consumer Interface / Read-Model API
+PRE-SP-C.12 — Historical Feature Dataset and Leakage-Safe Labeling Layer
 ```
 
-The purpose of C.11 is to establish a stable downstream interface over the C.10 retrieval contract for future Telegram/API/UI consumers without creating another calculation or decision layer.
+The purpose of C.12 is to create a deterministic, historical, model-ready dataset contract from persisted C.8 features plus retrospectively available C.5 outcomes, with strict point-in-time and label-horizon discipline.
 
-C.11 is not prediction, machine learning, forecasting, or autonomous trading.
+C.12 is still feature/dataset infrastructure. It does not train a prediction model.
