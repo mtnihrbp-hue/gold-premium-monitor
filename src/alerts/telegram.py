@@ -201,3 +201,147 @@ def send_processing():
 def send_daily_recap(world, usd, fair, lowest, premium, markets, trends=None, momentum=None, previous_markets=None, input_directions=None, signal_state=None):
     body = _build_common_body(world, usd, fair, lowest, premium, markets, trends, momentum, previous_markets, input_directions, signal_state)
     _send(_build_message("<b>DAILY RECAP</b>", "", body))
+
+# ============================================================
+# PRE-SP-C.13 — Analytical Command Formatters
+# Consume C.11 consumer contract and C.8 features.
+# Do not calculate. Do not decide.
+# ============================================================
+
+
+def send_analysis_update(consumer_envelope: dict):
+    """/Analysis — expose latest persisted analytical read state."""
+    data = consumer_envelope.get("data", {})
+    facts = data.get("facts", {})
+    evidence = data.get("evidence_summary", {})
+    interpretation = data.get("interpretation_summary", {})
+    uncertainty = data.get("uncertainty", {})
+    decision = data.get("decision", {})
+    completeness = consumer_envelope.get("completeness", "UNKNOWN")
+
+    lines = [
+        APP_HEADER,
+        "",
+        f"<b>ANALYSIS</b>  |  Completeness: <code>{completeness}</code>",
+        "",
+        "<b>FACTS</b>",
+        f"Valuation:  <code>{facts.get('valuation_state', 'UNKNOWN')}</code>",
+        f"Momentum:   <code>{facts.get('momentum_state', 'UNKNOWN')}</code>",
+        f"Structure:  <code>{facts.get('structure_state', 'UNKNOWN')}</code>",
+        f"Regime:     <code>{facts.get('regime_state', 'UNKNOWN')}</code>",
+        f"Premium:    {_number(facts.get('premium_percent'))}%",
+        "",
+        "<b>INTERPRETATION</b>",
+        interpretation.get("market_context_summary", "No interpretation available."),
+        "",
+        "<b>UNCERTAINTY</b>",
+    ]
+    conflicts = uncertainty.get("conflicts", [])
+    missing = uncertainty.get("missing_evidence", [])
+    if conflicts:
+        lines.append(f"Conflicts: {len(conflicts)}")
+    if missing:
+        lines.append(f"Missing evidence: {len(missing)}")
+    if not conflicts and not missing:
+        lines.append("No major uncertainties.")
+
+    lines.extend([
+        "",
+        "<b>DECISION</b>  <i>(read-only)</i>",
+        f"Candidate: <code>{decision.get('candidate_decision', 'UNKNOWN')}</code>",
+        f"Final:     <code>{decision.get('final_decision', 'UNKNOWN')}</code>",
+    ])
+
+    _send("\n".join(lines))
+
+
+def send_technical_update(features: dict):
+    """/Technical — expose persisted C.8 feature information."""
+    price_trend = features.get("price_trend", {}) or {}
+    momentum = features.get("momentum", {}) or {}
+    volatility = features.get("volatility", {}) or {}
+    regime = features.get("regime", {}) or {}
+
+    lines = [
+        APP_HEADER,
+        "",
+        "<b>TECHNICAL</b>",
+        "",
+        "<b>PRICE TREND</b>",
+    ]
+    for key in ["rep_gold_ma7", "rep_gold_ma15", "rep_gold_ma30"]:
+        val = price_trend.get(key)
+        if val is not None:
+            lines.append(f"  {key}: {_money(val)}")
+
+    lines.extend([
+        "",
+        "<b>MOMENTUM</b>",
+        f"  Premium Velocity: {_number(momentum.get('premium_velocity'))}",
+        f"  Acceleration:     {_number(momentum.get('premium_acceleration'))}",
+        f"  Direction:        {momentum.get('premium_latest_direction', 'UNKNOWN')}",
+        "",
+        "<b>VOLATILITY</b>",
+        f"  7-Day CV:  {_number(volatility.get('rep_gold_volatility_7'))}%",
+        "",
+        "<b>REGIME</b>",
+        f"  Current:  <code>{regime.get('current_regime', 'UNKNOWN')}</code>",
+        f"  Previous: <code>{regime.get('previous_regime', 'UNKNOWN')}</code>",
+    ])
+
+    _send("\n".join(lines))
+
+
+def send_history_update(snapshots: list):
+    """/History — expose recent analytical snapshot summaries."""
+    lines = [APP_HEADER, "", "<b>HISTORY</b>", ""]
+
+    if not snapshots:
+        lines.append("No historical snapshots available.")
+    else:
+        lines.append(f"{'Valuation':<10} {'Momentum':<12} {'Regime':<10} {'Premium':>10}")
+        lines.append("-" * 48)
+        for snap in snapshots[:10]:
+            facts = snap.get("facts", {}) or {}
+            lines.append(
+                f"{facts.get('valuation_state', '?'):<10} "
+                f"{facts.get('momentum_state', '?'):<12} "
+                f"{facts.get('regime_state', '?'):<10} "
+                f"{_number(facts.get('premium_percent')):>10}%"
+            )
+
+    _send("\n".join(lines))
+
+
+def send_news_update(news_events: list):
+    """/News — expose structured news context."""
+    lines = [APP_HEADER, "", "<b>NEWS</b>", ""]
+
+    if not news_events:
+        lines.append("No recent news events.")
+    else:
+        for ev in news_events[:5]:
+            rel = ev.get("relevance", "?")
+            evt = ev.get("event_type", "?")
+            topic = ev.get("topic", "No topic")
+            lines.append(f"• [{rel}] {evt}: {topic}")
+
+    _send("\n".join(lines))
+
+
+def send_health_update(health: dict):
+    """/Health — expose operational health metrics."""
+    lines = [
+        APP_HEADER,
+        "",
+        "<b>HEALTH</b>",
+        "",
+        f"Latest Analysis:    {health.get('latest_analysis_time') or 'N/A'}",
+        f"Latest Market Snap: {health.get('latest_snapshot_time') or 'N/A'}",
+        f"Analysis Snapshots: {health.get('analysis_snapshot_count', 0)}",
+        f"Outcome Evals:      {health.get('outcome_count', 0)}",
+        f"Sources:            {health.get('sources_available', 0)}/{health.get('sources_total', 0)}",
+        f"Database:           <code>{health.get('database_status', 'UNKNOWN')}</code>",
+    ]
+
+    _send("\n".join(lines))
