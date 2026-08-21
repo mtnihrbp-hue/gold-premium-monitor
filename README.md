@@ -1,6 +1,6 @@
 # Gold Premium Monitor
 
-Decision-support monitoring and analytical intelligence for the Iranian 18K physical-gold market. The system combines Iranian platform prices, XAU/USD, USD/IRR, fair value, premium/discount behavior, market structure, momentum, deterministic regime detection, historical memory, structured news, canonical observations, analysis snapshots, retrospective outcome evaluation, evidence packaging, structured interpretation, feature intelligence, and an analytical read model. It is not an autonomous trading bot.
+Decision-support monitoring and analytical intelligence for the Iranian 18K physical-gold market. The system combines Iranian platform prices, XAU/USD, USD/IRR, fair value, premium/discount behavior, market structure, momentum, deterministic regime detection, historical memory, structured news, canonical observations, analysis snapshots, retrospective outcome evaluation, evidence packaging, structured interpretation, feature intelligence, an analytical read model, and a downstream consumer contract. It is not an autonomous trading bot.
 
 ## Documentation authority
 
@@ -10,6 +10,7 @@ Decision-support monitoring and analytical intelligence for the Iranian 18K phys
 | `README.md` | Human-facing overview and repository map |
 | `Prompt_Guide.md` | Generic AI engineering behavior |
 | `.project_state.json` | Machine-readable continuity state for new sessions |
+| `PROJECT_ORCHESTRATION.md` | Cross-system project orchestration protocol |
 | `skills/` | Specialist reusable operating rules |
 | `sql/neon_schema.sql` | Canonical target database schema |
 | `sql/neon_migration_*.sql` | Idempotent migrations for an existing Neon database |
@@ -34,10 +35,11 @@ SP-B
 ├── PRE-SP-C.6 COMPLETE — Evidence Package Foundation
 ├── PRE-SP-C.7 COMPLETE — Interpretation Intelligence Layer
 ├── PRE-SP-C.8 COMPLETE — Feature Intelligence Layer
-└── PRE-SP-C.9 COMPLETE — Analytical Read Model
+├── PRE-SP-C.9 COMPLETE — Analytical Read Model
+└── PRE-SP-C.10 COMPLETE — Read Model Integration & Audit Layer
 
 NEXT
-└── Architectural definition of the next bounded intelligence/read-consumer phase
+└── PRE-SP-C.11 PLANNING — Analytical Consumer Interface / Read-Model API
 
 SP-C
 └── FUTURE — Prediction + Learning
@@ -62,6 +64,8 @@ FEATURE INTELLIGENCE
     ↓
 ANALYTICAL READ MODEL
     ↓
+READ-MODEL CONSUMERS
+    ↓
 DECISION ENGINE
     ↓
 FUTURE PREDICTION / LEARNING
@@ -73,6 +77,8 @@ The core boundaries are:
 FACTS          = raw market observations
 EVIDENCE       = validated analytical package
 INTERPRETATION = structured explanation
+FEATURES       = deterministic model-ready artifacts
+READ MODEL     = normalized downstream contract
 DECISION       = current deterministic BUY / WAIT / SELL authority
 PREDICTION     = future model output only
 ```
@@ -188,18 +194,7 @@ C.6 does not implement prediction, autonomous trading, or independent BUY/SELL a
 
 C.7 consumes the evidence package and produces structured deterministic interpretation.
 
-It may explain:
-
-- valuation context
-- momentum context
-- technical context
-- regime context
-- news context
-- historical context
-- outcome feedback
-- conflicts
-- uncertainty
-- provenance
+It may explain valuation, momentum, technical, regime, news, historical, outcome, conflict, uncertainty, and provenance context.
 
 It does not calculate market facts and does not create BUY/SELL authority.
 
@@ -226,7 +221,17 @@ market relationships
 structure
 ```
 
-Examples include SMA/EMA, price-vs-MA, premium velocity/acceleration, persistence, volatility, range expansion, regime reuse, XAU/USD and USD/IRR relationship features, divergence, platform spread, consensus, and discount-dominance features.
+Moving-average artifacts include:
+
+```text
+SMA / MA: 7, 15, 30
+EMA: 7, 15, 30
+price-vs-MA: 7, 15, 30
+```
+
+These are produced for representative Iranian gold, XAU/USD, and USD/IRR with explicit insufficient-history handling.
+
+Other features include premium velocity/acceleration, direction persistence, volatility, range expansion, regime reuse, market relationships, divergence, platform spread, consensus, and discount-dominance features.
 
 Persistence:
 
@@ -238,9 +243,7 @@ KPI: **25/25 passed**.
 
 ## PRE-SP-C.9 — Analytical Read Model
 
-C.9 is complete.
-
-The read model combines:
+C.9 combines:
 
 ```text
 C.6 evidence
@@ -275,6 +278,25 @@ analysis_snapshots.analysis_read_model_json
 
 KPI: **23/23 passed**.
 
+## PRE-SP-C.10 — Read Model Integration & Audit
+
+C.10 establishes trustworthy retrieval of a persisted read model by snapshot ID, deterministic completeness classification, historical reconstruction, provenance preservation, and explicit no-current-data / no-future-data leakage guarantees.
+
+Completeness states:
+
+```text
+COMPLETE
+DEGRADED
+INSUFFICIENT_DATA
+INVALID
+```
+
+The retrieval/audit layer does not recalculate market values, generate decisions, or predict.
+
+KPI: **22/22 passed**.
+
+No C.10 schema change was required. Production Neon remains synchronized through C.9.
+
 ## Neon database
 
 Neon PostgreSQL is the long-term historical store.
@@ -291,7 +313,7 @@ sql/neon_migration_*.sql
 
 Never paste the complete schema into an already-populated production database.
 
-The production database is now synchronized through C.9. `analysis_snapshots` contains:
+The production database is synchronized through C.9. `analysis_snapshots` contains:
 
 ```text
 regime_state
@@ -306,8 +328,6 @@ analysis_read_model_json
 ```
 
 The corresponding analytical JSONB indexes are present.
-
-The C.7 migration record was added as `sql/neon_migration_c7.sql` because the repository previously lacked that incremental migration artifact even though C.7 persistence was implemented.
 
 ## Telegram
 
@@ -330,7 +350,7 @@ Planned analytical read models:
 /Health
 ```
 
-C.5, C.6, C.7, C.8, and C.9 do not require a redesign of `/Update`.
+C.10 does not redesign Telegram. C.11 will establish the stable downstream consumer interface before any presentation expansion.
 
 ## Project continuity
 
@@ -341,41 +361,45 @@ New AI sessions must reconstruct project state from the repository in this order
 → PROJECT_MEMORY.md
 → README.md
 → Prompt_Guide.md
+→ PROJECT_ORCHESTRATION.md
 → skills/
 → relevant source / tests / KPI / SQL
 ```
 
-A phase is only complete when the following are synchronized:
+Mandatory orchestration flow:
 
 ```text
-implementation
-→ tests
-→ regression
-→ KPI
-→ Neon state
-→ documentation
-→ .project_state.json
-→ commit
+KIMI code
+   ↓
+GitHub source
+   ↓
+schema/migration audit
+   ↓
+Neon production state
+   ↓
+KPI / smoke
+   ↓
+documentation
+   ↓
+.project_state.json
+   ↓
+commit
 ```
+
+A phase is only complete when these states are synchronized.
 
 ## Verification
 
-Use the repository's executable evidence before declaring a phase complete.
+For local Windows CMD checks:
 
-```bash
-python -m compileall src
-pytest -q
-python kpi/kpi_pre_sp_c2.py
-python kpi/kpi_pre_sp_c3.py
-python kpi/kpi_pre_sp_c4.py
-python kpi/kpi_pre_sp_c5.py
-python kpi/kpi_pre_sp_c6.py
-python kpi/kpi_pre_sp_c8.py
-python kpi/kpi_pre_sp_c9.py
-python src/main.py
+```cmd
+git pull origin SP-B
+python kpi\kpi_pre_sp_cX.py
 ```
 
-Current supplied / verified evidence includes:
+Run prior KPI suites explicitly for regression. Do not rely on `python kpi\kpi_pre_sp_c*.py` shell expansion in Windows CMD.
+
+Current verified evidence:
 
 ```text
 PRE-SP-C.2  14/14 PASS
@@ -386,9 +410,42 @@ PRE-SP-C.6  25/25 PASS
 PRE-SP-C.7  25/25 PASS
 PRE-SP-C.8  25/25 PASS
 PRE-SP-C.9  23/23 PASS
+PRE-SP-C.10 22/22 PASS
 compileall  PASS
 live smoke  PASS
-Neon C.7-C.9 reconciliation  PASS
+Neon C.7-C.9 reconciliation PASS
 ```
+
+## PRE-SP-C.11 — Analytical Consumer Interface / Read-Model API
+
+C.11 is the next planned phase.
+
+Objective:
+
+Create a stable downstream application/service interface over the C.10 retrieval contract so future Telegram, API, dashboard, and other consumers can request one authoritative analytical state without rebuilding calculations.
+
+Default database impact:
+
+```text
+NONE
+```
+
+C.11 is not prediction, ML training, forecasting, autonomous trading, or Telegram redesign.
+
+## Future prediction boundary
+
+No prediction model should start before the bounded intelligence/read-consumer layer is explicit, testable, historically auditable, and empirically evaluable.
+
+The future path remains:
+
+```text
+historical observations
+→ deterministic features
+→ historical outcome labels
+→ model training / evaluation
+→ prediction output
+```
+
+Prediction output must never overwrite historical facts, evidence, interpretation, features, or deterministic decisions.
 
 MIT License
