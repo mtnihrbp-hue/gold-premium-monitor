@@ -151,9 +151,44 @@ def main():
     # Compute per-platform changes for database and notifications
     platform_changes = {}
     if previous_markets:
-        for name, info in markets.items():
-            if info["status"] == "OK" and name in previous_markets:
-                platform_changes[name] = info["price"] - previous_markets[name]
+    for name, info in markets.items():
+        if info["status"] != "OK":
+            continue
+        try:
+            freshness = evaluate_freshness(now, now, stale_threshold)
+            # Goldika has explicit buy/sell semantics per C.14A
+            if name == "Goldika" and "buy" in info and "sell" in info:
+                save_price_observation(
+                    instrument="REP_IRAN_GOLD",
+                    source=name.lower(),
+                    timestamp=now,
+                    price=info["buy"],
+                    freshness=freshness,
+                    collection_run_id=collection_run_id,
+                    quote_side="BUY",
+                )
+                save_price_observation(
+                    instrument="REP_IRAN_GOLD",
+                    source=name.lower(),
+                    timestamp=now,
+                    price=info["sell"],
+                    freshness=freshness,
+                    collection_run_id=collection_run_id,
+                    quote_side="SELL",
+                )
+                print(f" Price observation: {name} BUY/SELL saved")
+            elif info.get("price") is not None:
+                save_price_observation(
+                    instrument="REP_IRAN_GOLD",
+                    source=name.lower(),
+                    timestamp=now,
+                    price=info["price"],
+                    freshness=freshness,
+                    collection_run_id=collection_run_id,
+                    quote_side="SINGLE",
+                )
+        except Exception as e:
+            print(f" Price observation {name} failed: {e}")
 
     # --- PRE-SP-C.1: Save price observations (non-blocking) ---
     now = datetime.now()
