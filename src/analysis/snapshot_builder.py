@@ -8,6 +8,7 @@ from analysis.outcome_evaluator import run_outcome_evaluation_for_snapshot
 from analysis.evidence_package import build_evidence_package, validate_evidence_package
 from intelligence.market_intelligence import build_intelligence_result, validate_intelligence_result
 from intelligence.features import build_feature_snapshot, validate_feature_snapshot
+from intelligence.read_model import build_read_model, validate_read_model
 
 from datetime import datetime
 from typing import Optional, Dict
@@ -311,7 +312,7 @@ def build_analysis_snapshot(
     except Exception as e:
         print(f"Intelligence build failed: {e}")
 
-    # --- PRE-SP-C.8: Build analytical feature snapshot ---
+        # --- PRE-SP-C.8: Build analytical feature snapshot ---
     features = None
     try:
         features = build_feature_snapshot(
@@ -326,6 +327,37 @@ def build_analysis_snapshot(
             print(f"Feature validation warnings: {feat_errors}")
     except Exception as e:
         print(f"Feature build failed: {e}")
+
+    # --- PRE-SP-C.9: Build analytical read model ---
+    read_model = None
+    try:
+        snapshot_facts = {
+            "xau_usd": xau_usd,
+            "usd_irr": usd_irr,
+            "rep_gold_price": rep_gold_price,
+            "premium_percent": premium_percent,
+            "valuation_state": valuation_state,
+            "momentum_state": momentum_state,
+            "structure_state": structure_state_val,
+            "regime_state": regime_result.state,
+            "candidate_decision": market_state.candidate_decision if market_state else "UNKNOWN",
+            "final_decision": market_state.final_decision if market_state else "UNKNOWN",
+        }
+        read_model = build_read_model(
+            analysis_timestamp=analysis_timestamp,
+            source_run_id=source_run_id,
+            market_snapshot_id=market_snapshot_id,
+            market_state_id=market_state_id,
+            evidence_package=evidence_package,
+            intelligence_result=intelligence_result,
+            features=features,
+            snapshot_facts=snapshot_facts,
+        )
+        rm_valid, rm_errors = validate_read_model(read_model)
+        if not rm_valid:
+            print(f"Read model validation warnings: {rm_errors}")
+    except Exception as e:
+        print(f"Read model build failed: {e}")
 
     snapshot_id = save_analysis_snapshot(
         analysis_timestamp=analysis_timestamp,
@@ -348,6 +380,7 @@ def build_analysis_snapshot(
         evidence_package_json=evidence_package,
         intelligence_result_json=intelligence_result,
         features_json=features,
+        analysis_read_model_json=read_model,
     )
 
     # PRE-SP-C.5: non-blocking outcome evaluation
