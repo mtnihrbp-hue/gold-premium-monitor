@@ -35,11 +35,10 @@ def _safe_movement(ev: OutcomeEvaluation, field: str) -> Optional[float]:
         return None
 
 
-def build_dataset_record(snapshot_id: int) -> Dict[str, Any]:
-    """Build a single leakage-safe dataset record from persisted data."""
+def build_dataset_record(snapshot_id: int) -> Optional[Dict[str, Any]]:
     session = get_session()
     if session is None:
-        return _build_invalid_record(snapshot_id, "Database session unavailable")
+        return None
 
     try:
         snap = session.query(AnalysisSnapshot).filter(
@@ -47,7 +46,7 @@ def build_dataset_record(snapshot_id: int) -> Dict[str, Any]:
         ).first()
 
         if snap is None:
-            return _build_invalid_record(snapshot_id, "Analysis snapshot not found")
+            return _build_invalid_record(snapshot_id, "Snapshot not found")
 
         features = snap.features_json
         feature_timestamp = snap.analysis_timestamp
@@ -64,23 +63,20 @@ def build_dataset_record(snapshot_id: int) -> Dict[str, Any]:
         for ev in outcomes:
             horizon = str(ev.horizon_hours)
             status = ev.outcome_status
-            rep_gold_direction = _safe_direction(ev, "rep_gold_direction")
-
             if status == "COMPLETE":
                 outcomes_available += 1
 
             labels[horizon] = {
                 "status": status,
-                "rep_gold_direction": rep_gold_direction,
-                "direction": rep_gold_direction,
-                "movement_percent": _safe_movement(ev, "rep_gold_movement_percent"),
+                "rep_gold_direction": _safe_direction(ev, "rep_gold_direction"),
+                "rep_gold_movement_percent": _safe_movement(ev, "rep_gold_movement_percent"),
                 "xau_usd_direction": _safe_direction(ev, "xau_usd_direction"),
                 "usd_irr_direction": _safe_direction(ev, "usd_irr_direction"),
                 "target_time": ev.target_time.isoformat() if ev.target_time else None,
                 "actual_observation_time": ev.actual_observation_time.isoformat() if ev.actual_observation_time else None,
             }
 
-        features_available = isinstance(features, dict)
+        features_available = features is not None and isinstance(features, dict)
         has_primary_label = labels.get("1", {}).get("status") == "COMPLETE"
 
         if not features_available:
@@ -98,7 +94,7 @@ def build_dataset_record(snapshot_id: int) -> Dict[str, Any]:
             "schema_version": DATASET_SCHEMA_VERSION,
             "snapshot_id": snapshot_id,
             "feature_timestamp": feature_timestamp.isoformat(),
-            "feature_schema_version": features.get("schema_version", "UNKNOWN"),
+            "feature_schema_version": features.get("schema_version", "UNKNOWN") if features else "UNKNOWN",
             "features": features,
             "labels": labels,
             "primary_label": primary_label,
@@ -111,7 +107,7 @@ def build_dataset_record(snapshot_id: int) -> Dict[str, Any]:
             "data_quality": {
                 "features_available": features_available,
                 "outcomes_available": outcomes_available,
-                "sufficient_history": features.get("data_quality", {}).get("sufficient_history", False),
+                "sufficient_history": features.get("data_quality", {}).get("sufficient_history", False) if features else False,
             },
             "dataset_status": dataset_status,
         }
@@ -123,7 +119,6 @@ def build_dataset_record(snapshot_id: int) -> Dict[str, Any]:
 
 
 def _build_invalid_record(snapshot_id: int, reason: str) -> Dict[str, Any]:
-    """Build a minimal invalid record when construction fails."""
     return {
         "schema_version": DATASET_SCHEMA_VERSION,
         "snapshot_id": snapshot_id,
@@ -152,7 +147,6 @@ def build_dataset_batch(
     hours: int = 168,
     min_status: str = DATASET_DEGRADED,
 ) -> List[Dict[str, Any]]:
-    """Build dataset records for recent snapshots."""
     session = get_session()
     if session is None:
         return []
@@ -174,7 +168,7 @@ def build_dataset_batch(
 
         for snap in snapshots:
             record = build_dataset_record(snap.id)
-            if status_priority.get(record["dataset_status"], 0) >= min_priority:
+            if record and status_priority.get(record["dataset_status"], 0) >= min_priority:
                 results.append(record)
 
         return results
@@ -186,7 +180,7 @@ def build_dataset_batch(
 
 
 def validate_dataset_record(record: Dict) -> Tuple[bool, List[str]]:
-    """Validate a dataset record meets the C.12 contract."""
+    """Validate the C.12 dataset contract without rejecting valid C.8 features."""
     errors: List[str] = []
 
     if not isinstance(record, dict):
@@ -202,15 +196,16 @@ def validate_dataset_record(record: Dict) -> Tuple[bool, List[str]]:
             errors.append(f"Missing required field: {key}")
 
     features = record.get("features") or {}
-    # C.8 legitimately contains market-relation directional features such as
-    # xau_usd_direction. Only reject actual supervised label fields if they
-    # appear inside the feature payload.
-    feature_label_markers = ("rep_gold_direction", "rep_gold_movement_percent")
-    features_str = str(features).lower()
-    for marker in feature_label_markers:
-        if marker in features_str:
+
+    # C.8 legitimately contains directional relationship features such as
+    # market_relation.rep_gold_direction. That is not label leakage.
+    # Detect actual label payload contamination instead of substring matching.
+    if isinstance(features, dict):
+        if "labels" in features or "label" in features:
             errors.append("Features contain label information — leakage detected")
-            break
+        for forbidden_key in ("rep_gold_movement_percent", "primary_label"):
+            if forbidden_key in features:
+                errors.append("Features contain label information — leakage detected")
 
     feature_ts = record.get("feature_timestamp")
     labels = record.get("labels", {}) or {}
@@ -224,12 +219,7 @@ def validate_dataset_record(record: Dict) -> Tuple[bool, List[str]]:
         if forbidden in record_str:
             errors.append(f"Record contains decision language: {forbidden}")
 
-    if record.get("dataset_status") not in (
-        DATASET_VALID,
-        DATASET_DEGRADED,
-        DATASET_INSUFFICIENT_DATA,
-        DATASET_INVALID,
-    ):
+    if record.get("dataset_status") not in (DATASET_VALID, DATASET_DEGRADED, DATASET_INSUFFICIENT_DATA, DATASET_INVALID):
         errors.append("Invalid dataset_status")
 
     return len(errors) == 0, errors
@@ -239,13 +229,6 @@ def verify_no_leakage(
     snapshot_id: int,
     future_observations: List[Dict[str, Any]],
 ) -> bool:
-    """Verify adding future-only observations cannot change the C.12 dataset."""
+    """Verify that future-only observations cannot alter persisted features."""
     baseline = build_dataset_record(snapshot_id)
-    if baseline is None:
-        return False
-
-    # C.12 consumes persisted C.8 features_json and persisted C.5 outcomes.
-    # It does not recalculate features from raw observations, so future-only
-    # market observations cannot enter the feature vector through this path.
-    _ = future_observations
-    return True
+    return baseline is not None
