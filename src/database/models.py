@@ -162,6 +162,7 @@ class PriceObservation(Base):
     source = Column(String(50), nullable=False)
     timestamp = Column(DateTime, nullable=False)
     price = Column(Numeric(20, 4), nullable=False)
+    quote_side = Column(String(10), nullable=False, default="SINGLE")
     freshness = Column(String(20), nullable=False, default="UNKNOWN")
     collection_run_id = Column(String(64), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
@@ -289,3 +290,36 @@ class OutcomeEvaluation(Base):
         Index("idx_outcome_eval_target_time", "target_time"),
         Index("idx_outcome_eval_status", "outcome_status"),
     )
+########
+
+class PlatformCandle(Base):
+    """Canonical derived candle from platform price observations.
+
+    PRE-SP-C.14A: deterministic candle aggregation with provenance.
+    """
+
+    __tablename__ = "platform_candles"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    platform = Column(String(50), nullable=False)
+    instrument = Column(String(50), nullable=False)
+    timeframe = Column(String(10), nullable=False)
+    bucket_start = Column(DateTime, nullable=False)
+    bucket_end = Column(DateTime, nullable=False)
+    open = Column(Numeric(30, 8), nullable=False)
+    high = Column(Numeric(30, 8), nullable=False)
+    low = Column(Numeric(30, 8), nullable=False)
+    close = Column(Numeric(30, 8), nullable=False)
+    candle_type = Column(String(50), nullable=False, default="DERIVED_FROM_POINT_OBSERVATIONS")
+    quote_side = Column(String(10), nullable=False, default="SINGLE")
+    source_quality = Column(String(20), nullable=False, default="COMPLETE")
+    observation_count = Column(Integer, nullable=False, default=0)
+    collection_run_id = Column(String(100), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_platform_candles_lookup", "platform", "instrument", "timeframe", "quote_side", "bucket_start"),
+        Index("idx_platform_candles_bucket", "bucket_start", "bucket_end"),
+        Index("idx_platform_candles_quality", "source_quality"),
+    )
+    #########
