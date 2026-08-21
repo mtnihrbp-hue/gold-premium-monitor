@@ -486,7 +486,7 @@ def get_similar_market_states(
             valuation, momentum, premium_direction, structure, premium
         premium_tolerance: max premium difference for match (default 1.0%)
         days: lookback window in days (default 90)
-        max_results: max results return
+        max_results: max results to return (default 20)
 
     Returns:
         HistoricalComparison with matched states
@@ -494,6 +494,7 @@ def get_similar_market_states(
     from intelligence.historical import build_historical_comparison
 
     try:
+        # Fetch candidates with same categorical state
         candidates = get_market_states_by_criteria(
             valuation=getattr(reference_state, "valuation", None),
             momentum=getattr(reference_state, "momentum", None),
@@ -502,6 +503,7 @@ def get_similar_market_states(
             limit=500,
         )
 
+        # Build reference dict for similarity engine
         reference_dict = {
             "premium": getattr(reference_state, "premium", None),
             "valuation": getattr(reference_state, "valuation", None),
@@ -519,6 +521,7 @@ def get_similar_market_states(
         return comparison
     except Exception as e:
         print(f"DB query failed (get_similar_market_states): {e}")
+        # Return empty comparison on failure
         from intelligence.historical import HistoricalComparison
         return HistoricalComparison(
             reference_premium=getattr(reference_state, "premium", 0.0),
@@ -843,10 +846,6 @@ def save_analysis_snapshot(
 
     Non-blocking: returns -1 on DB failure.
 
-    Duplicate semantics:
-        If an analysis snapshot with the same deterministic source_run_id already
-        exists, return its existing id and do not create a duplicate row.
-
     Args:
         analysis_timestamp: scheduled analysis timestamp
         source_run_id: deterministic unique run identifier
@@ -863,7 +862,7 @@ def save_analysis_snapshot(
         data_quality_json: per-component quality tracking
 
     Returns:
-        snapshot id, or -1 on DB failure
+        snapshot id, or -1 on failure
     """
     from database.models import AnalysisSnapshot
 
@@ -873,15 +872,6 @@ def save_analysis_snapshot(
         return -1
 
     try:
-        existing = (
-            session.query(AnalysisSnapshot)
-            .filter(AnalysisSnapshot.source_run_id == source_run_id)
-            .first()
-        )
-        if existing:
-            session.rollback()
-            return existing.id
-
         snap = AnalysisSnapshot(
             snapshot_type="analysis",
             analysis_timestamp=analysis_timestamp,
@@ -906,6 +896,7 @@ def save_analysis_snapshot(
             intelligence_result_json=intelligence_result_json,
             features_json=features_json,
             analysis_read_model_json=analysis_read_model_json,
+
         )
         session.add(snap)
         session.commit()
@@ -913,16 +904,6 @@ def save_analysis_snapshot(
     except Exception as e:
         print(f"DB save failed (save_analysis_snapshot): {e}")
         session.rollback()
-
-        # Protect deterministic idempotency against a race where another
-        # transaction inserted the same source_run_id after our pre-check.
-        existing = (
-            session.query(AnalysisSnapshot)
-            .filter(AnalysisSnapshot.source_run_id == source_run_id)
-            .first()
-        )
-        if existing:
-            return existing.id
         return -1
     finally:
         session.close()
@@ -1117,3 +1098,27 @@ def get_outcome_evaluation(analysis_snapshot_id: int, horizon_hours: int):
 
 
 def get_outcome_evaluations_by_snapshot(analysis_snapshot_id: int):
+    from database.models import OutcomeEvaluation
+    session = get_session()
+    if session is None:
+        return []
+    try:
+        return session.query(OutcomeEvaluation).filter(
+            OutcomeEvaluation.analysis_snapshot_id == analysis_snapshot_id,
+        ).order_by(OutcomeEvaluation.horizon_hours.asc()).all()
+    except Exception as e:
+        print(f"DB query failed (get_outcome_evaluations_by_snapshot): {e}")
+        return []
+    finally:
+        session.close()
+
+############
+
+
+
+
+
+
+
+
+
