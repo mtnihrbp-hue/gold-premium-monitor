@@ -664,8 +664,6 @@ def get_news_events_by_type(event_type: str, hours: int = 24, limit: int = 100) 
         return []
     finally:
         session.close()
-######
-
 
 
 # --- PRE-SP-C.1: Price Observations ---
@@ -807,8 +805,6 @@ def get_price_observations_by_instrument(instrument: str, limit: int = 100, hour
         instrument=instrument, limit=limit, hours=hours
     )
 
-########
-
 
 # --- PRE-SP-C.2: Analysis Snapshots ---
 
@@ -872,6 +868,14 @@ def save_analysis_snapshot(
         return -1
 
     try:
+        existing = (
+            session.query(AnalysisSnapshot)
+            .filter(AnalysisSnapshot.source_run_id == source_run_id)
+            .first()
+        )
+        if existing is not None:
+            return existing.id
+
         snap = AnalysisSnapshot(
             snapshot_type="analysis",
             analysis_timestamp=analysis_timestamp,
@@ -979,7 +983,7 @@ def analysis_snapshot_exists(source_run_id: str) -> bool:
     finally:
         session.close()
 
-#########
+
 # --- PRE-SP-C.5: Outcome Evaluations ---
 
 def save_outcome_evaluation(
@@ -1111,14 +1115,3 @@ def get_outcome_evaluations_by_snapshot(analysis_snapshot_id: int):
         return []
     finally:
         session.close()
-
-############
-
-
-
-
-
-
-
-
-
