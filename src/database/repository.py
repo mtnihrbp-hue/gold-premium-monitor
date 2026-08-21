@@ -666,7 +666,7 @@ def get_news_events_by_type(event_type: str, hours: int = 24, limit: int = 100) 
         session.close()
 
 
-# --- PRE-SP-C.1: Price Observations ---
+# --- PRE-SP-C.1: Price Observations --c14.a updated with quote_side parameter---
 
 def save_price_observation(
     instrument: str,
@@ -675,6 +675,7 @@ def save_price_observation(
     price: float,
     freshness: str = "UNKNOWN",
     collection_run_id: str = None,
+    quote_side: str = "SINGLE",
 ) -> int:
     """Save a price observation to the canonical time-series layer.
 
@@ -687,6 +688,7 @@ def save_price_observation(
         price: observed price
         freshness: FRESH | STALE | UNKNOWN
         collection_run_id: traceable collection cycle ID
+        quote_side: BUY | SELL | SINGLE
 
     Returns:
         observation id, or -1 on failure
@@ -706,6 +708,7 @@ def save_price_observation(
             price=price,
             freshness=freshness,
             collection_run_id=collection_run_id,
+            quote_side=quote_side,
         )
         session.add(obs)
         session.commit()
@@ -1113,5 +1116,186 @@ def get_outcome_evaluations_by_snapshot(analysis_snapshot_id: int):
     except Exception as e:
         print(f"DB query failed (get_outcome_evaluations_by_snapshot): {e}")
         return []
+    finally:
+        session.close()
+
+
+
+# --- PRE-SP-C.14A: Platform Candles ---
+
+def save_platform_candle(
+    platform: str,
+    instrument: str,
+    timeframe: str,
+    bucket_start: datetime,
+    bucket_end: datetime,
+    open_price: float,
+    high_price: float,
+    low_price: float,
+    close_price: float,
+    candle_type: str = "DERIVED_FROM_POINT_OBSERVATIONS",
+    quote_side: str = "SINGLE",
+    source_quality: str = "COMPLETE",
+    observation_count: int = 0,
+    collection_run_id: str = None,
+) -> int:
+    """Save a platform candle. Idempotent by identity constraint.
+
+    Non-blocking: returns -1 on DB failure, existing id on duplicate.
+
+    Returns:
+        candle id, or -1 on failure
+    """
+    from database.models import PlatformCandle
+
+    session = get_session()
+    if session is None:
+        print("DB unavailable — platform candle not saved")
+        return -1
+
+    try:
+        existing = session.query(PlatformCandle).filter(
+            PlatformCandle.platform == platform,
+            PlatformCandle.instrument == instrument,
+            PlatformCandle.timeframe == timeframe,
+            PlatformCandle.bucket_start == bucket_start,
+            PlatformCandle.quote_side == quote_side,
+        ).first()
+
+        if existing is not None:
+            return existing.id
+
+        candle = PlatformCandle(
+            platform=platform,
+            instrument=instrument,
+            timeframe=timeframe,
+            bucket_start=bucket_start,
+            bucket_end=bucket_end,
+            open=open_price,
+            high=high_price,
+            low=low_price,
+            close=close_price,
+            candle_type=candle_type,
+            quote_side=quote_side,
+            source_quality=source_quality,
+            observation_count=observation_count,
+            collection_run_id=collection_run_id,
+        )
+        session.add(candle)
+        session.commit()
+        return candle.id
+    except Exception as e:
+        print(f"DB save failed (save_platform_candle): {e}")
+        session.rollback()
+        return -1
+    finally:
+        session.close()
+
+
+def get_platform_candles(
+    platform: str = None,
+    instrument: str = None,
+    timeframe: str = None,
+    quote_side: str = None,
+    limit: int = 1000,
+    hours: int = None,
+):
+    """Get platform candles with optional filtering.
+
+    Non-blocking: returns [] if DB unavailable.
+    """
+    from database.models import PlatformCandle
+
+    session = get_session()
+    if session is None:
+        return []
+
+    try:
+        query = session.query(PlatformCandle).order_by(
+            PlatformCandle.bucket_start.desc()
+        )
+
+        if platform is not None:
+            query = query.filter(PlatformCandle.platform == platform)
+        if instrument is not None:
+            query = query.filter(PlatformCandle.instrument == instrument)
+        if timeframe is not None:
+            query = query.filter(PlatformCandle.timeframe == timeframe)
+        if quote_side is not None:
+            query = query.filter(PlatformCandle.quote_side == quote_side)
+        if hours is not None:
+            since = datetime.now() - timedelta(hours=hours)
+            query = query.filter(PlatformCandle.bucket_start >= since)
+
+        return query.limit(limit).all()
+    except Exception as e:
+        print(f"DB query failed (get_platform_candles): {e}")
+        return []
+    finally:
+        session.close()
+
+
+def get_latest_platform_candle(
+    platform: str = None,
+    instrument: str = None,
+    timeframe: str = None,
+    quote_side: str = None,
+):
+    """Return the most recent platform candle, or None."""
+    from database.models import PlatformCandle
+
+    session = get_session()
+    if session is None:
+        return None
+
+    try:
+        query = session.query(PlatformCandle).order_by(
+            PlatformCandle.bucket_start.desc()
+        )
+        if platform is not None:
+            query = query.filter(PlatformCandle.platform == platform)
+        if instrument is not None:
+            query = query.filter(PlatformCandle.instrument == instrument)
+        if timeframe is not None:
+            query = query.filter(PlatformCandle.timeframe == timeframe)
+        if quote_side is not None:
+            query = query.filter(PlatformCandle.quote_side == quote_side)
+        return query.first()
+    except Exception as e:
+        print(f"DB query failed (get_latest_platform_candle): {e}")
+        return None
+    finally:
+        session.close()
+
+
+def platform_candle_exists(
+    platform: str,
+    instrument: str,
+    timeframe: str,
+    bucket_start: datetime,
+    quote_side: str = "SINGLE",
+) -> bool:
+    """Check if a candle already exists for the given identity.
+
+    Non-blocking: returns False if DB unavailable.
+    """
+    from database.models import PlatformCandle
+
+    session = get_session()
+    if session is None:
+        return False
+
+    try:
+        count = session.query(PlatformCandle).filter(
+            PlatformCandle.platform == platform,
+            PlatformCandle.instrument == instrument,
+            PlatformCandle.timeframe == timeframe,
+            PlatformCandle.bucket_start == bucket_start,
+            PlatformCandle.quote_side == quote_side,
+        ).count()
+        return count > 0
+    except Exception as e:
+        print(f"DB query failed (platform_candle_exists): {e}")
+        return False
     finally:
         session.close()
