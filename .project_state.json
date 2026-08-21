@@ -2,7 +2,7 @@
   "schema_version": "1",
   "project": "Gold Premium Monitor",
   "active_branch": "SP-B",
-  "current_phase": "PRE-SP-C.9",
+  "current_phase": "PRE-SP-C.10",
   "current_phase_status": "COMPLETE",
   "completed_phases": [
     "SP-B.1",
@@ -15,17 +15,18 @@
     "PRE-SP-C.6",
     "PRE-SP-C.7",
     "PRE-SP-C.8",
-    "PRE-SP-C.9"
+    "PRE-SP-C.9",
+    "PRE-SP-C.10"
   ],
   "latest_verified_kpi": {
-    "phase": "PRE-SP-C.9",
-    "passed": 23,
+    "phase": "PRE-SP-C.10",
+    "passed": 22,
     "failed": 0,
     "status": "PASS",
     "evidence_source": "user-supplied local execution result"
   },
   "latest_verified_repo_state": {
-    "documentation_sync": "COMPLETE",
+    "documentation_sync": "IN_PROGRESS",
     "docs_directory_architecture_status_removed": true,
     "canonical_memory": "PROJECT_MEMORY.md",
     "human_overview": "README.md",
@@ -36,7 +37,7 @@
   },
   "database_state": {
     "known_last_phase": "PRE-SP-C.9",
-    "schema_change_for_current_phase": "APPLIED",
+    "schema_change_for_current_phase": "NONE",
     "neon_project": "wispy-glade-92753836",
     "neon_database": "neondb",
     "neon_branch": "production",
@@ -55,11 +56,14 @@
     "neon_write_policy": "APPROVAL_REQUIRED_FOR_SCHEMA_CHANGES"
   },
   "next_phase": {
-    "id": "NEXT-PLANNING",
-    "name": "Architectural definition of the next bounded intelligence/read-consumer phase",
+    "id": "PRE-SP-C.11",
+    "name": "Analytical Consumer Interface / Read-Model API",
+    "status": "PLANNING",
+    "default_database_change": false,
     "c7_status": "FROZEN",
     "c8_status": "COMPLETE",
-    "c9_status": "COMPLETE"
+    "c9_status": "COMPLETE",
+    "c10_status": "COMPLETE"
   },
   "architecture_boundaries": {
     "facts": "raw market observations",
@@ -98,6 +102,11 @@
       "documentation_update",
       "state_file_update",
       "commit"
+    ],
+    "kpi_local_check_sequence": [
+      "git pull origin SP-B",
+      "python kpi\\kpi_pre_sp_cX.py for the target phase",
+      "run prior required KPI suites explicitly for regression"
     ],
     "state_file_must_remain_synchronized": true
   }
