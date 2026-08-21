@@ -2,7 +2,7 @@
   "schema_version": "1",
   "project": "Gold Premium Monitor",
   "active_branch": "SP-B",
-  "current_phase": "PRE-SP-C.12",
+  "current_phase": "PRE-SP-C.13",
   "current_phase_status": "COMPLETE",
   "completed_phases": [
     "SP-B.1",
@@ -18,14 +18,23 @@
     "PRE-SP-C.9",
     "PRE-SP-C.10",
     "PRE-SP-C.11",
-    "PRE-SP-C.12"
+    "PRE-SP-C.12",
+    "PRE-SP-C.13"
   ],
   "latest_verified_kpi": {
-    "phase": "PRE-SP-C.12",
-    "passed": 30,
+    "phase": "PRE-SP-C.13",
+    "passed": 26,
     "failed": 0,
     "status": "PASS",
     "evidence_source": "user-supplied local execution result"
+  },
+  "latest_verified_runtime": {
+    "compileall": "PASS",
+    "live_smoke": "PASS",
+    "analysis_snapshot_created": true,
+    "telegram_delivery": "PASS",
+    "neon_errors_from_previous_smoke": "RESOLVED",
+    "non_blocking_source_issue": "Daric timed out and was discarded; 10 valid sources remained"
   },
   "latest_verified_repo_state": {
     "documentation_sync": "IN_PROGRESS",
@@ -37,8 +46,8 @@
     "operations_protocol": "PROJECT_OPERATIONS.md"
   },
   "database_state": {
-    "known_last_schema_phase": "PRE-SP-C.9",
-    "schema_change_for_c10_c11_c12": "NONE",
+    "known_last_schema_phase": "PRE-SP-C.13",
+    "c13_schema_reconciliation": "COMPLETE",
     "neon_project": "wispy-glade-92753836",
     "neon_database": "neondb",
     "neon_branch": "production",
@@ -48,18 +57,12 @@
       "features_json",
       "analysis_read_model_json"
     ],
-    "verified_indexes": [
-      "idx_analysis_snapshots_evidence",
-      "idx_analysis_snapshots_intelligence",
-      "idx_analysis_snapshots_features",
-      "idx_analysis_snapshots_read_model"
+    "c13_schema_additions": [
+      "news_events",
+      "idx_news_events_dedup_key",
+      "expanded outcome direction fields to VARCHAR(20)"
     ],
-    "current_row_counts_at_last_audit": {
-      "analysis_snapshots": 0,
-      "outcome_evaluations": 0,
-      "price_observations": 134
-    },
-    "forecast_training_readiness": "NOT_READY — no persisted analysis snapshots or outcome evaluations in production Neon",
+    "forecast_training_readiness": "NOT_READY — production history is only beginning to accumulate; empirical walk-forward evidence is still required",
     "neon_write_policy": "APPROVAL_REQUIRED_FOR_SCHEMA_CHANGES"
   },
   "runtime_control_plane": {
@@ -77,15 +80,15 @@
     "analysis_wing": "scheduled analysis -> snapshots -> outcomes -> evidence -> interpretation -> features -> read model -> consumer -> dataset -> future prediction"
   },
   "next_phase": {
-    "id": "PRE-SP-C.13",
-    "name": "Analysis Wing Operationalization + Telegram Analytical Commands + Scheduler/cron Integration",
+    "id": "PRE-SP-C.14",
+    "name": "Empirical Forecast Engine Research and Walk-Forward Evaluation Gate",
     "status": "PLANNING",
     "default_database_change": false,
-    "goal": "Operationalize the external scheduler and Analysis Wing, add analytical Telegram commands, remove dependence on GitHub internal schedule after verification, and preserve Live Wing isolation"
+    "goal": "Use the accumulated Analysis Wing history to build and evaluate a leakage-safe UP/NEUTRAL/DOWN forecast engine without granting it direct BUY/SELL authority"
   },
   "future_forecast_gate": {
     "target": "Three-state probabilistic direction forecast: UP / NEUTRAL / DOWN",
-    "status": "NOT_READY",
+    "status": "NOT_READY_FOR_DEPLOYMENT",
     "minimum_gate": [
       "sustained production analysis snapshots",
       "sustained outcome_evaluations",
