@@ -2,7 +2,7 @@
   "schema_version": "1",
   "project": "Gold Premium Monitor",
   "active_branch": "SP-B",
-  "current_phase": "PRE-SP-C.11",
+  "current_phase": "PRE-SP-C.12",
   "current_phase_status": "COMPLETE",
   "completed_phases": [
     "SP-B.1",
@@ -17,28 +17,27 @@
     "PRE-SP-C.8",
     "PRE-SP-C.9",
     "PRE-SP-C.10",
-    "PRE-SP-C.11"
+    "PRE-SP-C.11",
+    "PRE-SP-C.12"
   ],
   "latest_verified_kpi": {
-    "phase": "PRE-SP-C.11",
-    "passed": 25,
+    "phase": "PRE-SP-C.12",
+    "passed": 30,
     "failed": 0,
     "status": "PASS",
     "evidence_source": "user-supplied local execution result"
   },
   "latest_verified_repo_state": {
     "documentation_sync": "IN_PROGRESS",
-    "docs_directory_architecture_status_removed": true,
     "canonical_memory": "PROJECT_MEMORY.md",
     "human_overview": "README.md",
     "ai_operating_guide": "Prompt_Guide.md",
     "machine_continuity_state": ".project_state.json",
-    "orchestration_protocol": "PROJECT_ORCHESTRATION.md",
-    "c7_migration_record_present": true
+    "orchestration_protocol": "PROJECT_ORCHESTRATION.md"
   },
   "database_state": {
-    "known_last_phase": "PRE-SP-C.9",
-    "schema_change_for_current_phase": "NONE",
+    "known_last_schema_phase": "PRE-SP-C.9",
+    "schema_change_for_c10_c11_c12": "NONE",
     "neon_project": "wispy-glade-92753836",
     "neon_database": "neondb",
     "neon_branch": "production",
@@ -54,25 +53,47 @@
       "idx_analysis_snapshots_features",
       "idx_analysis_snapshots_read_model"
     ],
+    "current_row_counts_at_last_audit": {
+      "analysis_snapshots": 0,
+      "outcome_evaluations": 0,
+      "price_observations": 134
+    },
+    "forecast_training_readiness": "NOT_READY — no persisted analysis snapshots or outcome evaluations in production Neon",
     "neon_write_policy": "APPROVAL_REQUIRED_FOR_SCHEMA_CHANGES"
   },
+  "architecture_wings": {
+    "live_wing": "collect -> validate -> calculate -> current deterministic state -> Telegram",
+    "analysis_wing": "scheduled analysis -> snapshots -> outcomes -> evidence -> interpretation -> features -> read model -> consumer -> dataset -> future prediction"
+  },
   "next_phase": {
-    "id": "PRE-SP-C.12",
-    "name": "Historical Feature Dataset and Leakage-Safe Labeling Layer",
+    "id": "PRE-SP-C.13",
+    "name": "Analysis Wing Operationalization + Telegram Analytical Commands + Scheduler/cron Integration",
     "status": "PLANNING",
-    "default_database_change": "INSPECTION_REQUIRED",
-    "c7_status": "FROZEN",
-    "c8_status": "COMPLETE",
-    "c9_status": "COMPLETE",
-    "c10_status": "COMPLETE",
-    "c11_status": "COMPLETE"
+    "default_database_change": false,
+    "goal": "Populate analysis_snapshots/outcome_evaluations on schedule and expose the existing analytical read contracts to Telegram without changing decision authority"
+  },
+  "future_forecast_gate": {
+    "target": "Three-state probabilistic direction forecast: UP / NEUTRAL / DOWN",
+    "status": "NOT_READY",
+    "minimum_gate": [
+      "sustained production analysis snapshots",
+      "sustained outcome_evaluations",
+      "walk-forward evaluation",
+      "leakage audit",
+      "calibration",
+      "abstention/insufficient-data behavior",
+      "documented baseline comparison",
+      "no direct BUY/SELL authority"
+    ]
   },
   "architecture_boundaries": {
     "facts": "raw market observations",
     "evidence": "validated analytical package",
     "interpretation": "structured explanation layer",
+    "features": "deterministic model-ready derived artifacts",
+    "read_model": "normalized downstream analytical contract",
     "decision": "current deterministic decision output",
-    "prediction": "future component only"
+    "prediction": "future probabilistic model output only"
   },
   "continuity_protocol": {
     "orchestration_flow": [
@@ -85,7 +106,6 @@
       ".project_state.json",
       "commit"
     ],
-    "orchestration_protocol_document": "PROJECT_ORCHESTRATION.md",
     "required_read_order": [
       ".project_state.json",
       "PROJECT_MEMORY.md",
@@ -100,17 +120,14 @@
       "targeted_tests",
       "regression",
       "KPI",
-      "database_state_review",
-      "documentation_update",
-      "state_file_update",
+      "schema/migration audit",
+      "Neon state review",
+      "documentation update",
+      "state file update",
       "commit"
     ],
-    "kpi_local_check_sequence": [
-      "git pull origin SP-B",
-      "python kpi\\kpi_pre_sp_cX.py for the target phase",
-      "run prior required KPI suites explicitly for regression"
-    ],
-    "kpi_fixture_rule": "KPI fixtures must mutate authoritative source inputs and let production logic derive metadata; do not hard-code or mutate derived fields that the implementation recomputes.",
+    "kpi_fixture_rule": "Seed authoritative source inputs; let production logic derive statuses and metadata; never test by mutating derived outputs the implementation recomputes.",
+    "contract_first_rule": "Define canonical field names and output shape before writing the KPI. Implementation and KPI must consume the same contract.",
     "state_file_must_remain_synchronized": true
   }
 }
