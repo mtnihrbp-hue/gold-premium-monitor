@@ -231,6 +231,8 @@ class AnalysisSnapshot(Base):
     intelligence_result_json = Column(JSON, nullable=True)
     # PRE-SP-C.8: analytical feature snapshot
     features_json = Column(JSON, nullable=True)
+    # PRE-SP-C.9: analytical read model
+    analysis_read_model_json = Column(JSON, nullable=True)
 
     
     created_at = Column(DateTime, server_default=func.now())
