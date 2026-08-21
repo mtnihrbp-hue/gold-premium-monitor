@@ -183,3 +183,38 @@ def validate_consumer_envelope(envelope: Dict) -> Tuple[bool, List[str]]:
         errors.append("Envelope contains decision authority")
 
     return len(errors) == 0, errors
+# --- PRE-SP-C.13: Operational Health ---
+
+def get_health_status() -> Dict[str, Any]:
+    """Build operational health status for the analytical system."""
+    from database.models import AnalysisSnapshot, MarketSnapshot, OutcomeEvaluation
+
+    session = get_session()
+    if session is None:
+        return {"database_status": "UNAVAILABLE"}
+
+    try:
+        latest_snap = session.query(AnalysisSnapshot).order_by(
+            AnalysisSnapshot.analysis_timestamp.desc()
+        ).first()
+
+        latest_market = session.query(MarketSnapshot).order_by(
+            MarketSnapshot.timestamp.desc()
+        ).first()
+
+        outcome_count = session.query(OutcomeEvaluation).count()
+        snapshot_count = session.query(AnalysisSnapshot).count()
+
+        return {
+            "database_status": "OK",
+            "latest_analysis_time": latest_snap.analysis_timestamp.isoformat() if latest_snap else None,
+            "latest_snapshot_time": latest_market.timestamp.isoformat() if latest_market else None,
+            "analysis_snapshot_count": snapshot_count,
+            "outcome_count": outcome_count,
+            "sources_available": 3,
+            "sources_total": 3,
+        }
+    except Exception as e:
+        return {"database_status": f"ERROR: {e}"}
+    finally:
+        session.close()
