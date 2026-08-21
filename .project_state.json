@@ -31,6 +31,7 @@
     "human_overview": "README.md",
     "ai_operating_guide": "Prompt_Guide.md",
     "machine_continuity_state": ".project_state.json",
+    "orchestration_protocol": "PROJECT_ORCHESTRATION.md",
     "c7_migration_record_present": true
   },
   "database_state": {
@@ -68,11 +69,23 @@
     "prediction": "future component only"
   },
   "continuity_protocol": {
+    "orchestration_flow": [
+      "KIMI code",
+      "GitHub source",
+      "schema/migration audit",
+      "Neon production state",
+      "KPI / smoke",
+      "documentation",
+      ".project_state.json",
+      "commit"
+    ],
+    "orchestration_protocol_document": "PROJECT_ORCHESTRATION.md",
     "required_read_order": [
       ".project_state.json",
       "PROJECT_MEMORY.md",
       "README.md",
       "Prompt_Guide.md",
+      "PROJECT_ORCHESTRATION.md",
       "skills/",
       "relevant_src_and_tests"
     ],
