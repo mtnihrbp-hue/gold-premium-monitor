@@ -1,10 +1,8 @@
 # Gold Premium Monitor — Operational Control Plane
 
-This document records the runtime control plane that sits around the application code.
+This document records the runtime control plane around the application. It is distinct from `PROJECT_MEMORY.md` (architecture/state), `PROJECT_ORCHESTRATION.md` (continuity), `C14_HANDOFF.md` (C.14 implementation contract), and `RESEARCH_ADOPTION.md` (research adoption/defer decisions).
 
-It is distinct from `PROJECT_MEMORY.md` (architecture/state) and `PROJECT_ORCHESTRATION.md` (project continuity).
-
-## 1. Two wings
+## 1. Two frontend wings
 
 ### Live Wing
 
@@ -45,47 +43,48 @@ evidence / interpretation / features
    ↓
 read model / consumer
    ↓
-future dataset / forecast
+historical dataset
+   ↓
+C.14A candles
+   ↓
+C.14B forecast
 ```
 
-The Analysis Wing is scheduled and must be independent of the number of Telegram users.
+The Analysis Wing is scheduled and independent of the number of Telegram users.
+
+Human forecast review is collected inside the Analysis Wing Telegram experience. It is not a third frontend wing.
 
 ## 2. External scheduler policy
 
 The intended scheduler is `cron-job.org`, not GitHub's internal `schedule` event.
-
-User-provided cron-job.org job reference:
 
 ```text
 https://console.cron-job.org/jobs/8179679
 Job ID: 8179679
 ```
 
-The external scheduler exists so schedule control is outside GitHub Actions and can be inspected and manually operated independently.
+The external scheduler exists so schedule control is outside GitHub Actions and can be inspected/manually operated independently.
 
-GitHub Actions should retain a manual trigger for testing, but the production Analysis Wing schedule should not depend on GitHub's own `schedule` trigger once the external scheduler is operational.
+GitHub Actions should retain a manual trigger for testing. The production Analysis Wing schedule should stop depending on GitHub's internal schedule only after the external trigger is verified end-to-end.
 
-GitHub currently still contains an internal daily schedule in `.github/workflows/gold-monitor.yml`:
+Current legacy internal GitHub schedule:
 
 ```text
 30 14 * * * UTC
 ```
 
-This is NOT the final Analysis Wing scheduling policy. It is legacy/current infrastructure that must be removed or disabled after the external trigger has been verified.
+This is not the final production scheduling policy.
 
-## 3. Intended analysis cadence
-
-Current project scheduler contract:
+## 3. Intended Analysis cadence
 
 ```text
 Timezone: Asia/Tehran
 Start: 08:00
 End: 21:00 exclusive
 Interval: 30 minutes
-Active days: configurable
 ```
 
-Therefore the intended operational cadence is:
+Expected windows:
 
 ```text
 08:00
@@ -95,63 +94,45 @@ Therefore the intended operational cadence is:
 20:30
 ```
 
-The external cron may use a simpler wall-clock cadence, but the application scheduler remains authoritative for deciding whether an analysis window is valid.
+The application scheduler remains authoritative for whether an analysis window is valid.
 
-Do not silently change the cadence to 60 minutes without updating the project contract.
-
-## 4. Analysis run guardrails
-
-The scheduler/execution layer must enforce:
+## 4. Analysis guardrails
 
 ```text
-analysis run is scheduled
-analysis run is idempotent
-source_run_id is deterministic
-duplicate trigger does not create duplicate analysis state
-manual /Update does not create a scheduled analysis run
+scheduled run
+→ deterministic source_run_id
+→ idempotent execution
+→ duplicate trigger protection
+→ analysis snapshot
 ```
 
-C.13 verified these properties through the KPI and live smoke path.
-
-The live Analysis Wing smoke on SP-B successfully created an analysis snapshot and delivered Telegram output.
-
-The C.13 KPI result was:
-
-```text
-26/26 PASS
-```
+Manual `/Update` remains independent from scheduled Analysis runs.
 
 ### World-gold / XAUUSD calendar guardrail
 
-The historical project discussion included a source-calendar guardrail for days when the world-gold source/market is closed.
-
-The remembered historical wording was:
+The historical discussion included the remembered wording:
 
 ```text
 skip world-gold call on Saturday and Monday
 ```
 
-This remains **UNVERIFIED** because standard global gold market calendars do not support treating Monday as a normal weekly closure. No code should implement the Saturday/Monday rule until the actual source calendar and intended exception are verified.
+This remains UNVERIFIED and must not be encoded as a production rule until the actual source calendar is confirmed.
 
-What is safe to implement generically:
+Safe generic rule:
 
 ```text
 source unavailable / market closed
     ↓
 do not fabricate XAUUSD
     ↓
-persist source/data-quality state
+persist data-quality state
     ↓
-allow other independent analyses to continue when valid
+allow independent valid sources to continue
 ```
-
-Any source-specific closure calendar must be documented next to the collector/guardrail that owns it.
 
 ## 5. Cloudflare role
 
-Cloudflare is an interconnection/control layer, not the analytical engine.
-
-Intended responsibilities:
+Cloudflare is an interconnection/control layer, not an analytical engine.
 
 ```text
 Telegram request
@@ -163,61 +144,32 @@ validated command or trigger
 GitHub execution endpoint
 ```
 
-and, for scheduled analysis if retained as the protected intermediary:
+Potential scheduled path:
 
 ```text
 cron-job.org
     ↓
 Cloudflare Worker
     ↓
-GitHub Actions workflow dispatch
+GitHub Actions
     ↓
 Analysis Wing
 ```
 
 Cloudflare must not calculate gold price, premium, regime, features, or forecast.
 
-## 6. GitHub Actions trigger contract
-
-The GitHub workflow must expose an external/manual trigger path that can receive an explicit execution mode.
-
-Preferred conceptual modes:
-
-```text
-analysis_scheduled
-live_update
-telegram_command
-```
-
-The external trigger must select a ref explicitly (`SP-B` while SP-B is active) and must not rely on an implicit default branch.
-
-## 7. cron-job.org security boundary
-
-The cron-job.org job must never contain a long-lived repository credential in a public URL.
-
-A protected intermediary (Cloudflare Worker or equivalent secure endpoint) should hold the GitHub credential and make the GitHub API request.
-
-Credentials must never be copied into repository files.
-
-## 8. Current Cloudflare connection status
-
-Cloudflare engineering skills are available in the project workspace, but the Cloudflare application connection is not currently installed/connected in this ChatGPT session.
-
-Therefore:
+Current status:
 
 ```text
 Cloudflare architecture = documented
-Cloudflare live control = NOT YET CONNECTED
+Cloudflare live control = NOT YET CONNECTED IN THIS CHAT
 ```
 
-Do not claim Cloudflare deployment or secret access until the actual Cloudflare connection is available.
+## 6. Telegram analytical surface
 
-## 9. Telegram command roadmap
-
-C.13 established the analytical command contract:
+C.13 established these analytical commands:
 
 ```text
-/Update
 /Analysis
 /Technical
 /History
@@ -225,20 +177,127 @@ C.13 established the analytical command contract:
 /Health
 ```
 
-The live smoke verified Telegram delivery from the integrated execution path.
-
-Potential future:
+The broader two-wing user workflow is:
 
 ```text
-/Radar
+/Update
+→ live market state
+
+/Analyze
+→ evidence / interpretation / market structure / technical context
+
 /Forecast
+→ probabilistic directional forecast when enabled
 ```
 
-`/Forecast` must remain disabled until the empirical forecast-readiness gate is satisfied.
+`/Forecast` remains gated until forecast-readiness criteria are satisfied.
 
-## 10. Forecast readiness gate
+## 7. Forecast review and human feedback
 
-A forecast engine may target:
+The user should not fill a questionnaire.
+
+After a forecast matures, a later `/Forecast` request may surface a compact review of the previous forecast.
+
+Conceptual lifecycle:
+
+```text
+GENERATED
+→ PENDING
+→ ELIGIBLE_FOR_REVIEW
+→ OBJECTIVELY_EVALUATED
+→ USER_REVIEWED (optional)
+```
+
+The system first computes objective outcome quality from actual observations.
+
+Human review is separate meta-data measuring perceived usefulness/timing/direction quality.
+
+Human feedback must not directly update model weights or replace objective labels.
+
+Example review:
+
+```text
+Previous forecast review
+[ Very useful ]
+[ Mostly useful ]
+[ Direction right, timing wrong ]
+[ Direction wrong ]
+[ Hard to judge ]
+```
+
+Optional reason layer:
+
+```text
+[ Timing ] [ USD/IRR ] [ World Gold ] [ Local Market ]
+[ Premium ] [ Price Action ] [ News ] [ Hard to judge ]
+```
+
+Keep forecast timestamp, market outcome timestamp, and user feedback timestamp separate.
+
+## 8. Fail-safe data policy
+
+Global rule:
+
+```text
+MISSING
+ ↓
+safe deterministic fallback?
+ ├─ YES → fallback + degraded provenance
+ └─ NO  → INSUFFICIENT_DATA / ABSTAIN
+```
+
+Never silently extrapolate absent market facts.
+
+This applies to prices, candles, features, outcomes, and forecast inputs.
+
+## 9. C.14 operational scope
+
+C.14 is split:
+
+```text
+PRE-SP-C.14A
+Candle & Market-Structure Data Infrastructure
+
+PRE-SP-C.14B
+Forecast Features, Baselines, Evaluation & Forecast Engine
+```
+
+C.14A is allowed/expected to change Neon because canonical platform candles require persistent storage.
+
+C.14B consumes C.14A infrastructure and must remain prediction-only, with no direct BUY/WAIT/SELL authority.
+
+## 10. Candle semantics
+
+Initial canonical timeframe:
+
+```text
+30m
+```
+
+For derived candles from point observations:
+
+```text
+OPEN  = first valid observation
+HIGH  = maximum valid observation
+LOW   = minimum valid observation
+CLOSE = last valid observation
+```
+
+No interpolation, no forward-fill, no future observations.
+
+For sources with explicit BUY/SELL quotes, preserve separate sides.
+
+Goldika exposes explicit buy/sell quotes.
+
+Ayyareh exposes `goldPrice` plus platform margin/wage fields. The existing collector contract is authoritative for how side estimates are derived; raw values and derived side values remain separate.
+
+C.14A should backfill existing `price_observations` where coverage is sufficient, then continue forward.
+
+Unless a platform explicitly supplies official OHLC, the provenance must identify candles as derived from point observations.
+
+## 11. Forecast readiness gate
+
+Forecast target:
 
 ```text
 UP
@@ -246,9 +305,22 @@ NEUTRAL
 DOWN
 ```
 
-but it must not be deployed merely because feature infrastructure exists.
+C.5 mapping:
 
-Minimum evidence gate:
+```text
+UP → UP
+FLAT → NEUTRAL
+DOWN → DOWN
+INSUFFICIENT_DATA → INSUFFICIENT_DATA
+```
+
+Also allow:
+
+```text
+ABSTAIN
+```
+
+Minimum production-readiness evidence:
 
 ```text
 sustained analysis snapshots
@@ -268,29 +340,13 @@ abstention / insufficient-data behavior
 no direct BUY/SELL authority
 ```
 
-C.13 has now started the production Analysis Wing history required for that gate. The forecast engine remains **NOT READY FOR DEPLOYMENT**.
-
-## 11. C.13 Neon reconciliation
-
-C.13 live smoke exposed two production-schema mismatches. They were reconciled through an incremental migration validated on a temporary Neon branch before production application.
-
-Production now includes:
+Current forecast status:
 
 ```text
-news_events
-idx_news_events_dedup_key
-expanded outcome direction fields sufficient for INSUFFICIENT_DATA
+NOT READY FOR DEPLOYMENT
 ```
 
-No destructive replacement migration was used.
-
-The migration is recorded in:
-
-```text
-sql/neon_migration_c13.sql
-```
-
-## 12. Current operational completion state
+## 12. C.13 completion state
 
 ```text
 PRE-SP-C.13
@@ -302,11 +358,11 @@ Telegram delivery: PASS
 Neon C.13 reconciliation: COMPLETE
 ```
 
-A non-blocking Daric timeout was observed during live smoke. Ten other gold sources remained valid, so the collection/validation path continued normally.
+The C.13 smoke observed a Daric timeout; 10 other gold sources remained valid and the run continued normally.
 
 ## 13. Operational truth rule
 
-For a new conversation, reconcile these in order:
+For a new conversation:
 
 ```text
 cron-job.org current configuration
@@ -317,9 +373,9 @@ GitHub Actions workflow trigger state
 ↓
 SP-B source code
 ↓
-Neon production row counts
+Neon production row counts/schema
 ↓
 Telegram command behavior
 ```
 
-The repository must document the resulting state after every operational change.
+Document every resulting operational state change.
