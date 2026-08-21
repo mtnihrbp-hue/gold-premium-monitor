@@ -1,6 +1,6 @@
 # Gold Premium Monitor — Project Orchestration Protocol
 
-This document defines the project-continuity and cross-system orchestration workflow. It complements `PROJECT_MEMORY.md`, `.project_state.json`, `PROJECT_OPERATIONS.md`, `C14_HANDOFF.md`, and `RESEARCH_ADOPTION.md` and prevents state loss between conversations, AI developers, GitHub, Neon, scheduling, and Cloudflare.
+This document defines the project-continuity and cross-system orchestration workflow. It complements `PROJECT_MEMORY.md`, `.project_state.json`, `PROJECT_OPERATIONS.md`, `C14_HANDOFF.md`, `C14_FEEDBACK_AND_TERMINOLOGY.md`, and `RESEARCH_ADOPTION.md` and prevents state loss between conversations, AI developers, GitHub, Neon, scheduling, and Cloudflare.
 
 ## Canonical project orchestration loop
 
@@ -115,6 +115,7 @@ The repeated C.10–C.13 KPI issues led to this rule being treated as a permanen
 → PROJECT_ORCHESTRATION.md
 → PROJECT_OPERATIONS.md
 → C14_HANDOFF.md when C.14 is active
+→ C14_FEEDBACK_AND_TERMINOLOGY.md when C.14 feedback/terminology is relevant
 → RESEARCH_ADOPTION.md when research context is relevant
 → skills/
 → relevant source / tests / KPI / SQL
@@ -150,11 +151,20 @@ Candle & Market-Structure Data Infrastructure
 
 PRE-SP-C.14B
 Forecast Features, Baselines, Evaluation & Forecast Engine
+
+        ↓
+
+PRE-SP-C.14C
+Forecast Resolution, Human Review & Closed-Loop Audit
 ```
 
-C.14A establishes trustworthy persistent candle infrastructure. C.14B evaluates predictive value using that infrastructure.
+C.14A establishes trustworthy persistent candle infrastructure.
 
-C.14 is not a single monolithic implementation unit.
+C.14B evaluates predictive value using that infrastructure.
+
+C.14C closes the forecast lifecycle through objective resolution, optional human review, calibration/audit, and weekly engineering reporting.
+
+C.14C is not uncontrolled online learning.
 
 ## C.14 contracts
 
@@ -183,8 +193,6 @@ No interpolation. No forward-fill. No future observations.
 
 Platforms with explicit buy/sell semantics preserve separate sides.
 
-Goldika provides explicit buy/sell quotes. Ayyareh raw `goldPrice` and margin/wage fields must be interpreted from the existing collector contract before deriving side prices; raw and derived values remain separate.
-
 ### Forecast layer
 
 C.5 is authoritative for labels:
@@ -204,6 +212,32 @@ ABSTAIN
 
 Prediction never becomes direct BUY/WAIT/SELL authority.
 
+### Closed-loop feedback layer
+
+Forecasts become auditable lifecycle objects:
+
+```text
+GENERATED
+→ PENDING
+→ ELIGIBLE_FOR_REVIEW
+→ OBJECTIVELY_EVALUATED
+→ USER_REVIEWED (optional)
+```
+
+Three clocks are preserved:
+
+```text
+forecast_time
+market_outcome_time
+feedback_time
+```
+
+Objective outcome and human assessment remain separate datasets.
+
+Human feedback is metadata/evidence first. It must not directly replace labels or update production model weights.
+
+See `C14_FEEDBACK_AND_TERMINOLOGY.md` for the detailed feedback and terminology contract.
+
 ## C.14 fail-safe principle
 
 ```text
@@ -216,41 +250,32 @@ safe deterministic fallback?
 
 Never silently extrapolate absent market data into apparently real facts.
 
-## Human feedback contract
+## User-facing terminology principle
 
-The system objectively evaluates forecasts first. Human feedback is a separate meta-data stream.
-
-Forecast lifecycle:
+Avoid opaque internal terms such as:
 
 ```text
-GENERATED
-→ PENDING
-→ ELIGIBLE_FOR_REVIEW
-→ OBJECTIVELY_EVALUATED
-→ USER_REVIEWED (optional)
+DISCOUNT WIDENING
+DISCOUNT NARROWING
 ```
 
-System time, market/outcome time, and user feedback time remain separate.
-
-Human feedback may support model audit and future controlled research, but it must not directly modify production model weights or labels.
-
-Recommended progressive Telegram review:
+Use observable relative-movement language for users, for example:
 
 ```text
-Previous forecast review
-[ Very useful ]
-[ Mostly useful ]
-[ Direction right, timing wrong ]
-[ Direction wrong ]
-[ Hard to judge ]
+Iranian gold is increasing more slowly than its external drivers.
+Iranian gold is catching up faster than its external drivers.
 ```
 
-Optional reason layer:
+Internal quantitative work may use:
 
 ```text
-[ Timing ] [ USD/IRR ] [ World Gold ] [ Local Market ]
-[ Premium ] [ Price Action ] [ News ] [ Hard to judge ]
+price level
+rate of change
+relative rate of change
+acceleration
 ```
+
+No causal explanation is asserted unless the evidence establishes it.
 
 ## Research boundaries
 
