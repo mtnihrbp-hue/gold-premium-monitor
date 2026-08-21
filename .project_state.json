@@ -2,7 +2,7 @@
   "schema_version": "1",
   "project": "Gold Premium Monitor",
   "active_branch": "SP-B",
-  "current_phase": "PRE-SP-C.10",
+  "current_phase": "PRE-SP-C.11",
   "current_phase_status": "COMPLETE",
   "completed_phases": [
     "SP-B.1",
@@ -16,11 +16,12 @@
     "PRE-SP-C.7",
     "PRE-SP-C.8",
     "PRE-SP-C.9",
-    "PRE-SP-C.10"
+    "PRE-SP-C.10",
+    "PRE-SP-C.11"
   ],
   "latest_verified_kpi": {
-    "phase": "PRE-SP-C.10",
-    "passed": 22,
+    "phase": "PRE-SP-C.11",
+    "passed": 25,
     "failed": 0,
     "status": "PASS",
     "evidence_source": "user-supplied local execution result"
@@ -56,14 +57,15 @@
     "neon_write_policy": "APPROVAL_REQUIRED_FOR_SCHEMA_CHANGES"
   },
   "next_phase": {
-    "id": "PRE-SP-C.11",
-    "name": "Analytical Consumer Interface / Read-Model API",
+    "id": "PRE-SP-C.12",
+    "name": "Historical Feature Dataset and Leakage-Safe Labeling Layer",
     "status": "PLANNING",
-    "default_database_change": false,
+    "default_database_change": "INSPECTION_REQUIRED",
     "c7_status": "FROZEN",
     "c8_status": "COMPLETE",
     "c9_status": "COMPLETE",
-    "c10_status": "COMPLETE"
+    "c10_status": "COMPLETE",
+    "c11_status": "COMPLETE"
   },
   "architecture_boundaries": {
     "facts": "raw market observations",
@@ -108,6 +110,7 @@
       "python kpi\\kpi_pre_sp_cX.py for the target phase",
       "run prior required KPI suites explicitly for regression"
     ],
+    "kpi_fixture_rule": "KPI fixtures must mutate authoritative source inputs and let production logic derive metadata; do not hard-code or mutate derived fields that the implementation recomputes.",
     "state_file_must_remain_synchronized": true
   }
 }
