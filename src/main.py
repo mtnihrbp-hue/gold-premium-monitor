@@ -6,6 +6,7 @@ from dataclasses import replace
 from collector.kitco import get_world_gold_price
 from collector.bonbast import get_usd_sell_rate
 from collector.iran import get_market_prices
+from analysis.snapshot_builder import build_analysis_snapshot
 
 from caluclator.gold import (
     calculate_fair_price,
@@ -417,6 +418,16 @@ def main():
             print("DB: Market state saved")
         except Exception as e:
             print(f"DB ERROR (market state): {e}")
+
+    # PRE-SP-C.13: Trigger Analysis Wing pipeline
+    if snapshot_id is not None:
+        try:
+            analysis_snapshot_id = build_analysis_snapshot(config=config)
+            if analysis_snapshot_id:
+                print(f"\nDB: Analysis snapshot {analysis_snapshot_id} created")
+        except Exception as e:
+            print(f"\nDB ERROR (analysis snapshot): {e}")
+
 
     # Alerts are driven only by the deterministic final decision.
     should_send_alert = (
