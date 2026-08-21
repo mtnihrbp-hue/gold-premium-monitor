@@ -1,8 +1,8 @@
 # Gold Premium Monitor — Project Orchestration Protocol
 
-This document defines the project-continuity and cross-system orchestration workflow. It complements `PROJECT_MEMORY.md` and `.project_state.json` and is intended to prevent state loss when work moves between conversations, AI developers, GitHub, and Neon.
+This document defines the project-continuity and cross-system orchestration workflow. It complements `PROJECT_MEMORY.md`, `.project_state.json`, and `PROJECT_OPERATIONS.md` and is intended to prevent state loss when work moves between conversations, AI developers, GitHub, Neon, external scheduling, and Cloudflare.
 
-## Canonical orchestration loop
+## Canonical project orchestration loop
 
 ```text
 KIMI code
@@ -22,13 +22,33 @@ documentation
 commit
 ```
 
-This sequence is mandatory for every implementation phase, including phases with no database change. A schema audit must explicitly establish that no migration is required when none is needed.
+This sequence is mandatory for every implementation phase, including phases with no database change.
+
+## Runtime control-plane loop
+
+The project also has a separate operational chain:
+
+```text
+cron-job.org / Telegram
+        ↓
+Cloudflare secure interconnection
+        ↓
+GitHub Actions
+        ↓
+SP-B execution
+        ↓
+Analysis Wing or Live Wing
+        ↓
+Neon / Telegram
+```
+
+`PROJECT_OPERATIONS.md` is the operational authority for this control plane.
 
 ## Responsibility
 
-The orchestration layer verifies that implementation, repository state, database state, executable evidence, and documentation describe the same project state.
+The orchestration layer verifies that implementation, repository state, database state, executable evidence, documentation, and external runtime state describe the same project state.
 
-KIMI is the implementation agent. GitHub is the source-of-truth repository. Neon is the live persistence system. `PROJECT_MEMORY.md` is the canonical project architecture/state document. `.project_state.json` is the machine-readable continuity ledger.
+KIMI is the implementation agent. GitHub is the source-of-truth repository. Neon is the live persistence system. `PROJECT_MEMORY.md` is the canonical project architecture/state document. `.project_state.json` is the machine-readable continuity ledger. `PROJECT_OPERATIONS.md` records runtime scheduling and external-control details.
 
 ## Phase completion rule
 
@@ -43,7 +63,8 @@ implementation
 → KPI
 → schema/migration audit
 → Neon production state
-→ documentation
+→ runtime/operational state when relevant
+documentation
 → .project_state.json
 → commit
 ```
@@ -59,7 +80,7 @@ git pull origin SP-B
 Then run the target KPI explicitly:
 
 ```cmd
-python kpi\kpi_pre_sp_c11.py
+python kpi\kpi_pre_sp_cX.py
 ```
 
 For regression, run the previously required KPI suites explicitly rather than relying on a Windows shell wildcard.
@@ -72,16 +93,17 @@ KPI suites are executable specifications, not decorative pass/fail wrappers.
 
 Before writing a KPI:
 
-1. Inspect the production implementation and identify the true source of each expected value.
-2. Seed fixtures through the same structural contracts the production code consumes.
-3. Mutate authoritative source inputs when testing state transitions.
-4. Let production code derive computed metadata such as completeness, status, labels, or classifications.
-5. Never mutate a derived metadata field in the fixture and expect production code to trust it when production code recomputes that field.
-6. Use deep copies when mutating nested JSON structures so tests cannot accidentally mutate shared fixture state.
-7. A KPI failure caused by a fixture that contradicts production semantics is a KPI defect first, not automatically a product defect.
-8. Do not weaken production logic merely to satisfy an incorrectly constructed KPI.
+1. Inspect the production implementation and identify the true authoritative source of each expected value.
+2. Define the canonical contract and field names before writing fixtures.
+3. Seed fixtures through the same structural contracts the production code consumes.
+4. Mutate authoritative source inputs when testing state transitions.
+5. Let production code derive computed metadata such as completeness, status, labels, or classifications.
+6. Never mutate a derived metadata field in the fixture and expect production code to trust it when production code recomputes that field.
+7. Use deep copies when mutating nested JSON structures.
+8. A KPI failure caused by a fixture that contradicts production semantics is a KPI defect first, not automatically a product defect.
+9. Do not weaken production logic merely to satisfy an incorrectly constructed KPI.
 
-The C.10 and C.11 KPI failures exposed this exact pattern. C.10/C.11 now serve as the reference standard: tests must manipulate authoritative analytical inputs and assert the classifier/interface's actual derived result.
+C.10, C.11, and C.12 are the reference examples for this rule.
 
 ## New-conversation onboarding
 
@@ -93,11 +115,12 @@ A new AI session must read, in order:
 → README.md
 → Prompt_Guide.md
 → PROJECT_ORCHESTRATION.md
+→ PROJECT_OPERATIONS.md
 → skills/
 → relevant source / tests / KPI / SQL
 ```
 
-Conversation history is context, not project proof. Repository files, executable verification, and live database inspection establish current truth.
+Conversation history is context, not project proof. Repository files, executable verification, live database inspection, and operational-system inspection establish current truth.
 
 ## Database discipline
 
@@ -119,27 +142,29 @@ Never use the complete target schema as a destructive replacement for an existin
 
 ## Handoff discipline
 
-Every implementation handoff to KIMI must state:
+Every implementation handoff to KIMI must state only the information needed to execute the current phase:
 
 ```text
-CURRENT VERIFIED STATE
-ARCHITECTURAL CONTRACT
-EXACT CHANGE SURFACE
-DATABASE CONTRACT
+CURRENT STATE
+CURRENT CONTRACT
+CHANGE SURFACE
+DATABASE IMPACT
 KPI CONTRACT
 REGRESSION REQUIREMENTS
 NON-GOALS
 ACCEPTANCE CRITERIA
 ```
 
-For KPI sections specifically, KIMI must also state:
+Avoid generic architecture repetition when the canonical documents already contain it.
+
+For KPI sections specifically:
 
 ```text
 AUTHORITATIVE SOURCE INPUTS
+CANONICAL FIELD NAMES
 DERIVED FIELDS
 FIXTURE CONSTRUCTION RULES
 EXPECTED FAILURE MODES
-NO-METADATA-HARDCODING RULE
 ```
 
 KIMI completion evidence must identify:
@@ -149,6 +174,7 @@ FILES CHANGED
 TESTS
 KPI
 DATABASE IMPACT
+RUNTIME IMPACT
 COMMIT
 DOCUMENTATION STATE
 REMAINING ISSUES
@@ -156,11 +182,13 @@ REMAINING ISSUES
 
 ## State synchronization rule
 
-When a phase changes status, update both:
+When a phase or runtime component changes status, update:
 
 ```text
 PROJECT_MEMORY.md
 .project_state.json
+PROJECT_ORCHESTRATION.md
+PROJECT_OPERATIONS.md when operational state changes
 ```
 
 Update `README.md` when the human-facing architecture or current development position changes.
@@ -177,18 +205,24 @@ DATABASE CHANGE: NONE
 PRE-SP-C.11 COMPLETE
 KPI: 25/25 PASS
 DATABASE CHANGE: NONE
+
+PRE-SP-C.12 COMPLETE
+KPI: 30/30 PASS
+DATABASE CHANGE: NONE
 ```
 
 C.10 establishes deterministic analytical read-model retrieval, completeness classification, historical reconstruction, provenance preservation, decision preservation, and no-current-data / no-future-data leakage.
 
 C.11 establishes a stable consumer envelope over C.10 for downstream Telegram/API/dashboard consumers without creating another calculation or decision layer.
 
+C.12 establishes a deterministic historical feature dataset and leakage-safe labeling contract for future model training.
+
 ## Next planned phase
 
 ```text
-PRE-SP-C.12 — Historical Feature Dataset and Leakage-Safe Labeling Layer
+PRE-SP-C.13 — Analysis Wing Operationalization + Telegram Analytical Commands + Scheduler/cron Integration
 ```
 
-The purpose of C.12 is to create a deterministic, historical, model-ready dataset contract from persisted C.8 features plus retrospectively available C.5 outcomes, with strict point-in-time and label-horizon discipline.
+C.13 must operationalize the existing Analysis Wing, establish the external scheduler control plane, expose analytical Telegram commands, and preserve Live Wing isolation.
 
-C.12 is still feature/dataset infrastructure. It does not train a prediction model.
+C.13 must not implement forecasting.
