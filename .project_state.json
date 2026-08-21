@@ -33,7 +33,8 @@
     "human_overview": "README.md",
     "ai_operating_guide": "Prompt_Guide.md",
     "machine_continuity_state": ".project_state.json",
-    "orchestration_protocol": "PROJECT_ORCHESTRATION.md"
+    "orchestration_protocol": "PROJECT_ORCHESTRATION.md",
+    "operations_protocol": "PROJECT_OPERATIONS.md"
   },
   "database_state": {
     "known_last_schema_phase": "PRE-SP-C.9",
@@ -61,6 +62,16 @@
     "forecast_training_readiness": "NOT_READY — no persisted analysis snapshots or outcome evaluations in production Neon",
     "neon_write_policy": "APPROVAL_REQUIRED_FOR_SCHEMA_CHANGES"
   },
+  "runtime_control_plane": {
+    "analysis_wing": "cron-job.org -> protected external trigger -> GitHub Actions -> Analysis Wing -> Neon",
+    "live_wing": "Telegram /Update -> Cloudflare interconnection -> GitHub execution path -> Live Wing",
+    "cron_job_org_job_id": "8179679",
+    "github_internal_schedule_status": "LEGACY CURRENTLY ENABLED",
+    "github_internal_schedule": "30 14 * * * UTC",
+    "target_production_scheduler": "cron-job.org external scheduler",
+    "cloudflare_connection_status": "NOT_CONNECTED_IN_CURRENT_CHAT",
+    "operations_protocol": "PROJECT_OPERATIONS.md"
+  },
   "architecture_wings": {
     "live_wing": "collect -> validate -> calculate -> current deterministic state -> Telegram",
     "analysis_wing": "scheduled analysis -> snapshots -> outcomes -> evidence -> interpretation -> features -> read model -> consumer -> dataset -> future prediction"
@@ -70,7 +81,7 @@
     "name": "Analysis Wing Operationalization + Telegram Analytical Commands + Scheduler/cron Integration",
     "status": "PLANNING",
     "default_database_change": false,
-    "goal": "Populate analysis_snapshots/outcome_evaluations on schedule and expose the existing analytical read contracts to Telegram without changing decision authority"
+    "goal": "Operationalize the external scheduler and Analysis Wing, add analytical Telegram commands, remove dependence on GitHub internal schedule after verification, and preserve Live Wing isolation"
   },
   "future_forecast_gate": {
     "target": "Three-state probabilistic direction forecast: UP / NEUTRAL / DOWN",
@@ -112,6 +123,7 @@
       "README.md",
       "Prompt_Guide.md",
       "PROJECT_ORCHESTRATION.md",
+      "PROJECT_OPERATIONS.md",
       "skills/",
       "relevant_src_and_tests"
     ],
@@ -122,6 +134,7 @@
       "KPI",
       "schema/migration audit",
       "Neon state review",
+      "runtime state review when relevant",
       "documentation update",
       "state file update",
       "commit"
