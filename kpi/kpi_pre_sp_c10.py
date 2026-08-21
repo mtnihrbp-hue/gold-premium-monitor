@@ -8,6 +8,7 @@ Run from repository root:
 import sys
 sys.path.insert(0, "src")
 
+import copy
 import os
 import unittest
 from datetime import datetime, timedelta
@@ -92,7 +93,8 @@ class KPIPreSPC10(unittest.TestCase):
         self.market_state_id = save_market_state(ms)
         self.now = now
 
-        # Snapshot with full C.6-C.9 layers
+        # Snapshot with full C.6-C.9 layers.
+        # Historical/outcome evidence is AVAILABLE here so this fixture is truly COMPLETE.
         self.snapshot_id = save_analysis_snapshot(
             analysis_timestamp=now,
             source_run_id="c10_test_001",
@@ -117,8 +119,8 @@ class KPIPreSPC10(unittest.TestCase):
                 "representative_gold": {"status": "AVAILABLE", "price": 190000000.0, "source": "milli"},
                 "platform_structure": {"status": "AVAILABLE"},
                 "news_context": {"status": "AVAILABLE", "recent_event_count": 0},
-                "historical_context": {"status": "INSUFFICIENT_DATA"},
-                "outcome_context": {"status": "INSUFFICIENT_DATA"},
+                "historical_context": {"status": "AVAILABLE"},
+                "outcome_context": {"status": "AVAILABLE"},
                 "data_quality": {"overall": "AVAILABLE", "missing": [], "stale": []},
                 "provenance": {"source_run_id": "c10_test_001", "analysis_timestamp": now.isoformat()},
             },
@@ -133,8 +135,8 @@ class KPIPreSPC10(unittest.TestCase):
                 "technical_interpretation": {"fact": "OK", "interpretation": "Stable", "uncertainty": "None"},
                 "regime_interpretation": {"fact": "NORMAL", "interpretation": "Normal regime", "uncertainty": "None"},
                 "news_interpretation": {"fact": "None", "interpretation": "No news", "uncertainty": "None"},
-                "historical_context": {"fact": "None", "interpretation": "No history", "uncertainty": "None"},
-                "outcome_context": {"fact": "None", "interpretation": "No outcomes", "uncertainty": "None"},
+                "historical_context": {"fact": "History available", "interpretation": "Historical context available", "uncertainty": "None"},
+                "outcome_context": {"fact": "Outcome available", "interpretation": "Outcome context available", "uncertainty": "None"},
                 "aligned_evidence": [],
                 "conflicting_evidence": [],
                 "missing_evidence": [],
@@ -165,8 +167,8 @@ class KPIPreSPC10(unittest.TestCase):
                     "technical_status": "AVAILABLE", "regime_status": "AVAILABLE",
                     "xau_usd_status": "AVAILABLE", "usd_irr_status": "AVAILABLE",
                     "representative_gold_status": "AVAILABLE", "platform_structure_status": "AVAILABLE",
-                    "news_status": "AVAILABLE", "historical_status": "INSUFFICIENT_DATA",
-                    "outcome_status": "INSUFFICIENT_DATA", "data_quality_overall": "AVAILABLE",
+                    "news_status": "AVAILABLE", "historical_status": "AVAILABLE",
+                    "outcome_status": "AVAILABLE", "data_quality_overall": "AVAILABLE",
                 },
                 "interpretation_summary": {
                     "market_context_summary": "Test summary", "key_drivers": [], "risks": [], "conflicts": [],
@@ -179,7 +181,7 @@ class KPIPreSPC10(unittest.TestCase):
                     "sufficient_history": True,
                 },
                 "uncertainty": {"conflicts": [], "missing_evidence": [], "missing_features": [], "data_gaps": [], "uncertainties": []},
-                "outcome_history": {"status": "INSUFFICIENT_DATA", "recent_evaluated_snapshots": 0, "latest_outcomes": []},
+                "outcome_history": {"status": "AVAILABLE", "recent_evaluated_snapshots": 1, "latest_outcomes": [{"horizon_hours": 1, "outcome_status": "COMPLETE"}]},
                 "decision": {"candidate_decision": "BUY", "final_decision": "WAIT", "source": "existing_decision_engine", "note": "Read-only"},
             },
         )
@@ -226,9 +228,9 @@ class KPIPreSPC10(unittest.TestCase):
 
     # --- KPI-5: degraded snapshot ---
     def test_05_degraded(self):
-        # Modify evidence to create degraded state
+        # Modify evidence to create degraded state.
         snap = self.session.query(AnalysisSnapshot).filter_by(id=self.snapshot_id).first()
-        rm_data = dict(snap.analysis_read_model_json)
+        rm_data = copy.deepcopy(snap.analysis_read_model_json)
         rm_data["evidence_summary"]["historical_status"] = "INSUFFICIENT_DATA"
         rm_data["evidence_summary"]["outcome_status"] = "INSUFFICIENT_DATA"
         snap.analysis_read_model_json = rm_data
@@ -239,7 +241,7 @@ class KPIPreSPC10(unittest.TestCase):
     # --- KPI-6: insufficient-data snapshot ---
     def test_06_insufficient_data(self):
         snap = self.session.query(AnalysisSnapshot).filter_by(id=self.snapshot_id).first()
-        rm_data = dict(snap.analysis_read_model_json)
+        rm_data = copy.deepcopy(snap.analysis_read_model_json)
         rm_data["interpretation_summary"]["market_context_summary"] = "UNKNOWN"
         rm_data["decision"]["final_decision"] = "UNKNOWN"
         rm_data["facts"]["valuation_state"] = "UNKNOWN"
