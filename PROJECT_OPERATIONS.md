@@ -71,7 +71,7 @@ GitHub currently still contains an internal daily schedule in `.github/workflows
 30 14 * * * UTC
 ```
 
-This is NOT the final Analysis Wing scheduling policy. It is legacy/current infrastructure that must be removed or disabled as part of the C.13 operationalization work after the external trigger has been verified.
+This is NOT the final Analysis Wing scheduling policy. It is legacy/current infrastructure that must be removed or disabled after the external trigger has been verified.
 
 ## 3. Intended analysis cadence
 
@@ -111,19 +111,27 @@ duplicate trigger does not create duplicate analysis state
 manual /Update does not create a scheduled analysis run
 ```
 
-The analysis runner must also distinguish source-specific market-calendar behavior from the generic 30-minute schedule.
+C.13 verified these properties through the KPI and live smoke path.
+
+The live Analysis Wing smoke on SP-B successfully created an analysis snapshot and delivered Telegram output.
+
+The C.13 KPI result was:
+
+```text
+26/26 PASS
+```
 
 ### World-gold / XAUUSD calendar guardrail
 
 The historical project discussion included a source-calendar guardrail for days when the world-gold source/market is closed.
 
-The exact remembered wording was:
+The remembered historical wording was:
 
 ```text
 skip world-gold call on Saturday and Monday
 ```
 
-This is intentionally recorded as **UNVERIFIED** because standard global gold market calendars do not support treating Monday as a normal weekly closure. No code should implement the Saturday/Monday rule until the actual source calendar and intended exception are verified.
+This remains **UNVERIFIED** because standard global gold market calendars do not support treating Monday as a normal weekly closure. No code should implement the Saturday/Monday rule until the actual source calendar and intended exception are verified.
 
 What is safe to implement generically:
 
@@ -183,17 +191,13 @@ telegram_command
 
 The external trigger must select a ref explicitly (`SP-B` while SP-B is active) and must not rely on an implicit default branch.
 
-GitHub supports `workflow_dispatch` and `repository_dispatch` for externally initiated workflow runs. The project should use the smallest secure mechanism that works with the deployed branch architecture. citeturn648910search1turn648910search2
-
 ## 7. cron-job.org security boundary
 
 The cron-job.org job must never contain a long-lived repository credential in a public URL.
 
 A protected intermediary (Cloudflare Worker or equivalent secure endpoint) should hold the GitHub credential and make the GitHub API request.
 
-cron-job.org can supply request variables, including a UUID/time variable when useful. citeturn648910search3
-
-The cron-job.org API itself uses bearer-token authentication; those credentials must not be copied into repository files. citeturn648910search5
+Credentials must never be copied into repository files.
 
 ## 8. Current Cloudflare connection status
 
@@ -210,21 +214,18 @@ Do not claim Cloudflare deployment or secret access until the actual Cloudflare 
 
 ## 9. Telegram command roadmap
 
-Current:
+C.13 established the analytical command contract:
 
 ```text
 /Update
-```
-
-Analysis Wing consumer commands planned by C.13:
-
-```text
 /Analysis
 /Technical
 /History
 /News
 /Health
 ```
+
+The live smoke verified Telegram delivery from the integrated execution path.
 
 Potential future:
 
@@ -267,17 +268,43 @@ abstention / insufficient-data behavior
 no direct BUY/SELL authority
 ```
 
-Current Neon production snapshot at the last audit:
+C.13 has now started the production Analysis Wing history required for that gate. The forecast engine remains **NOT READY FOR DEPLOYMENT**.
+
+## 11. C.13 Neon reconciliation
+
+C.13 live smoke exposed two production-schema mismatches. They were reconciled through an incremental migration validated on a temporary Neon branch before production application.
+
+Production now includes:
 
 ```text
-analysis_snapshots  = 0
-outcome_evaluations = 0
-price_observations  = 134
+news_events
+idx_news_events_dedup_key
+expanded outcome direction fields sufficient for INSUFFICIENT_DATA
 ```
 
-Therefore the forecast engine is currently **NOT READY FOR DEPLOYMENT**.
+No destructive replacement migration was used.
 
-## 11. Operational truth rule
+The migration is recorded in:
+
+```text
+sql/neon_migration_c13.sql
+```
+
+## 12. Current operational completion state
+
+```text
+PRE-SP-C.13
+KPI: 26/26 PASS
+compileall: PASS
+live smoke: PASS
+analysis snapshot creation: PASS
+Telegram delivery: PASS
+Neon C.13 reconciliation: COMPLETE
+```
+
+A non-blocking Daric timeout was observed during live smoke. Ten other gold sources remained valid, so the collection/validation path continued normally.
+
+## 13. Operational truth rule
 
 For a new conversation, reconcile these in order:
 
