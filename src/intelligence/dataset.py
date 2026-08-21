@@ -19,13 +19,11 @@ DATASET_INVALID = "INVALID"
 
 
 def _safe_direction(ev: OutcomeEvaluation, field: str) -> str:
-    """Safely extract direction string from outcome evaluation."""
     val = getattr(ev, field, None)
     return val if val is not None else "UNKNOWN"
 
 
 def _safe_movement(ev: OutcomeEvaluation, field: str) -> Optional[float]:
-    """Safely extract movement percent from outcome evaluation."""
     val = getattr(ev, field, None)
     if val is None:
         return None
@@ -39,18 +37,13 @@ def build_dataset_record(snapshot_id: int) -> Optional[Dict[str, Any]]:
     session = get_session()
     if session is None:
         return None
-
     try:
-        snap = session.query(AnalysisSnapshot).filter(
-            AnalysisSnapshot.id == snapshot_id
-        ).first()
-
+        snap = session.query(AnalysisSnapshot).filter(AnalysisSnapshot.id == snapshot_id).first()
         if snap is None:
             return _build_invalid_record(snapshot_id, "Snapshot not found")
 
         features = snap.features_json
         feature_timestamp = snap.analysis_timestamp
-
         if feature_timestamp is None:
             return _build_invalid_record(snapshot_id, "Missing analysis_timestamp")
 
@@ -66,12 +59,18 @@ def build_dataset_record(snapshot_id: int) -> Optional[Dict[str, Any]]:
             if status == "COMPLETE":
                 outcomes_available += 1
 
+            direction = _safe_direction(ev, "rep_gold_direction")
+            movement_percent = _safe_movement(ev, "rep_gold_movement_percent")
             labels[horizon] = {
                 "status": status,
-                "rep_gold_direction": _safe_direction(ev, "rep_gold_direction"),
-                "rep_gold_movement_percent": _safe_movement(ev, "rep_gold_movement_percent"),
+                # Canonical C.5 fields.
+                "rep_gold_direction": direction,
+                "rep_gold_movement_percent": movement_percent,
                 "xau_usd_direction": _safe_direction(ev, "xau_usd_direction"),
                 "usd_irr_direction": _safe_direction(ev, "usd_irr_direction"),
+                # Stable C.12 generic aliases for a horizon label contract.
+                "direction": direction,
+                "movement_percent": movement_percent,
                 "target_time": ev.target_time.isoformat() if ev.target_time else None,
                 "actual_observation_time": ev.actual_observation_time.isoformat() if ev.actual_observation_time else None,
             }
@@ -143,14 +142,10 @@ def _build_invalid_record(snapshot_id: int, reason: str) -> Dict[str, Any]:
     }
 
 
-def build_dataset_batch(
-    hours: int = 168,
-    min_status: str = DATASET_DEGRADED,
-) -> List[Dict[str, Any]]:
+def build_dataset_batch(hours: int = 168, min_status: str = DATASET_DEGRADED) -> List[Dict[str, Any]]:
     session = get_session()
     if session is None:
         return []
-
     try:
         since = datetime.now() - timedelta(hours=hours)
         snapshots = session.query(AnalysisSnapshot).filter(
@@ -165,12 +160,10 @@ def build_dataset_batch(
             DATASET_INVALID: 0,
         }
         min_priority = status_priority.get(min_status, 0)
-
         for snap in snapshots:
             record = build_dataset_record(snap.id)
             if record and status_priority.get(record["dataset_status"], 0) >= min_priority:
                 results.append(record)
-
         return results
     except Exception as e:
         print(f"Dataset batch build failed: {e}")
@@ -180,13 +173,9 @@ def build_dataset_batch(
 
 
 def validate_dataset_record(record: Dict) -> Tuple[bool, List[str]]:
-    """Validate the C.12 dataset contract without rejecting valid C.8 features."""
     errors: List[str] = []
-
     if not isinstance(record, dict):
-        errors.append("Record must be a dict")
-        return False, errors
-
+        return False, ["Record must be a dict"]
     if record.get("schema_version") != DATASET_SCHEMA_VERSION:
         errors.append(f"Schema version must be '{DATASET_SCHEMA_VERSION}'")
 
@@ -195,11 +184,9 @@ def validate_dataset_record(record: Dict) -> Tuple[bool, List[str]]:
         if key not in record:
             errors.append(f"Missing required field: {key}")
 
+    # C.8 legitimately contains directional relationship features.
+    # Only reject explicit label containers or label-only fields.
     features = record.get("features") or {}
-
-    # C.8 legitimately contains directional relationship features such as
-    # market_relation.rep_gold_direction. That is not label leakage.
-    # Detect actual label payload contamination instead of substring matching.
     if isinstance(features, dict):
         if "labels" in features or "label" in features:
             errors.append("Features contain label information — leakage detected")
@@ -208,8 +195,7 @@ def validate_dataset_record(record: Dict) -> Tuple[bool, List[str]]:
                 errors.append("Features contain label information — leakage detected")
 
     feature_ts = record.get("feature_timestamp")
-    labels = record.get("labels", {}) or {}
-    for horizon, label in labels.items():
+    for horizon, label in (record.get("labels", {}) or {}).items():
         actual_time = label.get("actual_observation_time")
         if actual_time and feature_ts and actual_time <= feature_ts:
             errors.append(f"Label {horizon} actual_time <= feature_timestamp — leakage")
@@ -219,16 +205,13 @@ def validate_dataset_record(record: Dict) -> Tuple[bool, List[str]]:
         if forbidden in record_str:
             errors.append(f"Record contains decision language: {forbidden}")
 
-    if record.get("dataset_status") not in (DATASET_VALID, DATASET_DEGRADED, DATASET_INSUFFICIENT_DATA, DATASET_INVALID):
+    if record.get("dataset_status") not in (
+        DATASET_VALID, DATASET_DEGRADED, DATASET_INSUFFICIENT_DATA, DATASET_INVALID
+    ):
         errors.append("Invalid dataset_status")
-
     return len(errors) == 0, errors
 
 
-def verify_no_leakage(
-    snapshot_id: int,
-    future_observations: List[Dict[str, Any]],
-) -> bool:
-    """Verify that future-only observations cannot alter persisted features."""
+def verify_no_leakage(snapshot_id: int, future_observations: List[Dict[str, Any]]) -> bool:
     baseline = build_dataset_record(snapshot_id)
     return baseline is not None
