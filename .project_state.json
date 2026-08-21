@@ -1,0 +1,74 @@
+{
+  "schema_version": "1",
+  "project": "Gold Premium Monitor",
+  "active_branch": "SP-B",
+  "current_phase": "PRE-SP-C.9",
+  "current_phase_status": "PLANNING",
+  "completed_phases": [
+    "SP-B.1",
+    "SP-B.2",
+    "PRE-SP-C.1",
+    "PRE-SP-C.2",
+    "PRE-SP-C.3",
+    "PRE-SP-C.4",
+    "PRE-SP-C.5",
+    "PRE-SP-C.6",
+    "PRE-SP-C.7",
+    "PRE-SP-C.8"
+  ],
+  "latest_verified_kpi": {
+    "phase": "PRE-SP-C.8",
+    "passed": 25,
+    "failed": 0,
+    "status": "PASS",
+    "evidence_source": "user-supplied local execution result"
+  },
+  "latest_verified_repo_state": {
+    "documentation_sync": "COMPLETE",
+    "docs_directory_architecture_status_removed": true,
+    "canonical_memory": "PROJECT_MEMORY.md",
+    "human_overview": "README.md",
+    "ai_operating_guide": "Prompt_Guide.md"
+  },
+  "database_state": {
+    "known_last_phase": "PRE-SP-C.8",
+    "schema_change_for_current_phase": "NOT_APPLIED",
+    "neon_write_policy": "APPROVAL_REQUIRED_FOR_SCHEMA_CHANGES"
+  },
+  "next_phase": {
+    "id": "PRE-SP-C.9",
+    "name": "Analytical Read Model",
+    "default_persistence": "analysis_snapshots.analysis_read_model_json",
+    "default_module": "src/intelligence/read_model.py",
+    "c7_status": "FROZEN",
+    "c8_status": "COMPLETE"
+  },
+  "architecture_boundaries": {
+    "facts": "raw market observations",
+    "evidence": "validated analytical package",
+    "interpretation": "structured explanation layer",
+    "decision": "current deterministic decision output",
+    "prediction": "future component only"
+  },
+  "continuity_protocol": {
+    "required_read_order": [
+      ".project_state.json",
+      "PROJECT_MEMORY.md",
+      "README.md",
+      "Prompt_Guide.md",
+      "skills/",
+      "relevant_src_and_tests"
+    ],
+    "phase_completion_requires": [
+      "implementation",
+      "targeted_tests",
+      "regression",
+      "KPI",
+      "database_state_review",
+      "documentation_update",
+      "state_file_update",
+      "commit"
+    ],
+    "state_file_must_remain_synchronized": true
+  }
+}
