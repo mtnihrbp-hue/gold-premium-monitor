@@ -8,16 +8,11 @@ Ensures idempotent, window-gated execution.
 import os
 import sys
 
-from analysis.scheduler import should_run_analysis, generate_source_run_id
+from analysis.scheduler import should_run_analysis
 
 
 def run_scheduled_analysis():
-    """Execute the analysis wing within the scheduled window.
-
-    Idempotent: duplicate invocations at the same time produce
-    the same source_run_id and are deduplicated by the repository.
-    """
-    # Import here to avoid circular dependency at module load
+    """Execute the analysis wing within the scheduled window."""
     from main import main, load_config
 
     config = load_config()
@@ -26,14 +21,20 @@ def run_scheduled_analysis():
         print("Analysis window closed — skipping scheduled run")
         return 0
 
-    # Set scheduled flag for main() behavior (daily recap vs manual update)
     os.environ["SCHEDULED_RUN"] = "true"
-
-    # Main handles collection, calculation, SP-A decision, alerts,
-    # and (C.13) triggers build_analysis_snapshot() after market state save
     main()
-
     return 0
+
+
+def run_analysis_for_snapshot(snapshot_id=None, config=None):
+    """Backward-compatible Analysis Wing entry point.
+
+    The current C.13 architecture builds analysis from the latest persisted
+    market state rather than requiring a snapshot ID argument. The optional
+    snapshot_id is retained for callers from earlier phase contracts.
+    """
+    from analysis.snapshot_builder import build_analysis_snapshot
+    return build_analysis_snapshot(config=config)
 
 
 if __name__ == "__main__":
