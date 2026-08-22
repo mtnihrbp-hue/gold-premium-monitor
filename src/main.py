@@ -50,7 +50,6 @@ from database.repository import (
 
 from intelligence.freshness import evaluate_freshness
 
-###### End of Imports
 
 def load_config():
     with open("config/config.json", "r", encoding="utf-8") as f:
@@ -82,6 +81,87 @@ def _generate_collection_run_id():
     return f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
 
+def _save_price_observations(markets, world, usd, now, stale_threshold, collection_run_id):
+    """Persist the canonical point observations used by the Analysis Wing.
+
+    Goldika is the only current platform with explicit BUY/SELL fields.
+    All other platform quotes use the existing single-price semantics.
+    Database errors remain non-blocking for the live calculation path.
+    """
+    for name, info in markets.items():
+        if info.get("status") != "OK":
+            continue
+        try:
+            freshness = evaluate_freshness(now, now, stale_threshold)
+            source = name.lower()
+
+            if name == "Goldika" and "buy" in info and "sell" in info:
+                save_price_observation(
+                    instrument="REP_IRAN_GOLD",
+                    source=source,
+                    timestamp=now,
+                    price=info["buy"],
+                    freshness=freshness,
+                    collection_run_id=collection_run_id,
+                    quote_side="BUY",
+                )
+                save_price_observation(
+                    instrument="REP_IRAN_GOLD",
+                    source=source,
+                    timestamp=now,
+                    price=info["sell"],
+                    freshness=freshness,
+                    collection_run_id=collection_run_id,
+                    quote_side="SELL",
+                )
+                print(f" Price observation: {name} BUY/SELL saved")
+            elif info.get("price") is not None:
+                save_price_observation(
+                    instrument="REP_IRAN_GOLD",
+                    source=source,
+                    timestamp=now,
+                    price=info["price"],
+                    freshness=freshness,
+                    collection_run_id=collection_run_id,
+                    quote_side="SINGLE",
+                )
+                print(f" Price observation: {name} saved")
+        except Exception as e:
+            print(f" Price observation {name} failed: {e}")
+
+    if world is not None:
+        try:
+            freshness = evaluate_freshness(now, now, stale_threshold)
+            save_price_observation(
+                instrument="XAUUSD",
+                source="kitco_fallback",
+                timestamp=now,
+                price=world,
+                freshness=freshness,
+                collection_run_id=collection_run_id,
+                quote_side="SINGLE",
+            )
+            print(" Price observation: XAUUSD saved")
+        except Exception as e:
+            print(f" Price observation XAUUSD failed: {e}")
+
+    if usd is not None:
+        try:
+            freshness = evaluate_freshness(now, now, stale_threshold)
+            save_price_observation(
+                instrument="USD/IRR",
+                source="bonbast",
+                timestamp=now,
+                price=usd,
+                freshness=freshness,
+                collection_run_id=collection_run_id,
+                quote_side="SINGLE",
+            )
+            print(" Price observation: USD/IRR saved")
+        except Exception as e:
+            print(f" Price observation USD/IRR failed: {e}")
+
+
 def main():
     config = load_config()
     thresholds = config["thresholds"]
@@ -92,21 +172,22 @@ def main():
     last_alert = state["last_alert"]
     is_scheduled = os.environ.get("SCHEDULED_RUN", "false").lower() == "true"
     collection_run_id = _generate_collection_run_id()
+    now = datetime.now()
+    stale_threshold = config.get("freshness", {}).get("stale_threshold_minutes", 15)
 
-    # Previous markets for change calculation
     previous_markets = {}
     if history:
         prev_markets = history[-1].get("markets", {})
         previous_markets = {k: float(v) for k, v in prev_markets.items() if v is not None}
 
-    # Heartbeat for manual triggers
+    platform_changes = {}
+
     if not is_scheduled:
         try:
             send_telegram_processing()
         except Exception as e:
             print(f"ERROR: Telegram processing heartbeat failed: {e}")
 
-    # Collect
     print("\nCOLLECT")
     print("-" * 40)
 
@@ -133,7 +214,6 @@ def main():
         usd = None
 
     raw_markets = get_market_prices()
-
     for name, info in raw_markets.items():
         status = info.get("status", "UNKNOWN")
         if status == "OK":
@@ -148,99 +228,15 @@ def main():
         print(f"\nERROR: Market data invalid: {e}. Skipping.")
         return
 
-    # Compute per-platform changes for database and notifications
-    platform_changes = {}
-    if previous_markets:
-    for name, info in markets.items():
-        if info["status"] != "OK":
-            continue
-        try:
-            freshness = evaluate_freshness(now, now, stale_threshold)
-            # Goldika has explicit buy/sell semantics per C.14A
-            if name == "Goldika" and "buy" in info and "sell" in info:
-                save_price_observation(
-                    instrument="REP_IRAN_GOLD",
-                    source=name.lower(),
-                    timestamp=now,
-                    price=info["buy"],
-                    freshness=freshness,
-                    collection_run_id=collection_run_id,
-                    quote_side="BUY",
-                )
-                save_price_observation(
-                    instrument="REP_IRAN_GOLD",
-                    source=name.lower(),
-                    timestamp=now,
-                    price=info["sell"],
-                    freshness=freshness,
-                    collection_run_id=collection_run_id,
-                    quote_side="SELL",
-                )
-                print(f" Price observation: {name} BUY/SELL saved")
-            elif info.get("price") is not None:
-                save_price_observation(
-                    instrument="REP_IRAN_GOLD",
-                    source=name.lower(),
-                    timestamp=now,
-                    price=info["price"],
-                    freshness=freshness,
-                    collection_run_id=collection_run_id,
-                    quote_side="SINGLE",
-                )
-        except Exception as e:
-            print(f" Price observation {name} failed: {e}")
+    _save_price_observations(
+        markets,
+        world,
+        usd,
+        now,
+        stale_threshold,
+        collection_run_id,
+    )
 
-    # --- PRE-SP-C.1: Save price observations (non-blocking) ---
-    now = datetime.now()
-    stale_threshold = config.get("freshness", {}).get("stale_threshold_minutes", 15)
-
-    if world is not None:
-        try:
-            freshness = evaluate_freshness(now, now, stale_threshold)
-            save_price_observation(
-                instrument="XAUUSD",
-                source="kitco_fallback",
-                timestamp=now,
-                price=world,
-                freshness=freshness,
-                collection_run_id=collection_run_id,
-            )
-            print(" Price observation: XAUUSD saved")
-        except Exception as e:
-            print(f" Price observation XAUUSD failed: {e}")
-
-    if usd is not None:
-        try:
-            freshness = evaluate_freshness(now, now, stale_threshold)
-            save_price_observation(
-                instrument="USD/IRR",
-                source="bonbast",
-                timestamp=now,
-                price=usd,
-                freshness=freshness,
-                collection_run_id=collection_run_id,
-            )
-            print(" Price observation: USD/IRR saved")
-        except Exception as e:
-            print(f" Price observation USD/IRR failed: {e}")
-
-    for name, info in markets.items():
-        if info["status"] == "OK" and info.get("price") is not None:
-            try:
-                freshness = evaluate_freshness(now, now, stale_threshold)
-                save_price_observation(
-                    instrument="REP_IRAN_GOLD",
-                    source=name.lower(),
-                    timestamp=now,
-                    price=info["price"],
-                    freshness=freshness,
-                    collection_run_id=collection_run_id,
-                )
-            except Exception as e:
-                print(f" Price observation {name} failed: {e}")
-    # --- End PRE-SP-C.1 ---
-
-    # If world gold unavailable
     if world is None:
         print("\nERROR: World gold price unavailable and no recent cached data.")
         try:
@@ -267,9 +263,7 @@ def main():
             save_state(state)
         return
 
-    # Calculate
     fair = calculate_fair_price(world, usd) * 10
-
     try:
         validate_fair_price(fair)
     except Exception as e:
@@ -282,14 +276,9 @@ def main():
         return
 
     premium = premium_percent(fair, lowest)
-
-    # Trends
     trends = get_trend_summary(history)
-
-    # Market spread
     spread, high_name, low_name = get_market_spread(markets)
 
-    # Previous premium
     if history:
         previous_premium = history[-1]["premium"]
         if previous_premium is None:
@@ -297,7 +286,6 @@ def main():
     else:
         previous_premium = premium
 
-    # SP-A is the sole decision authority for alerts.
     signal_state = build_signal_state(
         premium=premium,
         fair_price=fair,
@@ -309,7 +297,6 @@ def main():
         snapshot_id=0,
     )
 
-    # Build an alert record only from the final deterministic decision.
     signal = None
     if signal_state.final_decision in ("BUY", "SELL"):
         signal = {
@@ -318,7 +305,6 @@ def main():
             "reason": signal_state.reason or f"Final decision: {signal_state.final_decision}.",
         }
 
-    # Momentum + Input Directions (DB-backed, non-blocking)
     momentum = None
     input_directions = None
     try:
@@ -331,13 +317,12 @@ def main():
     except Exception as e:
         print(f"Momentum/Directions build failed: {e}")
 
-    # Console output
     print("\nCALCULATE")
     print("-" * 40)
     for name in sorted(markets.keys()):
         info = markets[name]
         print(f" {name:<15} {info['price']:>15,.0f}")
-    print(f" {'-' * 32}")
+    print(" " + "-" * 32)
     print(f" Fair Price: {fair:,.0f}")
     print(f" Lowest: {lowest:,.0f}")
     print(f" Premium: {premium:.2f}%")
@@ -374,7 +359,6 @@ def main():
         if ud:
             print(f" USD: {ud['arrow']} ({ud['pct']:+.2f}%) stale={ud['stale_count']}")
 
-    # SP-A console output
     print("\nSP-A STATE")
     print("-" * 40)
     print(f" Valuation:   {signal_state.valuation}")
@@ -383,7 +367,6 @@ def main():
     print(f" Conflict:    {signal_state.conflict}")
     print(f" Candidate:   {signal_state.candidate_decision}")
     print(f" Final:       {signal_state.final_decision}")
-
     print(f"\nLast Alert: {last_alert}")
 
     if signal:
@@ -392,7 +375,6 @@ def main():
         print(f" {signal['signal']}")
         print(f" {signal['reason']}")
 
-    # History
     history.append({
         "timestamp": datetime.now().isoformat(),
         "world_gold": world,
@@ -404,10 +386,8 @@ def main():
     })
 
     limit = thresholds.get("history_limit", 30)
-    history = history[-limit:]
-    state["history"] = history
+    state["history"] = history[-limit:]
 
-    # Alert history is updated only for a final BUY/SELL decision.
     if signal:
         state["last_alert"] = signal["new_alert_type"]
         state["alert_history"].append({
@@ -419,7 +399,6 @@ def main():
 
     save_state(state)
 
-    # Save to database (non-blocking)
     snapshot_id = None
     try:
         platform_prices = []
@@ -445,7 +424,6 @@ def main():
     except Exception as e:
         print(f"\nDB ERROR (snapshot): {e}")
 
-    # SP-A: Save interpreted market state
     if snapshot_id is not None:
         try:
             signal_state = replace(signal_state, snapshot_id=snapshot_id)
@@ -454,7 +432,6 @@ def main():
         except Exception as e:
             print(f"DB ERROR (market state): {e}")
 
-    # PRE-SP-C.13: Trigger Analysis Wing pipeline
     if snapshot_id is not None:
         try:
             analysis_snapshot_id = build_analysis_snapshot(config=config)
@@ -463,8 +440,6 @@ def main():
         except Exception as e:
             print(f"\nDB ERROR (analysis snapshot): {e}")
 
-
-    # Alerts are driven only by the deterministic final decision.
     should_send_alert = (
         signal
         and signal["signal"] in ("BUY", "SELL")
@@ -490,12 +465,11 @@ def main():
         except Exception as e:
             print(f"ERROR: Telegram alert failed: {e}")
 
-    # Daily Report
     if email_cfg.get("send_daily_recap", True) and is_scheduled:
         try:
             send_email_recap(
                 world, usd, fair, lowest, premium, markets,
-                trends=trends, momentum=momentum, previous_markets=previous_markets
+                trends=trends, momentum=momentum, previous_markets=previous_markets,
             )
         except Exception as e:
             print(f"ERROR: Email daily recap failed: {e}")
@@ -509,7 +483,6 @@ def main():
         except Exception as e:
             print(f"ERROR: Telegram daily recap failed: {e}")
 
-    # Manual Update
     if not is_scheduled and not should_send_alert:
         try:
             send_telegram_manual(
