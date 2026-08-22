@@ -10,7 +10,6 @@ from typing import Dict, List, Optional, Any, Tuple
 from database.repository import (
     get_price_observations_by_instrument,
     save_platform_candle,
-    platform_candle_exists,
 )
 
 DEFAULT_TIMEFRAME = "30m"
@@ -24,6 +23,7 @@ def _timeframe_delta(timeframe: str) -> timedelta:
 def _bucket_start(dt: datetime, timeframe: str) -> datetime:
     """Floor datetime to bucket boundary. Handles day boundaries correctly."""
     minutes = TIMEFRAME_MINUTES.get(timeframe, 30)
+    # Continuous minutes from datetime.min to handle midnight crossing safely
     delta_from_min = dt - datetime.min
     total_minutes = int(delta_from_min.total_seconds() // 60)
     bucket_minutes = (total_minutes // minutes) * minutes
@@ -53,20 +53,37 @@ def build_candles_from_observations(
 ) -> List[Dict[str, Any]]:
     """Build deterministic candles from price observations.
 
-    Explicitly bounded historical requests query the full available observation
-    set so backfill and old timestamp fixtures are not hidden by a runtime
-    lookback window.
+    Args:
+        platform: source platform name (matches price_observations.source)
+        instrument: instrument code
+        timeframe: candle timeframe
+        start: optional start boundary (inclusive)
+        end: optional end boundary (inclusive)
+        quote_side: BUY, SELL, or SINGLE
+        min_observations: minimum observations for a valid candle
+        collection_run_id: provenance trace ID
+        candle_type: provenance label for the candle
+
+    Returns:
+        list of candle dicts
     """
     delta = _timeframe_delta(timeframe)
-    lookback_hours = None if start is not None or end is not None else 720
-    obs = get_price_observations_by_instrument(instrument, limit=5000, hours=lookback_hours)
+
+    # Fetch observations for this instrument
+    # When start is provided (backfill), fetch without hours filter to cover all history
+    if start is not None:
+        obs = get_price_observations_by_instrument(instrument, limit=50000)
+    else:
+        obs = get_price_observations_by_instrument(instrument, limit=5000, hours=720)
     if not obs:
         return []
 
+    # Filter to matching source, quote_side, and time range
     filtered = []
     for o in obs:
         if o.source != platform:
             continue
+        # Gracefully handle pre-C.14A observations without quote_side
         obs_quote_side = getattr(o, "quote_side", "SINGLE") or "SINGLE"
         if obs_quote_side != quote_side:
             continue
@@ -81,7 +98,10 @@ def build_candles_from_observations(
     if not filtered:
         return []
 
+    # Sort by timestamp ascending
     filtered.sort(key=lambda x: x[0])
+
+    # Group into buckets
     buckets: Dict[datetime, List[Tuple[datetime, float]]] = {}
     for ts, price in filtered:
         bs = _bucket_start(ts, timeframe)
@@ -91,11 +111,20 @@ def build_candles_from_observations(
     for bs in sorted(buckets.keys()):
         bucket_obs = buckets[bs]
         be = bs + delta
+
         prices = [p for _, p in bucket_obs]
         obs_count = len(prices)
+
         if obs_count < min_observations:
             continue
 
+        # Deterministic O/H/L/C
+        open_price = prices[0]
+        high_price = max(prices)
+        low_price = min(prices)
+        close_price = prices[-1]
+
+        # Mark incomplete if coverage is thin
         source_quality = "COMPLETE"
         if obs_count == 1:
             source_quality = "INCOMPLETE"
@@ -108,10 +137,10 @@ def build_candles_from_observations(
             "timeframe": timeframe,
             "bucket_start": bs,
             "bucket_end": be,
-            "open": round(prices[0], 4),
-            "high": round(max(prices), 4),
-            "low": round(min(prices), 4),
-            "close": round(prices[-1], 4),
+            "open": round(open_price, 4),
+            "high": round(high_price, 4),
+            "low": round(low_price, 4),
+            "close": round(close_price, 4),
             "candle_type": candle_type,
             "quote_side": quote_side,
             "source_quality": source_quality,
@@ -123,20 +152,16 @@ def build_candles_from_observations(
 
 
 def persist_candles(candles: List[Dict[str, Any]]) -> Tuple[int, int]:
-    """Persist candles and count only newly created records as saved."""
+    """Persist a list of candle dicts to the database.
+
+    Idempotent: skips duplicates based on identity constraint.
+
+    Returns:
+        (saved_count, skipped_count)
+    """
     saved = 0
     skipped = 0
     for c in candles:
-        if platform_candle_exists(
-            platform=c["platform"],
-            instrument=c["instrument"],
-            timeframe=c["timeframe"],
-            bucket_start=c["bucket_start"],
-            quote_side=c["quote_side"],
-        ):
-            skipped += 1
-            continue
-
         result = save_platform_candle(
             platform=c["platform"],
             instrument=c["instrument"],
@@ -167,11 +192,16 @@ def backfill_platform_candles(
     quote_side: str = "SINGLE",
     min_observations: int = 1,
 ) -> Dict[str, Any]:
-    """Backfill candles from all existing observations for a platform/quote_side."""
+    """Backfill candles from all existing observations for a platform/quote_side.
+
+    Returns:
+        dict with backfill statistics
+    """
     candles = build_candles_from_observations(
         platform=platform,
         instrument=instrument,
         timeframe=timeframe,
+        start=datetime(2000, 1, 1),
         quote_side=quote_side,
         min_observations=min_observations,
         candle_type="BACKFILLED_FROM_POINT_OBSERVATIONS",
@@ -192,11 +222,21 @@ def run_candle_build_for_snapshot(
     collection_run_id: str = None,
     timeframe: str = DEFAULT_TIMEFRAME,
 ) -> Dict[str, Any]:
-    """Build and persist candles for all known platform configurations."""
+    """Build and persist candles for all known platform configurations.
+
+    Called from the Analysis Wing after snapshot creation.
+    Idempotent: repeated runs skip existing candles.
+
+    Returns:
+        dict with build statistics per platform/quote_side
+    """
+    # Platforms with SINGLE_PRICE semantics
     single_platforms = [
         "milli", "wallgold", "taline", "hoorgold", "parasteh",
         "miogold", "eligallery", "daric", "invi", "ayyareh",
     ]
+
+    # Goldika has explicit BUY/SELL
     goldika_sides = ["BUY", "SELL"]
 
     results = []
@@ -214,9 +254,19 @@ def run_candle_build_for_snapshot(
             )
             saved, _ = persist_candles(candles)
             total_saved += saved
-            results.append({"platform": platform, "quote_side": "SINGLE", "saved": saved, "status": "OK"})
+            results.append({
+                "platform": platform,
+                "quote_side": "SINGLE",
+                "saved": saved,
+                "status": "OK",
+            })
         except Exception as e:
-            results.append({"platform": platform, "quote_side": "SINGLE", "saved": 0, "status": f"ERROR: {e}"})
+            results.append({
+                "platform": platform,
+                "quote_side": "SINGLE",
+                "saved": 0,
+                "status": f"ERROR: {e}",
+            })
 
     for side in goldika_sides:
         try:
@@ -230,25 +280,75 @@ def run_candle_build_for_snapshot(
             )
             saved, _ = persist_candles(candles)
             total_saved += saved
-            results.append({"platform": "goldika", "quote_side": side, "saved": saved, "status": "OK"})
+            results.append({
+                "platform": "goldika",
+                "quote_side": side,
+                "saved": saved,
+                "status": "OK",
+            })
         except Exception as e:
-            results.append({"platform": "goldika", "quote_side": side, "saved": 0, "status": f"ERROR: {e}"})
+            results.append({
+                "platform": "goldika",
+                "quote_side": side,
+                "saved": 0,
+                "status": f"ERROR: {e}",
+            })
 
-    for platform, instrument in (("kitco_fallback", "XAUUSD"), ("bonbast", "USD/IRR")):
-        try:
-            candles = build_candles_from_observations(
-                platform=platform,
-                instrument=instrument,
-                timeframe=timeframe,
-                quote_side="SINGLE",
-                min_observations=1,
-                collection_run_id=collection_run_id,
-            )
-            saved, _ = persist_candles(candles)
-            total_saved += saved
-            results.append({"platform": platform, "instrument": instrument, "quote_side": "SINGLE", "saved": saved, "status": "OK"})
-        except Exception as e:
-            results.append({"platform": platform, "instrument": instrument, "quote_side": "SINGLE", "saved": 0, "status": f"ERROR: {e}"})
+    # XAU/USD candles from existing observations
+    try:
+        candles = build_candles_from_observations(
+            platform="kitco_fallback",
+            instrument="XAUUSD",
+            timeframe=timeframe,
+            quote_side="SINGLE",
+            min_observations=1,
+            collection_run_id=collection_run_id,
+        )
+        saved, _ = persist_candles(candles)
+        total_saved += saved
+        results.append({
+            "platform": "kitco_fallback",
+            "instrument": "XAUUSD",
+            "quote_side": "SINGLE",
+            "saved": saved,
+            "status": "OK",
+        })
+    except Exception as e:
+        results.append({
+            "platform": "kitco_fallback",
+            "instrument": "XAUUSD",
+            "quote_side": "SINGLE",
+            "saved": 0,
+            "status": f"ERROR: {e}",
+        })
+
+    # USD/IRR candles from existing observations
+    try:
+        candles = build_candles_from_observations(
+            platform="bonbast",
+            instrument="USD/IRR",
+            timeframe=timeframe,
+            quote_side="SINGLE",
+            min_observations=1,
+            collection_run_id=collection_run_id,
+        )
+        saved, _ = persist_candles(candles)
+        total_saved += saved
+        results.append({
+            "platform": "bonbast",
+            "instrument": "USD/IRR",
+            "quote_side": "SINGLE",
+            "saved": saved,
+            "status": "OK",
+        })
+    except Exception as e:
+        results.append({
+            "platform": "bonbast",
+            "instrument": "USD/IRR",
+            "quote_side": "SINGLE",
+            "saved": 0,
+            "status": f"ERROR: {e}",
+        })
 
     return {
         "timeframe": timeframe,
