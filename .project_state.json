@@ -2,8 +2,8 @@
   "schema_version": "1",
   "project": "Gold Premium Monitor",
   "active_branch": "SP-B",
-  "current_phase": "PRE-SP-C.13",
-  "current_phase_status": "COMPLETE",
+  "current_phase": "PRE-SP-C.14A",
+  "current_phase_status": "IN_PROGRESS",
   "completed_phases": [
     "SP-B.1",
     "SP-B.2",
@@ -29,63 +29,51 @@
     "evidence_source": "user-supplied local execution result"
   },
   "latest_verified_runtime": {
-    "compileall": "PASS",
-    "live_smoke": "PASS",
-    "analysis_snapshot_created": true,
-    "telegram_delivery": "PASS",
-    "neon_errors_from_previous_smoke": "RESOLVED",
-    "non_blocking_source_issue": "Daric timed out and was discarded; 10 valid sources remained"
+    "compileall": "PASS before C.14A integration changes",
+    "live_smoke": "PASS at C.13",
+    "c14a_initial_compileall": "FAILED due to main.py indentation defect",
+    "c14a_initial_kpi": "FAILED 7/26",
+    "c14a_initial_failure_pattern": "mostly DB unavailable/schema missing plus main.py syntax defect"
   },
-  "latest_verified_repo_state": {
-    "documentation_sync": "COMPLETE",
-    "canonical_memory": "PROJECT_MEMORY.md",
-    "human_overview": "README.md",
-    "ai_operating_guide": "Prompt_Guide.md",
-    "machine_continuity_state": ".project_state.json",
-    "orchestration_protocol": "PROJECT_ORCHESTRATION.md",
-    "operations_protocol": "PROJECT_OPERATIONS.md",
-    "c14_handoff": "C14_HANDOFF.md",
-    "c14_feedback_terminology": "C14_FEEDBACK_AND_TERMINOLOGY.md",
-    "research_matrix": "RESEARCH_ADOPTION.md"
+  "c14a_status": {
+    "implementation": "PRESENT_ON_SP-B",
+    "github_fix": "main.py repaired; Goldika BUY/SELL persistence centralized; duplicate generic platform persistence removed",
+    "neon_schema": "APPLIED_AND_VERIFIED_IN_PRODUCTION",
+    "migration_id": "b489eb49-fa54-414d-91b7-d3f8f46f7252",
+    "required_next_test": "rerun kpi_pre_sp_c14a.py, compileall, then live smoke"
   },
   "database_state": {
-    "known_last_schema_phase": "PRE-SP-C.13",
-    "c13_schema_reconciliation": "COMPLETE",
     "neon_project": "wispy-glade-92753836",
     "neon_database": "neondb",
-    "neon_branch": "production",
-    "persisted_analysis_snapshot_fields": [
-      "evidence_package_json",
-      "intelligence_result_json",
-      "features_json",
-      "analysis_read_model_json"
+    "production_branch": "br-ancient-river-ag4hjjri",
+    "c13_schema_reconciliation": "COMPLETE",
+    "c14a_schema_reconciliation": "COMPLETE",
+    "c14a_schema_additions": [
+      "price_observations.quote_side",
+      "platform_candles",
+      "uq_platform_candles_identity",
+      "idx_platform_candles_lookup",
+      "idx_platform_candles_bucket",
+      "idx_platform_candles_quality"
     ],
-    "c13_schema_additions": [
+    "preserved_tables_verified": [
+      "analysis_snapshots",
       "news_events",
-      "idx_news_events_dedup_key",
-      "expanded outcome direction fields to VARCHAR(20)"
+      "outcome_evaluations"
     ],
-    "c14a_schema_change": "PLANNED — platform_candles incremental migration",
-    "forecast_training_readiness": "NOT_READY_FOR_DEPLOYMENT — empirical walk-forward history is still required",
+    "forecast_training_readiness": "NOT_READY_FOR_DEPLOYMENT",
     "neon_write_policy": "APPROVAL_REQUIRED_FOR_SCHEMA_CHANGES"
-  },
-  "runtime_control_plane": {
-    "analysis_wing": "cron-job.org -> protected external trigger -> GitHub Actions -> Analysis Wing -> Neon",
-    "live_wing": "Telegram /Update -> Cloudflare interconnection -> GitHub execution path -> Live Wing",
-    "cron_job_org_job_id": "8179679",
-    "github_internal_schedule_status": "LEGACY CURRENTLY ENABLED",
-    "github_internal_schedule": "30 14 * * * UTC",
-    "target_production_scheduler": "cron-job.org external scheduler",
-    "cloudflare_connection_status": "NOT_CONNECTED_IN_CURRENT_CHAT",
-    "operations_protocol": "PROJECT_OPERATIONS.md"
   },
   "architecture_wings": {
     "live_wing": "collect -> validate -> calculate -> current deterministic state -> Telegram",
-    "analysis_wing": "scheduled analysis -> snapshots -> outcomes -> evidence -> interpretation -> features -> read model -> consumer -> dataset -> C.14A candles -> C.14B forecast -> C.14C resolution/audit"
+    "analysis_wing": "scheduled analysis -> snapshots -> outcomes -> evidence -> interpretation -> features -> read model -> consumer -> dataset -> C.14A candles -> C.14B forecast -> C.14C resolution/audit",
+    "frontend_wings": "TWO_ONLY",
+    "prediction_boundary": "Prediction never directly becomes BUY/WAIT/SELL authority",
+    "regime_detector": "Existing regime detection and hysteresis are forecast context/features and must be used for regime-conditioned evaluation and tuning, not as an overriding decision engine"
   },
   "forecast_feedback_architecture": {
-    "frontend_wings": "TWO_ONLY",
     "human_feedback_location": "Telegram Analysis experience",
+    "third_frontend_wing": false,
     "objective_outcome_separate_from_human_feedback": true,
     "online_training_from_user_feedback": false,
     "forecast_lifecycle": [
@@ -95,17 +83,10 @@
       "OBJECTIVELY_EVALUATED",
       "USER_REVIEWED_OPTIONAL"
     ],
-    "separate_clocks": [
-      "forecast_time",
-      "market_outcome_time",
-      "feedback_time"
-    ]
+    "separate_clocks": ["forecast_time", "market_outcome_time", "feedback_time"]
   },
   "terminology_policy": {
-    "avoid_user_facing": [
-      "DISCOUNT WIDENING",
-      "DISCOUNT NARROWING"
-    ],
+    "avoid_user_facing": ["DISCOUNT WIDENING", "DISCOUNT NARROWING"],
     "prefer": [
       "relative rate of change",
       "acceleration",
@@ -114,53 +95,11 @@
     ],
     "causal_explanation_requires_evidence": true
   },
-  "branch_reconciliation": {
-    "policy": "SP-B write/commit only; main compare/read unless explicitly authorized",
-    "main_divergence_at_last_audit": "main was 4 commits ahead and 198 commits behind SP-B",
-    "main_only_content_audited": [
-      "C14_HANDOFF.md",
-      "RESEARCH_ADOPTION.md",
-      "PROJECT_ORCHESTRATION.md",
-      "src/intelligence/dataset.py"
-    ],
-    "reconciled_to_sp_b": [
-      "C14_HANDOFF.md",
-      "RESEARCH_ADOPTION.md",
-      "PROJECT_ORCHESTRATION.md"
-    ],
-    "dataset_policy": "retain the verified SP-B dataset.py rather than downgrade to the older main copy",
-    "merge_main_now": false,
-    "sp_b_close_then_merge_main": true
-  },
-  "next_phase": {
-    "id": "PRE-SP-C.14A",
-    "name": "Candle & Market-Structure Data Infrastructure",
-    "status": "PLANNING",
-    "default_database_change": true,
-    "goal": "Create deterministic, persistent, provenance-rich 30-minute platform candle infrastructure from canonical observations before forecast modeling"
-  },
-  "future_forecast_gate": {
-    "target": "Three-state probabilistic direction forecast: UP / NEUTRAL / DOWN",
-    "status": "NOT_READY_FOR_DEPLOYMENT",
-    "minimum_gate": [
-      "sustained production analysis snapshots",
-      "sustained outcome_evaluations",
-      "walk-forward evaluation",
-      "leakage audit",
-      "calibration",
-      "abstention/insufficient-data behavior",
-      "documented baseline comparison",
-      "no direct BUY/SELL authority"
-    ]
-  },
-  "architecture_boundaries": {
-    "facts": "raw market observations",
-    "evidence": "validated analytical package",
-    "interpretation": "structured explanation layer",
-    "features": "deterministic model-ready derived artifacts",
-    "read_model": "normalized downstream analytical contract",
-    "decision": "current deterministic decision output",
-    "prediction": "future probabilistic model output only"
+  "branch_policy": {
+    "active_development_branch": "SP-B",
+    "main_write_allowed": false,
+    "main_merge_allowed": false,
+    "rule": "All future code, documentation, SQL records, and commits target SP-B only until explicit SP-B close/merge approval."
   },
   "continuity_protocol": {
     "orchestration_flow": [
@@ -184,22 +123,8 @@
       "C14_FEEDBACK_AND_TERMINOLOGY.md",
       "RESEARCH_ADOPTION.md",
       "skills/",
-      "relevant_src_and_tests"
-    ],
-    "phase_completion_requires": [
-      "implementation",
-      "targeted_tests",
-      "regression",
-      "KPI",
-      "schema/migration audit",
-      "Neon state review",
-      "runtime state review when relevant",
-      "documentation update",
-      "state file update",
-      "commit"
-    ],
-    "kpi_fixture_rule": "Seed authoritative source inputs; let production logic derive statuses and metadata; never test by mutating derived outputs the implementation recomputes.",
-    "contract_first_rule": "Define canonical field names and output shape before writing the KPI. Implementation and KPI must consume the same contract.",
-    "state_file_must_remain_synchronized": true
-  }
+      "relevant source/tests/KPI/SQL"
+    ]
+  },
+  "next_gate": "PRE-SP-C.14A KPI + regression + compileall + live smoke must be green before C.14B begins"
 }
