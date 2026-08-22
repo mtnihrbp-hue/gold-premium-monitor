@@ -1,16 +1,9 @@
--- Gold Premium Monitor — incremental Neon migration (PRE-SP-C.14A)
--- Purpose:
---   1. Add quote_side to price_observations for platform buy/sell semantics.
---   2. Create platform_candles table for canonical derived candle storage.
--- Safe for the existing production database; no data is dropped.
+-- PRE-SP-C.14A incremental Neon migration.
+-- Preserves existing PRE-SP-C.5/C.6/C.13 production state.
 
-BEGIN;
-
--- 1. Add quote_side to price_observations
 ALTER TABLE price_observations
     ADD COLUMN IF NOT EXISTS quote_side VARCHAR(10) DEFAULT 'SINGLE';
 
--- 2. Create platform_candles table
 CREATE TABLE IF NOT EXISTS platform_candles (
     id SERIAL PRIMARY KEY,
     platform VARCHAR(50) NOT NULL,
@@ -30,21 +23,9 @@ CREATE TABLE IF NOT EXISTS platform_candles (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- 3. Unique constraint for idempotency
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conname = 'uq_platform_candles_identity'
-          AND conrelid = 'platform_candles'::regclass
-    ) THEN
-        ALTER TABLE platform_candles
-            ADD CONSTRAINT uq_platform_candles_identity
-            UNIQUE (platform, instrument, timeframe, bucket_start, quote_side);
-    END IF;
-END $$;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_platform_candles_identity
+    ON platform_candles(platform, instrument, timeframe, bucket_start, quote_side);
 
--- 4. Indexes
 CREATE INDEX IF NOT EXISTS idx_platform_candles_lookup
     ON platform_candles(platform, instrument, timeframe, quote_side, bucket_start);
 
@@ -53,5 +34,3 @@ CREATE INDEX IF NOT EXISTS idx_platform_candles_bucket
 
 CREATE INDEX IF NOT EXISTS idx_platform_candles_quality
     ON platform_candles(source_quality);
-
-COMMIT;
