@@ -20,6 +20,7 @@ sys.path.insert(0, SRC_DIR)
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
 
+# CRITICAL: Patch database.connection BEFORE any project imports
 import database.connection as db_conn
 
 _TEST_ENGINE = create_engine("sqlite:///:memory:", echo=False)
@@ -32,11 +33,11 @@ def _test_get_session():
 
 db_conn.get_session = _test_get_session
 
+# Now safe to import project modules
 from database.models import Base, PriceObservation, PlatformCandle
 
 Base.metadata.create_all(bind=_TEST_ENGINE)
 
-# Production imports after DB patch
 from database.repository import (
     save_price_observation,
     save_platform_candle,
@@ -44,6 +45,13 @@ from database.repository import (
     get_latest_platform_candle,
     platform_candle_exists,
 )
+
+# EXTRA: patch repository's local get_session reference in case it captured
+# the unpatched function before db_conn.get_session was updated
+import database.repository as _repo_module
+
+_repo_module.get_session = _test_get_session
+
 from intelligence.candles import (
     build_candles_from_observations,
     persist_candles,
