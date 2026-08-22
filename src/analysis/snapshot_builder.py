@@ -403,4 +403,20 @@ def build_analysis_snapshot(
         except Exception as e:
             print(f" Candle build failed: {e}")
 
+    # PRE-SP-C.14B: non-blocking forecast evaluation (analysis wing only)
+    if snapshot_id is not None and snapshot_id > 0:
+        try:
+            from intelligence.forecast_engine import generate_forecast
+            for horizon in [1, 6, 24]:
+                forecast = generate_forecast(
+                    snapshot=snap,  # re-query or use existing snap reference
+                    horizon_hours=horizon,
+                    feature_config={"include_c8": True, "include_candles": False, "include_macd": False},
+                    model_name="logistic_regression",
+                    abstention_threshold=0.5,
+                )
+                print(f" Forecast {horizon}h: {forecast.status} / {forecast.forecast}")
+        except Exception as e:
+            print(f" Forecast generation failed: {e}")
+
     return snapshot_id
