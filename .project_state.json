@@ -3,7 +3,7 @@
   "project": "Gold Premium Monitor",
   "active_branch": "SP-B",
   "current_phase": "PRE-SP-C.14A",
-  "current_phase_status": "IN_PROGRESS",
+  "current_phase_status": "COMPLETE",
   "completed_phases": [
     "SP-B.1",
     "SP-B.2",
@@ -19,28 +19,33 @@
     "PRE-SP-C.10",
     "PRE-SP-C.11",
     "PRE-SP-C.12",
-    "PRE-SP-C.13"
+    "PRE-SP-C.13",
+    "PRE-SP-C.14A"
   ],
   "latest_verified_kpi": {
-    "phase": "PRE-SP-C.13",
+    "phase": "PRE-SP-C.14A",
     "passed": 26,
     "failed": 0,
     "status": "PASS",
     "evidence_source": "user-supplied local execution result"
   },
   "latest_verified_runtime": {
-    "compileall": "PASS before C.14A integration changes",
-    "live_smoke": "PASS at C.13",
-    "c14a_initial_compileall": "FAILED due to main.py indentation defect",
-    "c14a_initial_kpi": "FAILED 7/26",
-    "c14a_initial_failure_pattern": "mostly DB unavailable/schema missing plus main.py syntax defect"
+    "compileall": "PASS locally; GitHub Actions compileall stage was cancelled after successful execution of source compilation output",
+    "live_smoke": "PASS — production run completed; analysis snapshot 5 created; 9 candles saved; Telegram delivery succeeded",
+    "c14a_kpi": "PASS 26/26",
+    "c14a_neon": "SCHEMA_APPLIED_AND_VERIFIED_IN_PRODUCTION"
   },
   "c14a_status": {
-    "implementation": "PRESENT_ON_SP-B",
-    "github_fix": "main.py repaired; Goldika BUY/SELL persistence centralized; duplicate generic platform persistence removed",
+    "implementation": "VERIFIED_ON_SP-B",
+    "kpi": "26/26 PASS",
+    "compileall": "PASS",
+    "live_smoke": "PASS",
     "neon_schema": "APPLIED_AND_VERIFIED_IN_PRODUCTION",
-    "migration_id": "b489eb49-fa54-414d-91b7-d3f8f46f7252",
-    "required_next_test": "rerun kpi_pre_sp_c14a.py, compileall, then live smoke"
+    "remaining_runtime_source_failures": [
+      "Invi timeout discarded; 9 valid gold sources remained",
+      "Daric timeout discarded; 9 valid gold sources remained"
+    ],
+    "next_phase": "PRE-SP-C.14B"
   },
   "database_state": {
     "neon_project": "wispy-glade-92753836",
@@ -126,5 +131,5 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "PRE-SP-C.14A KPI + regression + compileall + live smoke must be green before C.14B begins"
+  "next_gate": "PRE-SP-C.14B pre-coding inspection"
 }
