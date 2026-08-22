@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from database.repository import (
     get_price_observations_by_instrument,
     save_platform_candle,
+    platform_candle_exists,
 )
 
 DEFAULT_TIMEFRAME = "30m"
@@ -52,21 +53,13 @@ def build_candles_from_observations(
 ) -> List[Dict[str, Any]]:
     """Build deterministic candles from price observations.
 
-    When explicit start/end bounds are supplied, the complete historical
-    observation set is queried so historical backfill and KPI fixtures are
-    not constrained by the runtime lookback window.
+    Explicitly bounded historical requests query the full available observation
+    set so backfill and old timestamp fixtures are not hidden by a runtime
+    lookback window.
     """
     delta = _timeframe_delta(timeframe)
-
-    # Runtime candle building may safely use the recent observation window;
-    # explicit historical bounds require an unbounded query to preserve PIT
-    # reconstruction and backfill behavior.
     lookback_hours = None if start is not None or end is not None else 720
-    obs = get_price_observations_by_instrument(
-        instrument,
-        limit=5000,
-        hours=lookback_hours,
-    )
+    obs = get_price_observations_by_instrument(instrument, limit=5000, hours=lookback_hours)
     if not obs:
         return []
 
@@ -89,7 +82,6 @@ def build_candles_from_observations(
         return []
 
     filtered.sort(key=lambda x: x[0])
-
     buckets: Dict[datetime, List[Tuple[datetime, float]]] = {}
     for ts, price in filtered:
         bs = _bucket_start(ts, timeframe)
@@ -101,14 +93,8 @@ def build_candles_from_observations(
         be = bs + delta
         prices = [p for _, p in bucket_obs]
         obs_count = len(prices)
-
         if obs_count < min_observations:
             continue
-
-        open_price = prices[0]
-        high_price = max(prices)
-        low_price = min(prices)
-        close_price = prices[-1]
 
         source_quality = "COMPLETE"
         if obs_count == 1:
@@ -122,10 +108,10 @@ def build_candles_from_observations(
             "timeframe": timeframe,
             "bucket_start": bs,
             "bucket_end": be,
-            "open": round(open_price, 4),
-            "high": round(high_price, 4),
-            "low": round(low_price, 4),
-            "close": round(close_price, 4),
+            "open": round(prices[0], 4),
+            "high": round(max(prices), 4),
+            "low": round(min(prices), 4),
+            "close": round(prices[-1], 4),
             "candle_type": candle_type,
             "quote_side": quote_side,
             "source_quality": source_quality,
@@ -141,6 +127,16 @@ def persist_candles(candles: List[Dict[str, Any]]) -> Tuple[int, int]:
     saved = 0
     skipped = 0
     for c in candles:
+        if platform_candle_exists(
+            platform=c["platform"],
+            instrument=c["instrument"],
+            timeframe=c["timeframe"],
+            bucket_start=c["bucket_start"],
+            quote_side=c["quote_side"],
+        ):
+            skipped += 1
+            continue
+
         result = save_platform_candle(
             platform=c["platform"],
             instrument=c["instrument"],
