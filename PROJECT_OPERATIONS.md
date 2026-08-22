@@ -48,6 +48,8 @@ historical dataset
 C.14A candles
    ↓
 C.14B forecast
+   ↓
+C.14C forecast resolution / human review / closed-loop audit
 ```
 
 The Analysis Wing is scheduled and independent of the number of Telegram users.
@@ -214,26 +216,6 @@ Human review is separate meta-data measuring perceived usefulness/timing/directi
 
 Human feedback must not directly update model weights or replace objective labels.
 
-Example review:
-
-```text
-Previous forecast review
-[ Very useful ]
-[ Mostly useful ]
-[ Direction right, timing wrong ]
-[ Direction wrong ]
-[ Hard to judge ]
-```
-
-Optional reason layer:
-
-```text
-[ Timing ] [ USD/IRR ] [ World Gold ] [ Local Market ]
-[ Premium ] [ Price Action ] [ News ] [ Hard to judge ]
-```
-
-Keep forecast timestamp, market outcome timestamp, and user feedback timestamp separate.
-
 ## 8. Fail-safe data policy
 
 Global rule:
@@ -260,13 +242,48 @@ Candle & Market-Structure Data Infrastructure
 
 PRE-SP-C.14B
 Forecast Features, Baselines, Evaluation & Forecast Engine
+
+PRE-SP-C.14C
+Forecast Resolution, Human Review & Closed-Loop Audit
 ```
 
-C.14A is allowed/expected to change Neon because canonical platform candles require persistent storage.
+C.14A is now VERIFIED COMPLETE.
 
-C.14B consumes C.14A infrastructure and must remain prediction-only, with no direct BUY/WAIT/SELL authority.
+C.14B must not begin until the C.14A gate is closed and documented.
 
-## 10. Candle semantics
+## 10. C.14A verified state
+
+C.14A establishes persistent deterministic 30-minute candles from canonical point observations.
+
+Verified:
+
+```text
+KPI: 26/26 PASS
+compileall: PASS locally
+live smoke: PASS
+Neon schema: APPLIED_AND_VERIFIED_IN_PRODUCTION
+```
+
+The latest live smoke created:
+
+```text
+Analysis snapshot 5
+9 platform candles saved
+Telegram delivery PASS
+```
+
+The live smoke discarded two unavailable sources:
+
+```text
+Invi — timeout
+Daric — timeout
+```
+
+Nine valid Iranian gold sources remained, so the run completed normally.
+
+The GitHub Actions compileall stage was cancelled after the source compilation output had completed; this is recorded as `CANCELLED`, not a source compile failure.
+
+## 11. Candle semantics
 
 Initial canonical timeframe:
 
@@ -291,11 +308,11 @@ Goldika exposes explicit buy/sell quotes.
 
 Ayyareh exposes `goldPrice` plus platform margin/wage fields. The existing collector contract is authoritative for how side estimates are derived; raw values and derived side values remain separate.
 
-C.14A should backfill existing `price_observations` where coverage is sufficient, then continue forward.
+C.14A backfills existing `price_observations` where coverage exists, then continues forward. Historical reconstruction uses explicit historical bounds; normal runtime candle construction remains bounded to the recent observation window.
 
-Unless a platform explicitly supplies official OHLC, the provenance must identify candles as derived from point observations.
+Unless a platform explicitly supplies official OHLC, the provenance identifies candles as derived from point observations.
 
-## 11. Forecast readiness gate
+## 12. Forecast readiness gate
 
 Forecast target:
 
@@ -346,7 +363,7 @@ Current forecast status:
 NOT READY FOR DEPLOYMENT
 ```
 
-## 12. C.13 completion state
+## 13. C.13 completion state
 
 ```text
 PRE-SP-C.13
@@ -358,9 +375,7 @@ Telegram delivery: PASS
 Neon C.13 reconciliation: COMPLETE
 ```
 
-The C.13 smoke observed a Daric timeout; 10 other gold sources remained valid and the run continued normally.
-
-## 13. Operational truth rule
+## 14. Operational truth rule
 
 For a new conversation:
 
