@@ -5,6 +5,7 @@ import requests
 API_URL_1 = "https://api.kitco.com/sse/full"
 API_URL_2 = "https://api.gold-api.com/price/XAU"
 API_URL_3 = "https://data-asg.goldprice.org/dbXRates/USD"
+API_URL_4 = "https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD=X?interval=1d&range=1d"
 
 HEADERS = {
     "User-Agent": (
@@ -68,6 +69,26 @@ def _try_goldprice_org():
 
     return float(price)
 
+### Yahoo Gold
+def _try_yahoo_finance():
+    """Primary: Yahoo Finance XAUUSD=X spot price."""
+    response = requests.get(API_URL_4, headers=HEADERS, timeout=15)
+    response.raise_for_status()
+    data = response.json()
+
+    result = data.get("chart", {}).get("result", [])
+    if not result:
+        raise RuntimeError("No chart result in Yahoo response")
+
+    meta = result[0].get("meta", {})
+    price = meta.get("regularMarketPrice") or meta.get("previousClose")
+    if price is None:
+        raise RuntimeError("No price in Yahoo meta")
+
+    return float(price)
+
+
+
 
 def get_world_gold_price():
     """Fetch world gold spot price with 3-level fallback.
@@ -79,6 +100,7 @@ def get_world_gold_price():
         ("gold-api.com", _try_gold_api),
         ("kitco.com/sse", _try_kitco_sse),
         ("goldprice.org", _try_goldprice_org),
+        ("yahoo-finance", _try_yahoo_finance),
     ]
 
     for name, fetch in sources:
