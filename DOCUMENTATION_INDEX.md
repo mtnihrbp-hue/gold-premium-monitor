@@ -11,9 +11,8 @@ This file is the navigation authority for repository documentation. It identifie
 | `MASTER_PLAN_STATUS.md` | Milestone and delivery status tracking |
 | `PROJECT_ORCHESTRATION.md` | Continuity protocol and synchronization workflow |
 | `PROJECT_OPERATIONS.md` | Operational control plane |
-| `C14_HANDOFF.md` | C14A/C14B implementation contracts |
+| `C14_HANDOFF.md` | C14A/C14B contracts, terminology, feedback, and audit rules |
 | `C14C_HANDOFF.md` | C14C implementation contract |
-| `C14_FEEDBACK_AND_TERMINOLOGY.md` | C14 terminology and feedback contract |
 | `RESEARCH_ADOPTION.md` | External research boundaries |
 | `Prompt_Guide.md` | AI engineering operating rules |
 | `.project_state.json` | Machine continuity state mirror |
@@ -21,8 +20,9 @@ This file is the navigation authority for repository documentation. It identifie
 ## Source ownership rules
 
 - `PROJECT_MEMORY.md` remains the single architectural source of truth.
-- Sprint status belongs to `MASTER_PLAN_STATUS.md`; other documents should reference it rather than duplicate milestone state.
+- Sprint status belongs to `MASTER_PLAN_STATUS.md`; other documents reference it rather than duplicate milestone state.
 - C14 documents define implementation contracts and do not replace architecture authority.
+- C14 terminology and feedback decisions are maintained inside the C14 handoff contract.
 - Neon ownership remains governed by schema and migration discipline.
 
 ## Continuity loading order
