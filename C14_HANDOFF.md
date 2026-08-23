@@ -19,18 +19,9 @@ PRE-SP-C.14C
 Forecast Resolution, Human Review & Closed-Loop Audit
 ```
 
-C.14A must be complete and verified before C.14B begins.
-C.14B must be evaluated before C.14C operationalizes forecast resolution and human review.
+C.14A establishes trustworthy persistent inputs. C.14B evaluates predictive value. C.14C closes the forecast lifecycle through objective resolution, optional human review, calibration, and audit.
 
-## Two-wing frontend architecture
-
-LIVE WING = /Update and current deterministic market interaction.
-
-ANALYSIS WING = scheduled analysis, evidence, interpretation, features, read model, dataset, candles, forecast, and audit.
-
-Human forecast review remains inside the Analysis Telegram experience. It is not a third frontend wing.
-
-## Decision boundary
+## Contract boundary
 
 Prediction remains separate from Decision.
 
@@ -40,22 +31,9 @@ FACTS → EVIDENCE → INTERPRETATION → FEATURES → READ MODEL → PREDICTION
 
 Forecast never rewrites facts, evidence, interpretation, features, read model, or current final_decision.
 
-## C.14A objective
+## C.14A and C.14B contracts
 
-Build persistent, deterministic platform candle infrastructure from canonical point observations.
-
-Primary Iranian sources:
-
-- Goldika
-- Ayyareh
-- Milli
-- WallGold
-
-Preserve BUY and SELL separately when explicitly available. Goldika exposes explicit buy/sell prices. Ayyareh exposes goldPrice plus margin/wage fields; inspect the existing collector before deriving side prices and preserve raw and derived values separately.
-
-For single-price sources use SINGLE_PRICE semantics.
-
-Unless a platform provides official OHLC, candles are DERIVED_FROM_POINT_OBSERVATIONS.
+C.14A preserves deterministic candle construction:
 
 ```text
 OPEN  = first valid observation
@@ -64,73 +42,67 @@ LOW   = minimum valid observation
 CLOSE = last valid observation
 ```
 
-No interpolation. No forward-fill. No future observations.
+Rules:
 
-Initial canonical timeframe: 30m.
+- no interpolation
+- no forward-fill
+- no future observations
+- preserve explicit buy/sell semantics
+- preserve provenance
 
-Backfill existing price_observations where coverage exists, preserve explicit backfill provenance, then continue forward collection.
+C.14B forecast contract:
 
-C.14A requires an incremental Neon platform_candles table with provenance and idempotency. Raw price_observations remain authoritative facts.
+```text
+UP
+NEUTRAL
+DOWN
+```
 
-## C.14B objective
+C.5 mapping remains authoritative:
 
-Evaluate whether C.8 features contain predictive signal and whether candle/price-action features add incremental out-of-sample value.
-
-Baseline = C.8 features.
-
-Extended = C.8 + platform candle/price-action features + non-redundant MACD-style momentum.
-
-Forecast target:
-
-UP / NEUTRAL / DOWN
-
-C.5 mapping:
-
+```text
 UP → UP
 FLAT → NEUTRAL
 DOWN → DOWN
 INSUFFICIENT_DATA → INSUFFICIENT_DATA
-
-Do not redefine C.5 labels.
-
-Forecast also supports INSUFFICIENT_DATA and ABSTAIN.
-
-Candidate context includes XAU/USD, USD/IRR, Iranian gold, premium/discount, platform consensus/dispersion, regime, volatility, momentum, MA/SMA/EMA, candle structure, price action, MACD-style momentum, relative rate of change, and acceleration/deceleration.
-
-For XAU/USD, do not make C.14 dependent on an unverified historical Gold API endpoint. Existing point observations may form deterministic candles initially. Any external OHLC source must pass reliability, rate-limit, cost, licensing, and provenance review.
-
-## Forecast evaluation
-
-Use chronological walk-forward evaluation. Do not use random train/test splitting as final evidence.
-
-Measure at minimum accuracy, balanced accuracy, precision/recall by class, macro F1, confusion matrix, baseline comparison, Brier score, calibration, coverage, abstention rate, and sample count.
-
-Allowed empirical outcomes: USEFUL, WEAK, NO_SIGNAL, INSUFFICIENT_DATA.
-
-## Fail-safe law
-
-```text
-MISSING
- ↓
-safe deterministic fallback?
- ├─ YES → fallback + degraded provenance
- └─ NO  → INSUFFICIENT_DATA / ABSTAIN
 ```
 
-Never silently extrapolate absent market data into apparently real facts.
+Additional operational states:
 
-## C.14C human review and closed-loop audit
+```text
+ABSTAIN
+INSUFFICIENT_DATA
+```
 
-User flow:
+Forecast never directly generates BUY/WAIT/SELL.
 
-/Update → live market
-/Analyze → analysis/evidence/interpretation/technical context
-/Forecast → forecast + probability + horizon
-Later /Forecast → if a matured previous forecast exists, offer compact review.
+## C.14C closed-loop audit contract
 
-The system objectively evaluates the forecast first. Human review is separate metadata.
+Lifecycle:
 
-Recommended progressive interaction:
+```text
+GENERATED
+→ PENDING
+→ ELIGIBLE_FOR_REVIEW
+→ OBJECTIVELY_EVALUATED
+→ USER_REVIEWED (optional)
+```
+
+Preserve separate clocks:
+
+```text
+forecast_time
+market_outcome_time
+feedback_time
+```
+
+Objective market outcome and human assessment are separate datasets.
+
+Human feedback is metadata/audit evidence. It is not direct label replacement and not online model training.
+
+## Human review interaction
+
+Preferred compact review:
 
 ```text
 Previous forecast review
@@ -148,42 +120,49 @@ Optional reason layer:
 [ Premium ] [ Price Action ] [ News ] [ Hard to judge ]
 ```
 
-Store separately:
-
-- objective outcome
-- probabilistic forecast quality
-- human perceived usefulness
-
-Human feedback is not online model training and must not directly modify model weights or labels.
-
-Lifecycle:
-
-GENERATED → PENDING → ELIGIBLE_FOR_REVIEW → OBJECTIVELY_EVALUATED → USER_REVIEWED (optional)
-
-Keep separate forecast_time, market_outcome_time, and feedback_time. Review eligibility follows forecast horizon and actual observation availability, not a fixed wall-clock interval.
-
 ## User-facing terminology
 
-Avoid opaque labels such as DISCOUNT WIDENING and DISCOUNT NARROWING.
+Avoid opaque labels:
 
-Prefer observable statements such as:
+```text
+DISCOUNT WIDENING
+DISCOUNT NARROWING
+```
+
+Prefer observable statements:
 
 - Iranian gold is increasing more slowly than its external drivers.
 - Iranian gold is catching up faster than its external drivers.
 
-Internal quantitative analysis may use price level, rate of change, relative rate of change, and acceleration. Do not assert a causal explanation unless evidence establishes it.
+Internal quantitative terms may use:
 
-## KPI engineering rule
+```text
+price level
+rate of change
+relative rate of change
+acceleration
+```
 
-Freeze canonical contracts first. Seed authoritative inputs. Let production logic derive metadata. Use deep copies for nested mutation. Do not add aliases to satisfy tests. Do not weaken production code to satisfy malformed fixtures.
+Do not claim causal explanations without evidence.
 
-## External research boundaries
+## Fail-safe rule
 
-Research sources:
+```text
+MISSING
+ ↓
+safe deterministic fallback?
+ ├─ YES → fallback + degraded provenance
+ └─ NO  → INSUFFICIENT_DATA / ABSTAIN
+```
 
-- 3aLaee/xauusd-trading-bot
-- JonusNattapong/Ai-XAUUSD-Trading
-- michael-chow-arch/goldfxgraph
-- vctb12/GoldTickerLive
+## External research boundary
 
-Use them for analytical inspiration only. MT5, broker execution, RL execution, order management, and autonomous trading are out of scope. See RESEARCH_ADOPTION.md for the adoption/defer matrix.
+External research informs analysis only.
+
+Deferred:
+
+- MT5/broker execution
+- autonomous trading
+- reinforcement-learning execution
+- online self-modifying models
+- direct user-feedback weight updates
