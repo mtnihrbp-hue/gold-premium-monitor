@@ -525,9 +525,10 @@ class TestC14B(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_32_historical_safety(self):
         now = datetime.now()
+        labels = ["UP", "DOWN", "FLAT"]
         for i in range(30):
             ts = now - timedelta(hours=35 - i)
-            _seed_snapshot(ts, "UP")
+            _seed_snapshot(ts, labels[i % 3])
         target_ts = now - timedelta(hours=2)
         target_id = _seed_snapshot(target_ts, "UP")
         session = _test_get_session()
