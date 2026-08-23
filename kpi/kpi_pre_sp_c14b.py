@@ -4,6 +4,7 @@ Target: 35/35 PASS
 Contract-first. No imagined implementation.
 """
 
+import copy
 import os
 import sys
 import subprocess
@@ -28,7 +29,9 @@ from sqlalchemy.orm import sessionmaker
 import database.connection as db_conn
 
 _TEST_ENGINE = create_engine("sqlite:///:memory:", echo=False)
-_TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_TEST_ENGINE)
+_TestSessionLocal = sessionmaker(
+    autocommit=False, autoflush=False, bind=_TEST_ENGINE, expire_on_commit=False
+)
 
 
 def _test_get_session():
@@ -128,9 +131,10 @@ def _seed_snapshot(timestamp, label_direction, regime="NORMAL", features=None):
     session.add(snap)
     session.commit()
     session.refresh(snap)
+    snap_id = snap.id
 
     ev = OutcomeEvaluation(
-        analysis_snapshot_id=snap.id,
+        analysis_snapshot_id=snap_id,
         horizon_hours=1,
         reference_time=timestamp,
         target_time=timestamp + timedelta(hours=1),
@@ -140,7 +144,7 @@ def _seed_snapshot(timestamp, label_direction, regime="NORMAL", features=None):
     session.add(ev)
     session.commit()
     session.close()
-    return snap
+    return snap_id
 
 
 def _clear_tables():
@@ -153,13 +157,22 @@ def _clear_tables():
 
 def _build_dataset(n=40, start_hours_ago=42):
     now = datetime.now()
-    labels = ["UP", "DOWN", "NEUTRAL"]
+    labels = ["UP", "DOWN", "FLAT"]  # FLAT is the valid C.5 direction, maps to NEUTRAL
     regimes = ["NORMAL", "FEAR", "PANIC"]
     for i in range(n):
         ts = now - timedelta(hours=start_hours_ago - i)
         label = labels[i % 3]
         regime = regimes[i % 3]
         _seed_snapshot(ts, label, regime)
+
+
+def _get_latest_snapshot():
+    session = _test_get_session()
+    snap = session.query(AnalysisSnapshot).order_by(
+        AnalysisSnapshot.analysis_timestamp.desc()
+    ).first()
+    session.close()
+    return snap
 
 
 # -----------------------------------------------------------------------------
@@ -202,11 +215,11 @@ class TestC14B(unittest.TestCase):
         _build_dataset(n=10)
         session = _test_get_session()
         snaps = session.query(AnalysisSnapshot).order_by(AnalysisSnapshot.analysis_timestamp.asc()).all()
+        session.close()
         recs = [{"label": "UP"}, {"label": "DOWN"}, {"label": "UP"}]
         self.assertIn(_majority_predict(recs), VALID_LABELS)
         self.assertEqual(_persistence_predict("UP"), "UP")
         self.assertIn(_c8_deterministic_predict(_make_features("UP")), VALID_LABELS)
-        session.close()
 
     # -------------------------------------------------------------------------
     # 04. baseline determinism
@@ -264,10 +277,7 @@ class TestC14B(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_07_probability_validity(self):
         _build_dataset(n=40)
-        target = _test_get_session().query(AnalysisSnapshot).order_by(
-            AnalysisSnapshot.analysis_timestamp.desc()
-        ).first()
-        _test_get_session().close()
+        target = _get_latest_snapshot()
         forecast = generate_forecast(target, horizon_hours=1, abstention_threshold=0.0)
         for d in VALID_LABELS:
             p = forecast.probabilities.get(d, 0.0)
@@ -279,10 +289,7 @@ class TestC14B(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_08_probability_sum(self):
         _build_dataset(n=40)
-        target = _test_get_session().query(AnalysisSnapshot).order_by(
-            AnalysisSnapshot.analysis_timestamp.desc()
-        ).first()
-        _test_get_session().close()
+        target = _get_latest_snapshot()
         forecast = generate_forecast(target, horizon_hours=1, abstention_threshold=0.0)
         if forecast.status == "OK":
             total = sum(forecast.probabilities.get(d, 0.0) for d in VALID_LABELS)
@@ -341,10 +348,7 @@ class TestC14B(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_14_provenance(self):
         _build_dataset(n=40)
-        target = _test_get_session().query(AnalysisSnapshot).order_by(
-            AnalysisSnapshot.analysis_timestamp.desc()
-        ).first()
-        _test_get_session().close()
+        target = _get_latest_snapshot()
         forecast = generate_forecast(target, horizon_hours=1, abstention_threshold=0.0)
         self.assertIn("snapshot_id", forecast.provenance)
 
@@ -353,10 +357,7 @@ class TestC14B(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_15_model_version(self):
         _build_dataset(n=40)
-        target = _test_get_session().query(AnalysisSnapshot).order_by(
-            AnalysisSnapshot.analysis_timestamp.desc()
-        ).first()
-        _test_get_session().close()
+        target = _get_latest_snapshot()
         forecast = generate_forecast(target, horizon_hours=1, model_name="logistic_regression")
         self.assertIsInstance(forecast.model_version, str)
         self.assertGreater(len(forecast.model_version), 0)
@@ -366,10 +367,7 @@ class TestC14B(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_16_feature_schema_version(self):
         _build_dataset(n=40)
-        target = _test_get_session().query(AnalysisSnapshot).order_by(
-            AnalysisSnapshot.analysis_timestamp.desc()
-        ).first()
-        _test_get_session().close()
+        target = _get_latest_snapshot()
         forecast = generate_forecast(target, horizon_hours=1)
         self.assertEqual(forecast.feature_schema_version, "1")
 
@@ -378,10 +376,7 @@ class TestC14B(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_17_label_schema_version(self):
         _build_dataset(n=40)
-        target = _test_get_session().query(AnalysisSnapshot).order_by(
-            AnalysisSnapshot.analysis_timestamp.desc()
-        ).first()
-        _test_get_session().close()
+        target = _get_latest_snapshot()
         forecast = generate_forecast(target, horizon_hours=1)
         self.assertEqual(forecast.label_schema_version, "1")
 
@@ -390,10 +385,7 @@ class TestC14B(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_18_horizon_preservation(self):
         _build_dataset(n=40)
-        target = _test_get_session().query(AnalysisSnapshot).order_by(
-            AnalysisSnapshot.analysis_timestamp.desc()
-        ).first()
-        _test_get_session().close()
+        target = _get_latest_snapshot()
         for h in [1, 6, 24]:
             forecast = generate_forecast(target, horizon_hours=h)
             self.assertEqual(forecast.horizon_hours, h)
@@ -424,19 +416,22 @@ class TestC14B(unittest.TestCase):
         now = datetime.now()
         # 30 training snapshots
         for i in range(30):
-            ts = now - timedelta(hours=40 - i)
-            _seed_snapshot(ts, "UP" if i % 2 == 0 else "DOWN")
+            ts = now - timedelta(hours=35 - i)
+            _seed_snapshot(ts, "UP")
         # Target snapshot
         target_ts = now - timedelta(hours=2)
-        target = _seed_snapshot(target_ts, "UP")
-        # Generate forecast
+        target_id = _seed_snapshot(target_ts, "UP")
+        session = _test_get_session()
+        target = session.query(AnalysisSnapshot).filter(AnalysisSnapshot.id == target_id).first()
         f1 = generate_forecast(target, horizon_hours=1, abstention_threshold=0.0)
         train_count_1 = f1.provenance.get("training_samples", 0)
         # Future snapshot (should NOT affect training)
         future_ts = now - timedelta(hours=1)
         _seed_snapshot(future_ts, "DOWN", features=_make_features("DOWN"))
+        session.refresh(target)
         f2 = generate_forecast(target, horizon_hours=1, abstention_threshold=0.0)
         train_count_2 = f2.provenance.get("training_samples", 0)
+        session.close()
         self.assertEqual(train_count_1, train_count_2)
 
     # -------------------------------------------------------------------------
@@ -472,10 +467,7 @@ class TestC14B(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_25_regime_context(self):
         _build_dataset(n=40)
-        target = _test_get_session().query(AnalysisSnapshot).order_by(
-            AnalysisSnapshot.analysis_timestamp.desc()
-        ).first()
-        _test_get_session().close()
+        target = _get_latest_snapshot()
         forecast = generate_forecast(target, horizon_hours=1)
         self.assertIsNotNone(forecast.regime_state)
 
@@ -521,10 +513,7 @@ class TestC14B(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_31_no_decision_generation(self):
         _build_dataset(n=40)
-        target = _test_get_session().query(AnalysisSnapshot).order_by(
-            AnalysisSnapshot.analysis_timestamp.desc()
-        ).first()
-        _test_get_session().close()
+        target = _get_latest_snapshot()
         forecast = generate_forecast(target, horizon_hours=1)
         s = str(asdict(forecast)).upper()
         self.assertNotIn("'BUY'", s)
@@ -540,9 +529,12 @@ class TestC14B(unittest.TestCase):
             ts = now - timedelta(hours=35 - i)
             _seed_snapshot(ts, "UP")
         target_ts = now - timedelta(hours=2)
-        target = _seed_snapshot(target_ts, "UP")
+        target_id = _seed_snapshot(target_ts, "UP")
+        session = _test_get_session()
+        target = session.query(AnalysisSnapshot).filter(AnalysisSnapshot.id == target_id).first()
         forecast = generate_forecast(target, horizon_hours=1)
         train_end = forecast.provenance.get("training_end")
+        session.close()
         self.assertIsNotNone(train_end)
         if train_end:
             self.assertLess(datetime.fromisoformat(train_end), target_ts)
