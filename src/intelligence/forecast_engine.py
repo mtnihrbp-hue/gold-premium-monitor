@@ -110,7 +110,7 @@ def measure_data_readiness(
         n = len(records)
         min_class = min(class_counts.values()) if class_counts else 0
         sufficient = (
-            n >= min_train_samples + step  # at least one fold
+            n >= min_train_samples + 1  # at least one fold
             and min_class >= min_per_class
             and len(set(r["timestamp"].date() for r in records)) >= 2
         )
