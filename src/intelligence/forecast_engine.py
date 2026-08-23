@@ -683,6 +683,7 @@ def generate_forecast(
             train_recs.append({
                 "features": np.array(snap_fv["feature_values"], dtype=float),
                 "label": label,
+                "timestamp": snap.analysis_timestamp.isoformat() if snap.analysis_timestamp else None,
             })
 
         if len(train_recs) < 10:
