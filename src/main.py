@@ -75,6 +75,40 @@ def _fallback_world_from_history(history):
         return None
     return last.get("world_gold")
 
+def _fallback_world_from_db(max_age_hours=6):
+    """Fallback to most recent XAUUSD price observation in the database.
+
+    Non-blocking: returns None on any DB failure.
+    """
+    from database.connection import get_session
+    from database.models import PriceObservation
+    from sqlalchemy import desc
+
+    session = get_session()
+    if session is None:
+        return None
+
+    try:
+        obs = (
+            session.query(PriceObservation)
+            .filter(PriceObservation.instrument == "XAUUSD")
+            .order_by(desc(PriceObservation.timestamp))
+            .first()
+        )
+        if obs is None or obs.price is None:
+            return None
+
+        age_hours = (datetime.now() - obs.timestamp).total_seconds() / 3600
+        if age_hours > max_age_hours:
+            return None
+
+        print(f" World Gold fallback from DB: ${float(obs.price):,.2f} ({age_hours:.1f}h old)")
+        return float(obs.price)
+    except Exception as e:
+        print(f" World Gold DB fallback failed: {e}")
+        return None
+    finally:
+        session.close()
 
 def _generate_collection_run_id():
     """Generate a deterministic collection run ID for traceability."""
@@ -204,8 +238,9 @@ def main():
         if world:
             print(f" World Gold fallback from history: ${world:,.2f} (<6h old)")
         else:
-            print(" World Gold NO DATA")
-
+            world = _fallback_world_from_db(max_age_hours=6)
+            if world is None:
+                print(" World Gold NO DATA")
     try:
         usd = get_usd_sell_rate()
         validate_usd_rate(usd)
