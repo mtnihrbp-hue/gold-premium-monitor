@@ -62,7 +62,7 @@ def validate_forecast_result(result: dict) -> tuple:
         elif not (0.0 <= p <= 1.0):
             errors.append(f"Probability {d}={p} out of range [0,1]")
 
-    if not errors:
+    if status == "OK" and not errors:
         total = sum(probs.get(d, 0.0) for d in VALID_DIRECTIONS)
         if abs(total - 1.0) > 1e-6:
             errors.append(f"Probabilities sum to {total}, expected 1.0")
