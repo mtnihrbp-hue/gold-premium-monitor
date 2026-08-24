@@ -38,8 +38,94 @@ class FakeOutcome:
         self.rep_gold_movement_percent = 0.5
 
 
+class FakeQuery:
+    """Mock SQLAlchemy query that evaluates basic filter conditions."""
+    def __init__(self, session, model):
+        self.session = session
+        self.model = model
+        self._filters = []
+        self._order = None
+
+    def filter(self, *conds):
+        self._filters.extend(conds)
+        return self
+
+    def join(self, *args):
+        return self
+
+    def order_by(self, *args):
+        self._order = args
+        return self
+
+    def _get_pool(self):
+        name = getattr(self.model, "__name__", "") or getattr(self.model, "__tablename__", "")
+        if "AnalysisSnapshot" in name or "analysis_snapshots" in name:
+            return self.session._snapshots
+        if "OutcomeEvaluation" in name or "outcome_evaluations" in name:
+            return self.session._outcomes
+        return []
+
+    def _eval_cond(self, obj, cond):
+        """Evaluate a single SQLAlchemy-style condition."""
+        if not hasattr(cond, 'left') or not hasattr(cond, 'right') or not hasattr(cond, 'operator'):
+            return True
+
+        # Extract attribute name
+        left = cond.left
+        attr_name = getattr(left, 'name', None) or getattr(left, 'key', None)
+        if attr_name is None:
+            return True
+
+        # Extract target value
+        right = cond.right
+        target = getattr(right, 'value', None)
+        if target is None and hasattr(right, 'effective_value'):
+            target = right.effective_value
+        if target is None:
+            target = right
+
+        actual = getattr(obj, attr_name, None)
+        op_name = getattr(cond.operator, '__name__', str(cond.operator))
+
+        # Handle 'in' / 'not in'
+        if 'in_op' in op_name or op_name == 'in_':
+            return actual in target if target is not None else False
+        if 'notin_op' in op_name or op_name == 'notin_':
+            return actual not in target if target is not None else True
+
+        # Standard comparison operators
+        try:
+            if 'eq' in op_name or op_name == 'eq':
+                return actual == target
+            if 'ne' in op_name or op_name == 'ne':
+                return actual != target
+            if 'lt' in op_name or op_name == 'lt':
+                return actual < target
+            if 'le' in op_name or op_name == 'le':
+                return actual <= target
+            if 'gt' in op_name or op_name == 'gt':
+                return actual > target
+            if 'ge' in op_name or op_name == 'ge':
+                return actual >= target
+        except TypeError:
+            return False
+        return True
+
+    def _matches(self, obj):
+        for cond in self._filters:
+            if not self._eval_cond(obj, cond):
+                return False
+        return True
+
+    def all(self):
+        return [obj for obj in self._get_pool() if self._matches(obj)]
+
+    def first(self):
+        results = self.all()
+        return results[0] if results else None
+
+
 class FakeSession:
-    """Minimal mock session for forecast readiness tests."""
     def __init__(self, snapshots=None, outcomes=None):
         self._snapshots = snapshots or []
         self._outcomes = outcomes or []
@@ -52,82 +138,46 @@ class FakeSession:
         self._closed = True
 
 
-class FakeQuery:
-    def __init__(self, session, model):
-        self.session = session
-        self.model = model
-        self.filters = []
-        self.joins = []
-
-    def filter(self, *conds):
-        self.filters.extend(conds)
-        return self
-
-    def join(self, *args):
-        self.joins.extend(args)
-        return self
-
-    def order_by(self, *args):
-        return self
-
-    def all(self):
-        if self.model.__name__ == "AnalysisSnapshot":
-            return self.session._snapshots
-        if self.model.__name__ == "OutcomeEvaluation":
-            return self.session._outcomes
-        return []
-
-    def first(self):
-        results = self.all()
-        return results[0] if results else None
-
-
 # ---------------------------------------------------------------------------
 # Unit tests for helpers
 # ---------------------------------------------------------------------------
 
 def test_count_distinct_days():
-    """Count unique calendar days from timestamps."""
     ts = [
         datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc),
         datetime(2026, 8, 20, 14, 0, tzinfo=timezone.utc),
         datetime(2026, 8, 21, 9, 0, tzinfo=timezone.utc),
     ]
-    assert _count_distinct_days(ts) == 2, f"Expected 2, got {_count_distinct_days(ts)}"
+    assert _count_distinct_days(ts) == 2
     print("PASS: test_count_distinct_days")
 
 
 def test_count_distinct_days_empty():
-    """Empty list returns 0."""
     assert _count_distinct_days([]) == 0
     print("PASS: test_count_distinct_days_empty")
 
 
 def test_estimated_days_zero_when_sufficient():
-    """When current >= required, estimate is 0."""
     ts = [datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc)]
     result = _compute_estimated_days_to_readiness(15, 10, ts)
-    assert result == 0.0, f"Expected 0.0, got {result}"
+    assert result == 0.0
     print("PASS: test_estimated_days_zero_when_sufficient")
 
 
 def test_estimated_days_none_when_insufficient_data():
-    """When fewer than 2 timestamps, cannot estimate."""
     result = _compute_estimated_days_to_readiness(5, 10, [datetime.now(timezone.utc)])
-    assert result is None, f"Expected None, got {result}"
+    assert result is None
     print("PASS: test_estimated_days_none_when_insufficient_data")
 
 
 def test_estimated_days_calculates_from_cadence():
-    """Estimate derived from observed examples per hour."""
     ts = [
         datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc),
         datetime(2026, 8, 20, 12, 0, tzinfo=timezone.utc),
         datetime(2026, 8, 20, 14, 0, tzinfo=timezone.utc),
     ]
     result = _compute_estimated_days_to_readiness(3, 10, ts)
-    assert result is not None, "Expected non-None estimate"
-    assert result > 0, f"Expected positive estimate, got {result}"
+    assert result is not None and result > 0
     print("PASS: test_estimated_days_calculates_from_cadence")
 
 
@@ -136,17 +186,12 @@ def test_estimated_days_calculates_from_cadence():
 # ---------------------------------------------------------------------------
 
 def test_audit_returns_db_unavailable_when_no_session():
-    """When session is None and get_session returns None, audit returns DB_UNAVAILABLE."""
     import intelligence.forecast_readiness as fr_mod
     original_get_session = fr_mod.get_session
-
-    def mock_get_session():
-        return None
-
+    fr_mod.get_session = lambda: None
     try:
-        fr_mod.get_session = mock_get_session
         result = audit_forecast_readiness()
-        assert result["status"] == "DB_UNAVAILABLE", f"Got {result['status']}"
+        assert result["status"] == "DB_UNAVAILABLE"
         assert result["error"] == "Database session unavailable"
     finally:
         fr_mod.get_session = original_get_session
@@ -154,7 +199,6 @@ def test_audit_returns_db_unavailable_when_no_session():
 
 
 def test_audit_counts_snapshots_correctly():
-    """5 snapshots, 3 with features_json → counts must match."""
     snaps = [
         FakeSnapshot(1, datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 1}),
         FakeSnapshot(2, datetime(2026, 8, 20, 11, 0, tzinfo=timezone.utc), {"f": 2}),
@@ -164,16 +208,15 @@ def test_audit_counts_snapshots_correctly():
     ]
     session = FakeSession(snapshots=snaps, outcomes=[])
     result = audit_forecast_readiness(session=session)
-    assert result["status"] == "OK", f"Got {result['status']}"
+    assert result["status"] == "OK"
     agg = result["aggregate"]
-    assert agg["total_snapshots"] == 5, f"total={agg['total_snapshots']}"
-    assert agg["snapshots_with_features"] == 3, f"with_features={agg['snapshots_with_features']}"
-    assert agg["snapshots_without_features"] == 2, f"without={agg['snapshots_without_features']}"
+    assert agg["total_snapshots"] == 5
+    assert agg["snapshots_with_features"] == 3
+    assert agg["snapshots_without_features"] == 2
     print("PASS: test_audit_counts_snapshots_correctly")
 
 
 def test_audit_reports_insufficient_training_examples():
-    """3 usable examples, min_train_samples=10 → GATED with reason."""
     snaps = [
         FakeSnapshot(1, datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 1}),
     ]
@@ -187,34 +230,30 @@ def test_audit_reports_insufficient_training_examples():
         config={"min_train_samples": 10, "horizons_hours": [1]},
         session=session,
     )
-    assert result["status"] == "OK", f"Got {result['status']}"
+    assert result["status"] == "OK"
     h1 = result["per_horizon"]["1"]
-    assert h1["readiness_gate"] == "GATED", f"Gate={h1['readiness_gate']}"
-    assert any("insufficient_training_examples" in r for r in h1["gate_reasons"]), f"Reasons={h1['gate_reasons']}"
+    assert h1["readiness_gate"] == "GATED"
+    assert any("insufficient_training_examples" in r for r in h1["gate_reasons"])
     print("PASS: test_audit_reports_insufficient_training_examples")
 
 
 def test_audit_reports_class_imbalance():
-    """5 usable examples: UP=5, DOWN=0, NEUTRAL=0 → GATED with class_imbalance reason."""
     snaps = [
         FakeSnapshot(1, datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 1}),
     ]
-    outcomes = [
-        FakeOutcome("COMPLETE", "UP", 1, snap_id=1) for _ in range(5)
-    ]
+    outcomes = [FakeOutcome("COMPLETE", "UP", 1, snap_id=1) for _ in range(5)]
     session = FakeSession(snapshots=snaps, outcomes=outcomes)
     result = audit_forecast_readiness(
         config={"min_train_samples": 3, "min_per_class": 3, "horizons_hours": [1]},
         session=session,
     )
     h1 = result["per_horizon"]["1"]
-    assert h1["readiness_gate"] == "GATED", f"Gate={h1['readiness_gate']}"
-    assert any("class_imbalance" in r for r in h1["gate_reasons"]), f"Reasons={h1['gate_reasons']}"
+    assert h1["readiness_gate"] == "GATED"
+    assert any("class_imbalance" in r for r in h1["gate_reasons"])
     print("PASS: test_audit_reports_class_imbalance")
 
 
 def test_audit_reports_open_gate_when_all_conditions_met():
-    """31 usable examples, balanced classes, 3 distinct days → OPEN."""
     snaps = [
         FakeSnapshot(1, datetime(2026, 8, 18, 10, 0, tzinfo=timezone.utc), {"f": 1}),
         FakeSnapshot(2, datetime(2026, 8, 19, 10, 0, tzinfo=timezone.utc), {"f": 2}),
@@ -232,13 +271,12 @@ def test_audit_reports_open_gate_when_all_conditions_met():
     )
     h1 = result["per_horizon"]["1"]
     assert h1["readiness_gate"] == "OPEN", f"Gate={h1['readiness_gate']}, reasons={h1['gate_reasons']}"
-    assert len(h1["gate_reasons"]) == 0, f"Unexpected reasons: {h1['gate_reasons']}"
-    assert h1["usable_training_examples"] == 31, f"Usable={h1['usable_training_examples']}"
+    assert len(h1["gate_reasons"]) == 0
+    assert h1["usable_training_examples"] == 31
     print("PASS: test_audit_reports_open_gate_when_all_conditions_met")
 
 
 def test_audit_does_not_modify_database():
-    """Audit is read-only. No INSERT/UPDATE/DELETE."""
     snaps = [FakeSnapshot(1, datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 1})]
     session = FakeSession(snapshots=snaps, outcomes=[])
     result = audit_forecast_readiness(session=session)
