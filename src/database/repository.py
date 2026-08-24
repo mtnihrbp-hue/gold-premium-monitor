@@ -616,13 +616,24 @@ def get_recent_dedup_keys(hours: int = 24) -> Set[str]:
     
     Used for batch deduplication during ingestion to eliminate N+1 exists queries.
     """
-    with get_session() as session:
+    from database.models import NewsEvent
+
+    session = get_session()
+    if session is None:
+        return set()
+
+    try:
         cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
         rows = session.query(NewsEvent.dedup_key).filter(
             NewsEvent.created_at >= cutoff,
             NewsEvent.dedup_key.isnot(None)
         ).all()
         return {row[0] for row in rows if row[0]}
+    except Exception as e:
+        print(f"DB query failed (get_recent_dedup_keys): {e}")
+        return set()
+    finally:
+        session.close()
 
 
 
