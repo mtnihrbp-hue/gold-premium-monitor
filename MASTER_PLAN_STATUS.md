@@ -2,7 +2,7 @@
 
 Branch: `SP-B`
 
-This document is the compact continuity map of the completed architecture, verified implementation, and remaining C.14 work. It is designed for onboarding a new conversation without relying on chat history.
+This document is the compact continuity map of the completed architecture, verified implementation, and remaining work. It is designed for onboarding a new conversation without relying on chat history.
 
 ## 1. Locked top architecture
 
@@ -79,6 +79,7 @@ PRE-SP-C.12              COMPLETE
 PRE-SP-C.13              COMPLETE
 PRE-SP-C.14A             COMPLETE — 26/26 KPI
 PRE-SP-C.14B             COMPLETE — 36/36 KPI
+PRE-SP-C.14C             COMPLETE — 21/21 KPI
 ```
 
 ## 4. C.8 feature foundation
@@ -179,9 +180,62 @@ Current Neon history remains intentionally sparse. Therefore the model must cont
 
 C.14B required **no Neon schema migration**.
 
-## 7. Neon production position
+## 7. C.14C — Adaptive Intelligence Foundation
 
-Latest reconciled schema includes:
+Status: **COMPLETE — 21/21 KPI PASS**.
+
+C.14C is the verified downstream intelligence foundation around C.14B. It is diagnostic and analytical, not autonomous.
+
+Implemented capabilities:
+
+- deterministic forecast error classification
+- direction, confidence, timing, regime, and data-quality error categories
+- regime-conditioned forecast analysis
+- feature reliability analysis
+- feature separation checks
+- single-forecast analysis
+- historical batch analysis
+- structural event-interpreter interface/stubs for future event intelligence
+- explicit protection against decision-authority escalation
+- explicit future-leakage protection
+
+C.14C consumes existing analytical/forecast artifacts. It does not modify the C.14B forecast contract or the deterministic decision engine.
+
+Architecture boundary:
+
+```text
+Forecast Engine
+      ↓
+Forecast Result
+      ↓
+Outcome Evaluation
+      ↓
+C.14C Intelligence Analysis
+```
+
+C.14C may measure, classify, compare, explain, and identify areas for future investigation.
+
+C.14C does **not**:
+
+- perform reinforcement learning
+- perform online learning
+- automatically modify model weights
+- automatically change thresholds
+- modify BUY/WAIT/SELL authority
+- call an LLM for market decisions
+- create an autonomous trading policy
+
+Forecast memory is currently reconstructed from existing persisted analytical artifacts. Immutable forecast-history persistence is deferred until production forecast lifecycle and data volume justify it.
+
+Error classification is currently computed analytically rather than persisted as a new database field.
+
+The event interpreter is an architectural extension point only; actual LLM/event-model integration is future scope.
+
+KPI: **21/21 PASS**.
+
+## 8. Neon production position
+
+Latest reconciled production schema includes:
 
 ```text
 outcome_evaluations
@@ -197,100 +251,32 @@ news_events
 
 C.14A schema migration is applied and verified in production.
 
-C.14B did not require a new schema change.
+C.14B required no schema change.
 
-Future schema changes require the established Neon migration/verification workflow and approval.
+C.14C required **no schema migration**. Existing production tables are sufficient for the implemented C.14C foundation.
 
-## 8. C.14C — Remaining phase
+Live Neon verification on 2026-08-24 confirmed the expected core structures and preserved historical data. No database mutation was performed during the C.14C reconciliation.
 
-C.14C is now the next development target.
+Future schema changes require the established Neon migration/verification workflow and explicit approval.
 
-It should be treated as the closed-loop intelligence/audit layer around C.14B, not as another uncontrolled feature dump.
+## 9. C.14C deferred intelligence extensions
 
-Planned components:
-
-```text
-C.14C.1 Forecast Resolution
-C.14C.2 Human Review inside Telegram Analysis experience
-C.14C.3 News/Event Provenance + Deduplication
-C.14C.4 Event-Impact Measurement
-C.14C.5 Calibration / Forecast Audit
-C.14C.6 Regime-conditioned audit
-C.14C.7 Weekly admin intelligence report
-```
-
-### Human feedback
-
-The system first computes objective market outcome.
-
-Human input is separate meta-data:
+The following concepts remain intentionally deferred rather than being falsely recorded as implemented:
 
 ```text
-OBJECTIVE OUTCOME
-≠
-HUMAN ASSESSMENT
+immutable forecast event persistence
+human review persistence/UI
+news/event provenance and deduplication
+empirical event-impact measurement
+weekly administrative intelligence reporting
+controlled adaptive weighting
+LLM event interpretation
+reinforcement learning / bandit optimization
 ```
 
-No online model-weight updates from raw user feedback.
+These are future architecture work and must be evaluated separately against accumulated production evidence.
 
-Forecast lifecycle:
-
-```text
-GENERATED
-→ PENDING
-→ ELIGIBLE_FOR_REVIEW
-→ OBJECTIVELY_EVALUATED
-→ USER_REVIEWED (optional)
-```
-
-Keep three clocks separate:
-
-```text
-forecast_time
-market_outcome_time
-feedback_time
-```
-
-### News/event intelligence
-
-News is not reduced to headline sentiment.
-
-Preferred model:
-
-```text
-NEWS EVENT
-→ provenance/classification
-→ expected impact hypothesis
-→ market observation window
-→ abnormal/local response
-→ historical event profile
-→ empirical event/source weighting
-```
-
-Do not treat reposts as independent confirmations.
-
-Do not infer causality without evidence.
-
-Use event windows and compare local response against external drivers where possible.
-
-### Regime
-
-The existing regime detector remains the canonical regime engine.
-
-C.14C uses regime for contextual and diagnostic segmentation:
-
-```text
-stable trend
-range
-stress
-transition
-```
-
-(or the exact project labels).
-
-Regime does not override the forecast and does not issue BUY/SELL.
-
-## 9. User-facing terminology refactor
+## 10. User-facing terminology refactor
 
 Do not expose opaque internal labels such as:
 
@@ -312,24 +298,24 @@ Internal mathematics may retain premium/discount, relative rate of change, slope
 
 Causal explanation requires evidence.
 
-## 10. What remains before SP-B can close
+## 11. What remains before SP-B can close
 
 The project is not ready to merge SP-B → main yet.
 
 Remaining work is primarily:
 
-1. C.14C implementation and verification.
-2. Final terminology/user-facing Telegram curation.
-3. Forecast readiness based on accumulated real production history.
-4. Closed-loop human review and news/event audit.
-5. Full regression across all phase KPIs.
-6. Final Neon schema/data audit.
+1. Decide the next post-C14C intelligence scope from evidence, not speculation.
+2. Accumulate sufficient real production history for forecast readiness.
+3. Evaluate whether immutable forecast persistence is justified.
+4. Design and verify any human-review/news-impact extension separately.
+5. Full regression across all phase KPIs before SP-B closure.
+6. Final Neon schema/data audit at SP-B close.
 7. Final GitHub diff/documentation/state review.
 8. Final operational review of cron-job.org + Cloudflare + GitHub Actions.
 9. Explicit SP-B close approval.
 10. Only then merge SP-B → main and later create SP-C.
 
-## 11. Branch safety
+## 12. Branch safety
 
 ```text
 ACTIVE DEVELOPMENT = SP-B
@@ -339,7 +325,7 @@ main MERGE = forbidden until explicit SP-B close approval
 
 Never merge `main` into SP-B as a shortcut. Reconcile specific artifacts only.
 
-## 12. Continuity protocol
+## 13. Continuity protocol
 
 ```text
 KIMI code
