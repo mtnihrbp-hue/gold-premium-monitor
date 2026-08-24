@@ -13,7 +13,7 @@ This file is the navigation authority for repository documentation. It identifie
 | `PROJECT_OPERATIONS.md` | Operational control plane |
 | `C14_HANDOFF.md` | C14A/C14B contracts, terminology, feedback, and audit rules |
 | `C14C_HANDOFF.md` | C14C architecture and implementation contract |
-| `C14C_IMPLEMENTATION.md` | Verified C14C implementation reference and KPI boundary |
+| `C14C_IMPLEMENTATION.md` | Verified C14C implementation reference, KPI boundary, and supporting operational news-ingestion work |
 | `RESEARCH_ADOPTION.md` | External research boundaries |
 | `Prompt_Guide.md` | AI engineering operating rules |
 | `.project_state.json` | Machine continuity state mirror |
@@ -23,7 +23,7 @@ This file is the navigation authority for repository documentation. It identifie
 - `PROJECT_MEMORY.md` remains the single architectural source of truth.
 - Sprint status belongs to `MASTER_PLAN_STATUS.md`; other documents reference it rather than duplicate milestone state.
 - C14 documents define implementation contracts and do not replace architecture authority.
-- `C14C_IMPLEMENTATION.md` records verified C14C implementation scope; it does not create a competing architecture source.
+- `C14C_IMPLEMENTATION.md` records verified C14C implementation scope and supporting operational work; it does not create a competing architecture source.
 - C14 terminology and feedback decisions are maintained inside the C14 handoff contract.
 - Neon ownership remains governed by schema and migration discipline.
 
@@ -37,9 +37,26 @@ C14C  COMPLETE — 21/21 KPI
 
 C14C is the **Adaptive Intelligence Foundation**. It is downstream of C14B and remains diagnostic/analytical. It does not introduce reinforcement learning, online learning, automatic model-weight changes, LLM decision authority, or BUY/SELL authority changes.
 
-Neon verification for the C14C foundation is complete. **No Neon migration was required or performed.** Existing production/history data remains intact.
+### C14C supporting work — operational news ingestion
 
-Deferred C14C-adjacent work, including immutable forecast persistence, human review persistence, empirical event-impact measurement, LLM event interpretation, and future adaptive weighting, is not represented as completed merely because the C14C foundation passed its KPI.
+The existing RSS collector, deterministic event classifier, repository persistence, and downstream snapshot consumer are now wired through a thin runtime ingestion orchestrator. The runtime invokes news ingestion before `build_analysis_snapshot()`.
+
+The supporting work is operational plumbing only:
+
+```text
+configured RSS sources
+→ collect / normalize
+→ classify
+→ existing deduplicate
+→ persist `news_events`
+→ downstream news context
+```
+
+Source failures are non-blocking. No new table, migration, LLM, event-impact learning, or decision authority was introduced.
+
+Neon verification for the C14C foundation and supporting work remains **no migration required**. Existing production/history data remains intact.
+
+The forecast runtime remains data-gated: current `1h`, `6h`, and `24h` forecasts may return `INSUFFICIENT_DATA` while chronological production history is sparse. This is expected and must not be bypassed by lowering sufficiency controls.
 
 ## Continuity loading order
 
@@ -53,4 +70,5 @@ Deferred C14C-adjacent work, including immutable forecast persistence, human rev
 → PROJECT_OPERATIONS.md
 → C14 contracts
 → research and AI guidance
+→ C14C_IMPLEMENTATION.md
 ```
