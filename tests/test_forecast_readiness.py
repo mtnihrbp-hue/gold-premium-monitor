@@ -17,7 +17,7 @@ from intelligence.forecast_readiness import (
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Helpers — Robust FakeQuery that evaluates SQLAlchemy-style filters
 # ---------------------------------------------------------------------------
 
 class FakeSnapshot:
@@ -39,12 +39,11 @@ class FakeOutcome:
 
 
 class FakeQuery:
-    """Mock SQLAlchemy query that evaluates basic filter conditions."""
+    """Mock SQLAlchemy query with real filter evaluation."""
     def __init__(self, session, model):
         self.session = session
         self.model = model
         self._filters = []
-        self._order = None
 
     def filter(self, *conds):
         self._filters.extend(conds)
@@ -54,10 +53,9 @@ class FakeQuery:
         return self
 
     def order_by(self, *args):
-        self._order = args
         return self
 
-    def _get_pool(self):
+    def _pool(self):
         name = getattr(self.model, "__name__", "") or getattr(self.model, "__tablename__", "")
         if "AnalysisSnapshot" in name or "analysis_snapshots" in name:
             return self.session._snapshots
@@ -65,60 +63,81 @@ class FakeQuery:
             return self.session._outcomes
         return []
 
-    def _eval_cond(self, obj, cond):
-        """Evaluate a single SQLAlchemy-style condition."""
-        if not hasattr(cond, 'left') or not hasattr(cond, 'right') or not hasattr(cond, 'operator'):
+    def _eval(self, obj, cond):
+        """Evaluate a SQLAlchemy binary condition against a plain object."""
+        if not hasattr(cond, "left") or not hasattr(cond, "right") or not hasattr(cond, "operator"):
             return True
 
-        # Extract attribute name
+        # --- attribute name ---
         left = cond.left
-        attr_name = getattr(left, 'name', None) or getattr(left, 'key', None)
-        if attr_name is None:
+        attr = None
+        for attr_name in ("key", "name"):
+            v = getattr(left, attr_name, None)
+            if v and isinstance(v, str):
+                attr = v
+                break
+        if attr is None and hasattr(left, "property"):
+            attr = getattr(left.property, "key", None)
+        if not attr:
             return True
 
-        # Extract target value
+        # If the object doesn't have this attribute, the filter is probably
+        # a cross-table join condition (e.g. AnalysisSnapshot.timestamp on
+        # an OutcomeEvaluation query). Be permissive.
+        if not hasattr(obj, attr):
+            return True
+
+        actual = getattr(obj, attr)
+
+        # --- target value ---
         right = cond.right
-        target = getattr(right, 'value', None)
-        if target is None and hasattr(right, 'effective_value'):
-            target = right.effective_value
+        target = None
+        # Try SQLAlchemy wrapper attributes
+        for val_attr in ("value", "effective_value", "compiled_value"):
+            if hasattr(right, val_attr):
+                target = getattr(right, val_attr)
+                break
+        # If still None and right looks like a plain Python value, use it directly
         if target is None:
             target = right
 
-        actual = getattr(obj, attr_name, None)
-        op_name = getattr(cond.operator, '__name__', str(cond.operator))
+        # --- operator ---
+        op = cond.operator
+        op_name = getattr(op, "__name__", str(op))
 
-        # Handle 'in' / 'not in'
-        if 'in_op' in op_name or op_name == 'in_':
-            return actual in target if target is not None else False
-        if 'notin_op' in op_name or op_name == 'notin_':
-            return actual not in target if target is not None else True
-
-        # Standard comparison operators
+        # Comparison
         try:
-            if 'eq' in op_name or op_name == 'eq':
+            if "in_op" in op_name or op_name == "in_":
+                return actual in target
+            if "notin_op" in op_name or op_name == "notin_":
+                return actual not in target
+            if op_name in ("eq", "=="):
                 return actual == target
-            if 'ne' in op_name or op_name == 'ne':
+            if op_name in ("ne", "!="):
                 return actual != target
-            if 'lt' in op_name or op_name == 'lt':
+            if op_name in ("lt", "<"):
                 return actual < target
-            if 'le' in op_name or op_name == 'le':
+            if op_name in ("le", "<="):
                 return actual <= target
-            if 'gt' in op_name or op_name == 'gt':
+            if op_name in ("gt", ">"):
                 return actual > target
-            if 'ge' in op_name or op_name == 'ge':
+            if op_name in ("ge", ">="):
                 return actual >= target
+            if "is_not" in op_name:
+                return actual is not target
+            if "is_" in op_name:
+                return actual is target
+            # Fallback: call operator directly
+            return op(actual, target)
         except TypeError:
-            return False
-        return True
+            # Cannot compare (e.g. datetime vs None) → permissive
+            return True
 
     def _matches(self, obj):
-        for cond in self._filters:
-            if not self._eval_cond(obj, cond):
-                return False
-        return True
+        return all(self._eval(obj, c) for c in self._filters)
 
     def all(self):
-        return [obj for obj in self._get_pool() if self._matches(obj)]
+        return [o for o in self._pool() if self._matches(o)]
 
     def first(self):
         results = self.all()
@@ -187,14 +206,14 @@ def test_estimated_days_calculates_from_cadence():
 
 def test_audit_returns_db_unavailable_when_no_session():
     import intelligence.forecast_readiness as fr_mod
-    original_get_session = fr_mod.get_session
+    original = fr_mod.get_session
     fr_mod.get_session = lambda: None
     try:
         result = audit_forecast_readiness()
         assert result["status"] == "DB_UNAVAILABLE"
         assert result["error"] == "Database session unavailable"
     finally:
-        fr_mod.get_session = original_get_session
+        fr_mod.get_session = original
     print("PASS: test_audit_returns_db_unavailable_when_no_session")
 
 
@@ -208,18 +227,16 @@ def test_audit_counts_snapshots_correctly():
     ]
     session = FakeSession(snapshots=snaps, outcomes=[])
     result = audit_forecast_readiness(session=session)
-    assert result["status"] == "OK"
+    assert result["status"] == "OK", f"status={result['status']}"
     agg = result["aggregate"]
-    assert agg["total_snapshots"] == 5
-    assert agg["snapshots_with_features"] == 3
-    assert agg["snapshots_without_features"] == 2
+    assert agg["total_snapshots"] == 5, f"total={agg['total_snapshots']}"
+    assert agg["snapshots_with_features"] == 3, f"with={agg['snapshots_with_features']}"
+    assert agg["snapshots_without_features"] == 2, f"without={agg['snapshots_without_features']}"
     print("PASS: test_audit_counts_snapshots_correctly")
 
 
 def test_audit_reports_insufficient_training_examples():
-    snaps = [
-        FakeSnapshot(1, datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 1}),
-    ]
+    snaps = [FakeSnapshot(1, datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 1})]
     outcomes = [
         FakeOutcome("COMPLETE", "UP", 1, snap_id=1),
         FakeOutcome("COMPLETE", "DOWN", 1, snap_id=1),
@@ -238,9 +255,7 @@ def test_audit_reports_insufficient_training_examples():
 
 
 def test_audit_reports_class_imbalance():
-    snaps = [
-        FakeSnapshot(1, datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 1}),
-    ]
+    snaps = [FakeSnapshot(1, datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 1})]
     outcomes = [FakeOutcome("COMPLETE", "UP", 1, snap_id=1) for _ in range(5)]
     session = FakeSession(snapshots=snaps, outcomes=outcomes)
     result = audit_forecast_readiness(
@@ -270,7 +285,7 @@ def test_audit_reports_open_gate_when_all_conditions_met():
         session=session,
     )
     h1 = result["per_horizon"]["1"]
-    assert h1["readiness_gate"] == "OPEN", f"Gate={h1['readiness_gate']}, reasons={h1['gate_reasons']}"
+    assert h1["readiness_gate"] == "OPEN", f"gate={h1['readiness_gate']}, reasons={h1['gate_reasons']}"
     assert len(h1["gate_reasons"]) == 0
     assert h1["usable_training_examples"] == 31
     print("PASS: test_audit_reports_open_gate_when_all_conditions_met")
