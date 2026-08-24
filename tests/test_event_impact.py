@@ -50,21 +50,8 @@ class FakeOutcome:
         self.analysis_snapshot_id = snap_id
 
 
-class FakeSession:
-    def __init__(self, events=None, snapshots=None, outcomes=None):
-        self._events = events or []
-        self._snapshots = snapshots or []
-        self._outcomes = outcomes or []
-        self._closed = False
-
-    def query(self, model):
-        return FakeQuery(self, model)
-
-    def close(self):
-        self._closed = True
-
-
 class FakeQuery:
+    """Mock SQLAlchemy query that evaluates basic filter conditions."""
     def __init__(self, session, model):
         self.session = session
         self.model = model
@@ -79,21 +66,84 @@ class FakeQuery:
         self._order = args
         return self
 
-    def all(self):
-        # Robust matching: check class name or table name
-        name = getattr(self.model, "__name__", "")
-        tablename = getattr(self.model, "__tablename__", "")
-        if name == "NewsEvent" or tablename == "news_events":
+    def _get_pool(self):
+        name = getattr(self.model, "__name__", "") or getattr(self.model, "__tablename__", "")
+        if "NewsEvent" in name or "news_events" in name:
             return self.session._events
-        if name == "AnalysisSnapshot" or tablename == "analysis_snapshots":
+        if "AnalysisSnapshot" in name or "analysis_snapshots" in name:
             return self.session._snapshots
-        if name == "OutcomeEvaluation" or tablename == "outcome_evaluations":
+        if "OutcomeEvaluation" in name or "outcome_evaluations" in name:
             return self.session._outcomes
         return []
+
+    def _eval_cond(self, obj, cond):
+        """Evaluate a single SQLAlchemy-style condition."""
+        if not hasattr(cond, 'left') or not hasattr(cond, 'right') or not hasattr(cond, 'operator'):
+            return True
+
+        left = cond.left
+        attr_name = getattr(left, 'name', None) or getattr(left, 'key', None)
+        if attr_name is None:
+            return True
+
+        right = cond.right
+        target = getattr(right, 'value', None)
+        if target is None and hasattr(right, 'effective_value'):
+            target = right.effective_value
+        if target is None:
+            target = right
+
+        actual = getattr(obj, attr_name, None)
+        op_name = getattr(cond.operator, '__name__', str(cond.operator))
+
+        if 'in_op' in op_name or op_name == 'in_':
+            return actual in target if target is not None else False
+        if 'notin_op' in op_name or op_name == 'notin_':
+            return actual not in target if target is not None else True
+
+        try:
+            if 'eq' in op_name or op_name == 'eq':
+                return actual == target
+            if 'ne' in op_name or op_name == 'ne':
+                return actual != target
+            if 'lt' in op_name or op_name == 'lt':
+                return actual < target
+            if 'le' in op_name or op_name == 'le':
+                return actual <= target
+            if 'gt' in op_name or op_name == 'gt':
+                return actual > target
+            if 'ge' in op_name or op_name == 'ge':
+                return actual >= target
+        except TypeError:
+            return False
+        return True
+
+    def _matches(self, obj):
+        for cond in self._filters:
+            if not self._eval_cond(obj, cond):
+                return False
+        return True
+
+    def all(self):
+        return [obj for obj in self._get_pool() if self._matches(obj)]
 
     def first(self):
         results = self.all()
         return results[0] if results else None
+
+
+class FakeSession:
+    def __init__(self, events=None, snapshots=None, outcomes=None):
+        self._events = events or []
+        self._snapshots = snapshots or []
+        self._outcomes = outcomes or []
+        self._closed = False
+
+    def query(self, model):
+        return FakeQuery(self, model)
+
+    def close(self):
+        self._closed = True
 
 
 # ---------------------------------------------------------------------------
@@ -101,7 +151,6 @@ class FakeQuery:
 # ---------------------------------------------------------------------------
 
 def test_relevance_score_ordering():
-    """Relevance scores must follow CRITICAL > HIGH > RELEVANT > LOW > UNKNOWN."""
     assert _relevance_score("CRITICAL") == 4
     assert _relevance_score("HIGH") == 3
     assert _relevance_score("RELEVANT") == 2
@@ -112,49 +161,43 @@ def test_relevance_score_ordering():
 
 
 def test_find_nearest_snapshot_within_window():
-    """Find closest snapshot within temporal window."""
     event_ts = datetime(2026, 8, 20, 12, 0, tzinfo=timezone.utc)
     snaps = [
         FakeSnapshot(1, event_ts - timedelta(minutes=30)),
         FakeSnapshot(2, event_ts + timedelta(minutes=10)),
-        FakeSnapshot(3, event_ts - timedelta(minutes=180)),  # outside window
+        FakeSnapshot(3, event_ts - timedelta(minutes=180)),
     ]
     result = _find_nearest_snapshot(event_ts, snaps, window_minutes=120)
-    assert result is not None, "Expected a snapshot match"
-    assert result.id == 2, f"Expected id=2 (closest), got id={result.id}"
+    assert result is not None and result.id == 2
     print("PASS: test_find_nearest_snapshot_within_window")
 
 
 def test_find_nearest_snapshot_outside_window():
-    """No snapshot within window returns None."""
     event_ts = datetime(2026, 8, 20, 12, 0, tzinfo=timezone.utc)
     snaps = [FakeSnapshot(1, event_ts - timedelta(minutes=180))]
     result = _find_nearest_snapshot(event_ts, snaps, window_minutes=120)
-    assert result is None, f"Expected None, got {result}"
+    assert result is None
     print("PASS: test_find_nearest_snapshot_outside_window")
 
 
 def test_resolve_agreement_match():
-    """classified=UP, observed=UP → AGREED."""
     outcomes = {"1": {"outcome_status": "OBSERVED", "observed_direction": "UP"}}
     resolved = _resolve_agreement("UP", outcomes)
-    assert resolved["1"]["directional_agreement"] == "AGREED", f"Got {resolved['1']['directional_agreement']}"
+    assert resolved["1"]["directional_agreement"] == "AGREED"
     print("PASS: test_resolve_agreement_match")
 
 
 def test_resolve_agreement_mismatch():
-    """classified=UP, observed=DOWN → DISAGREED."""
     outcomes = {"1": {"outcome_status": "OBSERVED", "observed_direction": "DOWN"}}
     resolved = _resolve_agreement("UP", outcomes)
-    assert resolved["1"]["directional_agreement"] == "DISAGREED", f"Got {resolved['1']['directional_agreement']}"
+    assert resolved["1"]["directional_agreement"] == "DISAGREED"
     print("PASS: test_resolve_agreement_mismatch")
 
 
 def test_resolve_agreement_insufficient():
-    """Missing classified direction → INSUFFICIENT_DATA."""
     outcomes = {"1": {"outcome_status": "OBSERVED", "observed_direction": "UP"}}
     resolved = _resolve_agreement(None, outcomes)
-    assert resolved["1"]["directional_agreement"] == "INSUFFICIENT_DATA", f"Got {resolved['1']['directional_agreement']}"
+    assert resolved["1"]["directional_agreement"] == "INSUFFICIENT_DATA"
     print("PASS: test_resolve_agreement_insufficient")
 
 
@@ -163,17 +206,12 @@ def test_resolve_agreement_insufficient():
 # ---------------------------------------------------------------------------
 
 def test_audit_returns_db_unavailable_when_no_session():
-    """When session is None and get_session returns None, audit returns DB_UNAVAILABLE."""
     import intelligence.event_impact as ei_mod
     original_get_session = ei_mod.get_session
-
-    def mock_get_session():
-        return None
-
+    ei_mod.get_session = lambda: None
     try:
-        ei_mod.get_session = mock_get_session
         result = audit_event_impact()
-        assert result["status"] == "DB_UNAVAILABLE", f"Got {result['status']}"
+        assert result["status"] == "DB_UNAVAILABLE"
         assert "Database session unavailable" in result["error"]
         assert "TEMPORAL_ASSOCIATION" in result["disclaimer"]
     finally:
@@ -182,7 +220,6 @@ def test_audit_returns_db_unavailable_when_no_session():
 
 
 def test_audit_selects_only_high_relevance_events():
-    """5 events: 2 HIGH, 3 LOW, min_relevance=HIGH → audits 2."""
     now = datetime.now(timezone.utc)
     events = [
         FakeNewsEvent(1, now, "GEOPOLITICAL", "HIGH", expected_gold_direction="UP"),
@@ -193,13 +230,12 @@ def test_audit_selects_only_high_relevance_events():
     ]
     session = FakeSession(events=events, snapshots=[], outcomes=[])
     result = audit_event_impact(session=session)
-    assert result["status"] == "OK", f"Got {result['status']}"
-    assert result["events_audited"] == 2, f"Audited={result['events_audited']}"
+    assert result["status"] == "OK"
+    assert result["events_audited"] == 2
     print("PASS: test_audit_selects_only_high_relevance_events")
 
 
 def test_audit_matches_nearest_snapshot_within_window():
-    """Event at T, snapshots at T-30min and T+10min, window=60min → matches T+10min."""
     now = datetime.now(timezone.utc)
     event_ts = now
     events = [FakeNewsEvent(1, event_ts, "GEOPOLITICAL", "HIGH", expected_gold_direction="UP")]
@@ -209,15 +245,14 @@ def test_audit_matches_nearest_snapshot_within_window():
     ]
     session = FakeSession(events=events, snapshots=snaps, outcomes=[])
     result = audit_event_impact(session=session)
-    assert result["status"] == "OK", f"Got {result['status']}"
+    assert result["status"] == "OK"
     er = result["event_results"][0]
-    assert er["snapshot_match"] is not None, "Expected snapshot match"
-    assert er["snapshot_match"]["snapshot_id"] == 2, f"Matched id={er['snapshot_match']['snapshot_id']}"
+    assert er["snapshot_match"] is not None
+    assert er["snapshot_match"]["snapshot_id"] == 2
     print("PASS: test_audit_matches_nearest_snapshot_within_window")
 
 
 def test_audit_reports_insufficient_data_for_immature_outcomes():
-    """Snapshot exists but outcome_status=PENDING → INSUFFICIENT_DATA."""
     now = datetime.now(timezone.utc)
     events = [FakeNewsEvent(1, now, "GEOPOLITICAL", "HIGH", expected_gold_direction="UP")]
     snaps = [FakeSnapshot(1, now)]
@@ -225,59 +260,59 @@ def test_audit_reports_insufficient_data_for_immature_outcomes():
     session = FakeSession(events=events, snapshots=snaps, outcomes=outcomes)
     result = audit_event_impact(session=session)
     er = result["event_results"][0]
-    assert er["outcomes_by_horizon"]["1"]["outcome_status"] == "INSUFFICIENT_DATA",         f"Got {er['outcomes_by_horizon']['1']['outcome_status']}"
+    assert er["outcomes_by_horizon"]["1"]["outcome_status"] == "INSUFFICIENT_DATA"
     print("PASS: test_audit_reports_insufficient_data_for_immature_outcomes")
 
 
 def test_audit_reports_agreement_when_directions_match():
-    """classified=UP, observed=UP → AGREED."""
     now = datetime.now(timezone.utc)
     events = [FakeNewsEvent(1, now, "GEOPOLITICAL", "HIGH", expected_gold_direction="UP")]
     snaps = [FakeSnapshot(1, now)]
     outcomes = [FakeOutcome("COMPLETE", "UP", 0.5, horizon=1, snap_id=1)]
     session = FakeSession(events=events, snapshots=snaps, outcomes=outcomes)
-    result = audit_event_impact(session=session)
-    assert result["status"] == "OK", f"Got {result['status']}"
+    result = audit_event_impact(
+        session=session,
+        config={"horizons": [1]},  # Only check horizon 1
+    )
+    assert result["status"] == "OK"
     er = result["event_results"][0]
-    actual = er["outcomes_by_horizon"]["1"]["directional_agreement"]
-    assert actual == "AGREED", f"Expected AGREED, got {actual}"
-    assert er["summary"]["agreement_count"] == 1, f"Agreements={er['summary']['agreement_count']}"
+    assert er["outcomes_by_horizon"]["1"]["directional_agreement"] == "AGREED"
+    assert er["summary"]["agreement_count"] == 1
     print("PASS: test_audit_reports_agreement_when_directions_match")
 
 
 def test_audit_reports_disagreement_when_directions_differ():
-    """classified=UP, observed=DOWN → DISAGREED."""
     now = datetime.now(timezone.utc)
     events = [FakeNewsEvent(1, now, "GEOPOLITICAL", "HIGH", expected_gold_direction="UP")]
     snaps = [FakeSnapshot(1, now)]
     outcomes = [FakeOutcome("COMPLETE", "DOWN", -0.3, horizon=1, snap_id=1)]
     session = FakeSession(events=events, snapshots=snaps, outcomes=outcomes)
-    result = audit_event_impact(session=session)
-    assert result["status"] == "OK", f"Got {result['status']}"
+    result = audit_event_impact(
+        session=session,
+        config={"horizons": [1]},  # Only check horizon 1
+    )
+    assert result["status"] == "OK"
     er = result["event_results"][0]
-    actual = er["outcomes_by_horizon"]["1"]["directional_agreement"]
-    assert actual == "DISAGREED", f"Expected DISAGREED, got {actual}"
-    assert er["summary"]["disagreement_count"] == 1, f"Disagreements={er['summary']['disagreement_count']}"
+    assert er["outcomes_by_horizon"]["1"]["directional_agreement"] == "DISAGREED"
+    assert er["summary"]["disagreement_count"] == 1
     print("PASS: test_audit_reports_disagreement_when_directions_differ")
 
 
 def test_audit_does_not_modify_database():
-    """Audit is read-only. No INSERT/UPDATE/DELETE."""
     now = datetime.now(timezone.utc)
     events = [FakeNewsEvent(1, now, "GEOPOLITICAL", "HIGH")]
     session = FakeSession(events=events, snapshots=[], outcomes=[])
     result = audit_event_impact(session=session)
-    assert result["status"] == "OK", f"Got {result['status']}"
+    assert result["status"] == "OK"
     print("PASS: test_audit_does_not_modify_database")
 
 
 def test_audit_explicitly_labels_temporal_association():
-    """Result contains disclaimer that this is temporal association, not causation."""
     now = datetime.now(timezone.utc)
     events = [FakeNewsEvent(1, now, "GEOPOLITICAL", "HIGH")]
     session = FakeSession(events=events, snapshots=[], outcomes=[])
     result = audit_event_impact(session=session)
-    assert "TEMPORAL_ASSOCIATION" in result["disclaimer"], f"Disclaimer missing: {result.get('disclaimer')}"
+    assert "TEMPORAL_ASSOCIATION" in result["disclaimer"]
     assert "not causation" in result["disclaimer"]
     print("PASS: test_audit_explicitly_labels_temporal_association")
 
