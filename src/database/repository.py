@@ -4,7 +4,8 @@ All database writes are wrapped in transactions.
 Read operations return None / [] when the database is unavailable.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from typing import Set
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
