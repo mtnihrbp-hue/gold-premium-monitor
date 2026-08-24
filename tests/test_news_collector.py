@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 from datetime import datetime, timezone
 
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from collector.news.rss import (
@@ -184,6 +185,165 @@ def test_collect_rss_http_error():
 
 
 # ---------------------------------------------------------------------------
+# Ingest orchestrator (SP-B.2 — operational wiring)
+# ---------------------------------------------------------------------------
+
+def test_ingest_respects_enabled_false():
+    """When news.enabled is false, ingest returns DISABLED."""
+    from collector.news.ingest import run_news_ingestion
+    result = run_news_ingestion({"news": {"enabled": False}})
+    assert result["status"] == "DISABLED"
+    assert result["total_new"] == 0
+    print("PASS: test_ingest_respects_enabled_false")
+
+
+def test_ingest_orchestrator_persists_new_items():
+    """RSS items are classified, deduped, and persisted."""
+    import collector.news.ingest as ingest_module
+    original_collect = ingest_module.collect_rss_feed
+    original_classify = ingest_module.classify_news_item
+    original_exists = ingest_module.news_event_exists
+    original_save = ingest_module.save_news_event
+
+    def mock_collect(url, timeout=15):
+        return [
+            {"title": "Test News", "summary": "Summary", "url": "http://example.com/1",
+             "source": "rss", "published_at": datetime.now(timezone.utc),
+             "collected_at": datetime.now(timezone.utc), "dedup_key": "abc123"},
+        ]
+
+    def mock_classify(item):
+        return {**item, "event_type": "TEST", "relevance": "RELEVANT",
+                "classification_method": "KEYWORD"}
+
+    def mock_exists(dedup_key):
+        return False
+
+    def mock_save(event):
+        return 42
+
+    try:
+        ingest_module.collect_rss_feed = mock_collect
+        ingest_module.classify_news_item = mock_classify
+        ingest_module.news_event_exists = mock_exists
+        ingest_module.save_news_event = mock_save
+
+        from collector.news.ingest import run_news_ingestion
+        result = run_news_ingestion({
+            "news": {
+                "enabled": True,
+                "sources": ["http://example.com/feed"],
+                "max_items_per_source": 20,
+            }
+        })
+        assert result["status"] == "OK"
+        assert result["total_new"] == 1
+        assert result["sources"]["http://example.com/feed"]["new"] == 1
+    finally:
+        ingest_module.collect_rss_feed = original_collect
+        ingest_module.classify_news_item = original_classify
+        ingest_module.news_event_exists = original_exists
+        ingest_module.save_news_event = original_save
+    print("PASS: test_ingest_orchestrator_persists_new_items")
+
+
+def test_ingest_skips_duplicates():
+    """Duplicate dedup_key items are skipped."""
+    import collector.news.ingest as ingest_module
+    original_collect = ingest_module.collect_rss_feed
+    original_exists = ingest_module.news_event_exists
+    original_save = ingest_module.save_news_event
+
+    def mock_collect(url, timeout=15):
+        return [
+            {"title": "Dup", "summary": "", "url": "", "source": "rss",
+             "published_at": datetime.now(timezone.utc),
+             "collected_at": datetime.now(timezone.utc), "dedup_key": "dupkey"},
+        ]
+
+    def mock_exists(dedup_key):
+        return True
+
+    def mock_save(event):
+        return -1
+
+    try:
+        ingest_module.collect_rss_feed = mock_collect
+        ingest_module.news_event_exists = mock_exists
+        ingest_module.save_news_event = mock_save
+
+        from collector.news.ingest import run_news_ingestion
+        result = run_news_ingestion({
+            "news": {
+                "enabled": True,
+                "sources": ["http://example.com/feed"],
+                "max_items_per_source": 20,
+            }
+        })
+        assert result["total_new"] == 0
+        assert result["total_duplicate"] == 1
+    finally:
+        ingest_module.collect_rss_feed = original_collect
+        ingest_module.news_event_exists = mock_exists
+        ingest_module.save_news_event = original_save
+    print("PASS: test_ingest_skips_duplicates")
+
+
+def test_ingest_non_blocking_on_source_failure():
+    """A failed source does not abort other sources."""
+    import collector.news.ingest as ingest_module
+    original_collect = ingest_module.collect_rss_feed
+
+    def mock_collect(url, timeout=15):
+        if "bad" in url:
+            raise RuntimeError("Network error")
+        return [
+            {"title": "OK", "summary": "", "url": "", "source": "rss",
+             "published_at": datetime.now(timezone.utc),
+             "collected_at": datetime.now(timezone.utc), "dedup_key": "okkey"},
+        ]
+
+    original_classify = ingest_module.classify_news_item
+    original_exists = ingest_module.news_event_exists
+    original_save = ingest_module.save_news_event
+
+    def mock_classify(item):
+        return {**item, "event_type": "TEST", "relevance": "RELEVANT",
+                "classification_method": "KEYWORD"}
+
+    def mock_exists(dedup_key):
+        return False
+
+    def mock_save(event):
+        return 1
+
+    try:
+        ingest_module.collect_rss_feed = mock_collect
+        ingest_module.classify_news_item = mock_classify
+        ingest_module.news_event_exists = mock_exists
+        ingest_module.save_news_event = mock_save
+
+        from collector.news.ingest import run_news_ingestion
+        result = run_news_ingestion({
+            "news": {
+                "enabled": True,
+                "sources": ["http://bad.com/feed", "http://good.com/feed"],
+                "max_items_per_source": 20,
+            }
+        })
+        assert result["status"] == "OK"
+        assert result["sources"]["http://bad.com/feed"]["status"] == "ERROR"
+        assert result["sources"]["http://good.com/feed"]["status"] == "OK"
+        assert result["total_new"] == 1
+    finally:
+        ingest_module.collect_rss_feed = original_collect
+        ingest_module.classify_news_item = original_classify
+        ingest_module.news_event_exists = original_exists
+        ingest_module.save_news_event = original_save
+    print("PASS: test_ingest_non_blocking_on_source_failure")
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
@@ -201,6 +361,10 @@ if __name__ == "__main__":
         test_cross_source_dedup,
         test_collect_rss_timeout,
         test_collect_rss_http_error,
+        test_ingest_respects_enabled_false,
+        test_ingest_orchestrator_persists_new_items,
+        test_ingest_skips_duplicates,
+        test_ingest_non_blocking_on_source_failure,
     ]
 
     passed = 0

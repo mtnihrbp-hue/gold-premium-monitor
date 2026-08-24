@@ -7,6 +7,7 @@ from collector.kitco import get_world_gold_price
 from collector.bonbast import get_usd_sell_rate
 from collector.iran import get_market_prices
 from analysis.snapshot_builder import build_analysis_snapshot
+from collector.news.ingest import run_news_ingestion
 
 from caluclator.gold import (
     calculate_fair_price,
@@ -466,6 +467,24 @@ def main():
             print("DB: Market state saved")
         except Exception as e:
             print(f"DB ERROR (market state): {e}")
+
+    # --- News ingestion (non-blocking) ---
+    try:
+        news_result = run_news_ingestion(config)
+        if news_result.get("status") == "OK":
+            print("\nNEWS")
+            print("-" * 40)
+            for url, src in news_result["sources"].items():
+                status = src["status"]
+                if status == "OK":
+                    print(f" {url:<40} OK — {src['new']} new, {src['duplicate']} dup, {src['failed']} fail")
+                else:
+                    err = src.get("error", status)
+                    print(f" {url:<40} {err}")
+            if news_result["total_new"] > 0:
+                print(f" Total new events: {news_result['total_new']}")
+    except Exception as e:
+        print(f"\nNews ingestion failed: {e}")
 
     if snapshot_id is not None:
         try:
