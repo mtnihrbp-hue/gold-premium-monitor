@@ -610,6 +610,20 @@ def news_event_exists(dedup_key: str) -> bool:
     finally:
         session.close()
 
+def get_recent_dedup_keys(hours: int = 24) -> Set[str]:
+    """Return a set of dedup_keys for news events created within the last N hours.
+    
+    Used for batch deduplication during ingestion to eliminate N+1 exists queries.
+    """
+    with get_session() as session:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        rows = session.query(NewsEvent.dedup_key).filter(
+            NewsEvent.created_at >= cutoff,
+            NewsEvent.dedup_key.isnot(None)
+        ).all()
+        return {row[0] for row in rows if row[0]}
+
+
 
 def get_recent_news_events(hours: int = 24, limit: int = 100) -> list:
     """Get recent news events ordered by timestamp desc.
