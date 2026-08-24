@@ -125,7 +125,45 @@ Forecast Context
 
 An event interpretation remains evidence/hypothesis until validated against market outcomes.
 
-## 8. Explicit non-goals
+## 8. C14C supporting work — operational news ingestion
+
+The C14C foundation initially contained the news event schema, RSS collector, deterministic event classifier, persistence functions, and downstream snapshot consumer, but the runtime path did not invoke them. This left `news_events` empty despite the underlying components existing.
+
+The surgical supporting-work change wires the existing components without changing the C14C architecture:
+
+```text
+config.news
+    ↓
+collector.news.ingest
+    ↓
+RSS collection / normalization
+    ↓
+event_classifier
+    ↓
+existing deduplication
+    ↓
+repository.save_news_event
+    ↓
+news_events
+    ↓
+snapshot_builder news context
+```
+
+Implementation:
+
+- `src/collector/news/ingest.py` is a thin orchestration layer.
+- `src/main.py` invokes ingestion before `build_analysis_snapshot()`.
+- Source failures are isolated; news ingestion is non-blocking to the market pipeline.
+- Existing deduplication is reused rather than introducing another persistence mechanism.
+- `news.enabled` and configured RSS sources are honored.
+- No LLM is introduced.
+- No event-impact learning or adaptive weighting is introduced.
+- No forecast or decision authority is changed.
+- No Neon migration is required.
+
+This is operational plumbing, not completion of future news intelligence. It makes existing raw structured news available to downstream analytical context; it does not claim that news is predictive or that event impact has been learned.
+
+## 9. Explicit non-goals
 
 C14C does not implement:
 
@@ -139,12 +177,13 @@ C14C does not implement:
 - LLM BUY/SELL authority
 - broker execution
 - decision-engine replacement
+- empirical event-impact learning
 
-## 9. Neon impact
+## 10. Neon impact
 
-C14C required **no Neon migration**.
+C14C and its operational news-ingestion supporting work require **no Neon migration**.
 
-Existing production structures are sufficient for the implemented foundation:
+Existing production structures are sufficient:
 
 ```text
 analysis_snapshots
@@ -153,11 +192,11 @@ platform_candles
 news_events
 ```
 
-Live Neon reconciliation confirmed the expected production structures and preserved historical data. No database mutation was performed for C14C.
+Live Neon reconciliation confirmed the expected production structures and preserved historical data. No database mutation was performed for C14C or the news-ingestion wiring.
 
 Future schema changes remain subject to the established inspection → compare → migration → verify → document workflow.
 
-## 10. Regression boundary
+## 11. Regression boundary
 
 C14C explicitly protects:
 
@@ -169,17 +208,17 @@ decision authority boundary
 
 The deterministic decision engine remains the sole BUY/WAIT/SELL authority.
 
-## 11. Deferred extensions
+The news-ingestion supporting work must also remain failure-isolated: an unavailable RSS source must not prevent market collection, calculation, snapshot creation, or alert delivery.
 
-The following are future work, not C14C completion criteria:
+## 12. Deferred extensions
+
+The following remain future work, not C14C completion criteria:
 
 - immutable forecast persistence
 - human review UI/persistence
-- news provenance and deduplication
+- news provenance beyond the existing event/dedup contract
 - empirical event-impact measurement
 - weekly administrative intelligence reporting
 - controlled adaptive weighting
 - LLM event interpretation
 - reinforcement learning / bandit optimization
-
-These must be evaluated separately using accumulated production evidence.

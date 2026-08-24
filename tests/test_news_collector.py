@@ -7,8 +7,19 @@ import sys
 from pathlib import Path
 from datetime import datetime, timezone
 
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+# ---------------------------------------------------------------------------
+# Path bootstrap — works from repo root/tests/ OR repo root/src/tests/
+# ---------------------------------------------------------------------------
+_file = Path(__file__).resolve()
+# If we're inside src/tests/, src/ is the grandparent. If we're in tests/,
+# src/ is a sibling of the parent directory.
+if (_file.parent.parent / "collector").is_dir():
+    _src = _file.parent.parent
+elif (_file.parent.parent / "src" / "collector").is_dir():
+    _src = _file.parent.parent / "src"
+else:
+    _src = _file.parent.parent / "src"
+sys.path.insert(0, str(_src))
 
 from collector.news.rss import (
     parse_rss_xml,
@@ -284,7 +295,7 @@ def test_ingest_skips_duplicates():
         assert result["total_duplicate"] == 1
     finally:
         ingest_module.collect_rss_feed = original_collect
-        ingest_module.news_event_exists = mock_exists
+        ingest_module.news_event_exists = original_exists
         ingest_module.save_news_event = original_save
     print("PASS: test_ingest_skips_duplicates")
 

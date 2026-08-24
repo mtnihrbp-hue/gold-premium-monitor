@@ -39,7 +39,8 @@
     "c14b_live_smoke": "NOT_YET_RUN",
     "c14b_forecast_readiness": "NOT_READY_FOR_PRODUCTION_DEPLOYMENT — current production history remains intentionally sparse",
     "c14c_kpi": "PASS 21/21",
-    "c14c_runtime_smoke": "NOT_REQUIRED_FOR_KPI_ACCEPTANCE"
+    "c14c_runtime_smoke": "PASS — latest user-supplied runtime reached forecast generation and analysis snapshot creation; forecast horizons returned INSUFFICIENT_DATA as expected",
+    "news_ingestion": "WIRED — runtime path now invokes collector.news.ingest before build_analysis_snapshot; source failures are non-blocking"
   },
   "database_state": {
     "neon_project": "wispy-glade-92753836",
@@ -50,6 +51,8 @@
     "c14b_schema_change_required": false,
     "c14c_schema_change_required": false,
     "c14c_live_reconciliation": "COMPLETE — 2026-08-24; expected core structures verified; no mutation performed",
+    "news_ingestion_schema_change_required": false,
+    "news_ingestion_schema": "existing news_events table reused; no mutation required",
     "c14a_schema_additions": [
       "price_observations.quote_side",
       "platform_candles",
@@ -89,7 +92,7 @@
     "separate_clocks": ["forecast_time", "market_outcome_time", "feedback_time"]
   },
   "c14c_scope": {
-    "status": "COMPLETE — FOUNDATION",
+    "status": "COMPLETE — FOUNDATION + OPERATIONAL NEWS INGESTION SUPPORTING WORK",
     "kpi": "21/21 PASS",
     "implemented_components": [
       "forecast error classification",
@@ -100,16 +103,18 @@
       "historical batch analysis",
       "event-interpreter abstraction and stubs",
       "decision-authority protection",
-      "future-leakage protection"
+      "future-leakage protection",
+      "operational RSS news ingestion",
+      "deterministic event classification wiring",
+      "existing news-event deduplication and persistence wiring"
     ],
     "forecast_memory": "Reconstructed from existing persisted artifacts; no forecast_history table",
     "error_persistence": "Computed analytically; no new database field",
-    "news_policy": "Event interpreter is a future extension point; no production LLM integration in C14C",
+    "news_policy": "Operational RSS ingestion is wired into the runtime using existing news_events persistence; event interpretation remains a future extension and there is no production LLM integration",
     "adaptive_policy": "Diagnostic only; no online learning, automatic weight changes, threshold changes, or strategy changes",
     "deferred_extensions": [
       "immutable forecast event persistence",
       "human review persistence/UI",
-      "news provenance and deduplication",
       "empirical event-impact measurement",
       "weekly administrative intelligence reporting",
       "controlled adaptive weighting",
@@ -161,5 +166,5 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "post-C14C architecture review / next-phase definition"
+  "next_gate": "post-C14C supporting-work verification / architecture review"
 }
