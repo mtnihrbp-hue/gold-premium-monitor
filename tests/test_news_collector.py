@@ -374,6 +374,10 @@ if __name__ == "__main__":
         test_ingest_orchestrator_persists_new_items,
         test_ingest_skips_duplicates,
         test_ingest_non_blocking_on_source_failure,
+        test_ingest_respects_enabled_false,
+        test_ingest_orchestrator_persists_new_items,
+        test_ingest_skips_duplicates,
+        test_ingest_non_blocking_on_source_failure,
     ]
 
     passed = 0
