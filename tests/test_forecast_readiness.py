@@ -21,17 +21,21 @@ from intelligence.forecast_readiness import (
 # ---------------------------------------------------------------------------
 
 class FakeSnapshot:
-    def __init__(self, ts, features_json=None):
+    def __init__(self, id_, ts, features_json=None, regime_state="NORMAL", premium_percent=None):
+        self.id = id_
         self.analysis_timestamp = ts
         self.features_json = features_json
+        self.regime_state = regime_state
+        self.premium_percent = premium_percent
 
 
 class FakeOutcome:
-    def __init__(self, status, direction, horizon):
+    def __init__(self, status, direction, horizon, snap_id=1):
         self.outcome_status = status
         self.rep_gold_direction = direction
         self.horizon_hours = horizon
-        self.analysis_snapshot_id = 1
+        self.analysis_snapshot_id = snap_id
+        self.rep_gold_movement_percent = 0.5
 
 
 class FakeSession:
@@ -89,7 +93,7 @@ def test_count_distinct_days():
         datetime(2026, 8, 20, 14, 0, tzinfo=timezone.utc),
         datetime(2026, 8, 21, 9, 0, tzinfo=timezone.utc),
     ]
-    assert _count_distinct_days(ts) == 2
+    assert _count_distinct_days(ts) == 2, f"Expected 2, got {_count_distinct_days(ts)}"
     print("PASS: test_count_distinct_days")
 
 
@@ -103,14 +107,14 @@ def test_estimated_days_zero_when_sufficient():
     """When current >= required, estimate is 0."""
     ts = [datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc)]
     result = _compute_estimated_days_to_readiness(15, 10, ts)
-    assert result == 0.0
+    assert result == 0.0, f"Expected 0.0, got {result}"
     print("PASS: test_estimated_days_zero_when_sufficient")
 
 
 def test_estimated_days_none_when_insufficient_data():
     """When fewer than 2 timestamps, cannot estimate."""
     result = _compute_estimated_days_to_readiness(5, 10, [datetime.now(timezone.utc)])
-    assert result is None
+    assert result is None, f"Expected None, got {result}"
     print("PASS: test_estimated_days_none_when_insufficient_data")
 
 
@@ -120,11 +124,10 @@ def test_estimated_days_calculates_from_cadence():
         datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc),
         datetime(2026, 8, 20, 12, 0, tzinfo=timezone.utc),
         datetime(2026, 8, 20, 14, 0, tzinfo=timezone.utc),
-    ]  # 3 examples over 4 hours = 0.75 per hour
-    # Need 10, have 3 → need 7 more → 7/0.75 = 9.33 hours → 0.39 days
+    ]
     result = _compute_estimated_days_to_readiness(3, 10, ts)
-    assert result is not None
-    assert result > 0
+    assert result is not None, "Expected non-None estimate"
+    assert result > 0, f"Expected positive estimate, got {result}"
     print("PASS: test_estimated_days_calculates_from_cadence")
 
 
@@ -143,7 +146,7 @@ def test_audit_returns_db_unavailable_when_no_session():
     try:
         fr_mod.get_session = mock_get_session
         result = audit_forecast_readiness()
-        assert result["status"] == "DB_UNAVAILABLE"
+        assert result["status"] == "DB_UNAVAILABLE", f"Got {result['status']}"
         assert result["error"] == "Database session unavailable"
     finally:
         fr_mod.get_session = original_get_session
@@ -153,55 +156,51 @@ def test_audit_returns_db_unavailable_when_no_session():
 def test_audit_counts_snapshots_correctly():
     """5 snapshots, 3 with features_json → counts must match."""
     snaps = [
-        FakeSnapshot(datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 1}),
-        FakeSnapshot(datetime(2026, 8, 20, 11, 0, tzinfo=timezone.utc), {"f": 2}),
-        FakeSnapshot(datetime(2026, 8, 20, 12, 0, tzinfo=timezone.utc), {"f": 3}),
-        FakeSnapshot(datetime(2026, 8, 20, 13, 0, tzinfo=timezone.utc), None),
-        FakeSnapshot(datetime(2026, 8, 20, 14, 0, tzinfo=timezone.utc), None),
+        FakeSnapshot(1, datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 1}),
+        FakeSnapshot(2, datetime(2026, 8, 20, 11, 0, tzinfo=timezone.utc), {"f": 2}),
+        FakeSnapshot(3, datetime(2026, 8, 20, 12, 0, tzinfo=timezone.utc), {"f": 3}),
+        FakeSnapshot(4, datetime(2026, 8, 20, 13, 0, tzinfo=timezone.utc), None),
+        FakeSnapshot(5, datetime(2026, 8, 20, 14, 0, tzinfo=timezone.utc), None),
     ]
     session = FakeSession(snapshots=snaps, outcomes=[])
     result = audit_forecast_readiness(session=session)
-    assert result["status"] == "OK"
+    assert result["status"] == "OK", f"Got {result['status']}"
     agg = result["aggregate"]
-    assert agg["total_snapshots"] == 5
-    assert agg["snapshots_with_features"] == 3
-    assert agg["snapshots_without_features"] == 2
+    assert agg["total_snapshots"] == 5, f"total={agg['total_snapshots']}"
+    assert agg["snapshots_with_features"] == 3, f"with_features={agg['snapshots_with_features']}"
+    assert agg["snapshots_without_features"] == 2, f"without={agg['snapshots_without_features']}"
     print("PASS: test_audit_counts_snapshots_correctly")
 
 
 def test_audit_reports_insufficient_training_examples():
     """3 usable examples, min_train_samples=10 → GATED with reason."""
     snaps = [
-        FakeSnapshot(datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 1}),
+        FakeSnapshot(1, datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 1}),
     ]
     outcomes = [
-        FakeOutcome("COMPLETE", "UP", 1),
-        FakeOutcome("COMPLETE", "DOWN", 1),
-        FakeOutcome("COMPLETE", "FLAT", 1),
+        FakeOutcome("COMPLETE", "UP", 1, snap_id=1),
+        FakeOutcome("COMPLETE", "DOWN", 1, snap_id=1),
+        FakeOutcome("COMPLETE", "FLAT", 1, snap_id=1),
     ]
     session = FakeSession(snapshots=snaps, outcomes=outcomes)
     result = audit_forecast_readiness(
         config={"min_train_samples": 10, "horizons_hours": [1]},
         session=session,
     )
-    assert result["status"] == "OK"
+    assert result["status"] == "OK", f"Got {result['status']}"
     h1 = result["per_horizon"]["1"]
-    assert h1["readiness_gate"] == "GATED"
-    assert any("insufficient_training_examples" in r for r in h1["gate_reasons"])
+    assert h1["readiness_gate"] == "GATED", f"Gate={h1['readiness_gate']}"
+    assert any("insufficient_training_examples" in r for r in h1["gate_reasons"]), f"Reasons={h1['gate_reasons']}"
     print("PASS: test_audit_reports_insufficient_training_examples")
 
 
 def test_audit_reports_class_imbalance():
     """5 usable examples: UP=5, DOWN=0, NEUTRAL=0 → GATED with class_imbalance reason."""
     snaps = [
-        FakeSnapshot(datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 1}),
+        FakeSnapshot(1, datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 1}),
     ]
     outcomes = [
-        FakeOutcome("COMPLETE", "UP", 1),
-        FakeOutcome("COMPLETE", "UP", 1),
-        FakeOutcome("COMPLETE", "UP", 1),
-        FakeOutcome("COMPLETE", "UP", 1),
-        FakeOutcome("COMPLETE", "UP", 1),
+        FakeOutcome("COMPLETE", "UP", 1, snap_id=1) for _ in range(5)
     ]
     session = FakeSession(snapshots=snaps, outcomes=outcomes)
     result = audit_forecast_readiness(
@@ -209,40 +208,39 @@ def test_audit_reports_class_imbalance():
         session=session,
     )
     h1 = result["per_horizon"]["1"]
-    assert h1["readiness_gate"] == "GATED"
-    assert any("class_imbalance" in r for r in h1["gate_reasons"])
+    assert h1["readiness_gate"] == "GATED", f"Gate={h1['readiness_gate']}"
+    assert any("class_imbalance" in r for r in h1["gate_reasons"]), f"Reasons={h1['gate_reasons']}"
     print("PASS: test_audit_reports_class_imbalance")
 
 
 def test_audit_reports_open_gate_when_all_conditions_met():
     """31 usable examples, balanced classes, 3 distinct days → OPEN."""
     snaps = [
-        FakeSnapshot(datetime(2026, 8, 18, 10, 0, tzinfo=timezone.utc), {"f": 1}),
-        FakeSnapshot(datetime(2026, 8, 19, 10, 0, tzinfo=timezone.utc), {"f": 2}),
-        FakeSnapshot(datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 3}),
+        FakeSnapshot(1, datetime(2026, 8, 18, 10, 0, tzinfo=timezone.utc), {"f": 1}),
+        FakeSnapshot(2, datetime(2026, 8, 19, 10, 0, tzinfo=timezone.utc), {"f": 2}),
+        FakeSnapshot(3, datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 3}),
     ]
     outcomes = []
     for i in range(31):
         direction = ["UP", "DOWN", "FLAT"][i % 3]
-        outcomes.append(FakeOutcome("COMPLETE", direction, 1))
+        snap_id = [1, 2, 3][i % 3]
+        outcomes.append(FakeOutcome("COMPLETE", direction, 1, snap_id=snap_id))
     session = FakeSession(snapshots=snaps, outcomes=outcomes)
     result = audit_forecast_readiness(
         config={"min_train_samples": 10, "min_per_class": 3, "min_distinct_days": 2, "horizons_hours": [1]},
         session=session,
     )
     h1 = result["per_horizon"]["1"]
-    assert h1["readiness_gate"] == "OPEN"
-    assert len(h1["gate_reasons"]) == 0
-    assert h1["usable_training_examples"] == 31
+    assert h1["readiness_gate"] == "OPEN", f"Gate={h1['readiness_gate']}, reasons={h1['gate_reasons']}"
+    assert len(h1["gate_reasons"]) == 0, f"Unexpected reasons: {h1['gate_reasons']}"
+    assert h1["usable_training_examples"] == 31, f"Usable={h1['usable_training_examples']}"
     print("PASS: test_audit_reports_open_gate_when_all_conditions_met")
 
 
 def test_audit_does_not_modify_database():
     """Audit is read-only. No INSERT/UPDATE/DELETE."""
-    snaps = [FakeSnapshot(datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 1})]
+    snaps = [FakeSnapshot(1, datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc), {"f": 1})]
     session = FakeSession(snapshots=snaps, outcomes=[])
-    # FakeSession has no add/commit/delete methods; if audit tried to write,
-    # it would fail. The test passes because audit only queries.
     result = audit_forecast_readiness(session=session)
     assert result["status"] == "OK"
     print("PASS: test_audit_does_not_modify_database")
