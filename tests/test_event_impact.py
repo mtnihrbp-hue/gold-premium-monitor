@@ -5,7 +5,7 @@ No network. No database. Deterministic fixtures only.
 
 import sys
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -42,12 +42,12 @@ class FakeSnapshot:
 
 
 class FakeOutcome:
-    def __init__(self, status, direction, movement=None, horizon=1):
+    def __init__(self, status, direction, movement=None, horizon=1, snap_id=1):
         self.outcome_status = status
         self.rep_gold_direction = direction
         self.rep_gold_movement_percent = movement
         self.horizon_hours = horizon
-        self.analysis_snapshot_id = 1
+        self.analysis_snapshot_id = snap_id
 
 
 class FakeSession:
@@ -80,12 +80,14 @@ class FakeQuery:
         return self
 
     def all(self):
-        name = self.model.__name__
-        if name == "NewsEvent":
+        # Robust matching: check class name or table name
+        name = getattr(self.model, "__name__", "")
+        tablename = getattr(self.model, "__tablename__", "")
+        if name == "NewsEvent" or tablename == "news_events":
             return self.session._events
-        if name == "AnalysisSnapshot":
+        if name == "AnalysisSnapshot" or tablename == "analysis_snapshots":
             return self.session._snapshots
-        if name == "OutcomeEvaluation":
+        if name == "OutcomeEvaluation" or tablename == "outcome_evaluations":
             return self.session._outcomes
         return []
 
@@ -113,54 +115,46 @@ def test_find_nearest_snapshot_within_window():
     """Find closest snapshot within temporal window."""
     event_ts = datetime(2026, 8, 20, 12, 0, tzinfo=timezone.utc)
     snaps = [
-        FakeSnapshot(1, datetime(2026, 8, 20, 11, 30, tzinfo=timezone.utc)),
-        FakeSnapshot(2, datetime(2026, 8, 20, 12, 5, tzinfo=timezone.utc)),
-        FakeSnapshot(3, datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc)),  # outside window
+        FakeSnapshot(1, event_ts - timedelta(minutes=30)),
+        FakeSnapshot(2, event_ts + timedelta(minutes=10)),
+        FakeSnapshot(3, event_ts - timedelta(minutes=180)),  # outside window
     ]
     result = _find_nearest_snapshot(event_ts, snaps, window_minutes=120)
-    assert result is not None
-    assert result.id == 2  # closest: 5 minutes
+    assert result is not None, "Expected a snapshot match"
+    assert result.id == 2, f"Expected id=2 (closest), got id={result.id}"
     print("PASS: test_find_nearest_snapshot_within_window")
 
 
 def test_find_nearest_snapshot_outside_window():
     """No snapshot within window returns None."""
     event_ts = datetime(2026, 8, 20, 12, 0, tzinfo=timezone.utc)
-    snaps = [
-        FakeSnapshot(1, datetime(2026, 8, 20, 8, 0, tzinfo=timezone.utc)),
-    ]
+    snaps = [FakeSnapshot(1, event_ts - timedelta(minutes=180))]
     result = _find_nearest_snapshot(event_ts, snaps, window_minutes=120)
-    assert result is None
+    assert result is None, f"Expected None, got {result}"
     print("PASS: test_find_nearest_snapshot_outside_window")
 
 
 def test_resolve_agreement_match():
     """classified=UP, observed=UP → AGREED."""
-    outcomes = {
-        "1": {"outcome_status": "OBSERVED", "observed_direction": "UP"},
-    }
+    outcomes = {"1": {"outcome_status": "OBSERVED", "observed_direction": "UP"}}
     resolved = _resolve_agreement("UP", outcomes)
-    assert resolved["1"]["directional_agreement"] == "AGREED"
+    assert resolved["1"]["directional_agreement"] == "AGREED", f"Got {resolved['1']['directional_agreement']}"
     print("PASS: test_resolve_agreement_match")
 
 
 def test_resolve_agreement_mismatch():
     """classified=UP, observed=DOWN → DISAGREED."""
-    outcomes = {
-        "1": {"outcome_status": "OBSERVED", "observed_direction": "DOWN"},
-    }
+    outcomes = {"1": {"outcome_status": "OBSERVED", "observed_direction": "DOWN"}}
     resolved = _resolve_agreement("UP", outcomes)
-    assert resolved["1"]["directional_agreement"] == "DISAGREED"
+    assert resolved["1"]["directional_agreement"] == "DISAGREED", f"Got {resolved['1']['directional_agreement']}"
     print("PASS: test_resolve_agreement_mismatch")
 
 
 def test_resolve_agreement_insufficient():
     """Missing classified direction → INSUFFICIENT_DATA."""
-    outcomes = {
-        "1": {"outcome_status": "OBSERVED", "observed_direction": "UP"},
-    }
+    outcomes = {"1": {"outcome_status": "OBSERVED", "observed_direction": "UP"}}
     resolved = _resolve_agreement(None, outcomes)
-    assert resolved["1"]["directional_agreement"] == "INSUFFICIENT_DATA"
+    assert resolved["1"]["directional_agreement"] == "INSUFFICIENT_DATA", f"Got {resolved['1']['directional_agreement']}"
     print("PASS: test_resolve_agreement_insufficient")
 
 
@@ -179,7 +173,7 @@ def test_audit_returns_db_unavailable_when_no_session():
     try:
         ei_mod.get_session = mock_get_session
         result = audit_event_impact()
-        assert result["status"] == "DB_UNAVAILABLE"
+        assert result["status"] == "DB_UNAVAILABLE", f"Got {result['status']}"
         assert "Database session unavailable" in result["error"]
         assert "TEMPORAL_ASSOCIATION" in result["disclaimer"]
     finally:
@@ -199,8 +193,8 @@ def test_audit_selects_only_high_relevance_events():
     ]
     session = FakeSession(events=events, snapshots=[], outcomes=[])
     result = audit_event_impact(session=session)
-    assert result["status"] == "OK"
-    assert result["events_audited"] == 2
+    assert result["status"] == "OK", f"Got {result['status']}"
+    assert result["events_audited"] == 2, f"Audited={result['events_audited']}"
     print("PASS: test_audit_selects_only_high_relevance_events")
 
 
@@ -210,15 +204,15 @@ def test_audit_matches_nearest_snapshot_within_window():
     event_ts = now
     events = [FakeNewsEvent(1, event_ts, "GEOPOLITICAL", "HIGH", expected_gold_direction="UP")]
     snaps = [
-        FakeSnapshot(1, event_ts - __import__("datetime").timedelta(minutes=30)),
-        FakeSnapshot(2, event_ts + __import__("datetime").timedelta(minutes=10)),
+        FakeSnapshot(1, event_ts - timedelta(minutes=30)),
+        FakeSnapshot(2, event_ts + timedelta(minutes=10)),
     ]
     session = FakeSession(events=events, snapshots=snaps, outcomes=[])
     result = audit_event_impact(session=session)
-    assert result["status"] == "OK"
+    assert result["status"] == "OK", f"Got {result['status']}"
     er = result["event_results"][0]
-    assert er["snapshot_match"] is not None
-    assert er["snapshot_match"]["snapshot_id"] == 2
+    assert er["snapshot_match"] is not None, "Expected snapshot match"
+    assert er["snapshot_match"]["snapshot_id"] == 2, f"Matched id={er['snapshot_match']['snapshot_id']}"
     print("PASS: test_audit_matches_nearest_snapshot_within_window")
 
 
@@ -227,11 +221,11 @@ def test_audit_reports_insufficient_data_for_immature_outcomes():
     now = datetime.now(timezone.utc)
     events = [FakeNewsEvent(1, now, "GEOPOLITICAL", "HIGH", expected_gold_direction="UP")]
     snaps = [FakeSnapshot(1, now)]
-    outcomes = [FakeOutcome("PENDING", None, horizon=1)]
+    outcomes = [FakeOutcome("PENDING", None, horizon=1, snap_id=1)]
     session = FakeSession(events=events, snapshots=snaps, outcomes=outcomes)
     result = audit_event_impact(session=session)
     er = result["event_results"][0]
-    assert er["outcomes_by_horizon"]["1"]["outcome_status"] == "INSUFFICIENT_DATA"
+    assert er["outcomes_by_horizon"]["1"]["outcome_status"] == "INSUFFICIENT_DATA",         f"Got {er['outcomes_by_horizon']['1']['outcome_status']}"
     print("PASS: test_audit_reports_insufficient_data_for_immature_outcomes")
 
 
@@ -240,12 +234,14 @@ def test_audit_reports_agreement_when_directions_match():
     now = datetime.now(timezone.utc)
     events = [FakeNewsEvent(1, now, "GEOPOLITICAL", "HIGH", expected_gold_direction="UP")]
     snaps = [FakeSnapshot(1, now)]
-    outcomes = [FakeOutcome("COMPLETE", "UP", 0.5, horizon=1)]
+    outcomes = [FakeOutcome("COMPLETE", "UP", 0.5, horizon=1, snap_id=1)]
     session = FakeSession(events=events, snapshots=snaps, outcomes=outcomes)
     result = audit_event_impact(session=session)
+    assert result["status"] == "OK", f"Got {result['status']}"
     er = result["event_results"][0]
-    assert er["outcomes_by_horizon"]["1"]["directional_agreement"] == "AGREED"
-    assert er["summary"]["agreement_count"] == 1
+    actual = er["outcomes_by_horizon"]["1"]["directional_agreement"]
+    assert actual == "AGREED", f"Expected AGREED, got {actual}"
+    assert er["summary"]["agreement_count"] == 1, f"Agreements={er['summary']['agreement_count']}"
     print("PASS: test_audit_reports_agreement_when_directions_match")
 
 
@@ -254,12 +250,14 @@ def test_audit_reports_disagreement_when_directions_differ():
     now = datetime.now(timezone.utc)
     events = [FakeNewsEvent(1, now, "GEOPOLITICAL", "HIGH", expected_gold_direction="UP")]
     snaps = [FakeSnapshot(1, now)]
-    outcomes = [FakeOutcome("COMPLETE", "DOWN", -0.3, horizon=1)]
+    outcomes = [FakeOutcome("COMPLETE", "DOWN", -0.3, horizon=1, snap_id=1)]
     session = FakeSession(events=events, snapshots=snaps, outcomes=outcomes)
     result = audit_event_impact(session=session)
+    assert result["status"] == "OK", f"Got {result['status']}"
     er = result["event_results"][0]
-    assert er["outcomes_by_horizon"]["1"]["directional_agreement"] == "DISAGREED"
-    assert er["summary"]["disagreement_count"] == 1
+    actual = er["outcomes_by_horizon"]["1"]["directional_agreement"]
+    assert actual == "DISAGREED", f"Expected DISAGREED, got {actual}"
+    assert er["summary"]["disagreement_count"] == 1, f"Disagreements={er['summary']['disagreement_count']}"
     print("PASS: test_audit_reports_disagreement_when_directions_differ")
 
 
@@ -269,7 +267,7 @@ def test_audit_does_not_modify_database():
     events = [FakeNewsEvent(1, now, "GEOPOLITICAL", "HIGH")]
     session = FakeSession(events=events, snapshots=[], outcomes=[])
     result = audit_event_impact(session=session)
-    assert result["status"] == "OK"
+    assert result["status"] == "OK", f"Got {result['status']}"
     print("PASS: test_audit_does_not_modify_database")
 
 
@@ -279,7 +277,7 @@ def test_audit_explicitly_labels_temporal_association():
     events = [FakeNewsEvent(1, now, "GEOPOLITICAL", "HIGH")]
     session = FakeSession(events=events, snapshots=[], outcomes=[])
     result = audit_event_impact(session=session)
-    assert "TEMPORAL_ASSOCIATION" in result["disclaimer"]
+    assert "TEMPORAL_ASSOCIATION" in result["disclaimer"], f"Disclaimer missing: {result.get('disclaimer')}"
     assert "not causation" in result["disclaimer"]
     print("PASS: test_audit_explicitly_labels_temporal_association")
 
