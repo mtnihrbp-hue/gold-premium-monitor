@@ -213,7 +213,7 @@ def test_ingest_orchestrator_persists_new_items():
     import collector.news.ingest as ingest_module
     original_collect = ingest_module.collect_rss_feed
     original_classify = ingest_module.classify_news_item
-    original_exists = ingest_module.news_event_exists
+    original_keys = ingest_module.get_recent_dedup_keys
     original_save = ingest_module.save_news_event
 
     def mock_collect(url, timeout=15):
@@ -227,8 +227,8 @@ def test_ingest_orchestrator_persists_new_items():
         return {**item, "event_type": "TEST", "relevance": "RELEVANT",
                 "classification_method": "KEYWORD"}
 
-    def mock_exists(dedup_key):
-        return False
+    def mock_keys(hours=24):
+        return set()
 
     def mock_save(event):
         return 42
@@ -236,7 +236,7 @@ def test_ingest_orchestrator_persists_new_items():
     try:
         ingest_module.collect_rss_feed = mock_collect
         ingest_module.classify_news_item = mock_classify
-        ingest_module.news_event_exists = mock_exists
+        ingest_module.get_recent_dedup_keys = mock_keys
         ingest_module.save_news_event = mock_save
 
         from collector.news.ingest import run_news_ingestion
@@ -253,16 +253,16 @@ def test_ingest_orchestrator_persists_new_items():
     finally:
         ingest_module.collect_rss_feed = original_collect
         ingest_module.classify_news_item = original_classify
-        ingest_module.news_event_exists = original_exists
+        ingest_module.get_recent_dedup_keys = original_keys
         ingest_module.save_news_event = original_save
     print("PASS: test_ingest_orchestrator_persists_new_items")
 
 
 def test_ingest_skips_duplicates():
-    """Duplicate dedup_key items are skipped."""
+    """Duplicate dedup_key items are skipped via batch dedup."""
     import collector.news.ingest as ingest_module
     original_collect = ingest_module.collect_rss_feed
-    original_exists = ingest_module.news_event_exists
+    original_keys = ingest_module.get_recent_dedup_keys
     original_save = ingest_module.save_news_event
 
     def mock_collect(url, timeout=15):
@@ -272,15 +272,15 @@ def test_ingest_skips_duplicates():
              "collected_at": datetime.now(timezone.utc), "dedup_key": "dupkey"},
         ]
 
-    def mock_exists(dedup_key):
-        return True
+    def mock_keys(hours=24):
+        return {"dupkey"}
 
     def mock_save(event):
         return -1
 
     try:
         ingest_module.collect_rss_feed = mock_collect
-        ingest_module.news_event_exists = mock_exists
+        ingest_module.get_recent_dedup_keys = mock_keys
         ingest_module.save_news_event = mock_save
 
         from collector.news.ingest import run_news_ingestion
@@ -295,7 +295,7 @@ def test_ingest_skips_duplicates():
         assert result["total_duplicate"] == 1
     finally:
         ingest_module.collect_rss_feed = original_collect
-        ingest_module.news_event_exists = original_exists
+        ingest_module.get_recent_dedup_keys = original_keys
         ingest_module.save_news_event = original_save
     print("PASS: test_ingest_skips_duplicates")
 
@@ -315,15 +315,15 @@ def test_ingest_non_blocking_on_source_failure():
         ]
 
     original_classify = ingest_module.classify_news_item
-    original_exists = ingest_module.news_event_exists
+    original_keys = ingest_module.get_recent_dedup_keys
     original_save = ingest_module.save_news_event
 
     def mock_classify(item):
         return {**item, "event_type": "TEST", "relevance": "RELEVANT",
                 "classification_method": "KEYWORD"}
 
-    def mock_exists(dedup_key):
-        return False
+    def mock_keys(hours=24):
+        return set()
 
     def mock_save(event):
         return 1
@@ -331,7 +331,7 @@ def test_ingest_non_blocking_on_source_failure():
     try:
         ingest_module.collect_rss_feed = mock_collect
         ingest_module.classify_news_item = mock_classify
-        ingest_module.news_event_exists = mock_exists
+        ingest_module.get_recent_dedup_keys = mock_keys
         ingest_module.save_news_event = mock_save
 
         from collector.news.ingest import run_news_ingestion
@@ -349,11 +349,9 @@ def test_ingest_non_blocking_on_source_failure():
     finally:
         ingest_module.collect_rss_feed = original_collect
         ingest_module.classify_news_item = original_classify
-        ingest_module.news_event_exists = original_exists
+        ingest_module.get_recent_dedup_keys = original_keys
         ingest_module.save_news_event = original_save
     print("PASS: test_ingest_non_blocking_on_source_failure")
-
-
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
@@ -372,6 +370,10 @@ if __name__ == "__main__":
         test_cross_source_dedup,
         test_collect_rss_timeout,
         test_collect_rss_http_error,
+        test_ingest_respects_enabled_false,
+        test_ingest_orchestrator_persists_new_items,
+        test_ingest_skips_duplicates,
+        test_ingest_non_blocking_on_source_failure,
         test_ingest_respects_enabled_false,
         test_ingest_orchestrator_persists_new_items,
         test_ingest_skips_duplicates,

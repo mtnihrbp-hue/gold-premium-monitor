@@ -11,6 +11,16 @@ from typing import List, Dict, Any, Optional
 import requests
 
 
+
+from typing import List, Dict, Any, Optional, Union, Tuple
+...
+def collect_rss_feed(url: str, timeout: Union[int, Tuple[int, int]] = 15) -> List[Dict[str, Any]]:
+    """Fetch and parse a single RSS/Atom feed."""
+    ...
+    response = requests.get(url, timeout=timeout, headers=headers)
+    # rest unchanged
+
+
 def _parse_rss_date(date_str: str) -> Optional[datetime]:
     """Parse common RSS date formats. Returns None on failure."""
     if not date_str:
