@@ -233,7 +233,44 @@ The event interpreter is an architectural extension point only; actual LLM/event
 
 KPI: **21/21 PASS**.
 
-## 8. Neon production position
+## 8. C14C supporting work — operational news ingestion
+
+The C14C foundation already had RSS collection, deterministic event classification, `news_events` persistence, and downstream news-context consumption. The defect was operational wiring: the runtime did not invoke the existing path, so `news_events` remained empty.
+
+The supporting work adds only the missing orchestration path:
+
+```text
+config.news
+    ↓
+collector.news.ingest
+    ↓
+RSS collection / normalization
+    ↓
+event classification
+    ↓
+existing deduplication
+    ↓
+news_events persistence
+    ↓
+analysis snapshot news context
+```
+
+The runtime invokes ingestion before `build_analysis_snapshot()`.
+
+Operational rules:
+
+- news collection is non-blocking
+- individual source failures are isolated
+- configured `news.enabled` and RSS sources are honored
+- existing deduplication and repository persistence are reused
+- no new news table is created
+- no LLM is introduced
+- no event-impact learning is introduced
+- no forecast or decision authority is changed
+
+This makes structured raw news operationally available. It does **not** mean that the system has learned that news predicts the market.
+
+## 9. Neon production position
 
 Latest reconciled production schema includes:
 
@@ -253,20 +290,20 @@ C.14A schema migration is applied and verified in production.
 
 C.14B required no schema change.
 
-C.14C required **no schema migration**. Existing production tables are sufficient for the implemented C.14C foundation.
+C.14C and its operational news-ingestion supporting work require **no schema migration**. Existing production tables are sufficient.
 
-Live Neon verification on 2026-08-24 confirmed the expected core structures and preserved historical data. No database mutation was performed during the C.14C reconciliation.
+Live Neon verification on 2026-08-24 confirmed the expected core structures and preserved historical data. No database mutation was performed during C.14C reconciliation or news-ingestion wiring.
 
 Future schema changes require the established Neon migration/verification workflow and explicit approval.
 
-## 9. C.14C deferred intelligence extensions
+## 10. Deferred intelligence extensions
 
 The following concepts remain intentionally deferred rather than being falsely recorded as implemented:
 
 ```text
 immutable forecast event persistence
 human review persistence/UI
-news/event provenance and deduplication
+news provenance beyond the existing event/dedup contract
 empirical event-impact measurement
 weekly administrative intelligence reporting
 controlled adaptive weighting
@@ -274,9 +311,7 @@ LLM event interpretation
 reinforcement learning / bandit optimization
 ```
 
-These are future architecture work and must be evaluated separately against accumulated production evidence.
-
-## 10. User-facing terminology refactor
+## 11. User-facing terminology refactor
 
 Do not expose opaque internal labels such as:
 
@@ -298,24 +333,37 @@ Internal mathematics may retain premium/discount, relative rate of change, slope
 
 Causal explanation requires evidence.
 
-## 11. What remains before SP-B can close
+## 12. Forecast runtime boundary
+
+The latest supplied runtime smoke reached forecast generation successfully:
+
+```text
+Forecast 1h  → INSUFFICIENT_DATA / None
+Forecast 6h  → INSUFFICIENT_DATA / None
+Forecast 24h → INSUFFICIENT_DATA / None
+```
+
+This is expected while production history remains sparse. It is not a forecast-engine failure and must not be fixed by lowering data sufficiency gates merely to produce a number.
+
+## 13. What remains before SP-B can close
 
 The project is not ready to merge SP-B → main yet.
 
 Remaining work is primarily:
 
-1. Decide the next post-C14C intelligence scope from evidence, not speculation.
-2. Accumulate sufficient real production history for forecast readiness.
-3. Evaluate whether immutable forecast persistence is justified.
-4. Design and verify any human-review/news-impact extension separately.
-5. Full regression across all phase KPIs before SP-B closure.
-6. Final Neon schema/data audit at SP-B close.
-7. Final GitHub diff/documentation/state review.
-8. Final operational review of cron-job.org + Cloudflare + GitHub Actions.
-9. Explicit SP-B close approval.
-10. Only then merge SP-B → main and later create SP-C.
+1. Verify operational news ingestion against live runtime and confirm `news_events` population.
+2. Decide the next post-C14C intelligence scope from evidence, not speculation.
+3. Accumulate sufficient real production history for forecast readiness.
+4. Evaluate whether immutable forecast persistence is justified.
+5. Design and verify any human-review/news-impact extension separately.
+6. Full regression across all phase KPIs before SP-B closure.
+7. Final Neon schema/data audit at SP-B close.
+8. Final GitHub diff/documentation/state review.
+9. Final operational review of cron-job.org + Cloudflare + GitHub Actions.
+10. Explicit SP-B close approval.
+11. Only then merge SP-B → main and later create SP-C.
 
-## 12. Branch safety
+## 14. Branch safety
 
 ```text
 ACTIVE DEVELOPMENT = SP-B
@@ -325,7 +373,7 @@ main MERGE = forbidden until explicit SP-B close approval
 
 Never merge `main` into SP-B as a shortcut. Reconcile specific artifacts only.
 
-## 13. Continuity protocol
+## 15. Continuity protocol
 
 ```text
 KIMI code
