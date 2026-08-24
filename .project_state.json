@@ -3,7 +3,7 @@
   "project": "Gold Premium Monitor",
   "active_branch": "SP-B",
   "current_phase": "PRE-SP-C.14C",
-  "current_phase_status": "PLANNING",
+  "current_phase_status": "COMPLETE",
   "completed_phases": [
     "SP-B.1",
     "SP-B.2",
@@ -21,11 +21,12 @@
     "PRE-SP-C.12",
     "PRE-SP-C.13",
     "PRE-SP-C.14A",
-    "PRE-SP-C.14B"
+    "PRE-SP-C.14B",
+    "PRE-SP-C.14C"
   ],
   "latest_verified_kpi": {
-    "phase": "PRE-SP-C.14B",
-    "passed": 36,
+    "phase": "PRE-SP-C.14C",
+    "passed": 21,
     "failed": 0,
     "status": "PASS",
     "evidence_source": "user-supplied local execution result"
@@ -36,7 +37,9 @@
     "c14b_compileall": "PASS",
     "c14b_kpi": "PASS 36/36",
     "c14b_live_smoke": "NOT_YET_RUN",
-    "c14b_forecast_readiness": "NOT_READY_FOR_PRODUCTION_DEPLOYMENT — current production history remains intentionally sparse"
+    "c14b_forecast_readiness": "NOT_READY_FOR_PRODUCTION_DEPLOYMENT — current production history remains intentionally sparse",
+    "c14c_kpi": "PASS 21/21",
+    "c14c_runtime_smoke": "NOT_REQUIRED_FOR_KPI_ACCEPTANCE"
   },
   "database_state": {
     "neon_project": "wispy-glade-92753836",
@@ -45,6 +48,8 @@
     "c13_schema_reconciliation": "COMPLETE",
     "c14a_schema_reconciliation": "COMPLETE",
     "c14b_schema_change_required": false,
+    "c14c_schema_change_required": false,
+    "c14c_live_reconciliation": "COMPLETE — 2026-08-24; expected core structures verified; no mutation performed",
     "c14a_schema_additions": [
       "price_observations.quote_side",
       "platform_candles",
@@ -56,7 +61,8 @@
     "preserved_tables_verified": [
       "analysis_snapshots",
       "news_events",
-      "outcome_evaluations"
+      "outcome_evaluations",
+      "platform_candles"
     ],
     "forecast_training_readiness": "NOT_READY_FOR_DEPLOYMENT",
     "neon_write_policy": "APPROVAL_REQUIRED_FOR_SCHEMA_CHANGES"
@@ -69,7 +75,7 @@
     "regime_detector": "Existing regime detection and hysteresis are forecast context/features and must be used for regime-conditioned evaluation and tuning, not as an overriding decision engine"
   },
   "forecast_feedback_architecture": {
-    "human_feedback_location": "Telegram Analysis experience",
+    "human_feedback_location": "Future: Telegram Analysis experience",
     "third_frontend_wing": false,
     "objective_outcome_separate_from_human_feedback": true,
     "online_training_from_user_feedback": false,
@@ -83,19 +89,33 @@
     "separate_clocks": ["forecast_time", "market_outcome_time", "feedback_time"]
   },
   "c14c_scope": {
-    "status": "PLANNING",
-    "components": [
-      "forecast resolution",
-      "human review inside Telegram Analysis experience",
-      "objective vs human feedback separation",
-      "calibration and forecast audit",
-      "news/event provenance and deduplication",
-      "event-impact measurement",
-      "regime-conditioned audit",
-      "weekly admin intelligence report"
+    "status": "COMPLETE — FOUNDATION",
+    "kpi": "21/21 PASS",
+    "implemented_components": [
+      "forecast error classification",
+      "regime-conditioned forecast analysis",
+      "feature reliability analysis",
+      "feature separation",
+      "single-forecast analysis",
+      "historical batch analysis",
+      "event-interpreter abstraction and stubs",
+      "decision-authority protection",
+      "future-leakage protection"
     ],
-    "news_policy": "News is explanatory/predictive evidence only after empirical validation; no direct causal assumption and no automatic online weight updates.",
-    "terminology_refactor": "Replace opaque user-facing DISCOUNT_WIDENING / DISCOUNT_NARROWING language with observable relative-speed / lag / acceleration language after quantitative semantics are frozen."
+    "forecast_memory": "Reconstructed from existing persisted artifacts; no forecast_history table",
+    "error_persistence": "Computed analytically; no new database field",
+    "news_policy": "Event interpreter is a future extension point; no production LLM integration in C14C",
+    "adaptive_policy": "Diagnostic only; no online learning, automatic weight changes, threshold changes, or strategy changes",
+    "deferred_extensions": [
+      "immutable forecast event persistence",
+      "human review persistence/UI",
+      "news provenance and deduplication",
+      "empirical event-impact measurement",
+      "weekly administrative intelligence reporting",
+      "controlled adaptive weighting",
+      "LLM event interpretation",
+      "reinforcement learning / bandit optimization"
+    ]
   },
   "terminology_policy": {
     "avoid_user_facing": ["DISCOUNT WIDENING", "DISCOUNT NARROWING"],
@@ -135,10 +155,11 @@
       "C14_FEEDBACK_AND_TERMINOLOGY.md",
       "RESEARCH_ADOPTION.md",
       "C14C_HANDOFF.md",
+      "C14C_IMPLEMENTATION.md",
       "MASTER_PLAN_STATUS.md",
       "skills/",
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "PRE-SP-C.14C pre-coding inspection"
+  "next_gate": "post-C14C architecture review / next-phase definition"
 }
