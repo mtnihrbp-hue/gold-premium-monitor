@@ -26,13 +26,16 @@
     "max_results": 20,
     "min_sample_size": 3
   },
-  "news": {
-    "enabled": true,
-    "sources": [
-      "https://www.tasnimnews.com/fa/rss/feed",
-      "https://www.mehrnews.com/rss",
-      "https://www.tehrantimes.com/rss"
-    ],
+"news": {
+  "enabled": true,
+  "sources": [
+    "https://www.tasnimnews.com/fa/rss/feed",
+    "https://www.mehrnews.com/rss",
+    "https://www.tehrantimes.com/rss",
+    "https://goldbroker.com/news.rss",
+    "https://kingworldnews.com/feed",
+    "http://cbi.ir/exratesrss.aspx"
+  ],
     "fetch_interval_minutes": 30,
     "classification_mode": "keyword",
     "max_items_per_source": 20
