@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "project": "Gold Premium Monitor",
-  "active_branch": "SP-B",
-  "current_phase": "PRE-SP-C.14C",
-  "current_phase_status": "COMPLETE",
+  "active_branch": "main",
+  "current_phase": "POST-SP-B / PRE-NEXT-PHASE",
+  "current_phase_status": "SP-B CLOSED — C.14C COMPLETE",
   "completed_phases": [
     "SP-B.1",
     "SP-B.2",
@@ -89,7 +89,11 @@
       "OBJECTIVELY_EVALUATED",
       "USER_REVIEWED_OPTIONAL"
     ],
-    "separate_clocks": ["forecast_time", "market_outcome_time", "feedback_time"]
+    "separate_clocks": [
+      "forecast_time",
+      "market_outcome_time",
+      "feedback_time"
+    ]
   },
   "c14c_scope": {
     "status": "COMPLETE — FOUNDATION + OPERATIONAL NEWS INGESTION SUPPORTING WORK",
@@ -123,7 +127,10 @@
     ]
   },
   "terminology_policy": {
-    "avoid_user_facing": ["DISCOUNT WIDENING", "DISCOUNT NARROWING"],
+    "avoid_user_facing": [
+      "DISCOUNT WIDENING",
+      "DISCOUNT NARROWING"
+    ],
     "prefer": [
       "relative rate of change",
       "acceleration",
@@ -133,15 +140,16 @@
     "causal_explanation_requires_evidence": true
   },
   "branch_policy": {
-    "active_development_branch": "SP-B",
-    "main_write_allowed": false,
+    "active_development_branch": "main",
+    "main_write_allowed": true,
     "main_merge_allowed": false,
-    "rule": "All future code, documentation, SQL records, and commits target SP-B only until explicit SP-B close/merge approval."
+    "sp_b_status": "CLOSED — merged into main",
+    "sp_b_remote_deleted": false,
+    "rule": "SP-B is closed. All future development, documentation, SQL records, and commits target main unless a future phase explicitly establishes another development branch."
   },
   "continuity_protocol": {
     "orchestration_flow": [
-      "KIMI code",
-      "GitHub source",
+      "repository source",
       "schema/migration audit",
       "Neon production state",
       "KPI / smoke",
@@ -151,9 +159,9 @@
     ],
     "required_read_order": [
       ".project_state.json",
+      "DOCUMENTATION_INDEX.md",
       "PROJECT_MEMORY.md",
-      "README.md",
-      "Prompt_Guide.md",
+      "MASTER_PLAN_STATUS.md",
       "PROJECT_ORCHESTRATION.md",
       "PROJECT_OPERATIONS.md",
       "C14_HANDOFF.md",
@@ -161,7 +169,8 @@
       "RESEARCH_ADOPTION.md",
       "C14C_HANDOFF.md",
       "C14C_IMPLEMENTATION.md",
-      "MASTER_PLAN_STATUS.md",
+      "README.md",
+      "Prompt_Guide.md",
       "skills/",
       "relevant source/tests/KPI/SQL"
     ]
