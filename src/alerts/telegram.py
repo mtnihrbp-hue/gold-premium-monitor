@@ -89,20 +89,20 @@ def format_decision_section(signal_state):
 def _format_market_section(world, usd, fair, lowest, premium, input_directions=None):
     lines = [
         SEPARATOR, "<b>MARKET</b>", SEPARATOR, "",
-        f"World Gold: ${_money(world)}  |  USD: {_money(usd)} IRR",
-        f"Fair Price:  {_money(fair)} IRR",
-        f"Lowest:      {_money(lowest)} IRR",
-        f"Premium:     {_number(premium)}%",
+        f"XAU/USD:    ${_money(world)}  |  USD/IRR: {_money(usd)}",
+        f"Fair Value: {_money(fair)} IRR",
+        f"Lowest:     {_money(lowest)} IRR",
+        f"Premium:    {_number(premium)}%",
     ]
     if input_directions:
         wd = input_directions.get("world")
         ud = input_directions.get("usd")
         if wd:
             stale = f" stale={wd['stale_count']}" if wd.get("stale_count") else ""
-            lines.append(f"World Gold:  {wd['arrow']} ({wd['pct']:+.2f}%){stale}")
+            lines.append(f"XAU/USD:    {wd['arrow']} ({wd['pct']:+.2f}%){stale}")
         if ud:
             stale = f" stale={ud['stale_count']}" if ud.get("stale_count") else ""
-            lines.append(f"USD:         {ud['arrow']} ({ud['pct']:+.2f}%){stale}")
+            lines.append(f"USD/IRR:    {ud['arrow']} ({ud['pct']:+.2f}%){stale}")
     return "\n".join(lines)
 
 
