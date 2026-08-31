@@ -34,6 +34,7 @@
     "https://www.tehrantimes.com/rss",
     "https://goldbroker.com/news.rss",
     "https://kingworldnews.com/feed",
+    "https://www.eghtesadonline.com/fa/rss",
     "http://cbi.ir/exratesrss.aspx"
   ],
     "fetch_interval_minutes": 30,
