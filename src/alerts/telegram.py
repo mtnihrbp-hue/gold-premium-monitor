@@ -345,3 +345,319 @@ def send_health_update(health: dict):
     ]
 
     _send("\n".join(lines))
+
+
+
+
+
+
+
+# ============================================================
+# UPDATE v1 formatter
+# ============================================================
+
+from update.baseline_resolver import UpdateBaselines
+from alerts.helpers import (
+    classify_candle,
+    build_update_interpretation,
+    bubble_state_label,
+    bubble_state_short,
+    format_pct,
+    format_pp,
+    format_arrow,
+)
+
+
+def _update_sep():
+    return "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+
+def _build_update_market_section(
+    world: Optional[float],
+    usd: Optional[float],
+    fair: Optional[float],
+    platform_avg: Optional[float],
+    lowest: Optional[float],
+    premium: float,
+    baselines: UpdateBaselines,
+) -> str:
+    """Build MARKET section for UPDATE v1."""
+    lines = [
+        _update_sep(),
+        "<b>MARKET</b>",
+        _update_sep(),
+        "",
+    ]
+
+    # XAU/USD
+    run_world = baselines.run.xau_usd if baselines.run else None
+    day_world = baselines.day.xau_usd if baselines.day else None
+    world_run_pct = ((world - run_world) / run_world * 100) if world and run_world and run_world != 0 else None
+    world_day_pct = ((world - day_world) / day_world * 100) if world and day_world and day_world != 0 else None
+    lines.append(f"<code>XAU/USD        {_money(world)}</code>")
+    lines.append(f"<code>               {format_arrow(world_run_pct)} {format_pct(world_run_pct)} Run | {format_arrow(world_day_pct)} {format_pct(world_day_pct)} Day</code>")
+    lines.append("")
+
+    # USD/IRR
+    run_usd = baselines.run.usd_irr if baselines.run else None
+    day_usd = baselines.day.usd_irr if baselines.day else None
+    usd_run_pct = ((usd - run_usd) / run_usd * 100) if usd and run_usd and run_usd != 0 else None
+    usd_day_pct = ((usd - day_usd) / day_usd * 100) if usd and day_usd and day_usd != 0 else None
+    lines.append(f"<code>USD/IRR        {_money(usd)}</code>")
+    lines.append(f"<code>               {format_arrow(usd_run_pct)} {format_pct(usd_run_pct)} Run | {format_arrow(usd_day_pct)} {format_pct(usd_day_pct)} Day</code>")
+    lines.append("")
+
+    # Fair Price
+    run_fair = baselines.run.fair_price if baselines.run else None
+    day_fair = baselines.day.fair_price if baselines.day else None
+    fair_run_pct = ((fair - run_fair) / run_fair * 100) if fair and run_fair and run_fair != 0 else None
+    fair_day_pct = ((fair - day_fair) / day_fair * 100) if fair and day_fair and day_fair != 0 else None
+    lines.append(f"<code>Fair Price     {_money(fair)} IRR</code>")
+    lines.append(f"<code>               {format_arrow(fair_run_pct)} {format_pct(fair_run_pct)} Run | {format_arrow(fair_day_pct)} {format_pct(fair_day_pct)} Day</code>")
+    lines.append("")
+
+    # Platform Average
+    run_avg = baselines.run.platform_average if baselines.run else None
+    day_avg = baselines.day.platform_average if baselines.day else None
+    avg_run_pct = ((platform_avg - run_avg) / run_avg * 100) if platform_avg and run_avg and run_avg != 0 else None
+    avg_day_pct = ((platform_avg - day_avg) / day_avg * 100) if platform_avg and day_avg and day_avg != 0 else None
+    lines.append(f"<code>Platform Avg   {_money(platform_avg)} IRR</code>")
+    lines.append(f"<code>               {format_arrow(avg_run_pct)} {format_pct(avg_run_pct)} Run | {format_arrow(avg_day_pct)} {format_pct(avg_day_pct)} Day</code>")
+    lines.append("")
+
+    # Bubble
+    run_premium = baselines.run.premium_percent if baselines.run else None
+    day_premium = baselines.day.premium_percent if baselines.day else None
+    premium_run_pp = (premium - run_premium) if run_premium is not None else None
+    premium_day_pp = (premium - day_premium) if day_premium is not None else None
+    lines.append(f"<code>Bubble         {_number(premium)}%  {bubble_state_short(premium)}</code>")
+    lines.append(f"<code>               {format_arrow(premium_run_pp)} {format_pp(premium_run_pp)} Run | {format_arrow(premium_day_pp)} {format_pp(premium_day_pp)} Day</code>")
+    lines.append("")
+
+    # Lowest / Highest / Spread
+    lines.append(f"<code>Lowest         {_money(lowest)} IRR</code>")
+    # Highest is computed from current markets, shown in structure section
+    # Spread is also in structure section
+
+    return "\n".join(lines)
+
+
+def _build_update_dynamics_section(
+    price_direction: str,
+    price_pace: str,
+    acceleration_label: str,
+    premium: float,
+    bubble_movement: str,
+    bubble_pace: str,
+    candle_label: str,
+    interpretation: str,
+) -> str:
+    """Build PRICE & BUBBLE DYNAMICS section."""
+    lines = [
+        _update_sep(),
+        "<b>PRICE & BUBBLE DYNAMICS</b>",
+        _update_sep(),
+        "",
+        f"<code>Price          {price_direction}</code>",
+        f"<code>Pace           {price_pace}</code>",
+        f"<code>Acceleration   {acceleration_label}</code>",
+        "",
+        f"<code>Bubble         {bubble_state_short(premium)}</code>",
+        f"<code>               {_number(premium)}%</code>",
+        "",
+        f"<code>Bubble         {bubble_movement}</code>",
+        f"<code>Bubble Pace    {bubble_pace}</code>",
+        "",
+        f"<code>Candle         {candle_label}</code>",
+        "",
+        "<b>Interpretation</b>",
+        interpretation,
+    ]
+    return "\n".join(lines)
+
+
+def _build_update_structure_section(
+    markets: Dict[str, Any],
+    fair: Optional[float],
+    baselines: UpdateBaselines,
+) -> str:
+    """Build MARKET STRUCTURE section."""
+    structure = format_market_structure(markets, fair)
+    if not structure:
+        return ""
+
+    lines = [
+        _update_sep(),
+        "<b>MARKET STRUCTURE</b>",
+        _update_sep(),
+        "",
+        f"<code>Platforms      {structure['platform_count']} active</code>",
+        f"<code>Spread         {structure['spread']:,.0f} IRR</code>",
+        "",
+    ]
+
+    # Highest with DAY relative position
+    high_name = structure["high_name"]
+    high_price = structure["high_price"]
+    day_high_price = baselines.day.platform_prices.get(high_name) if baselines.day else None
+    high_day_pct = ((high_price - day_high_price) / day_high_price * 100) if high_price and day_high_price and day_high_price != 0 else None
+    lines.append(f"<code>Highest        {high_name}</code>")
+    lines.append(f"<code>               {_money(high_price)}</code>")
+    if high_day_pct is not None:
+        lines.append(f"<code>               {format_pct(high_day_pct)} vs Day</code>")
+    lines.append("")
+
+    # Lowest with DAY relative position
+    low_name = structure["low_name"]
+    low_price = structure["low_price"]
+    day_low_price = baselines.day.platform_prices.get(low_name) if baselines.day else None
+    low_day_pct = ((low_price - day_low_price) / day_low_price * 100) if low_price and day_low_price and day_low_price != 0 else None
+    lines.append(f"<code>Lowest         {low_name}</code>")
+    lines.append(f"<code>               {_money(low_price)}</code>")
+    if low_day_pct is not None:
+        lines.append(f"<code>               {format_pct(low_day_pct)} vs Day</code>")
+    lines.append("")
+
+    # Consensus
+    consensus = structure["consensus_label"]
+    # Translate to bubble terminology
+    if "Discount Dominant" in consensus:
+        consensus_telegram = "NEGATIVE BUBBLE DOMINANT"
+    elif "Premium Dominant" in consensus:
+        consensus_telegram = "POSITIVE BUBBLE DOMINANT"
+    else:
+        consensus_telegram = consensus
+    lines.append(f"<code>Consensus      {consensus_telegram}</code>")
+
+    return "\n".join(lines)
+
+
+def _build_update_platforms_section(
+    markets: Dict[str, Any],
+    baselines: UpdateBaselines,
+) -> str:
+    """Build PLATFORMS table section."""
+    lines = [
+        _update_sep(),
+        "<b>PLATFORMS</b>",
+        _update_sep(),
+        "",
+    ]
+
+    # Build table header and rows
+    table_lines = [
+        "Platform       Price          Run Δ       vs Day",
+        "────────────────────────────────────────────────",
+    ]
+
+    for name in sorted(markets.keys()):
+        info = markets[name]
+        if info.get("status") != "OK":
+            continue
+        price = info["price"]
+
+        # RUN Δ (absolute IRR change from latest snapshot)
+        run_price = baselines.run.platform_prices.get(name) if baselines.run else None
+        if run_price is not None:
+            run_diff = price - run_price
+            run_delta = "—" if abs(run_diff) < 0.01 else f"{run_diff:+,.0f}"
+        else:
+            run_delta = "—"
+
+        # vs DAY (percentage change from first today snapshot)
+        day_price = baselines.day.platform_prices.get(name) if baselines.day else None
+        if day_price is not None and day_price != 0:
+            day_pct = ((price - day_price) / day_price) * 100
+            day_str = f"{day_pct:+.2f}%"
+        else:
+            day_str = "—"
+
+        table_lines.append(f"{name:<14} {price:>15,.0f} {run_delta:>12} {day_str:>10}")
+
+    lines.append("<pre>" + "\n".join(table_lines) + "</pre>")
+
+    return "\n".join(lines)
+
+
+def _build_update_decision_section(signal_state) -> str:
+    """Build CURRENT DECISION section."""
+    if signal_state is None:
+        return ""
+
+    lines = [
+        _update_sep(),
+        "<b>CURRENT DECISION</b>",
+        _update_sep(),
+        "",
+        f"<code>Valuation      {signal_state.valuation}</code>",
+        f"<code>Momentum       {signal_state.momentum}</code>",
+        f"<code>Structure      {signal_state.structure.replace('_', ' ')}</code>",
+        f"<code>Conflict       {signal_state.conflict.replace('_', ' ')}</code>",
+        "",
+        f"<code>Candidate      {signal_state.candidate_decision}</code>",
+    ]
+    final = signal_state.final_decision
+    if final in {"BUY", "SELL", "WAIT"}:
+        lines.append(f"<code>Final          <b>{final}</b></code>")
+    else:
+        lines.append(f"<code>Final          {final}</code>")
+    lines.append("")
+    lines.append(f"<b>{format_timestamp()}</b>")
+
+    return "\n".join(lines)
+
+
+def send_update_v1(
+    world: Optional[float],
+    usd: Optional[float],
+    fair: Optional[float],
+    platform_avg: Optional[float],
+    lowest: Optional[float],
+    premium: float,
+    markets: Dict[str, Any],
+    signal_state,
+    baselines: UpdateBaselines,
+    momentum: Optional[Dict] = None,
+):
+    """Send UPDATE v1 Telegram message.
+
+    Replaces send_manual_update with the approved information architecture.
+    Does not calculate — consumes already-resolved baselines and current state.
+    """
+    # Classifications
+    price_direction = baselines.price_direction
+    price_pace = "N/A"  # Deferred pending empirical calibration
+    acceleration_label = baselines.rep_gold_acceleration_label
+    bubble_state = bubble_state_short(premium)
+    bubble_movement = baselines.bubble_movement
+    bubble_pace = "N/A"  # Deferred pending empirical calibration
+    candle_label = classify_candle(momentum)
+    interpretation = build_update_interpretation(
+        price_direction=price_direction,
+        bubble_state=bubble_state,
+        bubble_movement=bubble_movement,
+    )
+
+    # Build sections
+    header = "<b>GOLDPremium: UPDATE</b>"
+    market_section = _build_update_market_section(
+        world, usd, fair, platform_avg, lowest, premium, baselines
+    )
+    dynamics_section = _build_update_dynamics_section(
+        price_direction, price_pace, acceleration_label,
+        premium, bubble_movement, bubble_pace, candle_label, interpretation
+    )
+    structure_section = _build_update_structure_section(markets, fair, baselines)
+    platforms_section = _build_update_platforms_section(markets, baselines)
+    decision_section = _build_update_decision_section(signal_state)
+
+    body = "\n\n".join([
+        header,
+        market_section,
+        dynamics_section,
+        structure_section,
+        platforms_section,
+        decision_section,
+    ])
+
+    _send(body)
