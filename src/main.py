@@ -12,7 +12,280 @@ from collector.news.ingest import run_news_ingestion
 from caluclator.gold import (
     calculate_fair_price,
     find_lowest_market_price,
-    premium_percent,
+    premium_percent,import sys
+sys.path.insert(0, 'src')
+
+import os
+import json
+import traceback
+from datetime import datetime
+
+from alerts.telegram import (
+    send_daily_recap,
+    send_telegram_manual,
+    send_telegram_processing,
+    send_update_v1,  # UPDATE v1 formatter
+)
+from caluclator.gold import calculate_fair_price, premium_percent
+from caluclator.momentum import build_momentum_context, get_premium_momentum_context
+from caluclator.signal_state import build_signal_state
+from caluclator.structure import evaluate_structure
+from caluclator.trends import get_market_spread, get_trend_summary
+from collector.iran import collect_iranian_platforms
+from collector.world import get_world_gold_price
+from collector.usd import get_usd_sell_rate
+from config.settings import load_config
+from database.connection import get_session
+from database.repository import (
+    get_input_directions,
+    get_latest_market_snapshot,
+    save_market_snapshot,
+    save_market_state,
+    save_price_observations,
+)
+from intelligence.consumer import build_analysis_snapshot
+from news.ingestion import run_news_ingestion
+from update.baseline_resolver import resolve_update_baselines  # UPDATE v1 baseline resolver
+
+
+def main():
+    is_scheduled = os.environ.get('SCHEDULED_RUN', 'false').lower() == 'true'
+    print(f"[main] SCHEDULED_RUN={is_scheduled}")
+
+    # --- Telegram processing heartbeat ---
+    send_telegram_processing()
+
+    # --- Load config ---
+    config = load_config()
+    print(f"[main] Config loaded: {config}")
+
+    # --- Collect market data ---
+    print("[main] Collecting world gold price...")
+    world = get_world_gold_price()
+    print(f"[main] World gold: {world}")
+
+    print("[main] Collecting USD/IRR rate...")
+    usd = get_usd_sell_rate()
+    print(f"[main] USD/IRR: {usd}")
+
+    print("[main] Collecting Iranian platforms...")
+    markets = collect_iranian_platforms()
+    print(f"[main] Platforms: {markets}")
+
+    # --- Validate ---
+    if world is None or usd is None:
+        print("[main] CRITICAL: Missing world or USD data. Aborting.")
+        return
+
+    if not markets:
+        print("[main] WARNING: No platform data collected.")
+
+    # --- Save canonical price observations ---
+    try:
+        save_price_observations(world, usd, markets)
+        print("[main] Price observations saved.")
+    except Exception as e:
+        print(f"[main] Failed to save price observations: {e}")
+
+    # --- Calculate fair price, lowest, premium ---
+    fair = calculate_fair_price(world, usd) * 10
+    lowest = None
+    for name, info in markets.items():
+        if info.get("status") == "OK" and info.get("price") is not None:
+            p = info["price"]
+            if lowest is None or p < lowest:
+                lowest = p
+
+    premium = premium_percent(fair, lowest) if fair and lowest else 0.0
+    print(f"[main] Fair: {fair}, Lowest: {lowest}, Premium: {premium}%")
+
+    # --- Market structure ---
+    structure_result = evaluate_structure(markets, fair)
+    print(f"[main] Structure: {structure_result}")
+
+    # --- Build SP-A signal state ---
+    signal_state = build_signal_state(world, usd, fair, lowest, premium, markets, config)
+    print(f"[main] Signal state: {signal_state}")
+
+    # --- Build momentum context (for candle data, non-blocking) ---
+    momentum = None
+    try:
+        session = get_session()
+        if session:
+            momentum = build_momentum_context(premium, session)
+            session.close()
+            print(f"[main] Momentum context built: {momentum}")
+    except Exception as e:
+        print(f"[main] Momentum context failed: {e}")
+
+    # --- Input directions (scheduled path only; UPDATE v1 uses baselines instead) ---
+    input_directions = None
+    if is_scheduled:
+        try:
+            session = get_session()
+            if session:
+                input_directions = get_input_directions(world, usd, session)
+                session.close()
+                print(f"[main] Input directions: {input_directions}")
+        except Exception as e:
+            print(f"[main] Input directions failed: {e}")
+
+    # --- Resolve UPDATE v1 baselines (non-scheduled path only; BEFORE saving snapshot) ---
+    baselines = None
+    if not is_scheduled:
+        try:
+            platform_avg = structure_result.get("platform_average") if structure_result else None
+            baselines = resolve_update_baselines(
+                current_platform_avg=platform_avg,
+                current_premium=premium,
+            )
+            print(f"[main] UPDATE baselines resolved: run={baselines.run is not None}, day={baselines.day is not None}")
+        except Exception as e:
+            print(f"[main] Baseline resolution failed: {e}")
+            traceback.print_exc()
+
+    # --- Console print ---
+    print(f"\n{'='*40}")
+    print(f"  GOLD PREMIUM MONITOR — {'SCHEDULED' if is_scheduled else 'MANUAL'}")
+    print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"{'='*40}")
+    print(f"  World:   ${world:,.2f}")
+    print(f"  USD:     {usd:,.0f} IRR")
+    print(f"  Fair:    {fair:,.0f} IRR")
+    print(f"  Lowest:  {lowest:,.0f} IRR")
+    print(f"  Premium: {premium:.2f}%")
+    print(f"  Signal:  {signal_state.final_decision}")
+    print(f"{'='*40}\n")
+
+    # --- Save flat-file state ---
+    try:
+        history = []
+        if os.path.exists("state.json"):
+            with open("state.json", "r") as f:
+                history = json.load(f)
+        history.append({
+            "timestamp": datetime.now().isoformat(),
+            "world": world,
+            "usd": usd,
+            "fair": fair,
+            "lowest": lowest,
+            "premium": premium,
+            "signal": signal_state.final_decision,
+            "markets": {k: v.get("price") for k, v in markets.items() if v.get("status") == "OK"},
+        })
+        with open("state.json", "w") as f:
+            json.dump(history, f, indent=2)
+        print("[main] Flat-file state saved.")
+    except Exception as e:
+        print(f"[main] Flat-file state save failed: {e}")
+
+    # --- Save market snapshot + platform prices ---
+    try:
+        previous_markets = {}
+        if history and len(history) > 1:
+            prev_markets = history[-2].get("markets", {})
+            previous_markets = {k: float(v) for k, v in prev_markets.items() if v is not None}
+
+        snapshot_id = save_market_snapshot(
+            world_gold_usd=world,
+            usd_irr=usd,
+            fair_price=fair,
+            premium_percent=premium,
+            signal=signal_state.final_decision,
+            confidence=signal_state.confidence,
+            markets=markets,
+            previous_markets=previous_markets,
+            platform_changes={},  # pre-existing; UPDATE v1 uses baselines instead
+        )
+        print(f"[main] Market snapshot saved: id={snapshot_id}")
+    except Exception as e:
+        print(f"[main] Market snapshot save failed: {e}")
+        snapshot_id = None
+
+    # --- Save market state (SP-A) ---
+    try:
+        save_market_state(signal_state)
+        print("[main] Market state saved.")
+    except Exception as e:
+        print(f"[main] Market state save failed: {e}")
+
+    # --- News ingestion (ANALYZE wing — scheduled only) ---
+    if is_scheduled:
+        try:
+            news_result = run_news_ingestion(config)
+            print(f"[main] News ingestion: {news_result}")
+        except Exception as e:
+            print(f"[main] News ingestion failed: {e}")
+
+    # --- Build analysis snapshot (ANALYZE wing — scheduled only) ---
+    if is_scheduled and snapshot_id is not None:
+        try:
+            analysis_snapshot_id = build_analysis_snapshot(config=config)
+            print(f"[main] Analysis snapshot built: id={analysis_snapshot_id}")
+        except Exception as e:
+            print(f"[main] Analysis snapshot failed: {e}")
+            traceback.print_exc()
+
+    # --- Send Telegram output ---
+    if is_scheduled:
+        # Scheduled: daily recap (ANALYZE wing output)
+        try:
+            send_daily_recap(
+                world=world,
+                usd=usd,
+                fair=fair,
+                lowest=lowest,
+                premium=premium,
+                markets=markets,
+                signal_state=signal_state,
+                input_directions=input_directions,
+                momentum=momentum,
+            )
+            print("[main] Daily recap sent.")
+        except Exception as e:
+            print(f"[main] Daily recap failed: {e}")
+            traceback.print_exc()
+    else:
+        # Non-scheduled: UPDATE v1 (fast operational snapshot)
+        try:
+            platform_avg = structure_result.get("platform_average") if structure_result else None
+            send_update_v1(
+                world=world,
+                usd=usd,
+                fair=fair,
+                platform_avg=platform_avg,
+                lowest=lowest,
+                premium=premium,
+                markets=markets,
+                signal_state=signal_state,
+                baselines=baselines,
+                momentum=momentum,
+            )
+            print("[main] UPDATE v1 sent.")
+        except Exception as e:
+            print(f"[main] UPDATE v1 failed: {e}")
+            traceback.print_exc()
+            # Fallback to old formatter if v1 fails
+            try:
+                send_telegram_manual(
+                    world=world,
+                    usd=usd,
+                    fair=fair,
+                    lowest=lowest,
+                    premium=premium,
+                    markets=markets,
+                    signal_state=signal_state,
+                    input_directions=input_directions,
+                    momentum=momentum,
+                )
+                print("[main] Fallback manual update sent.")
+            except Exception as e2:
+                print(f"[main] Fallback also failed: {e2}")
+
+
+if __name__ == "__main__":
+    main()
+
 )
 
 from caluclator.signal_state import build_signal_state
