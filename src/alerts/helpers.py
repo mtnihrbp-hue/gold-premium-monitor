@@ -199,6 +199,117 @@ def format_market_structure_block(structure):
     ]
 
 
+# ---------------------------------------------------------------------------
+# UPDATE v1 classification helpers
+# ---------------------------------------------------------------------------
+
+def classify_candle(momentum: dict) -> str:
+    """Classify premium candle as BULLISH / BEARISH / NEUTRAL / N/A.
+
+    Uses existing candlestick data from build_momentum_context().
+    close > open  → BULLISH
+    close < open  → BEARISH
+    approximately equal (within 0.05 pp) → NEUTRAL
+    """
+    if not momentum:
+        return "N/A"
+    candle = momentum.get("candlestick")
+    if not candle:
+        return "N/A"
+    open_p = candle.get("open")
+    close_p = candle.get("close")
+    if open_p is None or close_p is None:
+        return "N/A"
+    diff = close_p - open_p
+    threshold = 0.05  # Same dead-band as bubble movement convention
+    if abs(diff) < threshold:
+        return "NEUTRAL"
+    return "BULLISH" if diff > 0 else "BEARISH"
+
+
+def build_update_interpretation(
+    price_direction: str,
+    bubble_state: str,
+    bubble_movement: str,
+) -> str:
+    """Build concise deterministic interpretation for UPDATE v1.
+
+    Synthesizes measurable state only. No trader psychology.
+    """
+    parts = []
+
+    if price_direction == "RISING":
+        parts.append("Local prices are rising")
+    elif price_direction == "FALLING":
+        parts.append("Local prices are falling")
+    elif price_direction == "STABLE":
+        parts.append("Local prices are stable")
+
+    bubble_phrase = ""
+    if bubble_state == "NEGATIVE":
+        if bubble_movement == "INCREASING":
+            bubble_phrase = "The negative bubble is increasing"
+        elif bubble_movement == "DECREASING":
+            bubble_phrase = "The negative bubble is decreasing"
+        elif bubble_movement == "STABLE":
+            bubble_phrase = "The negative bubble is stable"
+    elif bubble_state == "POSITIVE":
+        if bubble_movement == "INCREASING":
+            bubble_phrase = "The positive bubble is increasing"
+        elif bubble_movement == "DECREASING":
+            bubble_phrase = "The positive bubble is decreasing"
+        elif bubble_movement == "STABLE":
+            bubble_phrase = "The positive bubble is stable"
+
+    if parts and bubble_phrase:
+        return f"{parts[0]}. {bubble_phrase}."
+    elif bubble_phrase:
+        return f"{bubble_phrase}."
+    elif parts:
+        return f"{parts[0]}."
+    return "Insufficient data for interpretation."
+
+
+def bubble_state_label(premium: float) -> str:
+    """Return user-facing bubble state label.
+
+    Positive premium → POSITIVE BUBBLE
+    Negative premium → NEGATIVE BUBBLE
+    """
+    if premium is None:
+        return "UNKNOWN"
+    return "POSITIVE BUBBLE" if premium >= 0 else "NEGATIVE BUBBLE"
+
+
+def bubble_state_short(premium: float) -> str:
+    """Return short bubble state label for inline display."""
+    if premium is None:
+        return "UNKNOWN"
+    return "POSITIVE" if premium >= 0 else "NEGATIVE"
+
+
+def format_pct(value: float, decimals: int = 2) -> str:
+    """Format a percentage change with sign."""
+    if value is None:
+        return "—"
+    return f"{value:+.2f}%"
+
+
+def format_pp(value: float, decimals: int = 2) -> str:
+    """Format a percentage-point change with sign."""
+    if value is None:
+        return "—"
+    return f"{value:+.2f} pp"
+
+
+def format_arrow(value: float, threshold: float = 0.0) -> str:
+    """Return directional arrow for a signed value."""
+    if value is None:
+        return "→"
+    if abs(value) <= threshold:
+        return "→"
+    return "↑" if value > 0 else "↓"
+
 def format_timestamp():
     """Return current timestamp string."""
     return datetime.now().strftime("%Y-%m-%d %H:%M")
