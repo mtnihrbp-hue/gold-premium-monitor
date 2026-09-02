@@ -72,40 +72,39 @@ def _mean(values) -> Optional[float]:
     return sum(values) / len(values) if values else None
 
 
+def _seven_day_metric(grouped, days, metric) -> Optional[float]:
+    daily_means = []
+    for day in days:
+        bucket = grouped.get(day)
+        if not bucket:
+            return None
+        daily_mean = _mean(bucket[metric])
+        if daily_mean is None:
+            return None
+        daily_means.append(daily_mean)
+    return _mean(daily_means) if len(daily_means) == SEVEN_DAY_COUNT else None
+
+
 def resolve_seven_day_trend(session, now: Optional[datetime] = None) -> SevenDayTrend:
     """Return seven equally weighted daily averages for completed days only.
 
-    The current partial day is deliberately excluded. A 7D value is returned
-    only when all seven preceding calendar days contain at least one valid
-    observation for that metric. ``day_count`` reports the number of complete
-    calendar days represented in the window.
+    The current partial day is deliberately excluded. Each metric is evaluated
+    independently, so a missing XAU/USD observation does not suppress a valid
+    7D Platform Avg or Fair Price value.
     """
     if now is None:
         now = datetime.now()
     today = now.date()
     start_date = today - timedelta(days=SEVEN_DAY_COUNT)
     end_date = today - timedelta(days=1)
+    days = [start_date + timedelta(days=i) for i in range(SEVEN_DAY_COUNT)]
     grouped = _daily_values(session, start_date, end_date)
 
-    complete_days = [day for day in (start_date + timedelta(days=i) for i in range(SEVEN_DAY_COUNT)) if day in grouped]
-    day_count = len(complete_days)
-    if day_count < SEVEN_DAY_COUNT:
-        return SevenDayTrend(None, None, None, None, None, day_count)
-
-    metric_values = {"xau_usd": [], "usd_irr": [], "fair_price": [], "platform_average": [], "premium_percent": []}
-    for day in complete_days:
-        bucket = grouped[day]
-        for metric in metric_values:
-            daily_mean = _mean(bucket[metric])
-            if daily_mean is None:
-                return SevenDayTrend(None, None, None, None, None, day_count)
-            metric_values[metric].append(daily_mean)
-
     return SevenDayTrend(
-        xau_usd=_mean(metric_values["xau_usd"]),
-        usd_irr=_mean(metric_values["usd_irr"]),
-        fair_price=_mean(metric_values["fair_price"]),
-        platform_average=_mean(metric_values["platform_average"]),
-        premium_percent=_mean(metric_values["premium_percent"]),
-        day_count=day_count,
+        xau_usd=_seven_day_metric(grouped, days, "xau_usd"),
+        usd_irr=_seven_day_metric(grouped, days, "usd_irr"),
+        fair_price=_seven_day_metric(grouped, days, "fair_price"),
+        platform_average=_seven_day_metric(grouped, days, "platform_average"),
+        premium_percent=_seven_day_metric(grouped, days, "premium_percent"),
+        day_count=sum(1 for day in days if day in grouped),
     )
