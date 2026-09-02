@@ -313,3 +313,71 @@ def format_arrow(value: float, threshold: float = 0.0) -> str:
 def format_timestamp():
     """Return current timestamp string."""
     return datetime.now().strftime("%Y-%m-%d %H:%M")
+
+
+
+
+# ---------------------------------------------------------------------------
+# UPDATE v1 Chunk C — Tomans conversion + absolute formatting
+# ---------------------------------------------------------------------------
+
+RIALS_PER_TOMAN = 10
+"""Conversion: 1 Toman = 10 Rials."""
+
+
+def to_tomans(rials: float) -> float:
+    """Convert Rials to Tomans."""
+    if rials is None:
+        return None
+    return rials / RIALS_PER_TOMAN
+
+
+def format_m_tomans(value: float, decimals: int = 2) -> str:
+    """Format value in Millions of Tomans (full label).
+
+    Example: 222700000 → "22.27M Tomans"
+    """
+    if value is None:
+        return "—"
+    tomans = value / RIALS_PER_TOMAN
+    m_tomans = tomans / 1_000_000
+    return f"{m_tomans:,.{decimals}f}M Tomans"
+
+
+def format_m_tomans_short(value: float, decimals: int = 2) -> str:
+    """Abbreviated M Tomans for table (no unit label).
+
+    Example: 222700000 → "22.27M"
+    """
+    if value is None:
+        return "—"
+    tomans = value / RIALS_PER_TOMAN
+    m_tomans = tomans / 1_000_000
+    return f"{m_tomans:,.{decimals}f}M"
+
+
+# Override format_pct / format_pp to support absolute mode
+def format_pct(value: float, decimals: int = 2, signed: bool = True) -> str:
+    """Format a percentage change.
+
+    Args:
+        signed: If False, returns absolute value (use with arrow).
+    """
+    if value is None:
+        return "—"
+    if not signed:
+        return f"{abs(value):.{decimals}f}%"
+    return f"{value:+.{decimals}f}%"
+
+
+def format_pp(value: float, decimals: int = 2, signed: bool = True) -> str:
+    """Format a percentage-point change.
+
+    Args:
+        signed: If False, returns absolute value (use with arrow).
+    """
+    if value is None:
+        return "—"
+    if not signed:
+        return f"{abs(value):.{decimals}f} pp"
+    return f"{value:+.{decimals}f} pp"
