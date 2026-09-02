@@ -1,32 +1,22 @@
 # Gold Premium Monitor — Master Plan Status
 
-Branch: `SP-B`
+Branch: `main`
 
 This document is the compact continuity map of the completed architecture, verified implementation, and remaining work. It is designed for onboarding a new conversation without relying on chat history.
 
 ## 1. Locked top architecture
 
 ```text
-LIVE WING
-Telegram /Update
-→ collect → validate → calculate → current deterministic state → Telegram
+LIVE / UPDATE WING
+User-triggered Telegram /Update
+→ collect → validate → calculate → current deterministic state → baseline resolution → Telegram
 
-ANALYSIS WING
-scheduled trigger
-→ observations
-→ snapshots
-→ outcomes
-→ evidence
-→ interpretation
-→ features
-→ read model
-→ dataset
-→ candles
-→ forecast
-→ forecast resolution / audit
+ANALYZE WING
+cron-job.org scheduled trigger
+→ observations → snapshots → outcomes → evidence → interpretation → features → read model → dataset → candles → forecast → forecast resolution / audit
 ```
 
-There are **two frontend wings only**. Human forecast review is embedded in the Analysis Telegram experience; it is not a third wing.
+There are **two frontend wings**: UPDATE and ANALYZE. The Analyze wing is scheduled; the Update wing is user-triggered and intentionally lightweight.
 
 The semantic boundary is:
 
@@ -44,7 +34,7 @@ Prediction never becomes independent BUY/WAIT/SELL authority.
 
 ## 2. SP-A baseline
 
-SP-A is complete/frozen and has the safe checkpoint tag `v1.1-safe`. It remains the deterministic decision baseline:
+SP-A is complete/frozen and remains the deterministic decision baseline:
 
 ```text
 Valuation
@@ -59,7 +49,7 @@ Valuation
 
 Future forecast work must not rewrite this authority.
 
-## 3. Completed SP-B phases
+## 3. Completed phases
 
 ```text
 SP-B.1                   COMPLETE
@@ -120,8 +110,6 @@ Verified:
 
 KPI: **26/26 PASS**.
 
-Operational smoke: analysis snapshot creation, candle creation, and Telegram delivery succeeded. Source timeouts were isolated and remaining valid sources continued.
-
 ## 6. C.14B — Forecast Features, Baselines, Evaluation & Forecast Engine
 
 Verified contract:
@@ -148,35 +136,15 @@ INSUFFICIENT_DATA
 ABSTAIN
 ```
 
-C.14B includes:
-
-- C.8 baseline feature configuration
-- C.14A candle/price-action feature configuration
-- deterministic majority baseline
-- previous-valid-direction persistence baseline
-- C.8 deterministic baseline
-- LogisticRegression
-- small DecisionTree
-- expanding-window walk-forward evaluation
-- point-in-time/leakage protection
-- probability validation
-- multiclass Brier scoring
-- confusion matrix
-- baseline comparison
-- regime-conditioned evaluation
-- model/feature/label versioning
-- provenance
-- no decision generation
+C.14B includes deterministic baselines, LogisticRegression, DecisionTree, expanding-window walk-forward evaluation, leakage protection, probability validation, multiclass Brier scoring, confusion matrix, baseline comparison, regime-conditioned evaluation, and versioned provenance.
 
 KPI: **36/36 PASS**.
-
-`scikit-learn` is already recorded in `requirements.txt`.
 
 ### C.14B production-readiness boundary
 
 The code and evaluation contract are complete, but this does **not** mean production forecast readiness.
 
-Current Neon history remains intentionally sparse. Therefore the model must continue to return `INSUFFICIENT_DATA` / `NOT_READY` until enough real chronological history exists for meaningful evaluation and calibration.
+Current production history remains intentionally sparse. Forecasts must continue to return `INSUFFICIENT_DATA` / `NOT_READY` until enough real chronological history exists for meaningful evaluation and calibration.
 
 C.14B required **no Neon schema migration**.
 
@@ -184,22 +152,9 @@ C.14B required **no Neon schema migration**.
 
 Status: **COMPLETE — 21/21 KPI PASS**.
 
-C.14C is the verified downstream intelligence foundation around C.14B. It is diagnostic and analytical, not autonomous.
+C14C is the verified downstream intelligence foundation around C14B. It is diagnostic and analytical, not autonomous.
 
-Implemented capabilities:
-
-- deterministic forecast error classification
-- direction, confidence, timing, regime, and data-quality error categories
-- regime-conditioned forecast analysis
-- feature reliability analysis
-- feature separation checks
-- single-forecast analysis
-- historical batch analysis
-- structural event-interpreter interface/stubs for future event intelligence
-- explicit protection against decision-authority escalation
-- explicit future-leakage protection
-
-C.14C consumes existing analytical/forecast artifacts. It does not modify the C.14B forecast contract or the deterministic decision engine.
+Implemented capabilities include deterministic forecast error classification, regime-conditioned forecast analysis, feature reliability/separation analysis, single and historical batch analysis, structural event-interpreter abstraction/stubs, decision-authority protection, and future-leakage protection.
 
 Architecture boundary:
 
@@ -210,170 +165,215 @@ Forecast Result
       ↓
 Outcome Evaluation
       ↓
-C.14C Intelligence Analysis
+C14C Intelligence Analysis
 ```
 
-C.14C may measure, classify, compare, explain, and identify areas for future investigation.
-
-C.14C does **not**:
-
-- perform reinforcement learning
-- perform online learning
-- automatically modify model weights
-- automatically change thresholds
-- modify BUY/WAIT/SELL authority
-- call an LLM for market decisions
-- create an autonomous trading policy
-
-Forecast memory is currently reconstructed from existing persisted analytical artifacts. Immutable forecast-history persistence is deferred until production forecast lifecycle and data volume justify it.
-
-Error classification is currently computed analytically rather than persisted as a new database field.
-
-The event interpreter is an architectural extension point only; actual LLM/event-model integration is future scope.
+C14C does **not** perform reinforcement learning, online learning, automatic model-weight changes, automatic threshold changes, LLM market decisions, or autonomous trading.
 
 KPI: **21/21 PASS**.
 
 ## 8. C14C supporting work — operational news ingestion
 
-The C14C foundation already had RSS collection, deterministic event classification, `news_events` persistence, and downstream news-context consumption. The defect was operational wiring: the runtime did not invoke the existing path, so `news_events` remained empty.
-
-The supporting work adds only the missing orchestration path:
+Existing RSS collection, deterministic event classification, deduplication, persistence, and downstream news context were wired into the scheduled analysis runtime.
 
 ```text
-config.news
-    ↓
-collector.news.ingest
-    ↓
-RSS collection / normalization
-    ↓
-event classification
-    ↓
-existing deduplication
-    ↓
-news_events persistence
-    ↓
-analysis snapshot news context
+configured RSS sources
+→ collect / normalize
+→ classify
+→ deduplicate
+→ persist `news_events`
+→ analysis snapshot news context
 ```
 
-The runtime invokes ingestion before `build_analysis_snapshot()`.
+Source failures remain non-blocking. No new news table, migration, LLM, event-impact learning, or decision authority was introduced.
 
-Operational rules:
+## 9. UPDATE v1 — user-triggered operational wing
 
-- news collection is non-blocking
-- individual source failures are isolated
-- configured `news.enabled` and RSS sources are honored
-- existing deduplication and repository persistence are reused
-- no new news table is created
-- no LLM is introduced
-- no event-impact learning is introduced
-- no forecast or decision authority is changed
+A post-C14C surgical correction established the UPDATE/ANALYZE execution boundary.
 
-This makes structured raw news operationally available. It does **not** mean that the system has learned that news predicts the market.
-
-## 9. Neon production position
-
-Latest reconciled production schema includes:
+### UPDATE contract
 
 ```text
+User /Update
+    ↓
+current market collection
+    ↓
+validation
+    ↓
+canonical observation persistence
+    ↓
+minimum current calculations
+    ↓
+SP-A current deterministic state
+    ↓
+RUN/DAY baseline resolution
+    ↓
+Telegram UPDATE
+```
+
+The UPDATE path intentionally skips the deep Analyze pipeline, including:
+
+```text
+news ingestion
+build_analysis_snapshot()
+full C.3–C.10 analysis construction
+forecast generation
+retrospective outcome evaluation
+```
+
+The purpose is operational speed and a clean architectural boundary, not merely message formatting.
+
+### UPDATE baseline contract
+
+During the current transition period:
+
+```text
+RUN = current observation vs latest previous canonical market snapshot
+DAY = current observation vs first canonical market snapshot of today
+```
+
+RUN is resolved before saving the current snapshot so the current observation cannot become its own baseline.
+
+When the Analyze wing is fully operational, DAY may move to the first controlled Analyze-wing collection of the day without changing the UPDATE presentation contract.
+
+### UPDATE v1 presentation
+
+Current Telegram sections are:
+
+```text
+MARKET
+PRICE & BUBBLE DYNAMICS / MOMENTUM & GAP
+MARKET STRUCTURE
+PLATFORMS
+CURRENT DECISION
+```
+
+The presentation distinguishes:
+
+- XAU/USD and USD/IRR
+- Fair Price
+- Platform Average
+- signed Bubble/GAP
+- RUN and DAY comparisons
+- local-price direction
+- local-price acceleration
+- Bubble/GAP movement by absolute distance from fair value
+- candle direction
+- platform-level RUN and DAY changes
+
+Price Pace and Bubble Pace remain deferred where historical evidence is insufficient. The implementation must not invent arbitrary thresholds to create qualitative labels.
+
+Bubble movement currently uses the existing **0.05 percentage-point** dead-band as a project convention and is explicitly **not empirically calibrated**.
+
+The legacy Telegram formatter remains preserved while UPDATE v1 is validated.
+
+## 10. Architecture boundary for current development
+
+The project now treats the two operational wings as follows:
+
+```text
+                 MARKET DATA
+                     │
+            ┌────────┴────────┐
+            │                 │
+         UPDATE            ANALYZE
+       user-triggered     cron-triggered
+            │                 │
+       fast snapshot     history + intelligence
+            │                 │
+           SP-A          features / forecasts
+            │                 │
+            └────────┬────────┘
+                     │
+                shared Neon
+```
+
+UPDATE may consume persisted analytical state in future extensions, but UPDATE must not execute the Analyze pipeline merely to produce a user update.
+
+The Analyze wing is the accumulating evidence/history engine that will eventually support stronger Decision Support and the planned Expert Judgment System.
+
+## 11. Neon production position
+
+Current work requires **no Neon migration**.
+
+Relevant existing structures include:
+
+```text
+analysis_snapshots
 outcome_evaluations
-analysis_snapshots.evidence_package_json
-analysis_snapshots.intelligence_result_json
-analysis_snapshots.features_json
-analysis_snapshots.analysis_read_model_json
-analysis_snapshots regime/hysteresis fields
-price_observations.quote_side
 platform_candles
 news_events
+market_snapshots
+platform_prices
+price_observations
 ```
 
-C.14A schema migration is applied and verified in production.
+Future schema changes require the established inspection → compare → migration → verify → document workflow and explicit approval.
 
-C.14B required no schema change.
+## 12. Deferred intelligence direction
 
-C.14C and its operational news-ingestion supporting work require **no schema migration**. Existing production tables are sufficient.
+The next major scope is not another blind implementation sprint.
 
-Live Neon verification on 2026-08-24 confirmed the expected core structures and preserved historical data. No database mutation was performed during C.14C reconciliation or news-ingestion wiring.
+The post-C14 direction is to:
 
-Future schema changes require the established Neon migration/verification workflow and explicit approval.
+1. accumulate sufficient empirical production history;
+2. inspect forecast and market evidence empirically;
+3. identify the actual forecasting bottleneck;
+4. improve evidence quality and analytical primitives where justified;
+5. design a robust Expert Judgment System around validated evidence and historical outcomes.
 
-## 10. Deferred intelligence extensions
-
-The following concepts remain intentionally deferred rather than being falsely recorded as implemented:
+Potential future extensions remain intentionally deferred until evidence supports them:
 
 ```text
 immutable forecast event persistence
-human review persistence/UI
-news provenance beyond the existing event/dedup contract
-empirical event-impact measurement
-weekly administrative intelligence reporting
+human forecast review persistence/UI
+empirical news/event impact measurement
 controlled adaptive weighting
 LLM event interpretation
 reinforcement learning / bandit optimization
+ETF money-flow / retail-vs-institutional flow
+Expert Judgment System implementation
 ```
 
-## 11. User-facing terminology refactor
+The planned Iranian gold-ETF money-flow capability is a future data-extension candidate. It is not part of the current UPDATE surgery and must not be introduced prematurely.
 
-Do not expose opaque internal labels such as:
+## 13. Forecast runtime boundary
+
+Current forecast execution may return:
 
 ```text
-DISCOUNT_WIDENING
-DISCOUNT_NARROWING
+1h  → INSUFFICIENT_DATA
+6h  → INSUFFICIENT_DATA
+24h → INSUFFICIENT_DATA
 ```
 
-Prefer observable statements such as:
+This is expected while chronological production history is sparse. Sufficiency gates must not be weakened merely to produce numerical forecasts.
+
+## 14. Regression boundary
+
+Every substantive change must preserve:
 
 ```text
-Iranian gold is increasing more slowly than its external drivers.
-Iranian gold is catching up faster than its external drivers.
-Local prices are lagging the global/FX move.
-Local prices are moving faster than the external drivers.
+SP-A decision authority
+C14B forecast contract
+C14C analytical boundary
+future-leakage protection
+canonical observation authority
+unknown / insufficient-data semantics
+UPDATE ≠ ANALYZE
+no unnecessary Neon schema mutation
 ```
 
-Internal mathematics may retain premium/discount, relative rate of change, slope, velocity, and acceleration.
-
-Causal explanation requires evidence.
-
-## 12. Forecast runtime boundary
-
-The latest supplied runtime smoke reached forecast generation successfully:
+## 15. Branch safety
 
 ```text
-Forecast 1h  → INSUFFICIENT_DATA / None
-Forecast 6h  → INSUFFICIENT_DATA / None
-Forecast 24h → INSUFFICIENT_DATA / None
+CURRENT WORK = main surgical stabilization / documentation
+NEXT MAJOR PHASE = SP-C on a new branch after scope approval
 ```
 
-This is expected while production history remains sparse. It is not a forecast-engine failure and must not be fixed by lowering data sufficiency gates merely to produce a number.
+No major C15/SP-C implementation should begin until the architecture/research review identifies the actual bottleneck and scope is explicitly locked.
 
-## 13. What remains before SP-B can close
-
-The project is not ready to merge SP-B → main yet.
-
-Remaining work is primarily:
-
-1. Verify operational news ingestion against live runtime and confirm `news_events` population.
-2. Decide the next post-C14C intelligence scope from evidence, not speculation.
-3. Accumulate sufficient real production history for forecast readiness.
-4. Evaluate whether immutable forecast persistence is justified.
-5. Design and verify any human-review/news-impact extension separately.
-6. Full regression across all phase KPIs before SP-B closure.
-7. Final Neon schema/data audit at SP-B close.
-8. Final GitHub diff/documentation/state review.
-9. Final operational review of cron-job.org + Cloudflare + GitHub Actions.
-10. Explicit SP-B close approval.
-11. Only then merge SP-B → main and later create SP-C.
-
-## 14. Branch safety
-
-```text
-ACTIVE DEVELOPMENT = SP-B
-main WRITE = forbidden
-main MERGE = forbidden until explicit SP-B close approval
-```
-
-Never merge `main` into SP-B as a shortcut. Reconcile specific artifacts only.
-
-## 15. Continuity protocol
+## 16. Continuity protocol
 
 ```text
 KIMI code
@@ -393,4 +393,4 @@ documentation
 commit
 ```
 
-This sequence is mandatory for every substantive phase.
+This sequence remains mandatory for every substantive phase.
