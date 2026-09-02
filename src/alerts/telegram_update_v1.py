@@ -8,9 +8,9 @@ Visual design decisions:
 - <code> tags removed from non-table sections (mobile readability)
 - Vertical spacing compressed within sections
 - All prices converted to Tomans (1 Toman = 10 Rials)
-- Platform table uses abbreviated M-Tomans format for mobile width
+- Market and platform tables use compact fixed-width layouts
 - Signed deltas are shown directly (no directional arrows)
-- 7D historical platform-average baseline shown alongside RUN/DAY
+- 7D context is shown as a reusable historical trend reference
 """
 
 from datetime import datetime
@@ -113,52 +113,61 @@ def _build_dynamics_interpretation(price_direction, price_change, price_rate, pr
 # MARKET section
 # ---------------------------------------------------------------------------
 
+def _market_row(metric, now_text, run_text, day_text, seven_day_text):
+    return f"{metric:<11} | {now_text:>8} | {run_text:>7} | {day_text:>7} | {seven_day_text:>7}"
+
+
 def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premium, baselines):
     run = baselines.run
     day = baselines.day
+    seven = baselines.seven_day
     lines = [_update_sep(), "<b>MARKET</b>", _update_sep()]
 
-    # XAU/USD
-    run_change = _pct_change(world, run.xau_usd if run else None)
-    day_change = _pct_change(world, day.xau_usd if day else None)
-    lines.append(f"<b>XAU/USD</b>  ${_money(world)}")
-    lines.append(f"               {format_pct(run_change, signed=True)} Run | {format_pct(day_change, signed=True)} Day")
+    rows = [
+        "Metric      | Now      | Run     | Day     | 7D",
+        "──────────────────────────────────────────────────",
+    ]
 
-    # USD/IRR
-    run_change = _pct_change(usd, run.usd_irr if run else None)
-    day_change = _pct_change(usd, day.usd_irr if day else None)
-    lines.append(f"<b>USD/IRR</b>  {_money(usd)}")
-    lines.append(f"               {format_pct(run_change, signed=True)} Run | {format_pct(day_change, signed=True)} Day")
+    rows.append(_market_row(
+        "XAU/USD",
+        f"${_money(world)}" if world is not None else "N/A",
+        format_pct(_pct_change(world, run.xau_usd if run else None), signed=True),
+        format_pct(_pct_change(world, day.xau_usd if day else None), signed=True),
+        format_pct(_pct_change(world, seven.xau_usd), signed=True),
+    ))
+    rows.append(_market_row(
+        "USD/IRR",
+        _money(usd) if usd is not None else "N/A",
+        format_pct(_pct_change(usd, run.usd_irr if run else None), signed=True),
+        format_pct(_pct_change(usd, day.usd_irr if day else None), signed=True),
+        format_pct(_pct_change(usd, seven.usd_irr), signed=True),
+    ))
+    rows.append(_market_row(
+        "Fair Price",
+        format_m_tomans(fair),
+        format_pct(_pct_change(fair, run.fair_price if run else None), signed=True),
+        format_pct(_pct_change(fair, day.fair_price if day else None), signed=True),
+        format_pct(_pct_change(fair, seven.fair_price), signed=True),
+    ))
+    rows.append(_market_row(
+        "Platform Avg",
+        format_m_tomans(platform_avg),
+        format_pct(_pct_change(platform_avg, run.platform_average if run else None), signed=True),
+        format_pct(_pct_change(platform_avg, day.platform_average if day else None), signed=True),
+        format_pct(_pct_change(platform_avg, seven.platform_average), signed=True),
+    ))
+    rows.append(_market_row(
+        "Bubble",
+        f"{_number(premium)}% {bubble_state_short(premium)}",
+        format_pp((premium - run.premium_percent) if run and run.premium_percent is not None else None, signed=True),
+        format_pp((premium - day.premium_percent) if day and day.premium_percent is not None else None, signed=True),
+        format_pp((premium - seven.premium_percent) if seven.premium_percent is not None else None, signed=True),
+    ))
 
-    # Fair Price
-    run_change = _pct_change(fair, run.fair_price if run else None)
-    day_change = _pct_change(fair, day.fair_price if day else None)
-    lines.append(f"<b>Fair Price</b>  {format_m_tomans(fair)}")
-    lines.append(f"               {format_pct(run_change, signed=True)} Run | {format_pct(day_change, signed=True)} Day")
-
-    # Platform Average
-    run_change = _pct_change(platform_avg, run.platform_average if run else None)
-    day_change = _pct_change(platform_avg, day.platform_average if day else None)
-    seven_day_change = _pct_change(platform_avg, baselines.seven_day_platform_average)
-    lines.append(f"<b>Platform Avg</b>  {format_m_tomans(platform_avg)}")
-    lines.append(f"               {format_pct(run_change, signed=True)} Run | {format_pct(day_change, signed=True)} Day")
-    if baselines.seven_day_platform_average is not None:
-        lines.append(f"<b>7D Avg</b>  {format_m_tomans(baselines.seven_day_platform_average)}")
-        lines.append(f"               {format_pct(seven_day_change, signed=True)} vs 7D Avg")
-    else:
-        lines.append("<b>7D Avg</b>  N/A")
-
-    # Bubble
-    run_pp = (premium - run.premium_percent) if run and run.premium_percent is not None else None
-    day_pp = (premium - day.premium_percent) if day and day.premium_percent is not None else None
-    lines.append(f"<b>Bubble</b>  {_number(premium)}%  {bubble_state_short(premium)}")
-    lines.append(f"               {format_pp(run_pp, signed=True)} Run | {format_pp(day_pp, signed=True)} Day")
-
-    # Lowest / Highest / Spread
+    lines.append("<pre>" + "\n".join(rows) + "</pre>")
     lines.append(f"<b>Lowest</b>  {format_m_tomans(lowest)}")
     lines.append(f"<b>Highest</b>  {format_m_tomans(highest)}")
     lines.append(f"<b>Spread</b>  {format_m_tomans(spread)}")
-
     return "\n".join(lines)
 
 
@@ -222,7 +231,6 @@ def _build_structure(markets, fair, baselines):
     lines.append(f"<b>Spread</b>  {format_m_tomans(structure['spread'])}")
     lines.append("")
 
-    # Highest with DAY relative position
     high_name = structure["high_name"]
     high_price = structure["high_price"]
     day_high_price = baselines.day.platform_prices.get(high_name) if baselines.day else None
@@ -233,7 +241,6 @@ def _build_structure(markets, fair, baselines):
         lines.append(f"               {format_pct(high_day_pct, signed=True)} vs Day")
     lines.append("")
 
-    # Lowest with DAY relative position
     low_name = structure["low_name"]
     low_price = structure["low_price"]
     day_low_price = baselines.day.platform_prices.get(low_name) if baselines.day else None
@@ -244,7 +251,6 @@ def _build_structure(markets, fair, baselines):
         lines.append(f"               {format_pct(low_day_pct, signed=True)} vs Day")
     lines.append("")
 
-    # Consensus
     consensus = structure["consensus_label"]
     below = structure.get("below_count")
     above = structure.get("above_count")
@@ -286,10 +292,9 @@ def _build_platforms(markets, baselines):
         run_price = baselines.run.platform_prices.get(name) if baselines.run else None
         day_price = baselines.day.platform_prices.get(name) if baselines.day else None
 
-        # RUN Δ in M Tomans
         if run_price is not None:
             run_diff = price - run_price
-            threshold = abs(run_price) * 0.0001  # 0.01%
+            threshold = abs(run_price) * 0.0001
             if abs(run_diff) < threshold:
                 run_delta = "—"
             else:
@@ -297,7 +302,6 @@ def _build_platforms(markets, baselines):
         else:
             run_delta = "—"
 
-        # vs DAY percentage
         day_pct = _pct_change(price, day_price)
         day_text = format_pct(day_pct, signed=True) if day_pct is not None else "—"
 
