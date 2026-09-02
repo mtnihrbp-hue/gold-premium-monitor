@@ -10,6 +10,7 @@ Visual design decisions:
 - All prices converted to Tomans (1 Toman = 10 Rials)
 - Platform table uses abbreviated M-Tomans format for mobile width
 - Signed deltas are shown directly (no directional arrows)
+- 7D historical platform-average baseline shown alongside RUN/DAY
 """
 
 from datetime import datetime
@@ -138,8 +139,14 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
     # Platform Average
     run_change = _pct_change(platform_avg, run.platform_average if run else None)
     day_change = _pct_change(platform_avg, day.platform_average if day else None)
+    seven_day_change = _pct_change(platform_avg, baselines.seven_day_platform_average)
     lines.append(f"<b>Platform Avg</b>  {format_m_tomans(platform_avg)}")
     lines.append(f"               {format_pct(run_change, signed=True)} Run | {format_pct(day_change, signed=True)} Day")
+    if baselines.seven_day_platform_average is not None:
+        lines.append(f"<b>7D Avg</b>  {format_m_tomans(baselines.seven_day_platform_average)}")
+        lines.append(f"               {format_pct(seven_day_change, signed=True)} vs 7D Avg")
+    else:
+        lines.append("<b>7D Avg</b>  N/A")
 
     # Bubble
     run_pp = (premium - run.premium_percent) if run and run.premium_percent is not None else None
