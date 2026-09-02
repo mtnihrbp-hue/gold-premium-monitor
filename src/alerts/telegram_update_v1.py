@@ -9,19 +9,18 @@ Visual design decisions:
 - Vertical spacing compressed within sections
 - All prices converted to Tomans (1 Toman = 10 Rials)
 - Platform table uses abbreviated M-Tomans format for mobile width
-- Arrows paired with absolute values (no double-negative)
+- Signed deltas are shown directly (no directional arrows)
 """
 
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from alerts.telegram import _money, _number, _send
 from alerts.helpers import (
     classify_candle,
-    build_update_interpretation,
     bubble_state_short,
     format_pct,
     format_pp,
-    format_arrow,
     format_market_structure,
     format_timestamp,
     format_m_tomans,
@@ -40,6 +39,75 @@ def _pct_change(current, baseline):
     return (current - baseline) / baseline * 100
 
 
+def _price_change_rate_per_hour(current, baseline, baseline_timestamp):
+    """Return percentage change per elapsed hour from the RUN baseline."""
+    if current is None or baseline in (None, 0) or baseline_timestamp is None:
+        return None
+    now = datetime.now(baseline_timestamp.tzinfo) if baseline_timestamp.tzinfo else datetime.now()
+    elapsed_hours = (now - baseline_timestamp).total_seconds() / 3600.0
+    if elapsed_hours <= 0:
+        return None
+    return _pct_change(current, baseline) / elapsed_hours
+
+
+def _bubble_direction(premium, gap_delta):
+    """Describe movement toward a larger/smaller premium or discount."""
+    if premium is None or gap_delta is None:
+        return "N/A"
+    threshold = 0.05
+    if abs(gap_delta) < threshold:
+        return "STABLE"
+    if premium < 0:
+        return "MORE DISCOUNT" if gap_delta < 0 else "LESS DISCOUNT"
+    if premium > 0:
+        return "MORE PREMIUM" if gap_delta > 0 else "LESS PREMIUM"
+    return "MORE PREMIUM" if gap_delta > 0 else "MORE DISCOUNT"
+
+
+def _build_dynamics_interpretation(price_direction, price_change, price_rate, premium, gap_direction, gap_delta):
+    """Build human-readable interpretation from measured price/gap movement."""
+    price_phrase = None
+    if price_direction == "RISING":
+        price_phrase = "Local prices are rising"
+    elif price_direction == "FALLING":
+        price_phrase = "Local prices are falling"
+    elif price_direction == "STABLE":
+        price_phrase = "Local prices are stable"
+
+    if price_phrase is not None and price_change is not None:
+        price_phrase += f" ({price_change:+.2f}%)"
+    if price_phrase is not None and price_rate is not None:
+        price_phrase += f" at {price_rate:+.2f}%/h"
+
+    gap_phrase = None
+    if premium is not None:
+        if premium < 0:
+            if gap_direction == "MORE DISCOUNT":
+                gap_phrase = "the discount is widening"
+            elif gap_direction == "LESS DISCOUNT":
+                gap_phrase = "the discount is narrowing"
+            elif gap_direction == "STABLE":
+                gap_phrase = "the discount is stable"
+        elif premium > 0:
+            if gap_direction == "MORE PREMIUM":
+                gap_phrase = "the premium is widening"
+            elif gap_direction == "LESS PREMIUM":
+                gap_phrase = "the premium is narrowing"
+            elif gap_direction == "STABLE":
+                gap_phrase = "the premium is stable"
+
+    if gap_phrase is not None and gap_delta is not None and abs(gap_delta) >= 0.05:
+        gap_phrase += f" ({gap_delta:+.2f} pp)"
+
+    if price_phrase and gap_phrase:
+        return f"{price_phrase}, while {gap_phrase}."
+    if price_phrase:
+        return f"{price_phrase}."
+    if gap_phrase:
+        return f"{gap_phrase.capitalize()}."
+    return "Insufficient data for interpretation."
+
+
 # ---------------------------------------------------------------------------
 # MARKET section
 # ---------------------------------------------------------------------------
@@ -53,31 +121,31 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
     run_change = _pct_change(world, run.xau_usd if run else None)
     day_change = _pct_change(world, day.xau_usd if day else None)
     lines.append(f"<b>XAU/USD</b>  ${_money(world)}")
-    lines.append(f"               {format_arrow(run_change)} {format_pct(run_change, signed=False)} Run | {format_arrow(day_change)} {format_pct(day_change, signed=False)} Day")
+    lines.append(f"               {format_pct(run_change, signed=True)} Run | {format_pct(day_change, signed=True)} Day")
 
     # USD/IRR
     run_change = _pct_change(usd, run.usd_irr if run else None)
     day_change = _pct_change(usd, day.usd_irr if day else None)
     lines.append(f"<b>USD/IRR</b>  {_money(usd)}")
-    lines.append(f"               {format_arrow(run_change)} {format_pct(run_change, signed=False)} Run | {format_arrow(day_change)} {format_pct(day_change, signed=False)} Day")
+    lines.append(f"               {format_pct(run_change, signed=True)} Run | {format_pct(day_change, signed=True)} Day")
 
     # Fair Price
     run_change = _pct_change(fair, run.fair_price if run else None)
     day_change = _pct_change(fair, day.fair_price if day else None)
     lines.append(f"<b>Fair Price</b>  {format_m_tomans(fair)}")
-    lines.append(f"               {format_arrow(run_change)} {format_pct(run_change, signed=False)} Run | {format_arrow(day_change)} {format_pct(day_change, signed=False)} Day")
+    lines.append(f"               {format_pct(run_change, signed=True)} Run | {format_pct(day_change, signed=True)} Day")
 
     # Platform Average
     run_change = _pct_change(platform_avg, run.platform_average if run else None)
     day_change = _pct_change(platform_avg, day.platform_average if day else None)
     lines.append(f"<b>Platform Avg</b>  {format_m_tomans(platform_avg)}")
-    lines.append(f"               {format_arrow(run_change)} {format_pct(run_change, signed=False)} Run | {format_arrow(day_change)} {format_pct(day_change, signed=False)} Day")
+    lines.append(f"               {format_pct(run_change, signed=True)} Run | {format_pct(day_change, signed=True)} Day")
 
     # Bubble
     run_pp = (premium - run.premium_percent) if run and run.premium_percent is not None else None
     day_pp = (premium - day.premium_percent) if day and day.premium_percent is not None else None
     lines.append(f"<b>Bubble</b>  {_number(premium)}%  {bubble_state_short(premium)}")
-    lines.append(f"               {format_arrow(run_pp)} {format_pp(run_pp, signed=False)} Run | {format_arrow(day_pp)} {format_pp(day_pp, signed=False)} Day")
+    lines.append(f"               {format_pp(run_pp, signed=True)} Run | {format_pp(day_pp, signed=True)} Day")
 
     # Lowest / Highest / Spread
     lines.append(f"<b>Lowest</b>  {format_m_tomans(lowest)}")
@@ -91,24 +159,41 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
 # PRICE & BUBBLE DYNAMICS section
 # ---------------------------------------------------------------------------
 
-def _build_dynamics(premium, baselines, momentum):
+def _build_dynamics(platform_avg, premium, baselines, momentum):
+    run = baselines.run
+    price_change = _pct_change(platform_avg, run.platform_average if run else None)
+    price_rate = _price_change_rate_per_hour(
+        platform_avg,
+        run.platform_average if run else None,
+        run.timestamp if run else None,
+    )
+    gap_delta = (
+        premium - run.premium_percent
+        if run and run.premium_percent is not None and premium is not None
+        else None
+    )
+    gap_direction = _bubble_direction(premium, gap_delta)
     bubble_state = bubble_state_short(premium)
-    interpretation = build_update_interpretation(
-        baselines.price_direction, bubble_state, baselines.bubble_movement
+    interpretation = _build_dynamics_interpretation(
+        baselines.price_direction,
+        price_change,
+        price_rate,
+        premium,
+        gap_direction,
+        gap_delta,
     )
     return "\n".join([
         _update_sep(),
         "<b>PRICE & BUBBLE DYNAMICS</b>",
         _update_sep(),
         f"<b>Price</b>  {baselines.price_direction}",
-        f"<b>Pace</b>  N/A",
-        f"<b>Acceleration</b>  {baselines.rep_gold_acceleration_label}",
+        f"<b>Change</b>  {format_pct(price_change, signed=True)}",
+        f"<b>Speed</b>  {format_pct(price_rate, signed=True)}/h" if price_rate is not None else "<b>Speed</b>  N/A",
         "",
         f"<b>Bubble</b>  {bubble_state}",
         f"               {_number(premium)}%",
-        "",
-        f"<b>Bubble</b>  {baselines.bubble_movement}",
-        f"<b>Bubble Pace</b>  N/A",
+        f"<b>Direction toward</b>  {gap_direction}",
+        f"<b>Gap Δ</b>  {format_pp(gap_delta, signed=True)}",
         "",
         f"<b>Candle</b>  {classify_candle(momentum)}",
         "",
@@ -201,7 +286,7 @@ def _build_platforms(markets, baselines):
             if abs(run_diff) < threshold:
                 run_delta = "—"
             else:
-                run_delta = format_m_tomans_short(run_diff, decimals=2)
+                run_delta = f"{run_diff / 10 / 1_000_000:+.2f}M"
         else:
             run_delta = "—"
 
@@ -267,7 +352,7 @@ def send_update_v1(
     body = "\n\n".join([
         "<b>GOLDPremium: UPDATE</b>",
         _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premium, baselines),
-        _build_dynamics(premium, baselines, momentum),
+        _build_dynamics(platform_avg, premium, baselines, momentum),
         _build_structure(markets, fair, baselines),
         _build_platforms(markets, baselines),
         _build_decision(signal_state),
