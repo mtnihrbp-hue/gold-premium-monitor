@@ -260,7 +260,7 @@ def main():
         except Exception as e:
             print(f"ERROR: Email alert failed: {e}")
         try:
-            send_telegram_alert(signal, world, usd, fair, lowest, premium, markets, trends=trends, momentum=momentum, previous_markets=previous_markets, input_directions=input_directions, signal_state=signal_state)
+            send_telegram_alert(signal, world, usd, fair, lowest, premium, markets, trends=trends, momentum=momentum, previous_markets=previous_markets, signal_state=signal_state)
         except Exception as e:
             print(f"ERROR: Telegram alert failed: {e}")
 
@@ -276,7 +276,22 @@ def main():
                 print(f"ERROR: Telegram daily recap failed: {e}")
     else:
         try:
-            send_update_v1(world=world, usd=usd, fair=fair, platform_avg=signal_state.platform_average, lowest=lowest, premium=premium, markets=markets, signal_state=signal_state, baselines=baselines, momentum=momentum)
+            # Resolve highest price for UPDATE v1 MARKET section
+            highest_price = markets[high_name]["price"] if high_name in markets else None
+            send_update_v1(
+                world=world,
+                usd=usd,
+                fair=fair,
+                platform_avg=signal_state.platform_average,
+                lowest=lowest,
+                highest=highest_price,
+                spread=spread,
+                premium=premium,
+                markets=markets,
+                signal_state=signal_state,
+                baselines=baselines,
+                momentum=momentum,
+            )
             print("UPDATE v1 sent.")
         except Exception as e:
             print(f"UPDATE v1 failed: {e}")
