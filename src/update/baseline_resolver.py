@@ -2,9 +2,8 @@
 
 Retrieval and lightweight classification only. UPDATE does not execute the
 Analyze pipeline. DAY currently means the first canonical market snapshot of
-the current day; 7D is the arithmetic mean of canonical platform-average
-snapshots in the trailing seven-day window. These baselines can later switch
-to controlled Analyze-wing history without changing the UPDATE contract.
+the current day. 7D context is supplied by the reusable analysis trend
+resolver using seven equally weighted completed calendar days.
 
 Threshold calibration status:
 - Bubble movement: 0.05 percentage points, existing project convention.
@@ -17,19 +16,18 @@ No Neon schema changes are required.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, Optional, Tuple
 
 from sqlalchemy import func
 
 from database.connection import get_session
 from database.models import MarketSnapshot, PlatformPrice
+from analysis.trend_resolver import SevenDayTrend, resolve_seven_day_trend
 
 BUBBLE_MOVEMENT_DEADBAND_PP = 0.05
 PRICE_DIRECTION_STABLE_THRESHOLD_PCT = 0.0001
 ACCELERATION_STABLE_THRESHOLD_PCT = 0.0001
-SEVEN_DAY_WINDOW = timedelta(days=7)
-MIN_SEVEN_DAY_SNAPSHOTS = 3
 
 
 @dataclass
@@ -48,8 +46,7 @@ class BaselineSnapshot:
 class UpdateBaselines:
     run: Optional[BaselineSnapshot]
     day: Optional[BaselineSnapshot]
-    seven_day_platform_average: Optional[float]
-    seven_day_snapshot_count: int
+    seven_day: SevenDayTrend
     rep_gold_acceleration: Optional[float]
     rep_gold_acceleration_label: str
     bubble_movement: str
@@ -132,36 +129,6 @@ def _snapshot_platform_average(session, snapshot) -> Optional[float]:
     return sum(prices.values()) / len(prices) if prices else None
 
 
-def _compute_7d_platform_average(session, now: Optional[datetime] = None) -> Tuple[Optional[float], int]:
-    """Return the trailing seven-day mean of canonical platform averages.
-
-    The UPDATE wing is resolved before the current snapshot is persisted, so
-    this intentionally uses historical MarketSnapshot records only. It is a
-    time-window average, not a fixed-count average. A minimum history guard
-    prevents a one- or two-observation "7D average" from looking authoritative.
-    """
-    if now is None:
-        now = datetime.now()
-    cutoff = now - SEVEN_DAY_WINDOW
-
-    snapshots = (
-        session.query(MarketSnapshot)
-        .filter(MarketSnapshot.timestamp >= cutoff, MarketSnapshot.timestamp <= now)
-        .order_by(MarketSnapshot.timestamp.asc())
-        .all()
-    )
-
-    values = []
-    for snapshot in snapshots:
-        avg = _snapshot_platform_average(session, snapshot)
-        if avg is not None:
-            values.append(avg)
-
-    if len(values) < MIN_SEVEN_DAY_SNAPSHOTS:
-        return None, len(values)
-    return sum(values) / len(values), len(values)
-
-
 def _compute_rep_gold_acceleration(session) -> Tuple[Optional[float], str]:
     """Acceleration of the canonical local representative price.
 
@@ -204,12 +171,14 @@ def _compute_rep_gold_acceleration(session) -> Tuple[Optional[float], str]:
 
 def _empty_baselines() -> UpdateBaselines:
     return UpdateBaselines(
-        run=None, day=None,
-        seven_day_platform_average=None,
-        seven_day_snapshot_count=0,
+        run=None,
+        day=None,
+        seven_day=SevenDayTrend(None, None, None, None, None, 0),
         rep_gold_acceleration=None,
-        rep_gold_acceleration_label="N/A", bubble_movement="N/A",
-        bubble_magnitude_change=None, price_direction="N/A",
+        rep_gold_acceleration_label="N/A",
+        bubble_movement="N/A",
+        bubble_magnitude_change=None,
+        price_direction="N/A",
         price_direction_raw=None,
         bubble_movement_deadband=BUBBLE_MOVEMENT_DEADBAND_PP,
         acceleration_threshold=ACCELERATION_STABLE_THRESHOLD_PCT,
@@ -229,7 +198,7 @@ def resolve_update_baselines(
     try:
         run = _build_baseline(session, _get_latest_market_snapshot(session))
         day = _build_baseline(session, _get_earliest_market_snapshot_today(session))
-        seven_day_avg, seven_day_count = _compute_7d_platform_average(session)
+        seven_day = resolve_seven_day_trend(session)
         acceleration, acceleration_label = _compute_rep_gold_acceleration(session)
         price_direction, price_direction_raw = _classify_price_direction(
             current_platform_avg,
@@ -240,9 +209,9 @@ def resolve_update_baselines(
             run.premium_percent if run else None,
         )
         return UpdateBaselines(
-            run=run, day=day,
-            seven_day_platform_average=seven_day_avg,
-            seven_day_snapshot_count=seven_day_count,
+            run=run,
+            day=day,
+            seven_day=seven_day,
             rep_gold_acceleration=acceleration,
             rep_gold_acceleration_label=acceleration_label,
             bubble_movement=bubble_movement,
