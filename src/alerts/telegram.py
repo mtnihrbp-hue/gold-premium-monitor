@@ -1,347 +1,275 @@
-"""Telegram alert formatter and sender for SP-A."""
+"""UPDATE v1 Telegram formatter — Chunk C (visual/mobile fixes).
 
-import os
-import sys
+Presentation-only module for the fast user-triggered UPDATE wing.
+Consumes current values, resolved baselines, and existing analytical context.
+Does not calculate market state or run the Analyze pipeline.
 
-import requests
+Visual design decisions:
+- <code> tags removed from non-table sections (mobile readability)
+- Vertical spacing compressed within sections
+- All prices converted to Tomans (1 Toman = 10 Rials)
+- Platform table uses abbreviated M-Tomans format for mobile width
+- Arrows paired with absolute values (no double-negative)
+"""
 
+from typing import Any, Dict, Optional
+
+from alerts.telegram import _money, _number, _send
 from alerts.helpers import (
-    format_platform_table,
-    format_trend_lines,
-    format_momentum_block,
+    classify_candle,
+    build_update_interpretation,
+    bubble_state_short,
+    format_pct,
+    format_pp,
+    format_arrow,
     format_market_structure,
-    format_market_structure_block,
     format_timestamp,
-    SEPARATOR,
+    format_m_tomans,
+    format_m_tomans_short,
 )
-
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
-APP_HEADER = "GOLDPremium:"
+from update.baseline_resolver import UpdateBaselines
 
 
-def _send(text: str):
-    if not TELEGRAM_BOT_TOKEN:
-        print("TELEGRAM SKIP: TELEGRAM_BOT_TOKEN not set", file=sys.stderr)
-        return
-    if not TELEGRAM_CHAT_ID:
-        print("TELEGRAM SKIP: TELEGRAM_CHAT_ID not set", file=sys.stderr)
-        return
-
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True}
-
-    try:
-        response = requests.post(url, json=payload, timeout=15)
-        response.raise_for_status()
-        print(f"TELEGRAM OK: message sent to chat {TELEGRAM_CHAT_ID}")
-    except requests.exceptions.HTTPError as e:
-        status = e.response.status_code if e.response is not None else "UNKNOWN"
-        body = e.response.text if e.response is not None else str(e)
-        print(f"TELEGRAM ERROR HTTP {status}: {body}", file=sys.stderr)
-    except Exception as e:
-        print(f"TELEGRAM ERROR: {e}", file=sys.stderr)
+def _update_sep():
+    return "━━━━━━━━━━━━━━━━━━━━"
 
 
-def _money(value):
-    if value is None:
-        return "N/A"
-    try:
-        return f"{float(value):,.0f}"
-    except Exception:
-        return str(value)
+def _pct_change(current, baseline):
+    if current is None or baseline in (None, 0):
+        return None
+    return (current - baseline) / baseline * 100
 
 
-def _number(value, decimals=2):
-    if value is None:
-        return "N/A"
-    try:
-        return f"{float(value):,.{decimals}f}"
-    except Exception:
-        return str(value)
+# ---------------------------------------------------------------------------
+# MARKET section
+# ---------------------------------------------------------------------------
 
+def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premium, baselines):
+    run = baselines.run
+    day = baselines.day
+    lines = [_update_sep(), "<b>MARKET</b>", _update_sep()]
 
-def _format_platforms(markets, previous_markets=None):
-    table_lines = format_platform_table(markets, previous_markets)
-    if not table_lines:
-        return "No platforms available."
-    return "\n".join(["```", f"{'Platform':<12} {'Price':>15} {'Change':>12}", "-" * 42, *table_lines, "```"])
+    # XAU/USD
+    run_change = _pct_change(world, run.xau_usd if run else None)
+    day_change = _pct_change(world, day.xau_usd if day else None)
+    lines.append(f"<b>XAU/USD</b>  ${_money(world)}")
+    lines.append(f"               {format_arrow(run_change)} {format_pct(run_change, signed=False)} Run | {format_arrow(day_change)} {format_pct(day_change, signed=False)} Day")
 
+    # USD/IRR
+    run_change = _pct_change(usd, run.usd_irr if run else None)
+    day_change = _pct_change(usd, day.usd_irr if day else None)
+    lines.append(f"<b>USD/IRR</b>  {_money(usd)}")
+    lines.append(f"               {format_arrow(run_change)} {format_pct(run_change, signed=False)} Run | {format_arrow(day_change)} {format_pct(day_change, signed=False)} Day")
 
-def format_decision_section(signal_state):
-    if signal_state is None:
-        return ""
-    lines = [
-        SEPARATOR, "<b>DECISION</b>", SEPARATOR, "", "<b>Market State:</b>",
-        f"  Valuation:  <code>{signal_state.valuation}</code>",
-        f"  Momentum:   <code>{signal_state.momentum}</code> ({signal_state.premium_direction.replace('_', ' ')})",
-        f"  Structure:  <code>{signal_state.structure.replace('_', ' ')}</code>",
-        f"  Conflict:   <code>{signal_state.conflict.replace('_', ' ')}</code>", "",
-        f"Candidate:   <code>{signal_state.candidate_decision}</code>",
-    ]
-    final = signal_state.final_decision
-    lines.append(f"Final:       <b>{final}</b>" if final in {"BUY", "SELL", "WAIT"} else f"Final:       <code>{final}</code>")
-    if signal_state.reason:
-        lines.extend(["", "<b>Reason:</b>", f"  {signal_state.reason}"])
+    # Fair Price
+    run_change = _pct_change(fair, run.fair_price if run else None)
+    day_change = _pct_change(fair, day.fair_price if day else None)
+    lines.append(f"<b>Fair Price</b>  {format_m_tomans(fair)}")
+    lines.append(f"               {format_arrow(run_change)} {format_pct(run_change, signed=False)} Run | {format_arrow(day_change)} {format_pct(day_change, signed=False)} Day")
+
+    # Platform Average
+    run_change = _pct_change(platform_avg, run.platform_average if run else None)
+    day_change = _pct_change(platform_avg, day.platform_average if day else None)
+    lines.append(f"<b>Platform Avg</b>  {format_m_tomans(platform_avg)}")
+    lines.append(f"               {format_arrow(run_change)} {format_pct(run_change, signed=False)} Run | {format_arrow(day_change)} {format_pct(day_change, signed=False)} Day")
+
+    # Bubble
+    run_pp = (premium - run.premium_percent) if run and run.premium_percent is not None else None
+    day_pp = (premium - day.premium_percent) if day and day.premium_percent is not None else None
+    lines.append(f"<b>Bubble</b>  {_number(premium)}%  {bubble_state_short(premium)}")
+    lines.append(f"               {format_arrow(run_pp)} {format_pp(run_pp, signed=False)} Run | {format_arrow(day_pp)} {format_pp(day_pp, signed=False)} Day")
+
+    # Lowest / Highest / Spread
+    lines.append(f"<b>Lowest</b>  {format_m_tomans(lowest)}")
+    lines.append(f"<b>Highest</b>  {format_m_tomans(highest)}")
+    lines.append(f"<b>Spread</b>  {format_m_tomans(spread)}")
+
     return "\n".join(lines)
 
 
-def _format_market_section(world, usd, fair, lowest, premium, input_directions=None):
-    lines = [
-        SEPARATOR, "<b>MARKET</b>", SEPARATOR, "",
-        f"XAU/USD:    ${_money(world)}  |  USD/IRR: {_money(usd)}",
-        f"Fair Value: {_money(fair)} IRR",
-        f"Lowest:     {_money(lowest)} IRR",
-        f"Premium:    {_number(premium)}%",
-    ]
-    if input_directions:
-        wd = input_directions.get("world")
-        ud = input_directions.get("usd")
-        if wd:
-            stale = f" stale={wd['stale_count']}" if wd.get("stale_count") else ""
-            lines.append(f"XAU/USD:    {wd['arrow']} ({wd['pct']:+.2f}%){stale}")
-        if ud:
-            stale = f" stale={ud['stale_count']}" if ud.get("stale_count") else ""
-            lines.append(f"USD/IRR:    {ud['arrow']} ({ud['pct']:+.2f}%){stale}")
-    return "\n".join(lines)
+# ---------------------------------------------------------------------------
+# PRICE & BUBBLE DYNAMICS section
+# ---------------------------------------------------------------------------
+
+def _build_dynamics(premium, baselines, momentum):
+    bubble_state = bubble_state_short(premium)
+    interpretation = build_update_interpretation(
+        baselines.price_direction, bubble_state, baselines.bubble_movement
+    )
+    return "\n".join([
+        _update_sep(),
+        "<b>PRICE & BUBBLE DYNAMICS</b>",
+        _update_sep(),
+        f"<b>Price</b>  {baselines.price_direction}",
+        f"<b>Pace</b>  N/A",
+        f"<b>Acceleration</b>  {baselines.rep_gold_acceleration_label}",
+        "",
+        f"<b>Bubble</b>  {bubble_state}",
+        f"               {_number(premium)}%",
+        "",
+        f"<b>Bubble</b>  {baselines.bubble_movement}",
+        f"<b>Bubble Pace</b>  N/A",
+        "",
+        f"<b>Candle</b>  {classify_candle(momentum)}",
+        "",
+        "<b>Interpretation</b>",
+        interpretation,
+    ])
 
 
-def _format_trends_section(trends):
-    if not trends:
-        return ""
-    lines = [SEPARATOR, "<b>TRENDS</b>", SEPARATOR, ""]
-    lines.extend(format_trend_lines(trends) or ["No trend data available."])
-    premium_direction = trends.get("premium_direction")
-    if premium_direction:
-        lines.extend(["", premium_direction])
-    return "\n".join(lines)
+# ---------------------------------------------------------------------------
+# MARKET STRUCTURE section
+# ---------------------------------------------------------------------------
 
-
-def _format_momentum_section(momentum, current_premium):
-    if not momentum:
-        return ""
-    lines = [SEPARATOR, "<b>MOMENTUM</b>", SEPARATOR, ""]
-    lines.extend(format_momentum_block(momentum, current_premium=current_premium) or ["No momentum data available."])
-    return "\n".join(lines)
-
-
-def _format_structure_section(markets, fair_price):
-    structure = format_market_structure(markets, fair_price)
+def _build_structure(markets, fair, baselines):
+    structure = format_market_structure(markets, fair)
     if not structure:
         return ""
-    lines = [SEPARATOR, "<b>MARKET STRUCTURE</b>", SEPARATOR, ""]
-    lines.extend(format_market_structure_block(structure))
+    lines = [_update_sep(), "<b>MARKET STRUCTURE</b>", _update_sep()]
+    lines.append(f"<b>Platforms</b>  {structure['platform_count']} active")
+    lines.append(f"<b>Spread</b>  {format_m_tomans(structure['spread'])}")
+    lines.append("")
+
+    # Highest with DAY relative position
+    high_name = structure["high_name"]
+    high_price = structure["high_price"]
+    day_high_price = baselines.day.platform_prices.get(high_name) if baselines.day else None
+    high_day_pct = _pct_change(high_price, day_high_price)
+    lines.append(f"<b>Highest</b>  {high_name}")
+    lines.append(f"               {format_m_tomans(high_price)}")
+    if high_day_pct is not None:
+        lines.append(f"               {format_pct(high_day_pct, signed=True)} vs Day")
+    lines.append("")
+
+    # Lowest with DAY relative position
+    low_name = structure["low_name"]
+    low_price = structure["low_price"]
+    day_low_price = baselines.day.platform_prices.get(low_name) if baselines.day else None
+    low_day_pct = _pct_change(low_price, day_low_price)
+    lines.append(f"<b>Lowest</b>  {low_name}")
+    lines.append(f"               {format_m_tomans(low_price)}")
+    if low_day_pct is not None:
+        lines.append(f"               {format_pct(low_day_pct, signed=True)} vs Day")
+    lines.append("")
+
+    # Consensus
+    consensus = structure["consensus_label"]
+    below = structure.get("below_count")
+    above = structure.get("above_count")
+    total = structure.get("platform_count", 0)
+    if below is not None and above is not None:
+        if below > above:
+            consensus_telegram = f"{below}/{total} below Fair Price\n               NEGATIVE BUBBLE DOMINANT"
+        elif above > below:
+            consensus_telegram = f"{above}/{total} above Fair Price\n               POSITIVE BUBBLE DOMINANT"
+        else:
+            consensus_telegram = f"{total}/{total} mixed\n               BALANCED"
+    else:
+        if "Discount Dominant" in consensus:
+            consensus_telegram = "NEGATIVE BUBBLE DOMINANT"
+        elif "Premium Dominant" in consensus:
+            consensus_telegram = "POSITIVE BUBBLE DOMINANT"
+        else:
+            consensus_telegram = consensus
+    lines.append(f"<b>Consensus</b>  {consensus_telegram}")
+
     return "\n".join(lines)
 
 
-def _format_platforms_section(markets, previous_markets=None):
-    return "\n".join([
-        SEPARATOR, "<b>PLATFORMS</b>", SEPARATOR, "",
-        _format_platforms(markets, previous_markets), "",
-    ])
+# ---------------------------------------------------------------------------
+# PLATFORMS section — narrow table, M Tomans
+# ---------------------------------------------------------------------------
 
-
-def _build_common_body(world, usd, fair, lowest, premium, markets, trends=None, momentum=None, previous_markets=None, input_directions=None, signal_state=None):
-    sections = [
-        _format_market_section(world, usd, fair, lowest, premium, input_directions),
-        format_decision_section(signal_state),
-        _format_trends_section(trends),
-        _format_momentum_section(momentum, premium),
-        _format_structure_section(markets, fair),
-        _format_platforms_section(markets, previous_markets),
-        f"<b>{format_timestamp()}</b>",
+def _build_platforms(markets, baselines):
+    lines = [_update_sep(), "<b>PLATFORMS</b>", _update_sep(), ""]
+    rows = [
+        "Platform   Price    Run Δ   vs Day",
+        "───────────────────────────────────",
     ]
-    return "\n\n".join(section for section in sections if section)
+    for name in sorted(markets.keys()):
+        info = markets[name]
+        if info.get("status") != "OK" or info.get("price") is None:
+            continue
+        price = float(info["price"])
+        run_price = baselines.run.platform_prices.get(name) if baselines.run else None
+        day_price = baselines.day.platform_prices.get(name) if baselines.day else None
+
+        # RUN Δ in M Tomans
+        if run_price is not None:
+            run_diff = price - run_price
+            threshold = abs(run_price) * 0.0001  # 0.01%
+            if abs(run_diff) < threshold:
+                run_delta = "—"
+            else:
+                run_delta = format_m_tomans_short(run_diff, decimals=2)
+        else:
+            run_delta = "—"
+
+        # vs DAY percentage
+        day_pct = _pct_change(price, day_price)
+        day_text = format_pct(day_pct, signed=True) if day_pct is not None else "—"
+
+        price_str = format_m_tomans_short(price, decimals=2)
+        rows.append(f"{name:<10} {price_str:>7} {run_delta:>7} {day_text:>8}")
+
+    lines.append("<pre>" + "\n".join(rows) + "</pre>")
+    return "\n".join(lines)
 
 
-def _build_message(message_type_header, reason, body):
-    parts = [APP_HEADER, "", message_type_header]
-    if reason:
-        parts.extend(["", reason])
-    parts.extend(["", body])
-    return "\n".join(parts)
+# ---------------------------------------------------------------------------
+# CURRENT DECISION section
+# ---------------------------------------------------------------------------
 
-
-def send_alert(signal, world, usd, fair, lowest, premium, markets, trends=None, momentum=None, previous_markets=None, input_directions=None, signal_state=None):
-    if signal_state is not None:
-        alert_type = signal_state.final_decision
-        if alert_type not in {"BUY", "SELL"}:
-            return
-        reason = signal_state.reason or ""
-    else:
-        alert_type = signal.get("signal", "ALERT") if signal else "ALERT"
-        if alert_type not in {"BUY", "SELL"}:
-            return
-        reason = signal.get("reason", "") if signal else ""
-
-    header = f"<b>{alert_type} SIGNAL</b>"
-    body = _build_common_body(world, usd, fair, lowest, premium, markets, trends, momentum, previous_markets, input_directions, signal_state)
-    _send(_build_message(header, reason, body))
-
-
-def send_manual_update(world, usd, fair, lowest, premium, markets, trends=None, momentum=None, previous_markets=None, input_directions=None, signal_state=None):
-    body = _build_common_body(world, usd, fair, lowest, premium, markets, trends, momentum, previous_markets, input_directions, signal_state)
-    _send(_build_message("<b>MANUAL UPDATE</b>", "", body))
-
-
-def send_data_unavailable(usd=None, markets=None, reason=None):
-    lines = [APP_HEADER, "", "<b>DATA UNAVAILABLE</b>", "", reason or "Unable to fetch required market data."]
-    if usd is not None:
-        lines.append(f"USD Rate: {_money(usd)} IRR")
-    if markets:
-        valid = [name for name, info in markets.items() if info.get("status") == "OK"]
-        lines.append(f"Available platforms: {len(valid)}")
-    _send("\n".join(lines))
-
-
-def send_processing():
-    _send(f"{APP_HEADER}\n\n<b>Processing...</b> Gathering market data.")
-
-
-def send_daily_recap(world, usd, fair, lowest, premium, markets, trends=None, momentum=None, previous_markets=None, input_directions=None, signal_state=None):
-    body = _build_common_body(world, usd, fair, lowest, premium, markets, trends, momentum, previous_markets, input_directions, signal_state)
-    _send(_build_message("<b>DAILY RECAP</b>", "", body))
-
-# ============================================================
-# PRE-SP-C.13 — Analytical Command Formatters
-# Consume C.11 consumer contract and C.8 features.
-# Do not calculate. Do not decide.
-# ============================================================
-
-
-def send_analysis_update(consumer_envelope: dict):
-    """/Analysis — expose latest persisted analytical read state."""
-    data = consumer_envelope.get("data", {})
-    facts = data.get("facts", {})
-    evidence = data.get("evidence_summary", {})
-    interpretation = data.get("interpretation_summary", {})
-    uncertainty = data.get("uncertainty", {})
-    decision = data.get("decision", {})
-    completeness = consumer_envelope.get("completeness", "UNKNOWN")
-
+def _build_decision(signal_state):
+    if signal_state is None:
+        return ""
+    final = signal_state.final_decision
     lines = [
-        APP_HEADER,
+        _update_sep(),
+        "<b>CURRENT DECISION</b>",
+        _update_sep(),
+        f"<b>Valuation</b>  {signal_state.valuation}",
+        f"<b>Momentum</b>  {signal_state.momentum}",
+        f"<b>Structure</b>  {signal_state.structure.replace('_', ' ')}",
+        f"<b>Conflict</b>  {signal_state.conflict.replace('_', ' ')}",
         "",
-        f"<b>ANALYSIS</b>  |  Completeness: <code>{completeness}</code>",
-        "",
-        "<b>FACTS</b>",
-        f"Valuation:  <code>{facts.get('valuation_state', 'UNKNOWN')}</code>",
-        f"Momentum:   <code>{facts.get('momentum_state', 'UNKNOWN')}</code>",
-        f"Structure:  <code>{facts.get('structure_state', 'UNKNOWN')}</code>",
-        f"Regime:     <code>{facts.get('regime_state', 'UNKNOWN')}</code>",
-        f"Premium:    {_number(facts.get('premium_percent'))}%",
-        "",
-        "<b>INTERPRETATION</b>",
-        interpretation.get("market_context_summary", "No interpretation available."),
-        "",
-        "<b>UNCERTAINTY</b>",
+        f"<b>Candidate</b>  {signal_state.candidate_decision}",
     ]
-    conflicts = uncertainty.get("conflicts", [])
-    missing = uncertainty.get("missing_evidence", [])
-    if conflicts:
-        lines.append(f"Conflicts: {len(conflicts)}")
-    if missing:
-        lines.append(f"Missing evidence: {len(missing)}")
-    if not conflicts and not missing:
-        lines.append("No major uncertainties.")
-
-    lines.extend([
-        "",
-        "<b>DECISION</b>  <i>(read-only)</i>",
-        f"Candidate: <code>{decision.get('candidate_decision', 'UNKNOWN')}</code>",
-        f"Final:     <code>{decision.get('final_decision', 'UNKNOWN')}</code>",
-    ])
-
-    _send("\n".join(lines))
-
-
-def send_technical_update(features: dict):
-    """/Technical — expose persisted C.8 feature information."""
-    price_trend = features.get("price_trend", {}) or {}
-    momentum = features.get("momentum", {}) or {}
-    volatility = features.get("volatility", {}) or {}
-    regime = features.get("regime", {}) or {}
-
-    lines = [
-        APP_HEADER,
-        "",
-        "<b>TECHNICAL</b>",
-        "",
-        "<b>PRICE TREND</b>",
-    ]
-    for key in ["rep_gold_ma7", "rep_gold_ma15", "rep_gold_ma30"]:
-        val = price_trend.get(key)
-        if val is not None:
-            lines.append(f"  {key}: {_money(val)}")
-
-    lines.extend([
-        "",
-        "<b>MOMENTUM</b>",
-        f"  Premium Velocity: {_number(momentum.get('premium_velocity'))}",
-        f"  Acceleration:     {_number(momentum.get('premium_acceleration'))}",
-        f"  Direction:        {momentum.get('premium_latest_direction', 'UNKNOWN')}",
-        "",
-        "<b>VOLATILITY</b>",
-        f"  7-Day CV:  {_number(volatility.get('rep_gold_volatility_7'))}%",
-        "",
-        "<b>REGIME</b>",
-        f"  Current:  <code>{regime.get('current_regime', 'UNKNOWN')}</code>",
-        f"  Previous: <code>{regime.get('previous_regime', 'UNKNOWN')}</code>",
-    ])
-
-    _send("\n".join(lines))
-
-
-def send_history_update(snapshots: list):
-    """/History — expose recent analytical snapshot summaries."""
-    lines = [APP_HEADER, "", "<b>HISTORY</b>", ""]
-
-    if not snapshots:
-        lines.append("No historical snapshots available.")
+    if final in {"BUY", "SELL", "WAIT"}:
+        lines.append(f"<b>Final</b>  <b>{final}</b>")
     else:
-        lines.append(f"{'Valuation':<10} {'Momentum':<12} {'Regime':<10} {'Premium':>10}")
-        lines.append("-" * 48)
-        for snap in snapshots[:10]:
-            facts = snap.get("facts", {}) or {}
-            lines.append(
-                f"{facts.get('valuation_state', '?'):<10} "
-                f"{facts.get('momentum_state', '?'):<12} "
-                f"{facts.get('regime_state', '?'):<10} "
-                f"{_number(facts.get('premium_percent')):>10}%"
-            )
-
-    _send("\n".join(lines))
+        lines.append(f"<b>Final</b>  {final}")
+    lines.append("")
+    lines.append(f"<b>{format_timestamp()}</b>")
+    return "\n".join(lines)
 
 
-def send_news_update(news_events: list):
-    """/News — expose structured news context."""
-    lines = [APP_HEADER, "", "<b>NEWS</b>", ""]
+# ---------------------------------------------------------------------------
+# Main formatter
+# ---------------------------------------------------------------------------
 
-    if not news_events:
-        lines.append("No recent news events.")
-    else:
-        for ev in news_events[:5]:
-            rel = ev.get("relevance", "?")
-            evt = ev.get("event_type", "?")
-            topic = ev.get("topic", "No topic")
-            lines.append(f"• [{rel}] {evt}: {topic}")
-
-    _send("\n".join(lines))
-
-
-def send_health_update(health: dict):
-    """/Health — expose operational health metrics."""
-    lines = [
-        APP_HEADER,
-        "",
-        "<b>HEALTH</b>",
-        "",
-        f"Latest Analysis:    {health.get('latest_analysis_time') or 'N/A'}",
-        f"Latest Market Snap: {health.get('latest_snapshot_time') or 'N/A'}",
-        f"Analysis Snapshots: {health.get('analysis_snapshot_count', 0)}",
-        f"Outcome Evals:      {health.get('outcome_count', 0)}",
-        f"Sources:            {health.get('sources_available', 0)}/{health.get('sources_total', 0)}",
-        f"Database:           <code>{health.get('database_status', 'UNKNOWN')}</code>",
-    ]
-
-    _send("\n".join(lines))
+def send_update_v1(
+    world: Optional[float],
+    usd: Optional[float],
+    fair: Optional[float],
+    platform_avg: Optional[float],
+    lowest: Optional[float],
+    highest: Optional[float],
+    spread: Optional[float],
+    premium: float,
+    markets: Dict[str, Any],
+    signal_state,
+    baselines: UpdateBaselines,
+    momentum: Optional[Dict] = None,
+):
+    if baselines is None:
+        raise RuntimeError("UPDATE v1 requires resolved baselines")
+    body = "\n\n".join([
+        "<b>GOLDPremium: UPDATE</b>",
+        _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premium, baselines),
+        _build_dynamics(premium, baselines, momentum),
+        _build_structure(markets, fair, baselines),
+        _build_platforms(markets, baselines),
+        _build_decision(signal_state),
+    ])
+    _send(body)
