@@ -181,7 +181,10 @@ def format_market_structure(markets, fair_price):
         "high_price": highest[1],
         "low_name": lowest[0],
         "low_price": lowest[1],
+        "below_count": below_fair,
+        "above_count": above_fair,
         "consensus_label": consensus,
+        
     }
 
 
