@@ -12,9 +12,30 @@ User-triggered Telegram /Update
 → collect → validate → calculate → current deterministic state → baseline resolution → Telegram
 
 ANALYZE WING
-cron-job.org scheduled trigger
+scheduled trigger
 → observations → snapshots → outcomes → evidence → interpretation → features → read model → dataset → candles → forecast → forecast resolution / audit
 ```
+
+### Intended versus actual Analyze trigger
+
+The intended design is that cron-job.org drives the Analyze wing. **It does not.**
+Verified against run history and source on 2026-09-13:
+
+```text
+cron-job.org  → POST .../workflows/gold-monitor.yml/dispatches
+              → github.event_name = workflow_dispatch
+              → SCHEDULED_RUN = false
+              → src/main.py takes the UPDATE path
+              → no news ingestion, no build_analysis_snapshot()
+```
+
+The daily 20:00 Tehran job therefore sends an extra UPDATE message and produces no
+analytical history. Analysis snapshots come only from the GitHub native `schedule`
+event this document elsewhere calls legacy, which fires roughly three hours late and
+was cancelled on about half of recent days.
+
+Correcting this trigger is an SP-C item. Until then, treat the Analyze wing as running
+irregularly rather than on the documented cadence.
 
 There are **two frontend wings**: UPDATE and ANALYZE. The Analyze wing is scheduled; the Update wing is user-triggered and intentionally lightweight.
 

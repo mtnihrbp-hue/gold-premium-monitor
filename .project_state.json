@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "project": "Gold Premium Monitor",
-  "active_branch": "main",
-  "current_phase": "POST-SP-B / PRE-NEXT-PHASE",
-  "current_phase_status": "SP-B CLOSED — C.14C COMPLETE",
+  "active_branch": "SP-C",
+  "current_phase": "PRE-SP-C (stabilization) on branch SP-C",
+  "current_phase_status": "SP-B CLOSED — C.14C COMPLETE — SP-C branch open for stabilization before the SP-C leap",
   "completed_phases": [
     "SP-B.1",
     "SP-B.2",
@@ -25,11 +25,17 @@
     "PRE-SP-C.14C"
   ],
   "latest_verified_kpi": {
-    "phase": "PRE-SP-C.14C",
-    "passed": 21,
-    "failed": 0,
+    "phase": "FULL SUITE",
+    "files_passed": 19,
+    "files_total": 19,
+    "assertions": 392,
     "status": "PASS",
-    "evidence_source": "user-supplied local execution result"
+    "evidence_source": "executed on SP-C against an isolated in-memory database; also green in CI (.github/workflows/kpi-suite.yml)",
+    "notes": [
+      "C.2 had been failing since commit ff4496d (C.13 idempotency fix) while documentation recorded 14/14 PASS; the stale assertion was corrected on SP-C.",
+      "KPI scripts print status emoji and crash with UnicodeEncodeError under the Windows console codepage after assertions pass. kpi/run_all.py forces UTF-8 for child processes.",
+      "scikit-learn >=1.7 removed the multi_class argument, which broke 14 of 36 C.14B assertions on any modern install. Fixed on SP-C."
+    ]
   },
   "latest_verified_runtime": {
     "c14a_compileall": "PASS",
@@ -140,12 +146,25 @@
     "causal_explanation_requires_evidence": true
   },
   "branch_policy": {
-    "active_development_branch": "main",
-    "main_write_allowed": true,
+    "active_development_branch": "SP-C",
+    "main_write_allowed": false,
     "main_merge_allowed": false,
     "sp_b_status": "CLOSED — merged into main",
     "sp_b_remote_deleted": false,
-    "rule": "SP-B is closed. All future development, documentation, SQL records, and commits target main unless a future phase explicitly establishes another development branch."
+    "planned_merge": "tag main as v1.3safe, then merge SP-C into main after user review",
+    "rule": "All development, documentation, SQL records, and commits target SP-C. Per skills/sprint-execution.md the user reviews the sprint branch before merge; never merge automatically."
+  },
+  "verified_production_state": {
+    "verified_on": "2026-09-13",
+    "method": "direct read-only queries against production Neon",
+    "analysis_snapshots": 56,
+    "market_snapshots": 278,
+    "outcome_evaluations": "162 rows, 100% INSUFFICIENT_DATA at every horizon",
+    "valuation_state": "CHEAP on 204/204 recorded market_states",
+    "candidate_vs_final": "81 BUY candidates, 0 BUY finals; hysteresis has suppressed every one",
+    "premium_percent_range": "-8.19% to -1.82% across 278 observations; buy_premium_percent -1.5 never crossed",
+    "analyze_trigger_defect": "cron-job.org posts to the workflow dispatches endpoint, so github.event_name is workflow_dispatch and SCHEDULED_RUN resolves false. The Analyze path in src/main.py is skipped. Analysis snapshots are produced only by the legacy GitHub native schedule.",
+    "canonical_series_contamination": "market_snapshots has no column distinguishing scheduled runs from user-triggered /Update calls, so the two are mixed and cannot be separated retroactively."
   },
   "continuity_protocol": {
     "orchestration_flow": [
@@ -165,7 +184,6 @@
       "PROJECT_ORCHESTRATION.md",
       "PROJECT_OPERATIONS.md",
       "C14_HANDOFF.md",
-      "C14_FEEDBACK_AND_TERMINOLOGY.md",
       "RESEARCH_ADOPTION.md",
       "C14C_HANDOFF.md",
       "C14C_IMPLEMENTATION.md",

@@ -34,8 +34,11 @@ C14 implementation contracts:
 ```
 C14_HANDOFF.md
 C14C_HANDOFF.md
-C14_FEEDBACK_AND_TERMINOLOGY.md
+C14C_IMPLEMENTATION.md
 ```
+
+`C14_FEEDBACK_AND_TERMINOLOGY.md` was removed in commit `c24ef72` when its content was
+consolidated. Terminology authority now lives in `C14_HANDOFF.md` and `RESEARCH_ADOPTION.md`.
 
 Repository evidence, executable tests, and verified production state establish truth. Conversation history is context only.
 
@@ -62,12 +65,12 @@ This applies to every phase, including phases with no schema change.
 ## Branch discipline
 
 ```
-ACTIVE DEVELOPMENT = SP-B
-WRITE / COMMIT = SP-B only
-MAIN MERGE = explicit SP-B close approval only
+ACTIVE DEVELOPMENT = SP-C
+WRITE / COMMIT = SP-C only
+MAIN MERGE = explicit user review and approval only
 ```
 
-Do not merge main merely to synchronize documentation.
+SP-B is closed and merged. Do not merge main merely to synchronize documentation.
 
 ## Project wings
 
@@ -116,13 +119,39 @@ implementation
 → regression
 → KPI
 → schema/migration audit
-→ Neon production verification when applicable
+→ Neon production verification
+→ production liveness evidence
 → documentation
 → .project_state.json
 → commit
 ```
 
 When no schema change is required, that fact must be explicitly recorded.
+
+## Production liveness rule
+
+A KPI passes against fixtures. It cannot detect a component that the runtime never
+invokes, or one that is invoked but never receives usable data.
+
+A phase is therefore not COMPLETE on KPI evidence alone. It must also record how many
+real production cases the component has processed. If that count is zero, the phase is
+`IMPLEMENTED`, not `COMPLETE`.
+
+This rule exists because the project has twice built working components that the runtime
+never reached: the C14C news collector and classifier (recorded in `C14C_IMPLEMENTATION.md`
+§8, which left `news_events` empty), and the Analyze trigger, where cron-job.org posts to
+the workflow dispatches endpoint so `SCHEDULED_RUN` resolves false and the Analyze path in
+`src/main.py` is skipped entirely.
+
+Phases currently affected, verified against production on 2026-09-13:
+
+```text
+PRE-SP-C.5   outcome_evaluations   162 rows, 100% INSUFFICIENT_DATA
+PRE-SP-C.14B forecast engine       INSUFFICIENT_DATA at every horizon
+PRE-SP-C.14C error analysis        zero resolved forecasts to analyse
+```
+
+Their KPIs genuinely pass. Their production case count is zero.
 
 ## Current project position
 

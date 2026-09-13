@@ -16,6 +16,7 @@ This file is the navigation authority for repository documentation. It identifie
 | `C14C_IMPLEMENTATION.md` | Verified C14C implementation reference, KPI boundary, supporting operational news-ingestion work, and UPDATE v1 wing-boundary record |
 | `RESEARCH_ADOPTION.md` | External research boundaries |
 | `Prompt_Guide.md` | AI engineering operating rules |
+| `CLAUDE.md` | Claude Code entry point: commands, architecture summary, and pointers into this hierarchy |
 | `.project_state.json` | Machine continuity state mirror |
 
 ## Source ownership rules
@@ -35,7 +36,13 @@ C14A  COMPLETE — 26/26 KPI
 C14B  COMPLETE — 36/36 KPI
 C14C  COMPLETE — 21/21 KPI
 UPDATE v1  SURGICAL IMPLEMENTATION / VALIDATION
+FULL SUITE  19/19 files, 392 assertions — executed on SP-C and green in CI
 ```
+
+KPI evidence is now produced by `python kpi/run_all.py` and by the `KPI Suite`
+workflow, rather than reported from ad-hoc local runs. See the production
+liveness rule in `PROJECT_ORCHESTRATION.md`: several phases hold passing KPIs
+while having processed zero real production cases.
 
 C14C is the **Adaptive Intelligence Foundation**. It is downstream of C14B and remains diagnostic/analytical. It does not introduce reinforcement learning, online learning, automatic model-weight changes, LLM decision authority, or BUY/SELL authority changes.
 

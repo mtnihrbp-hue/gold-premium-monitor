@@ -183,16 +183,60 @@ UPDATE v1
 └── OPERATIONAL — lightweight user-triggered live update
 
 ANALYSIS WING
-└── Scheduled collection / analysis foundation established;
-    full analytical consumer evolution continues separately.
+└── Foundation implemented but running irregularly.
+    The intended cron-job.org trigger does not reach the Analyze path
+    (see section 4.1). Snapshots come only from the legacy GitHub schedule.
+
+SP-C
+└── OPEN — stabilization first, then the analytical leap
 
 CURRENT DIRECTION
-└── Post-C14 research, calibration, empirical evidence accumulation,
-    and architecture planning before the next major implementation sprint.
+└── Make the data engine actually run, then derive valuation and base rates
+    from the system's own accumulated history.
 
 FUTURE
 └── Expert Judgment / Prediction capability
 ```
+
+## 4.1 Verified production state
+
+Read directly from production Neon on 2026-09-13. These supersede any narrative
+claim elsewhere in the documentation set.
+
+```text
+analysis_snapshots      56 rows      2026-08-21 → 2026-09-12, 20 distinct days
+market_snapshots       278 rows      2026-08-04 → 2026-09-13, 41 distinct days
+outcome_evaluations    162 rows      100% INSUFFICIENT_DATA at 1h, 6h and 24h
+```
+
+Three findings follow from this.
+
+**The Analyze trigger is misrouted.** cron-job.org posts to the workflow dispatches
+endpoint, so `github.event_name` is `workflow_dispatch`, `SCHEDULED_RUN` resolves false,
+and `src/main.py` takes the UPDATE path. The daily job produces a Telegram message and
+no analytical history.
+
+**Outcome evaluation is starved, not broken.** At the achieved cadence there is no
+future observation within the 15-minute tolerance of a +1h or +6h target, and
+consecutive snapshots are rarely 24h apart either. The horizons cannot fill until the
+cadence is fixed. C.14B and C.14C sit downstream of this and have processed zero real
+cases.
+
+**Static valuation thresholds carry no information.** Across all 278 observations the
+bubble ranged from -8.19% to -1.82%, so `buy_premium_percent: -1.5` was never crossed
+and `valuation_state` is CHEAP on 204/204 recorded states. The decision layers beneath
+do discriminate — 81 BUY candidates, coherent with 81 IMPROVING momentum and 81
+SUPPORTIVE conflict states — but hysteresis has suppressed every one, giving
+`final_decision` WAIT on 204/204.
+
+Valuation must therefore become relative to the bubble's own recent distribution rather
+than a fixed threshold. That is the SP-C leap.
+
+**Canonical series contamination.** `market_snapshots` records no distinction between
+scheduled runs and user-triggered `/Update` calls, so the two are mixed and cannot be
+separated retroactively. This violates the rule in `skills/data-and-neon.md` that
+irregular user-triggered calls must not become the canonical technical time series, and
+it will bias any percentile or base-rate calculation once the user base grows.
 
 ### C14C status
 
@@ -1519,32 +1563,53 @@ inspect
 → commit
 ```
 
-Current verified / supplied KPI evidence:
+Current verified KPI evidence, executed on SP-C and green in CI:
 
 ```text
-PRE-SP-C.2   14/14 PASS
-PRE-SP-C.3   20/20 PASS
-PRE-SP-C.4   19/19 PASS
-PRE-SP-C.5   25/25 PASS
-PRE-SP-C.6   25/25 PASS
-PRE-SP-C.7   25/25 PASS
-PRE-SP-C.8   25/25 PASS
-PRE-SP-C.9   23/23 PASS
-PRE-SP-C.10  22/22 PASS
-C14C         21/21 PASS
+FULL SUITE   19/19 files, 392 assertions PASS
 compileall   PASS
-live smoke   PASS
-Neon reconciliation through C.9 PASS
 ```
 
-For local KPI execution on Windows CMD:
+Two defects were found the first time the suite was executed as a whole rather than
+file by file:
+
+**C.2 had been failing since C.13.** Commit `ff4496d` made snapshot persistence
+idempotent by returning the existing id for a duplicate `source_run_id`, but the C.2
+KPI still asserted the pre-C.13 `-1` sentinel. Because prior-phase KPIs were not re-run,
+this documentation continued to record 14/14 PASS throughout. The implementation was
+correct and the stale assertion was corrected.
+
+**C.14B breaks on modern scikit-learn.** `requirements.txt` permits
+`scikit-learn>=1.3.0,<2.0.0`; versions from 1.7 removed the `multi_class` argument,
+raising `TypeError` in the logistic regression factory and failing 14 of 36 C.14B
+assertions. This was latent rather than harmless — the forecast path returns
+`INSUFFICIENT_DATA` before reaching the factory, so data starvation was masking it. It
+would have surfaced as a provenance error the moment cadence was fixed.
+
+Both were invisible to file-by-file local runs. This is the evidence behind the
+production liveness rule in `PROJECT_ORCHESTRATION.md`.
+
+For local KPI execution:
 
 ```cmd
-git pull origin <branch>
-python kpi\kpi_<specific_test>.py
+git pull origin SP-C
+python kpi\run_all.py
 ```
 
-Run KPI files explicitly rather than relying on shell wildcard behavior.
+`kpi/run_all.py` runs every suite in an isolated subprocess against an in-memory
+database and prints a consolidated result. Individual files may still be run directly,
+but on Windows they require `PYTHONIOENCODING=utf-8`: the scripts print status emoji,
+which raise `UnicodeEncodeError` under the console codepage *after* the assertions have
+already passed, reporting a passing suite as a failure. The runner sets this for its
+children, so prefer it.
+
+The same suite runs in CI via `.github/workflows/kpi-suite.yml` on SP-C pushes, pull
+requests, and manual dispatch. CI never receives `DATABASE_URL` and cannot reach
+production Neon.
+
+Note that the `Gold Premium Monitor` workflow is **not** sandboxed on any branch. It
+uses repository secrets, so running it from a feature branch still writes to production
+Neon and sends real Telegram messages.
 
 ---
 

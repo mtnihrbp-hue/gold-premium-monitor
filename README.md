@@ -22,28 +22,49 @@ Project-state changes belong in `PROJECT_MEMORY.md` first. `.project_state.json`
 
 ```text
 main
-└── SP-A COMPLETE / FROZEN
+├── SP-A COMPLETE / FROZEN
+└── SP-B CLOSED — merged into main
 
-SP-B
-├── SP-B.1 COMPLETE — Historical Intelligence
-├── SP-B.2 COMPLETE — News Intelligence
-├── PRE-SP-C.1 COMPLETE — Canonical Time Series
-├── PRE-SP-C.2 COMPLETE — Analysis Snapshot + Scheduler Foundation
-├── PRE-SP-C.3 COMPLETE — Price Structure + Regime
-├── PRE-SP-C.4 COMPLETE — Analysis Snapshot Integration
-├── PRE-SP-C.5 COMPLETE — Outcome Evaluation Foundation
-├── PRE-SP-C.6 COMPLETE — Evidence Package Foundation
-├── PRE-SP-C.7 COMPLETE — Interpretation Intelligence Layer
-├── PRE-SP-C.8 COMPLETE — Feature Intelligence Layer
-├── PRE-SP-C.9 COMPLETE — Analytical Read Model
-└── PRE-SP-C.10 COMPLETE — Read Model Integration & Audit Layer
-
-NEXT
-└── PRE-SP-C.11 PLANNING — Analytical Consumer Interface / Read-Model API
+PRE-SP-C.1 … PRE-SP-C.13   COMPLETE
+PRE-SP-C.14A               COMPLETE — Candle & Market-Structure Infrastructure
+PRE-SP-C.14B               COMPLETE — Forecast Features / Engine / Evaluation
+PRE-SP-C.14C               COMPLETE — Adaptive Intelligence Foundation
 
 SP-C
-└── FUTURE — Prediction + Learning
+└── OPEN — current development branch
 ```
+
+### Verified KPI baseline
+
+Executed on the `SP-C` branch, isolated in-memory database:
+
+```text
+19/19 KPI files pass   (392 assertions)
+compileall             PASS
+```
+
+Run the whole suite with:
+
+```text
+python kpi/run_all.py
+```
+
+The suite also runs in CI (`.github/workflows/kpi-suite.yml`) on `SP-C`
+pushes, pull requests, and manual dispatch.
+
+### Known gaps under SP-C
+
+These are verified against production state, not assumed:
+
+```text
+outcome_evaluations        162 rows, 100% INSUFFICIENT_DATA
+forecast horizons          INSUFFICIENT_DATA at 1h / 6h / 24h
+final_decision             WAIT on 204/204 recorded states
+valuation_state            CHEAP on 204/204 recorded states
+buy_premium_percent        -1.5 never crossed in 278/278 observations
+```
+
+The collection cadence, not the analytical code, is the current bottleneck.
 
 ## Architecture
 
