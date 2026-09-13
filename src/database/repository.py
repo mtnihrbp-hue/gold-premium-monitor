@@ -1325,3 +1325,44 @@ def platform_candle_exists(
         return False
     finally:
         session.close()
+
+
+def get_existing_candle_bucket_starts(
+    platform: str,
+    instrument: str,
+    timeframe: str,
+    quote_side: str,
+    bucket_start_min: datetime,
+    bucket_start_max: datetime,
+) -> set:
+    """Return bucket_start values already stored for one candle identity group.
+
+    Batched counterpart to platform_candle_exists. Persisting a build issued one
+    existence query per candidate candle, so the cost grew with total stored
+    history rather than with the amount of new data.
+
+    Non-blocking: returns an empty set if the database is unavailable. The caller
+    then attempts the insert, which matches the behaviour of platform_candle_exists
+    returning False on failure.
+    """
+    from database.models import PlatformCandle
+
+    session = get_session()
+    if session is None:
+        return set()
+
+    try:
+        rows = session.query(PlatformCandle.bucket_start).filter(
+            PlatformCandle.platform == platform,
+            PlatformCandle.instrument == instrument,
+            PlatformCandle.timeframe == timeframe,
+            PlatformCandle.quote_side == quote_side,
+            PlatformCandle.bucket_start >= bucket_start_min,
+            PlatformCandle.bucket_start <= bucket_start_max,
+        ).all()
+        return {row[0] for row in rows}
+    except Exception as e:
+        print(f"DB query failed (get_existing_candle_bucket_starts): {e}")
+        return set()
+    finally:
+        session.close()
