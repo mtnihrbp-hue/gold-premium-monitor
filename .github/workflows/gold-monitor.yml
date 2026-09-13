@@ -1,8 +1,27 @@
 name: Gold Premium Monitor
 
+# The Analyze path requires SCHEDULED_RUN=true. A plain workflow_dispatch is not a
+# schedule event, so an external scheduler posting to the dispatches endpoint would
+# otherwise silently run the UPDATE path and produce no analytical history.
+# The caller therefore declares intent, which keeps the Live and Analyze wings separate:
+# a user /Update stays UPDATE, and only an explicit mode=analyze runs the pipeline.
+
+run-name: >-
+  ${{ (github.event_name == 'schedule' || github.event.inputs.mode == 'analyze')
+      && 'ANALYZE' || 'UPDATE' }}
+
 on:
 
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "Which wing to run"
+        type: choice
+        required: false
+        default: update
+        options:
+          - update
+          - analyze
 
   schedule:
     - cron: "30 14 * * *"
@@ -54,7 +73,7 @@ jobs:
 
         env:
 
-          SCHEDULED_RUN: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
+          SCHEDULED_RUN: ${{ (github.event_name == 'schedule' || github.event.inputs.mode == 'analyze') && 'true' || 'false' }}
 
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 

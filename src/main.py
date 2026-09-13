@@ -111,6 +111,7 @@ def main():
     history = state["history"]
     last_alert = state["last_alert"]
     is_scheduled = os.environ.get("SCHEDULED_RUN", "false").lower() == "true"
+    print(f"MODE: {'ANALYZE' if is_scheduled else 'UPDATE'}")
     collection_run_id = _generate_collection_run_id()
     now = datetime.now()
     stale_threshold = config.get("freshness", {}).get("stale_threshold_minutes", 15)
