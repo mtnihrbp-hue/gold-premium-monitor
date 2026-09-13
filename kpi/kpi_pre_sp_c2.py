@@ -182,7 +182,9 @@ class KPIPreSPC2(unittest.TestCase):
             momentum_state="NEUTRAL",
             structure_state="MIXED",
         )
-        self.assertEqual(oid2, -1)
+        # C.13 idempotency contract: a duplicate source_run_id returns the existing
+        # snapshot id. -1 remains reserved for DB failure, not for a successful no-op.
+        self.assertEqual(oid2, oid1)
         self.assertTrue(analysis_snapshot_exists(source_run_id))
 
     # --- KPI-6: Missing database handling works ---
