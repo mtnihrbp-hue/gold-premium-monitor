@@ -171,8 +171,9 @@ def _c8_deterministic_predict(features_json: Optional[dict]) -> Optional[str]:
 # Model factories
 # -----------------------------------------------------------------------------
 def _logistic_regression_factory():
+    # multi_class was removed in scikit-learn 1.7. lbfgs on a multiclass target
+    # already fits multinomial, so omitting it preserves behaviour on all versions.
     return LogisticRegression(
-        multi_class="multinomial",
         solver="lbfgs",
         max_iter=1000,
         random_state=42,
