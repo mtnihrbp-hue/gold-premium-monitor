@@ -98,8 +98,17 @@ def _build_dynamics_interpretation(price_direction, price_change, premium, gap_d
 # MARKET section
 # ---------------------------------------------------------------------------
 
+MARKET_TABLE_WIDTH = 48
+
+
+def _pp_compact(value):
+    """Percentage points without the unit space, so table columns keep a gutter."""
+    return "—" if value is None else f"{value:+.2f}pp"
+
+
 def _market_row(metric, now_text, run_text, day_text, seven_day_text):
-    return f"{metric:<11} | {now_text:>8} | {run_text:>7} | {day_text:>7} | {seven_day_text:>7}"
+    """Fixed-width row. Cell content must stay short or columns shear apart."""
+    return f"{metric:<12}{now_text:>9}{run_text:>9}{day_text:>9}{seven_day_text:>9}"
 
 
 def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premium, baselines,
@@ -110,8 +119,8 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
     lines = [_update_sep(), "<b>MARKET</b>", _update_sep()]
 
     rows = [
-        "Metric      | Now      | Run     | Day     | 7D",
-        "──────────────────────────────────────────────────",
+        _market_row("", "Now", "Run", "Day", "7D avg"),
+        "─" * MARKET_TABLE_WIDTH,
     ]
 
     rows.append(_market_row(
@@ -130,30 +139,35 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
     ))
     rows.append(_market_row(
         "Fair Price",
-        format_m_tomans(fair),
+        format_m_tomans_short(fair),
         format_pct(_pct_change(fair, run.fair_price if run else None), signed=True),
         format_pct(_pct_change(fair, day.fair_price if day else None), signed=True),
         format_pct(_pct_change(fair, seven.fair_price), signed=True),
     ))
     rows.append(_market_row(
         "Platform Avg",
-        format_m_tomans(platform_avg),
+        format_m_tomans_short(platform_avg),
         format_pct(_pct_change(platform_avg, run.platform_average if run else None), signed=True),
         format_pct(_pct_change(platform_avg, day.platform_average if day else None), signed=True),
         format_pct(_pct_change(platform_avg, seven.platform_average), signed=True),
     ))
     rows.append(_market_row(
         "Bubble",
-        f"{_number(premium)}% {bubble_state_short(premium)}",
-        format_pp((premium - run.premium_percent) if run and run.premium_percent is not None else None, signed=True),
-        format_pp((premium - day.premium_percent) if day and day.premium_percent is not None else None, signed=True),
-        format_pp((premium - seven.premium_percent) if seven.premium_percent is not None else None, signed=True),
+        f"{_number(premium)}%",
+        _pp_compact((premium - run.premium_percent) if run and run.premium_percent is not None else None),
+        _pp_compact((premium - day.premium_percent) if day and day.premium_percent is not None else None),
+        _pp_compact((premium - seven.premium_percent) if seven.premium_percent is not None else None),
     ))
 
     lines.append("<pre>" + "\n".join(rows) + "</pre>")
     lines.append(f"<b>Lowest</b>  {format_m_tomans(lowest)}")
     lines.append(f"<b>Highest</b>  {format_m_tomans(highest)}")
     lines.append(f"<b>Spread</b>  {format_m_tomans(spread)}")
+    lines.append("")
+    # Run and Day are point-to-point; the 7D column is a comparison against a mean.
+    # Labelling it plainly stops the three being read as the same kind of measure.
+    lines.append("<i>Run and Day compare against a single earlier reading.</i>")
+    lines.append("<i>7D avg compares against the mean of 7 completed days.</i>")
     if world_from_fallback:
         # Fail-safe rule: a fallback value must carry degraded provenance to the reader,
         # otherwise a cached price is indistinguishable from a fresh quote.
