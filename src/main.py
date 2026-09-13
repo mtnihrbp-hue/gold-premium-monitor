@@ -134,8 +134,12 @@ def main():
         except Exception as e:
             print(f" World Gold validation failed: {e}")
             world = None
+    world_from_fallback = False
     if world is None:
         world = _fallback_world_from_history(history) or _fallback_world_from_db(max_age_hours=6)
+        world_from_fallback = world is not None
+        if world_from_fallback:
+            print(" World Gold: using cached fallback value (degraded provenance)")
 
     try:
         usd = get_usd_sell_rate()
@@ -291,6 +295,7 @@ def main():
                 signal_state=signal_state,
                 baselines=baselines,
                 momentum=momentum,
+                world_from_fallback=world_from_fallback,
             )
             print("UPDATE v1 sent.")
         except Exception as e:

@@ -40,17 +40,6 @@ def _pct_change(current, baseline):
     return (current - baseline) / baseline * 100
 
 
-def _price_change_rate_per_hour(current, baseline, baseline_timestamp):
-    """Return percentage change per elapsed hour from the RUN baseline."""
-    if current is None or baseline in (None, 0) or baseline_timestamp is None:
-        return None
-    now = datetime.now(baseline_timestamp.tzinfo) if baseline_timestamp.tzinfo else datetime.now()
-    elapsed_hours = (now - baseline_timestamp).total_seconds() / 3600.0
-    if elapsed_hours <= 0:
-        return None
-    return _pct_change(current, baseline) / elapsed_hours
-
-
 def _bubble_direction(premium, gap_delta):
     """Describe movement toward a larger/smaller premium or discount."""
     if premium is None or gap_delta is None:
@@ -65,8 +54,13 @@ def _bubble_direction(premium, gap_delta):
     return "MORE PREMIUM" if gap_delta > 0 else "MORE DISCOUNT"
 
 
-def _build_dynamics_interpretation(price_direction, price_change, price_rate, premium, gap_direction, gap_delta):
-    """Build human-readable interpretation from measured price/gap movement."""
+def _build_dynamics_interpretation(price_direction, price_change, premium, gap_direction, gap_delta):
+    """Build human-readable interpretation from measured price/gap movement.
+
+    Describes observable relationships only. Per C14_HANDOFF.md and
+    RESEARCH_ADOPTION.md, the internal DISCOUNT WIDENING / NARROWING vocabulary
+    must not be surfaced in user-facing output, and no causal claim is made.
+    """
     price_phrase = None
     if price_direction == "RISING":
         price_phrase = "Local prices are rising"
@@ -77,25 +71,16 @@ def _build_dynamics_interpretation(price_direction, price_change, price_rate, pr
 
     if price_phrase is not None and price_change is not None:
         price_phrase += f" ({price_change:+.2f}%)"
-    if price_phrase is not None and price_rate is not None:
-        price_phrase += f" at {price_rate:+.2f}%/h"
 
     gap_phrase = None
     if premium is not None:
-        if premium < 0:
-            if gap_direction == "MORE DISCOUNT":
-                gap_phrase = "the discount is widening"
-            elif gap_direction == "LESS DISCOUNT":
-                gap_phrase = "the discount is narrowing"
-            elif gap_direction == "STABLE":
-                gap_phrase = "the discount is stable"
-        elif premium > 0:
-            if gap_direction == "MORE PREMIUM":
-                gap_phrase = "the premium is widening"
-            elif gap_direction == "LESS PREMIUM":
-                gap_phrase = "the premium is narrowing"
-            elif gap_direction == "STABLE":
-                gap_phrase = "the premium is stable"
+        if gap_direction in ("MORE DISCOUNT", "MORE PREMIUM"):
+            side = "below" if premium < 0 else "above"
+            gap_phrase = f"moving further {side} fair value"
+        elif gap_direction in ("LESS DISCOUNT", "LESS PREMIUM"):
+            gap_phrase = "closing the gap to fair value"
+        elif gap_direction == "STABLE":
+            gap_phrase = "holding their distance from fair value"
 
     if gap_phrase is not None and gap_delta is not None and abs(gap_delta) >= 0.05:
         gap_phrase += f" ({gap_delta:+.2f} pp)"
@@ -105,7 +90,7 @@ def _build_dynamics_interpretation(price_direction, price_change, price_rate, pr
     if price_phrase:
         return f"{price_phrase}."
     if gap_phrase:
-        return f"{gap_phrase.capitalize()}."
+        return f"Local prices are {gap_phrase}."
     return "Insufficient data for interpretation."
 
 
@@ -117,7 +102,8 @@ def _market_row(metric, now_text, run_text, day_text, seven_day_text):
     return f"{metric:<11} | {now_text:>8} | {run_text:>7} | {day_text:>7} | {seven_day_text:>7}"
 
 
-def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premium, baselines):
+def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premium, baselines,
+                  world_from_fallback=False):
     run = baselines.run
     day = baselines.day
     seven = baselines.seven_day
@@ -168,6 +154,12 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
     lines.append(f"<b>Lowest</b>  {format_m_tomans(lowest)}")
     lines.append(f"<b>Highest</b>  {format_m_tomans(highest)}")
     lines.append(f"<b>Spread</b>  {format_m_tomans(spread)}")
+    if world_from_fallback:
+        # Fail-safe rule: a fallback value must carry degraded provenance to the reader,
+        # otherwise a cached price is indistinguishable from a fresh quote.
+        lines.append("")
+        lines.append("⚠ XAU/USD is a cached fallback, not a fresh quote.")
+        lines.append("Fair Price and Bubble derive from it.")
     return "\n".join(lines)
 
 
@@ -178,11 +170,6 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
 def _build_dynamics(platform_avg, premium, baselines, momentum):
     run = baselines.run
     price_change = _pct_change(platform_avg, run.platform_average if run else None)
-    price_rate = _price_change_rate_per_hour(
-        platform_avg,
-        run.platform_average if run else None,
-        run.timestamp if run else None,
-    )
     gap_delta = (
         premium - run.premium_percent
         if run and run.premium_percent is not None and premium is not None
@@ -193,7 +180,6 @@ def _build_dynamics(platform_avg, premium, baselines, momentum):
     interpretation = _build_dynamics_interpretation(
         baselines.price_direction,
         price_change,
-        price_rate,
         premium,
         gap_direction,
         gap_delta,
@@ -202,16 +188,15 @@ def _build_dynamics(platform_avg, premium, baselines, momentum):
         _update_sep(),
         "<b>PRICE & BUBBLE DYNAMICS</b>",
         _update_sep(),
-        f"<b>Price</b>  {baselines.price_direction}",
-        f"<b>Change</b>  {format_pct(price_change, signed=True)}",
-        f"<b>Speed</b>  {format_pct(price_rate, signed=True)}/h" if price_rate is not None else "<b>Speed</b>  N/A",
+        f"<b>Local price</b>  {baselines.price_direction}",
+        f"<b>Change</b>  {format_pct(price_change, signed=True)}  (platform avg)",
         "",
         f"<b>Bubble</b>  {bubble_state}",
         f"               {_number(premium)}%",
         f"<b>Direction toward</b>  {gap_direction}",
         f"<b>Gap Δ</b>  {format_pp(gap_delta, signed=True)}",
         "",
-        f"<b>Candle</b>  {classify_candle(momentum)}",
+        f"<b>Bubble candle</b>  {classify_candle(momentum)}",
         "",
         "<b>Interpretation</b>",
         interpretation,
@@ -357,12 +342,14 @@ def send_update_v1(
     signal_state,
     baselines: UpdateBaselines,
     momentum: Optional[Dict] = None,
+    world_from_fallback: bool = False,
 ):
     if baselines is None:
         raise RuntimeError("UPDATE v1 requires resolved baselines")
     body = "\n\n".join([
         "<b>GOLDPremium: UPDATE</b>",
-        _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premium, baselines),
+        _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premium, baselines,
+                      world_from_fallback=world_from_fallback),
         _build_dynamics(platform_avg, premium, baselines, momentum),
         _build_structure(markets, fair, baselines),
         _build_platforms(markets, baselines),
