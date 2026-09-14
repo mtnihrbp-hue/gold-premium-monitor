@@ -39,6 +39,10 @@ _repo_module.get_session = _test_get_session
 from database.models import Base, MarketSnapshot
 Base.metadata.create_all(bind=_TEST_ENGINE)
 
+from update.baseline_resolver import (
+    _get_latest_market_snapshot,
+    _get_earliest_market_snapshot_today,
+)
 from analysis.bubble_position import (
     resolve_bubble_trend,
     resolve_bubble_speed,
@@ -461,6 +465,43 @@ class KPISPC1(unittest.TestCase):
         _seed([-9.0] * 5, start=NOW - timedelta(hours=4), step_hours=1)
         trend = resolve_bubble_trend(_test_get_session(), now=NOW)
         self.assertAlmostEqual(trend.short_average, -4.0, places=2)
+
+    # --- baselines prefer scheduled readings ------------------------------
+
+    def _seed_modes(self, rows):
+        """rows: (hours_before_now, premium, collection_mode)."""
+        session = _test_get_session()
+        for hours, premium, mode in rows:
+            session.add(MarketSnapshot(
+                timestamp=NOW - timedelta(hours=hours),
+                fair_price=100.0, premium_percent=premium,
+                world_gold_usd=4000.0, usd_irr=200000.0,
+                collection_mode=mode,
+            ))
+        session.commit()
+        session.close()
+
+    def test_52_run_baseline_ignores_user_triggered_readings(self):
+        # A user request written minutes ago must not become the RUN baseline, or
+        # RUN measures the gap between two clicks rather than market movement.
+        self._seed_modes([(5, -4.0, "scheduled"), (0.1, -9.9, "user")])
+        latest = _get_latest_market_snapshot(_test_get_session())
+        self.assertAlmostEqual(float(latest.premium_percent), -4.0, places=2)
+
+    def test_53_run_baseline_falls_back_when_no_scheduled_reading(self):
+        self._seed_modes([(5, -4.0, "user"), (1, -5.0, "user")])
+        latest = _get_latest_market_snapshot(_test_get_session())
+        self.assertAlmostEqual(float(latest.premium_percent), -5.0, places=2)
+
+    def test_54_day_baseline_prefers_first_scheduled_of_today(self):
+        self._seed_modes([(6, -7.7, "user"), (5, -4.0, "scheduled"), (1, -3.0, "scheduled")])
+        earliest = _get_earliest_market_snapshot_today(_test_get_session(), now=NOW)
+        self.assertAlmostEqual(float(earliest.premium_percent), -4.0, places=2)
+
+    def test_55_day_baseline_falls_back_to_any_reading_today(self):
+        self._seed_modes([(6, -7.7, "user"), (1, -3.0, "user")])
+        earliest = _get_earliest_market_snapshot_today(_test_get_session(), now=NOW)
+        self.assertAlmostEqual(float(earliest.premium_percent), -7.7, places=2)
 
     def test_51_trend_never_emits_a_decision(self):
         _seed([-4.0] * 10 * 24, start=NOW - timedelta(days=11), step_hours=1)

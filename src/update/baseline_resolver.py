@@ -59,17 +59,51 @@ class UpdateBaselines:
 
 
 def _get_latest_market_snapshot(session):
+    """Latest scheduled reading, not simply the latest row.
+
+    Without the filter this returned whatever snapshot was written last, which on the
+    UPDATE path is the user's own previous request. RUN then measured the interval
+    between two clicks rather than market movement, which is why it so often read
+    +0.00%. PROJECT_MEMORY.md already required that accumulated user-triggered calls
+    not serve as a baseline; the column needed to enforce it only arrived with the
+    SP-C.1 migration.
+
+    Falls back to any snapshot when no scheduled reading exists yet, so history
+    predating the migration still resolves a baseline instead of none.
+    """
+    scheduled = (
+        session.query(MarketSnapshot)
+        .filter(MarketSnapshot.collection_mode == "scheduled")
+        .order_by(MarketSnapshot.timestamp.desc())
+        .first()
+    )
+    if scheduled is not None:
+        return scheduled
     return session.query(MarketSnapshot).order_by(MarketSnapshot.timestamp.desc()).first()
 
 
-def _get_earliest_market_snapshot_today(session):
-    today = datetime.now().date()
-    return (
-        session.query(MarketSnapshot)
-        .filter(func.date(MarketSnapshot.timestamp) == today)
+def _get_earliest_market_snapshot_today(session, now=None):
+    """First scheduled reading of today, with the same fallback.
+
+    UPDATE_V1_IMPLEMENTATION.md anticipated this switch: DAY moves to the first
+    controlled Analyze collection of the day once that wing runs on a real cadence.
+    It now runs hourly, so the condition is met.
+
+    `now` is injectable so the day boundary can be exercised without depending on
+    the clock at the moment the tests happen to run.
+    """
+    today = (now or datetime.now()).date()
+    base = session.query(MarketSnapshot).filter(
+        func.date(MarketSnapshot.timestamp) == today
+    )
+    scheduled = (
+        base.filter(MarketSnapshot.collection_mode == "scheduled")
         .order_by(MarketSnapshot.timestamp.asc())
         .first()
     )
+    if scheduled is not None:
+        return scheduled
+    return base.order_by(MarketSnapshot.timestamp.asc()).first()
 
 
 def _get_platform_prices(session, snapshot_id: Optional[int]) -> Dict[str, float]:

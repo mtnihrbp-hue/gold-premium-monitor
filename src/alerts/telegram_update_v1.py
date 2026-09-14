@@ -105,67 +105,86 @@ def _build_dynamics_interpretation(price_direction, price_change, premium, gap_d
 MARKET_TABLE_WIDTH = 33
 
 
-def _pp_compact(value):
-    """Percentage points without the unit space, so table columns keep a gutter."""
-    return "—" if value is None else f"{value:+.2f}pp"
+def _delta_bare(value):
+    """Signed change with no unit suffix.
+
+    At phone width a six-character column cannot hold "+0.04%" and still leave a
+    space between columns, and numbers that touch each other are unreadable. The
+    units are stated once in the footnote instead of on every cell.
+    """
+    return "—" if value is None else f"{value:+.2f}"
 
 
-def _market_row(metric, now_text, day_text, seven_day_text):
-    """Fixed-width row. Cell content must stay short or columns shear apart."""
-    return f"{metric:<9}{now_text:>8}{day_text:>8}{seven_day_text:>8}"
+def _market_row(metric, now_text, run_text, day_text, seven_day_text):
+    """Fixed-width row, 33 characters. Cell content must stay short or the columns
+    shear apart, which is what made this table unreadable before."""
+    return f"{metric:<8}{now_text:>7}{run_text:>6}{day_text:>6}{seven_day_text:>6}"
 
 
 def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premium, baselines,
-                  world_from_fallback=False):
+                  world_from_fallback=False, markets=None):
+    run = baselines.run
     day = baselines.day
     seven = baselines.seven_day
     lines = [_update_sep(), "<b>MARKET</b>", _update_sep()]
 
     rows = [
-        _market_row("", "Now", "Day", "7D avg"),
+        _market_row("", "Now", "Run", "Day", "7D"),
         "─" * MARKET_TABLE_WIDTH,
     ]
 
     rows.append(_market_row(
         "XAU/USD",
         f"${_money(world)}" if world is not None else "N/A",
-        format_pct(_pct_change(world, day.xau_usd if day else None), signed=True),
-        format_pct(_pct_change(world, seven.xau_usd), signed=True),
+        _delta_bare(_pct_change(world, run.xau_usd if run else None)),
+        _delta_bare(_pct_change(world, day.xau_usd if day else None)),
+        _delta_bare(_pct_change(world, seven.xau_usd)),
     ))
     rows.append(_market_row(
         "USD/IRR",
         _money(usd) if usd is not None else "N/A",
-        format_pct(_pct_change(usd, day.usd_irr if day else None), signed=True),
-        format_pct(_pct_change(usd, seven.usd_irr), signed=True),
+        _delta_bare(_pct_change(usd, run.usd_irr if run else None)),
+        _delta_bare(_pct_change(usd, day.usd_irr if day else None)),
+        _delta_bare(_pct_change(usd, seven.usd_irr)),
     ))
     rows.append(_market_row(
         "Fair",
         format_m_tomans_short(fair),
-        format_pct(_pct_change(fair, day.fair_price if day else None), signed=True),
-        format_pct(_pct_change(fair, seven.fair_price), signed=True),
+        _delta_bare(_pct_change(fair, run.fair_price if run else None)),
+        _delta_bare(_pct_change(fair, day.fair_price if day else None)),
+        _delta_bare(_pct_change(fair, seven.fair_price)),
     ))
     rows.append(_market_row(
         "Platform",
         format_m_tomans_short(platform_avg),
-        format_pct(_pct_change(platform_avg, day.platform_average if day else None), signed=True),
-        format_pct(_pct_change(platform_avg, seven.platform_average), signed=True),
+        _delta_bare(_pct_change(platform_avg, run.platform_average if run else None)),
+        _delta_bare(_pct_change(platform_avg, day.platform_average if day else None)),
+        _delta_bare(_pct_change(platform_avg, seven.platform_average)),
     ))
     rows.append(_market_row(
         "Bubble",
         f"{_number(premium)}%",
-        _pp_compact((premium - day.premium_percent) if day and day.premium_percent is not None else None),
-        _pp_compact((premium - seven.premium_percent) if seven.premium_percent is not None else None),
+        _delta_bare((premium - run.premium_percent) if run and run.premium_percent is not None else None),
+        _delta_bare((premium - day.premium_percent) if day and day.premium_percent is not None else None),
+        _delta_bare((premium - seven.premium_percent) if seven.premium_percent is not None else None),
     ))
 
     lines.append("<pre>" + "\n".join(rows) + "</pre>")
-    lines.append(f"<b>Lowest</b>  {format_m_tomans(lowest)}")
-    lines.append(f"<b>Highest</b>  {format_m_tomans(highest)}")
-    lines.append(f"<b>Spread</b>  {format_m_tomans(spread)}")
+    structure = format_market_structure(markets, fair) if markets else None
+    if structure:
+        lines.append(f"<b>Lowest</b>   {structure['low_name']}  {format_m_tomans(lowest)}")
+        lines.append(f"<b>Highest</b>  {structure['high_name']}  {format_m_tomans(highest)}")
+    else:
+        lines.append(f"<b>Lowest</b>   {format_m_tomans(lowest)}")
+        lines.append(f"<b>Highest</b>  {format_m_tomans(highest)}")
+    lines.append(f"<b>Spread</b>   {format_m_tomans(spread)}")
     lines.append("")
     # Day is point-to-point; the 7D column compares against a mean. Saying so stops
     # the two being read as the same kind of measure.
-    lines.append("<i>Day compares against the first reading today.</i>")
-    lines.append("<i>7D avg compares against the mean of 7 completed days.</i>")
+    lines.append("<i>Run compares against the last scheduled reading,</i>")
+    lines.append("<i>Day against the first scheduled reading today.</i>")
+    lines.append("<i>7D compares against the mean of 7 completed days.</i>")
+    lines.append("<i>Changes are %, except Bubble which is percentage points.</i>")
     if world_from_fallback:
         # Fail-safe rule: a fallback value must carry degraded provenance to the reader,
         # otherwise a cached price is indistinguishable from a fresh quote.
@@ -388,7 +407,7 @@ def send_update_v1(
         _build_verdict(signal_state, position),
         _build_the_number(premium, lowest, fair, signal_state, position, trend),
         _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premium, baselines,
-                      world_from_fallback=world_from_fallback),
+                      world_from_fallback=world_from_fallback, markets=markets),
         _build_dynamics(platform_avg, premium, baselines, momentum),
         _build_platforms(markets, baselines, fair=fair),
         _build_timestamp(),
