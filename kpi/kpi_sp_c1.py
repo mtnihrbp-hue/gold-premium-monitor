@@ -40,6 +40,8 @@ from database.models import Base, MarketSnapshot
 Base.metadata.create_all(bind=_TEST_ENGINE)
 
 from analysis.bubble_position import (
+    resolve_bubble_speed,
+    resolve_zone_episodes,
     resolve_bubble_position,
     resolve_similar_outcomes,
     MIN_OBSERVATIONS,
@@ -284,6 +286,133 @@ class KPISPC1(unittest.TestCase):
         values = {str(v) for v in vars(out).values()}
         for forbidden in ("BUY", "SELL", "WAIT"):
             self.assertNotIn(forbidden, values)
+
+
+    # --- percentile and bands ---------------------------------------------
+
+    def test_28_percentile_at_the_extremes(self):
+        _seed([-5.0 + i * 0.05 for i in range(40)])
+        session = _test_get_session()
+        values = [-5.0 + i * 0.05 for i in range(40)]
+        lowest = resolve_bubble_position(session, current_bubble=min(values), now=NOW)
+        highest = resolve_bubble_position(session, current_bubble=max(values), now=NOW)
+        self.assertLessEqual(lowest.percentile, 5)
+        self.assertEqual(highest.percentile, 100)
+
+    def test_29_cheap_boundary_below_expensive_boundary(self):
+        _seed([-5.0 + i * 0.05 for i in range(40)])
+        pos = resolve_bubble_position(_test_get_session(), now=NOW)
+        self.assertLess(pos.cheap_below, pos.expensive_above)
+
+    def test_30_band_cheap_below_the_boundary(self):
+        _seed([-5.0 + i * 0.05 for i in range(40)])
+        pos = resolve_bubble_position(_test_get_session(), now=NOW)
+        cheap = resolve_bubble_position(
+            _test_get_session(), current_bubble=pos.cheap_below - 0.5, now=NOW
+        )
+        self.assertEqual(cheap.band, "CHEAP")
+
+    def test_31_band_expensive_above_the_boundary(self):
+        _seed([-5.0 + i * 0.05 for i in range(40)])
+        pos = resolve_bubble_position(_test_get_session(), now=NOW)
+        pricey = resolve_bubble_position(
+            _test_get_session(), current_bubble=pos.expensive_above + 0.5, now=NOW
+        )
+        self.assertEqual(pricey.band, "EXPENSIVE")
+
+    def test_32_band_survives_a_skewed_distribution(self):
+        # A long cheap tail inflates the spread, so the z-score reports NORMAL while
+        # the reading actually sits in the top fifth. The band must follow rank.
+        _seed([-9.0] * 10 + [-4.0] * 25 + [-3.0] * 5)
+        pos = resolve_bubble_position(_test_get_session(), current_bubble=-3.0, now=NOW)
+        self.assertEqual(pos.zone, "NORMAL")
+        self.assertEqual(pos.band, "EXPENSIVE")
+
+    # --- expectancy --------------------------------------------------------
+
+    def test_33_expectancy_positive_when_cheaper_dominates(self):
+        start = NOW - timedelta(days=30)
+        pairs = []
+        for _ in range(15):
+            pairs.extend([-4.0, -5.0])
+        _seed(pairs, start=start, step_hours=24)
+        out = resolve_similar_outcomes(
+            _test_get_session(), current_bubble=-4.0, spread=1.0, now=NOW
+        )
+        self.assertGreater(out.expectancy_pp, 0)
+        self.assertGreater(out.saved_when_cheaper_pp, 0)
+
+    def test_34_reward_to_risk_reported(self):
+        start = NOW - timedelta(days=40)
+        pairs = []
+        for index in range(20):
+            pairs.extend([-4.0, -5.0 if index % 2 == 0 else -3.5])
+        _seed(pairs, start=start, step_hours=24)
+        out = resolve_similar_outcomes(
+            _test_get_session(), current_bubble=-4.0, spread=1.0, now=NOW
+        )
+        self.assertIsNotNone(out.reward_to_risk)
+        self.assertGreater(out.reward_to_risk, 0)
+
+    def test_35_best_and_worst_case_reported(self):
+        start = NOW - timedelta(days=30)
+        pairs = []
+        for _ in range(15):
+            pairs.extend([-4.0, -5.0])
+        _seed(pairs, start=start, step_hours=24)
+        out = resolve_similar_outcomes(
+            _test_get_session(), current_bubble=-4.0, spread=1.0, now=NOW
+        )
+        self.assertIsNotNone(out.best_case_pp)
+        self.assertIsNotNone(out.worst_case_pp)
+
+    # --- speed -------------------------------------------------------------
+
+    def test_36_typical_move_is_not_inflated_by_short_gaps(self):
+        # Regression guard. Deriving a daily rate from readings minutes apart once
+        # produced a typical move larger than the entire observed range.
+        _seed([-4.0, -4.05] * 60, step_hours=1)
+        speed = resolve_bubble_speed(_test_get_session(), cheap_below=-5.0, now=NOW)
+        if speed.typical_per_day_pp is not None:
+            self.assertLess(speed.typical_per_day_pp, 1.0)
+
+    def test_37_speed_reports_direction_toward_cheap(self):
+        _seed([-3.0 - i * 0.05 for i in range(40)], step_hours=2)
+        speed = resolve_bubble_speed(_test_get_session(), cheap_below=-6.0, now=NOW)
+        self.assertEqual(speed.direction, "TOWARD_CHEAP")
+
+    def test_38_speed_reports_direction_away_from_cheap(self):
+        _seed([-5.0 + i * 0.05 for i in range(40)], step_hours=2)
+        speed = resolve_bubble_speed(_test_get_session(), cheap_below=-6.0, now=NOW)
+        self.assertEqual(speed.direction, "AWAY_FROM_CHEAP")
+
+    def test_39_speed_insufficient_without_history(self):
+        speed = resolve_bubble_speed(_test_get_session(), cheap_below=-4.0, now=NOW)
+        self.assertEqual(speed.status, "INSUFFICIENT_DATA")
+
+    # --- cheap zone episodes ----------------------------------------------
+
+    def test_40_episodes_counted(self):
+        # Three separate spells below the threshold.
+        pattern = ([-6.0] * 4 + [-3.0] * 4) * 3 + [-3.0] * 20
+        _seed(pattern, step_hours=2)
+        episodes = resolve_zone_episodes(_test_get_session(), cheap_below=-5.0, now=NOW)
+        self.assertEqual(episodes.episodes, 3)
+
+    def test_41_currently_inside_is_reported(self):
+        _seed([-3.0] * 35 + [-6.0] * 5, step_hours=2)
+        episodes = resolve_zone_episodes(_test_get_session(), cheap_below=-5.0, now=NOW)
+        self.assertTrue(episodes.currently_inside)
+
+    def test_42_sparse_sampling_is_marked_coarse(self):
+        _seed([-6.0, -3.0] * 20, step_hours=6)
+        episodes = resolve_zone_episodes(_test_get_session(), cheap_below=-5.0, now=NOW)
+        self.assertEqual(episodes.measurement_quality, "COARSE")
+
+    def test_43_episodes_need_a_threshold(self):
+        _seed([-4.0] * 40)
+        episodes = resolve_zone_episodes(_test_get_session(), cheap_below=None, now=NOW)
+        self.assertEqual(episodes.status, "INSUFFICIENT_DATA")
 
 
 if __name__ == "__main__":

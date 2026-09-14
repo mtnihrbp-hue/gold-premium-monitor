@@ -27,7 +27,7 @@ collection_mode migration lands.
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from statistics import mean, pstdev
+from statistics import mean, median, pstdev
 from typing import List, Optional
 
 from database.models import MarketSnapshot
@@ -51,6 +51,17 @@ NOTABLE_Z = 1.0
 # means the reference itself is moving, not just the current reading.
 DRIFT_FRACTION_OF_STD = 0.5
 
+# Band boundaries as percentiles of the window.
+#
+# The forward 24h return changed sign near the 40th percentile in the first 41 days
+# of production data, and readings above the 80th were consistently the worst
+# entries. These are starting boundaries derived from observation, not constants
+# believed to be permanent: the percentile they correspond to in price terms is
+# recomputed from the window on every call, and the boundaries themselves should be
+# re-derived once enough history exists to measure them properly.
+CHEAP_PERCENTILE = 40
+EXPENSIVE_PERCENTILE = 80
+
 
 @dataclass
 class BubblePosition:
@@ -63,6 +74,10 @@ class BubblePosition:
     normal_low: Optional[float]
     normal_high: Optional[float]
     z_score: Optional[float]
+    percentile: Optional[int]
+    cheap_below: Optional[float]
+    expensive_above: Optional[float]
+    band: str
     zone: str
     confidence: str
     drift: str
@@ -79,10 +94,42 @@ def _empty(window_days: int) -> BubblePosition:
         normal_low=None,
         normal_high=None,
         z_score=None,
+        percentile=None,
+        cheap_below=None,
+        expensive_above=None,
+        band="INSUFFICIENT_DATA",
         zone="INSUFFICIENT_DATA",
         confidence="INSUFFICIENT_DATA",
         drift="UNKNOWN",
     )
+
+
+def _percentile_of(value: float, sorted_values: List[float]) -> int:
+    """Share of the window at or below this reading, as a whole number."""
+    at_or_below = sum(1 for v in sorted_values if v <= value)
+    return round(100.0 * at_or_below / len(sorted_values))
+
+
+def _value_at_percentile(sorted_values: List[float], percentile: int) -> float:
+    index = int(percentile / 100.0 * len(sorted_values))
+    return sorted_values[max(0, min(len(sorted_values) - 1, index))]
+
+
+def _classify_band(percentile: Optional[int]) -> str:
+    """Plain bands for presentation.
+
+    Percentile is used rather than the z-score because the bubble distribution is
+    left-skewed: a long tail of deep discounts inflates the standard deviation, so
+    a z-score reports readings as normal while they sit in the top fifth of the
+    range. Rank survives skew; distance from the mean does not.
+    """
+    if percentile is None:
+        return "INSUFFICIENT_DATA"
+    if percentile < CHEAP_PERCENTILE:
+        return "CHEAP"
+    if percentile >= EXPENSIVE_PERCENTILE:
+        return "EXPENSIVE"
+    return "TYPICAL"
 
 
 def _classify_zone(z_score: Optional[float]) -> str:
@@ -183,6 +230,9 @@ def resolve_bubble_position(
 
     z_score = None if spread == 0 else (bubble - average) / spread
 
+    ordered = sorted(values)
+    percentile = _percentile_of(bubble, ordered)
+
     return BubblePosition(
         bubble=bubble,
         window_days=window_days,
@@ -193,6 +243,10 @@ def resolve_bubble_position(
         normal_low=round(average - spread, 4),
         normal_high=round(average + spread, 4),
         z_score=None if z_score is None else round(z_score, 3),
+        percentile=percentile,
+        cheap_below=round(_value_at_percentile(ordered, CHEAP_PERCENTILE), 4),
+        expensive_above=round(_value_at_percentile(ordered, EXPENSIVE_PERCENTILE), 4),
+        band=_classify_band(percentile),
         zone=_classify_zone(z_score),
         confidence=_classify_confidence(coverage_days, len(values)),
         drift=_classify_drift(values, spread),
@@ -225,12 +279,18 @@ class SimilarOutcomes:
     became_pricier: int
     unchanged: int
     average_move_pp: Optional[float]
+    saved_when_cheaper_pp: Optional[float]
+    cost_when_pricier_pp: Optional[float]
+    expectancy_pp: Optional[float]
+    reward_to_risk: Optional[float]
+    best_case_pp: Optional[float]
+    worst_case_pp: Optional[float]
     band_low: Optional[float]
     band_high: Optional[float]
     status: str
 
 
-def _empty_outcomes(horizon_hours: int) -> SimilarOutcomes:
+def _empty_outcomes(horizon_hours: int, band_low=None, band_high=None) -> SimilarOutcomes:
     return SimilarOutcomes(
         horizon_hours=horizon_hours,
         cases=0,
@@ -238,8 +298,14 @@ def _empty_outcomes(horizon_hours: int) -> SimilarOutcomes:
         became_pricier=0,
         unchanged=0,
         average_move_pp=None,
-        band_low=None,
-        band_high=None,
+        saved_when_cheaper_pp=None,
+        cost_when_pricier_pp=None,
+        expectancy_pp=None,
+        reward_to_risk=None,
+        best_case_pp=None,
+        worst_case_pp=None,
+        band_low=band_low,
+        band_high=band_high,
         status="INSUFFICIENT_DATA",
     )
 
@@ -305,30 +371,232 @@ def resolve_similar_outcomes(
             moves.append(best - premium)
 
     if not moves:
-        return SimilarOutcomes(
-            horizon_hours=horizon_hours,
-            cases=0,
-            became_cheaper=0,
-            became_pricier=0,
-            unchanged=0,
-            average_move_pp=None,
-            band_low=round(band_low, 4),
-            band_high=round(band_high, 4),
-            status="INSUFFICIENT_DATA",
-        )
+        return _empty_outcomes(horizon_hours, round(band_low, 4), round(band_high, 4))
 
-    became_pricier = sum(1 for m in moves if m > UNCHANGED_DEADBAND_PP)
-    became_cheaper = sum(1 for m in moves if m < -UNCHANGED_DEADBAND_PP)
-    unchanged = len(moves) - became_pricier - became_cheaper
+    cheaper_moves = [m for m in moves if m < -UNCHANGED_DEADBAND_PP]
+    pricier_moves = [m for m in moves if m > UNCHANGED_DEADBAND_PP]
+    unchanged = len(moves) - len(cheaper_moves) - len(pricier_moves)
+
+    # Counting alone is not enough to judge whether waiting is worthwhile. A high
+    # share of favourable cases can still lose if the unfavourable ones are larger,
+    # so the average size of each side is carried and combined into an expectancy.
+    saved = abs(mean(cheaper_moves)) if cheaper_moves else 0.0
+    cost = abs(mean(pricier_moves)) if pricier_moves else 0.0
+    decided = len(cheaper_moves) + len(pricier_moves)
+    share_cheaper = (len(cheaper_moves) / decided) if decided else 0.0
+    expectancy = share_cheaper * saved - (1 - share_cheaper) * cost
 
     return SimilarOutcomes(
         horizon_hours=horizon_hours,
         cases=len(moves),
-        became_cheaper=became_cheaper,
-        became_pricier=became_pricier,
+        became_cheaper=len(cheaper_moves),
+        became_pricier=len(pricier_moves),
         unchanged=unchanged,
         average_move_pp=round(mean(moves), 3),
+        saved_when_cheaper_pp=round(saved, 3),
+        cost_when_pricier_pp=round(cost, 3),
+        expectancy_pp=round(expectancy, 3),
+        reward_to_risk=round(saved / cost, 2) if cost else None,
+        best_case_pp=round(abs(min(moves)), 3),
+        worst_case_pp=round(max(moves), 3),
         band_low=round(band_low, 4),
         band_high=round(band_high, 4),
+        status="OK",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Speed, expressed against its own normal
+# ---------------------------------------------------------------------------
+
+SPEED_LOOKBACK_HOURS = 48
+QUIET_RATIO = 0.5
+FAST_RATIO = 1.5
+
+
+@dataclass
+class BubbleSpeed:
+    rate_per_day_pp: Optional[float]
+    typical_per_day_pp: Optional[float]
+    ratio_to_typical: Optional[float]
+    pace: str
+    direction: str
+    status: str
+
+
+def resolve_bubble_speed(
+    session,
+    cheap_below: Optional[float] = None,
+    lookback_hours: int = SPEED_LOOKBACK_HOURS,
+    now: Optional[datetime] = None,
+) -> BubbleSpeed:
+    """How fast the bubble is moving, relative to its own normal pace.
+
+    A rate on its own tells a reader nothing, because there is no reference for
+    whether it is fast. It is therefore divided by the typical daily move, and
+    pointed at the cheap boundary so the direction carries meaning.
+    """
+    empty = BubbleSpeed(None, None, None, "UNKNOWN", "UNKNOWN", "INSUFFICIENT_DATA")
+    if session is None:
+        return empty
+    if now is None:
+        now = datetime.now()
+
+    try:
+        rows = (
+            session.query(MarketSnapshot.timestamp, MarketSnapshot.premium_percent)
+            .filter(MarketSnapshot.premium_percent.isnot(None))
+            .order_by(MarketSnapshot.timestamp.asc())
+            .all()
+        )
+    except Exception as e:
+        print(f"Bubble speed query failed: {e}")
+        return empty
+
+    series = [(ts, float(p)) for ts, p in rows if p is not None]
+    if len(series) < MIN_OBSERVATIONS:
+        return empty
+
+    recent = [(ts, p) for ts, p in series if ts >= now - timedelta(hours=lookback_hours)]
+    if len(recent) < 2:
+        return empty
+
+    hours = (recent[-1][0] - recent[0][0]).total_seconds() / 3600.0
+    if hours <= 0:
+        return empty
+    rate = (recent[-1][1] - recent[0][1]) / hours * 24.0
+
+    # Measure the typical move over a genuine day rather than extrapolating from
+    # whatever gap happens to separate two readings. Consecutive readings can be
+    # minutes apart, and scaling a small change across a short gap to a daily rate
+    # produces figures larger than the bubble's entire observed range.
+    daily_changes = []
+    day = timedelta(hours=24)
+    slack = timedelta(hours=2)
+    for index, (timestamp, premium) in enumerate(series):
+        target = timestamp + day
+        for later_timestamp, later_premium in series[index + 1:]:
+            if later_timestamp > target + slack:
+                break
+            if abs(later_timestamp - target) <= slack:
+                daily_changes.append(abs(later_premium - premium))
+                break
+    typical = mean(daily_changes) if daily_changes else None
+
+    ratio = (abs(rate) / typical) if typical else None
+    if ratio is None:
+        pace = "UNKNOWN"
+    elif ratio < QUIET_RATIO:
+        pace = "QUIET"
+    elif ratio > FAST_RATIO:
+        pace = "FAST"
+    else:
+        pace = "NORMAL"
+
+    direction = "FLAT"
+    if cheap_below is not None and abs(rate) > 0:
+        current = series[-1][1]
+        if current <= cheap_below:
+            direction = "INSIDE_CHEAP"
+        else:
+            direction = "TOWARD_CHEAP" if rate < 0 else "AWAY_FROM_CHEAP"
+
+    return BubbleSpeed(
+        rate_per_day_pp=round(rate, 3),
+        typical_per_day_pp=round(typical, 3) if typical else None,
+        ratio_to_typical=round(ratio, 2) if ratio else None,
+        pace=pace,
+        direction=direction,
+        status="OK",
+    )
+
+
+# ---------------------------------------------------------------------------
+# How often the cheap zone appears and how long it lasts
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ZoneEpisodes:
+    threshold: Optional[float]
+    episodes: int
+    typical_hours: Optional[float]
+    longest_hours: Optional[float]
+    currently_inside: bool
+    measurement_quality: str
+    status: str
+
+
+def resolve_zone_episodes(
+    session,
+    cheap_below: Optional[float],
+    window_days: int = DEFAULT_WINDOW_DAYS,
+    now: Optional[datetime] = None,
+) -> ZoneEpisodes:
+    """How many times the cheap zone occurred, and how long each spell lasted.
+
+    An episode is a run of consecutive readings below the threshold, so the measured
+    duration is bounded by how often readings are taken. Under irregular collection a
+    short spell may be an artefact of two adjacent readings rather than a real one,
+    which is why measurement_quality is reported alongside the numbers.
+    """
+    empty = ZoneEpisodes(cheap_below, 0, None, None, False, "UNKNOWN", "INSUFFICIENT_DATA")
+    if session is None or cheap_below is None:
+        return empty
+    if now is None:
+        now = datetime.now()
+
+    try:
+        rows = (
+            session.query(MarketSnapshot.timestamp, MarketSnapshot.premium_percent)
+            .filter(
+                MarketSnapshot.premium_percent.isnot(None),
+                MarketSnapshot.timestamp >= now - timedelta(days=window_days),
+            )
+            .order_by(MarketSnapshot.timestamp.asc())
+            .all()
+        )
+    except Exception as e:
+        print(f"Zone episode query failed: {e}")
+        return empty
+
+    series = [(ts, float(p)) for ts, p in rows if p is not None]
+    if len(series) < MIN_OBSERVATIONS:
+        return empty
+
+    spans: List[List[datetime]] = []
+    run: List[datetime] = []
+    for timestamp, premium in series:
+        if premium <= cheap_below:
+            run.append(timestamp)
+        elif run:
+            spans.append(run)
+            run = []
+    if run:
+        spans.append(run)
+
+    durations = [
+        (span[-1] - span[0]).total_seconds() / 3600.0
+        for span in spans if len(span) > 1
+    ]
+
+    gaps = [
+        (series[i][0] - series[i - 1][0]).total_seconds() / 3600.0
+        for i in range(1, len(series))
+    ]
+    median_gap = median(gaps) if gaps else None
+    if median_gap is None:
+        quality = "UNKNOWN"
+    elif median_gap <= 1.0:
+        quality = "RELIABLE"
+    else:
+        quality = "COARSE"
+
+    return ZoneEpisodes(
+        threshold=cheap_below,
+        episodes=len(spans),
+        typical_hours=round(median(durations), 1) if durations else None,
+        longest_hours=round(max(durations), 1) if durations else None,
+        currently_inside=series[-1][1] <= cheap_below,
+        measurement_quality=quality,
         status="OK",
     )
