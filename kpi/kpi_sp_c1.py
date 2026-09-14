@@ -40,6 +40,7 @@ from database.models import Base, MarketSnapshot
 Base.metadata.create_all(bind=_TEST_ENGINE)
 
 from analysis.bubble_position import (
+    resolve_bubble_trend,
     resolve_bubble_speed,
     resolve_zone_episodes,
     resolve_bubble_position,
@@ -413,6 +414,60 @@ class KPISPC1(unittest.TestCase):
         _seed([-4.0] * 40)
         episodes = resolve_zone_episodes(_test_get_session(), cheap_below=None, now=NOW)
         self.assertEqual(episodes.status, "INSUFFICIENT_DATA")
+
+    # --- bubble moving averages -------------------------------------------
+
+    def test_44_trend_insufficient_without_history(self):
+        trend = resolve_bubble_trend(_test_get_session(), now=NOW)
+        self.assertEqual(trend.status, "INSUFFICIENT_DATA")
+
+    def test_45_trend_missing_session_does_not_raise(self):
+        trend = resolve_bubble_trend(None, now=NOW)
+        self.assertEqual(trend.status, "INSUFFICIENT_DATA")
+
+    def test_46_short_average_above_long_reads_as_shrinking(self):
+        # Older days deeply discounted, recent days shallower.
+        _seed([-6.0] * 8 * 24, start=NOW - timedelta(days=15), step_hours=1)
+        _seed([-3.0] * 6 * 24, start=NOW - timedelta(days=6), step_hours=1)
+        trend = resolve_bubble_trend(_test_get_session(), now=NOW)
+        self.assertEqual(trend.cross, "ABOVE")
+        self.assertEqual(trend.reading, "DISCOUNT_SHRINKING")
+
+    def test_47_short_average_below_long_reads_as_deepening(self):
+        _seed([-3.0] * 8 * 24, start=NOW - timedelta(days=15), step_hours=1)
+        _seed([-6.0] * 6 * 24, start=NOW - timedelta(days=6), step_hours=1)
+        trend = resolve_bubble_trend(_test_get_session(), now=NOW)
+        self.assertEqual(trend.cross, "BELOW")
+        self.assertEqual(trend.reading, "DISCOUNT_DEEPENING")
+
+    def test_48_bubble_compared_against_the_short_average(self):
+        _seed([-4.0] * 10 * 24, start=NOW - timedelta(days=11), step_hours=1)
+        below = resolve_bubble_trend(_test_get_session(), current_bubble=-5.0, now=NOW)
+        above = resolve_bubble_trend(_test_get_session(), current_bubble=-3.0, now=NOW)
+        self.assertEqual(below.versus_short, "BELOW")
+        self.assertEqual(above.versus_short, "ABOVE")
+
+    def test_49_each_day_weighs_the_same(self):
+        # One day sampled forty times must not outweigh days sampled once.
+        _seed([-8.0] * 40, start=NOW - timedelta(days=3), step_hours=0)
+        _seed([-2.0], start=NOW - timedelta(days=2), step_hours=1)
+        _seed([-2.0], start=NOW - timedelta(days=1), step_hours=1)
+        trend = resolve_bubble_trend(_test_get_session(), now=NOW)
+        # Equal weighting gives (-8 + -2 + -2) / 3; sample weighting would sit near -8.
+        self.assertGreater(trend.short_average, -6.0)
+
+    def test_50_current_partial_day_is_excluded(self):
+        _seed([-4.0] * 10 * 24, start=NOW - timedelta(days=11), step_hours=1)
+        _seed([-9.0] * 5, start=NOW - timedelta(hours=4), step_hours=1)
+        trend = resolve_bubble_trend(_test_get_session(), now=NOW)
+        self.assertAlmostEqual(trend.short_average, -4.0, places=2)
+
+    def test_51_trend_never_emits_a_decision(self):
+        _seed([-4.0] * 10 * 24, start=NOW - timedelta(days=11), step_hours=1)
+        trend = resolve_bubble_trend(_test_get_session(), now=NOW)
+        values = {str(v) for v in vars(trend).values()}
+        for forbidden in ("BUY", "SELL", "WAIT"):
+            self.assertNotIn(forbidden, values)
 
 
 if __name__ == "__main__":

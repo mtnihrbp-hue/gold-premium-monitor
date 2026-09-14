@@ -181,6 +181,68 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
 # PRICE & BUBBLE DYNAMICS section
 # ---------------------------------------------------------------------------
 
+def _build_verdict(signal_state, position):
+    """Decision first, with the one line that justifies it.
+
+    The decision previously sat at the foot of the message, below several hundred
+    characters of detail. A reader wanting to know whether to act had to reach the
+    end to find out.
+    """
+    if signal_state is None:
+        return "<b>GOLDPremium: UPDATE</b>"
+
+    final = signal_state.final_decision
+    line = None
+    if position is not None and position.band == "CHEAP":
+        line = "Cheap against its own recent range."
+    elif position is not None and position.band == "EXPENSIVE":
+        line = "Expensive against its own recent range."
+    elif position is not None and position.band == "TYPICAL":
+        line = "Middle of its own recent range. No edge here."
+
+    parts = ["<b>GOLDPremium: UPDATE</b>", "", f"<b>{final}</b>"]
+    if line:
+        parts.append(line)
+    return "\n".join(parts)
+
+
+def _build_the_number(premium, lowest, fair, signal_state, position, trend):
+    """The figures a decision actually rests on, in one block."""
+    lines = [_update_sep(), "<b>THE NUMBER</b>", _update_sep()]
+    lines.append(f"<b>Bubble</b>          {_number(premium)}%")
+
+    if position is not None and position.percentile is not None:
+        lines.append(f"<b>Position</b>        {position.percentile} of 100")
+        lines.append("                0 = cheapest, 100 = most expensive")
+        if position.cheap_below is not None:
+            lines.append(f"<b>Cheap below</b>     {_number(position.cheap_below)}%")
+        if position.confidence in ("LOW", "INSUFFICIENT_DATA"):
+            lines.append(f"<b>Confidence</b>      {position.confidence.replace('_', ' ')}")
+    else:
+        lines.append("<b>Position</b>        not enough history yet")
+
+    lines.append("")
+    if signal_state is not None:
+        lines.append(f"<b>Momentum</b>        {signal_state.momentum}")
+        below = getattr(signal_state, "platforms_below_fair", None)
+        above = getattr(signal_state, "platforms_above_fair", None)
+        if below is not None and above is not None:
+            lines.append(f"<b>Structure</b>       {below} of {below + above} below fair")
+
+    if trend is not None and trend.status == "OK":
+        # Name both sides of every comparison. "now below" on its own leaves the
+        # reader asking below what.
+        lines.append(f"<b>7-day average</b>   {_number(trend.short_average)}%")
+        lines.append(f"<b>Bubble vs 7D</b>    {trend.versus_short.lower()}")
+        reading = "discount shrinking" if trend.reading == "DISCOUNT_SHRINKING" else "discount deepening"
+        lines.append(f"<b>7D vs 15D</b>       {trend.cross.lower()}   {reading}")
+
+    lines.append("")
+    lines.append(f"<b>Market low</b>      {format_m_tomans(lowest)}")
+    lines.append(f"<b>Fair value</b>      {format_m_tomans(fair)}")
+    return "\n".join(lines)
+
+
 def _build_dynamics(platform_avg, premium, baselines, momentum):
     run = baselines.run
     price_change = _pct_change(platform_avg, run.platform_average if run else None)
@@ -205,8 +267,8 @@ def _build_dynamics(platform_avg, premium, baselines, momentum):
         f"<b>Local price</b>  {baselines.price_direction}",
         f"<b>Change</b>  {format_pct(price_change, signed=True)}  (platform avg)",
         "",
-        f"<b>Bubble</b>  {bubble_state}",
-        f"               {_number(premium)}%",
+        # The bubble level itself is stated in THE NUMBER; repeating it here only
+        # gave the reader the same figure twice.
         f"<b>Direction toward</b>  {gap_direction}",
         f"<b>Gap Δ</b>  {format_pp(gap_delta, signed=True)}",
         "",
@@ -357,11 +419,14 @@ def send_update_v1(
     baselines: UpdateBaselines,
     momentum: Optional[Dict] = None,
     world_from_fallback: bool = False,
+    position=None,
+    trend=None,
 ):
     if baselines is None:
         raise RuntimeError("UPDATE v1 requires resolved baselines")
     body = "\n\n".join([
-        "<b>GOLDPremium: UPDATE</b>",
+        _build_verdict(signal_state, position),
+        _build_the_number(premium, lowest, fair, signal_state, position, trend),
         _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premium, baselines,
                       world_from_fallback=world_from_fallback),
         _build_dynamics(platform_avg, premium, baselines, momentum),

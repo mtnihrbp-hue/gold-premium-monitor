@@ -512,6 +512,109 @@ def resolve_bubble_speed(
 
 
 # ---------------------------------------------------------------------------
+# Moving averages of the bubble
+# ---------------------------------------------------------------------------
+
+SHORT_AVERAGE_DAYS = 7
+LONG_AVERAGE_DAYS = 15
+
+
+@dataclass
+class BubbleTrend:
+    bubble: Optional[float]
+    short_average: Optional[float]
+    long_average: Optional[float]
+    short_days: int
+    long_days: int
+    versus_short: str
+    cross: str
+    reading: str
+    status: str
+
+
+def _equal_weighted_daily_mean(series, reference_date, days: int) -> Optional[float]:
+    """Mean of daily means over completed days.
+
+    Each day contributes once regardless of how many readings it holds, so a day
+    that happened to be sampled heavily does not dominate the average.
+    """
+    by_day = {}
+    for timestamp, value in series:
+        day = timestamp.date()
+        if day == reference_date or (reference_date - day).days > days:
+            continue
+        by_day.setdefault(day, []).append(value)
+    if not by_day:
+        return None
+    return mean(mean(values) for values in by_day.values())
+
+
+def resolve_bubble_trend(
+    session,
+    current_bubble: Optional[float] = None,
+    now: Optional[datetime] = None,
+) -> BubbleTrend:
+    """Moving averages of the bubble, not of the price.
+
+    A moving average of the local price mostly tracks currency devaluation, so it
+    reports an uptrend almost permanently and carries little information. The bubble
+    is the part that mean-reverts, so the averages are taken on it: a short average
+    above the long one means the discount has been shrinking, which is gold becoming
+    more expensive relative to fair value.
+    """
+    empty = BubbleTrend(None, None, None, SHORT_AVERAGE_DAYS, LONG_AVERAGE_DAYS,
+                        "UNKNOWN", "UNKNOWN", "UNKNOWN", "INSUFFICIENT_DATA")
+    if session is None:
+        return empty
+    if now is None:
+        now = datetime.now()
+
+    try:
+        rows = (
+            session.query(MarketSnapshot.timestamp, MarketSnapshot.premium_percent)
+            .filter(
+                MarketSnapshot.premium_percent.isnot(None),
+                MarketSnapshot.timestamp >= now - timedelta(days=LONG_AVERAGE_DAYS + 1),
+            )
+            .order_by(MarketSnapshot.timestamp.asc())
+            .all()
+        )
+    except Exception as e:
+        print(f"Bubble trend query failed: {e}")
+        return empty
+
+    series = [(ts, float(p)) for ts, p in rows if p is not None]
+    if not series:
+        return empty
+
+    bubble = current_bubble if current_bubble is not None else series[-1][1]
+    reference_date = now.date()
+    short_average = _equal_weighted_daily_mean(series, reference_date, SHORT_AVERAGE_DAYS)
+    long_average = _equal_weighted_daily_mean(series, reference_date, LONG_AVERAGE_DAYS)
+
+    if short_average is None or long_average is None:
+        result = empty
+        result.bubble = bubble
+        return result
+
+    versus_short = "ABOVE" if bubble > short_average else "BELOW"
+    cross = "ABOVE" if short_average > long_average else "BELOW"
+    reading = "DISCOUNT_SHRINKING" if cross == "ABOVE" else "DISCOUNT_DEEPENING"
+
+    return BubbleTrend(
+        bubble=bubble,
+        short_average=round(short_average, 3),
+        long_average=round(long_average, 3),
+        short_days=SHORT_AVERAGE_DAYS,
+        long_days=LONG_AVERAGE_DAYS,
+        versus_short=versus_short,
+        cross=cross,
+        reading=reading,
+        status="OK",
+    )
+
+
+# ---------------------------------------------------------------------------
 # How often the cheap zone appears and how long it lasts
 # ---------------------------------------------------------------------------
 
