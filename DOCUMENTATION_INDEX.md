@@ -14,6 +14,7 @@ This file is the navigation authority for repository documentation. It identifie
 | `C14_HANDOFF.md` | C14A/C14B contracts, terminology, feedback, and audit rules |
 | `C14C_HANDOFF.md` | C14C architecture and implementation contract |
 | `C14C_IMPLEMENTATION.md` | Verified C14C implementation reference, KPI boundary, supporting operational news-ingestion work, and UPDATE v1 wing-boundary record |
+| `SP_C_HANDOFF.md` | SP-C implementation contract: relative valuation, decision scorecard, and the evidence behind both |
 | `RESEARCH_ADOPTION.md` | External research boundaries |
 | `Prompt_Guide.md` | AI engineering operating rules |
 | `CLAUDE.md` | Claude Code entry point: commands, architecture summary, and pointers into this hierarchy |

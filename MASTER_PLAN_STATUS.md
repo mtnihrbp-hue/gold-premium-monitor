@@ -388,11 +388,29 @@ no unnecessary Neon schema mutation
 ## 15. Branch safety
 
 ```text
-CURRENT WORK = main surgical stabilization / documentation
-NEXT MAJOR PHASE = SP-C on a new branch after scope approval
+CURRENT WORK = SP-C branch
+MAIN MERGE = after user review, tagged v1.3safe first
 ```
 
-No major C15/SP-C implementation should begin until the architecture/research review identifies the actual bottleneck and scope is explicitly locked.
+The gate on this section has been satisfied. The bottleneck was identified with
+evidence rather than assumed: collection cadence, not analytical capability. The
+Analyze wing was not running at all because an external scheduler posting to the
+dispatches endpoint produced `workflow_dispatch` rather than `schedule`, and the
+candle build scaled with total stored history until it exceeded the job timeout.
+
+SP-C scope is recorded in `SP_C_HANDOFF.md`. Completed so far:
+
+```text
+Pre-SP-C stabilization        KPI suite into CI, five UPDATE defects, doc reconciliation
+Analyze trigger               fixed, mode input declared by the caller
+Candle build performance      11m19s → 1m53s, no longer grows with history
+SP-C.1 relative valuation     bubble_position.py, KPI 27/27
+SP-C.2 decision scorecard     decision_scorecard.py, KPI 19/19
+```
+
+In progress: UPDATE and ANALYZE message templates, to be agreed before implementation.
+
+Full suite: **21/21 files, 438 assertions**, green locally and in CI.
 
 ## 16. Continuity protocol
 

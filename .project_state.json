@@ -24,11 +24,28 @@
     "PRE-SP-C.14B",
     "PRE-SP-C.14C"
   ],
+  "sp_c_progress": {
+    "handoff_document": "SP_C_HANDOFF.md",
+    "completed": [
+      "Pre-SP-C stabilization: C.2 KPI regression, scikit-learn 1.7 compatibility, KPI suite in CI, five UPDATE presentation defects, MARKET table rebuild, documentation reconciliation",
+      "Analyze trigger fixed: external schedulers declare mode=analyze so SCHEDULED_RUN resolves true",
+      "Candle build no longer scales with stored history: ANALYZE run 11m19s to 1m53s",
+      "SP-C.1 relative bubble valuation (src/analysis/bubble_position.py)",
+      "SP-C.2 decision scorecard with baselines (src/analysis/decision_scorecard.py)"
+    ],
+    "in_progress": [
+      "UPDATE and ANALYZE message templates, to be agreed before implementation"
+    ],
+    "not_wired": "Neither bubble_position nor decision_scorecard is rendered in any message yet.",
+    "decision_trigger_finding": "Forward 24h return changes sign near the 40th percentile in 41 days of data. Never hardcoded; the reference recomputes every run.",
+    "scoring_rule_finding": "Scoring price direction would credit an always-BUY system with 58% because the local price rises on its own. The bubble rose in 47% of the same cases, so the bubble is scored.",
+    "production_scorecard": "24h horizon: 175 scored, hit rate 55.2%, always-WAIT baseline 55.2%, edge 0.0. Correct — final_decision has been WAIT on 204 of 204 states."
+  },
   "latest_verified_kpi": {
     "phase": "FULL SUITE",
-    "files_passed": 19,
-    "files_total": 19,
-    "assertions": 392,
+    "files_passed": 21,
+    "files_total": 21,
+    "assertions": 438,
     "status": "PASS",
     "evidence_source": "executed on SP-C against an isolated in-memory database; also green in CI (.github/workflows/kpi-suite.yml)",
     "notes": [
@@ -187,6 +204,7 @@
       "RESEARCH_ADOPTION.md",
       "C14C_HANDOFF.md",
       "C14C_IMPLEMENTATION.md",
+      "SP_C_HANDOFF.md",
       "README.md",
       "Prompt_Guide.md",
       "skills/",
