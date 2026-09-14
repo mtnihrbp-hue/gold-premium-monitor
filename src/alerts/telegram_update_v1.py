@@ -98,7 +98,11 @@ def _build_dynamics_interpretation(price_direction, price_change, premium, gap_d
 # MARKET section
 # ---------------------------------------------------------------------------
 
-MARKET_TABLE_WIDTH = 48
+# Telegram renders <pre> blocks in a monospace font that fits roughly 32 characters
+# on a phone. The previous 48-character table either wrapped, destroying the column
+# alignment entirely, or forced horizontal scrolling. Everything here is sized to
+# stay inside that budget.
+MARKET_TABLE_WIDTH = 33
 
 
 def _pp_compact(value):
@@ -106,55 +110,49 @@ def _pp_compact(value):
     return "—" if value is None else f"{value:+.2f}pp"
 
 
-def _market_row(metric, now_text, run_text, day_text, seven_day_text):
+def _market_row(metric, now_text, day_text, seven_day_text):
     """Fixed-width row. Cell content must stay short or columns shear apart."""
-    return f"{metric:<12}{now_text:>9}{run_text:>9}{day_text:>9}{seven_day_text:>9}"
+    return f"{metric:<9}{now_text:>8}{day_text:>8}{seven_day_text:>8}"
 
 
 def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premium, baselines,
                   world_from_fallback=False):
-    run = baselines.run
     day = baselines.day
     seven = baselines.seven_day
     lines = [_update_sep(), "<b>MARKET</b>", _update_sep()]
 
     rows = [
-        _market_row("", "Now", "Run", "Day", "7D avg"),
+        _market_row("", "Now", "Day", "7D avg"),
         "─" * MARKET_TABLE_WIDTH,
     ]
 
     rows.append(_market_row(
         "XAU/USD",
         f"${_money(world)}" if world is not None else "N/A",
-        format_pct(_pct_change(world, run.xau_usd if run else None), signed=True),
         format_pct(_pct_change(world, day.xau_usd if day else None), signed=True),
         format_pct(_pct_change(world, seven.xau_usd), signed=True),
     ))
     rows.append(_market_row(
         "USD/IRR",
         _money(usd) if usd is not None else "N/A",
-        format_pct(_pct_change(usd, run.usd_irr if run else None), signed=True),
         format_pct(_pct_change(usd, day.usd_irr if day else None), signed=True),
         format_pct(_pct_change(usd, seven.usd_irr), signed=True),
     ))
     rows.append(_market_row(
-        "Fair Price",
+        "Fair",
         format_m_tomans_short(fair),
-        format_pct(_pct_change(fair, run.fair_price if run else None), signed=True),
         format_pct(_pct_change(fair, day.fair_price if day else None), signed=True),
         format_pct(_pct_change(fair, seven.fair_price), signed=True),
     ))
     rows.append(_market_row(
-        "Platform Avg",
+        "Platform",
         format_m_tomans_short(platform_avg),
-        format_pct(_pct_change(platform_avg, run.platform_average if run else None), signed=True),
         format_pct(_pct_change(platform_avg, day.platform_average if day else None), signed=True),
         format_pct(_pct_change(platform_avg, seven.platform_average), signed=True),
     ))
     rows.append(_market_row(
         "Bubble",
         f"{_number(premium)}%",
-        _pp_compact((premium - run.premium_percent) if run and run.premium_percent is not None else None),
         _pp_compact((premium - day.premium_percent) if day and day.premium_percent is not None else None),
         _pp_compact((premium - seven.premium_percent) if seven.premium_percent is not None else None),
     ))
@@ -164,9 +162,9 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
     lines.append(f"<b>Highest</b>  {format_m_tomans(highest)}")
     lines.append(f"<b>Spread</b>  {format_m_tomans(spread)}")
     lines.append("")
-    # Run and Day are point-to-point; the 7D column is a comparison against a mean.
-    # Labelling it plainly stops the three being read as the same kind of measure.
-    lines.append("<i>Run and Day compare against a single earlier reading.</i>")
+    # Day is point-to-point; the 7D column compares against a mean. Saying so stops
+    # the two being read as the same kind of measure.
+    lines.append("<i>Day compares against the first reading today.</i>")
     lines.append("<i>7D avg compares against the mean of 7 completed days.</i>")
     if world_from_fallback:
         # Fail-safe rule: a fallback value must carry degraded provenance to the reader,
@@ -301,67 +299,15 @@ def _build_dynamics(platform_avg, premium, baselines, momentum):
 # MARKET STRUCTURE section
 # ---------------------------------------------------------------------------
 
-def _build_structure(markets, fair, baselines):
-    structure = format_market_structure(markets, fair)
-    if not structure:
-        return ""
-    lines = [_update_sep(), "<b>MARKET STRUCTURE</b>", _update_sep()]
-    lines.append(f"<b>Platforms</b>  {structure['platform_count']} active")
-    lines.append(f"<b>Spread</b>  {format_m_tomans(structure['spread'])}")
-    lines.append("")
-
-    high_name = structure["high_name"]
-    high_price = structure["high_price"]
-    day_high_price = baselines.day.platform_prices.get(high_name) if baselines.day else None
-    high_day_pct = _pct_change(high_price, day_high_price)
-    lines.append(f"<b>Highest</b>  {high_name}")
-    lines.append(f"               {format_m_tomans(high_price)}")
-    if high_day_pct is not None:
-        lines.append(f"               {format_pct(high_day_pct, signed=True)} vs Day")
-    lines.append("")
-
-    low_name = structure["low_name"]
-    low_price = structure["low_price"]
-    day_low_price = baselines.day.platform_prices.get(low_name) if baselines.day else None
-    low_day_pct = _pct_change(low_price, day_low_price)
-    lines.append(f"<b>Lowest</b>  {low_name}")
-    lines.append(f"               {format_m_tomans(low_price)}")
-    if low_day_pct is not None:
-        lines.append(f"               {format_pct(low_day_pct, signed=True)} vs Day")
-    lines.append("")
-
-    consensus = structure["consensus_label"]
-    below = structure.get("below_count")
-    above = structure.get("above_count")
-    total = structure.get("platform_count", 0)
-    if below is not None and above is not None:
-        if below > above:
-            consensus_telegram = f"{below}/{total} below Fair Price\n               NEGATIVE BUBBLE DOMINANT"
-        elif above > below:
-            consensus_telegram = f"{above}/{total} above Fair Price\n               POSITIVE BUBBLE DOMINANT"
-        else:
-            consensus_telegram = f"{total}/{total} mixed\n               BALANCED"
-    else:
-        if "Discount Dominant" in consensus:
-            consensus_telegram = "NEGATIVE BUBBLE DOMINANT"
-        elif "Premium Dominant" in consensus:
-            consensus_telegram = "POSITIVE BUBBLE DOMINANT"
-        else:
-            consensus_telegram = consensus
-    lines.append(f"<b>Consensus</b>  {consensus_telegram}")
-
-    return "\n".join(lines)
-
-
 # ---------------------------------------------------------------------------
 # PLATFORMS section — narrow table, M Tomans
 # ---------------------------------------------------------------------------
 
-def _build_platforms(markets, baselines):
+def _build_platforms(markets, baselines, fair=None):
     lines = [_update_sep(), "<b>PLATFORMS</b>", _update_sep(), ""]
     rows = [
-        "Platform   Price    Run Δ   vs Day",
-        "───────────────────────────────────",
+        f"{'Platform':<9}{'Price':>8}{'Run Δ':>8}{'vs Day':>8}",
+        "─" * MARKET_TABLE_WIDTH,
     ]
     for name in sorted(markets.keys()):
         info = markets[name]
@@ -385,9 +331,18 @@ def _build_platforms(markets, baselines):
         day_text = format_pct(day_pct, signed=True) if day_pct is not None else "—"
 
         price_str = format_m_tomans_short(price, decimals=2)
-        rows.append(f"{name:<10} {price_str:>7} {run_delta:>7} {day_text:>8}")
+        rows.append(f"{name:<9}{price_str:>8}{run_delta:>8}{day_text:>8}")
 
     lines.append("<pre>" + "\n".join(rows) + "</pre>")
+
+    # Naming the extremes saves scanning the table. The separate MARKET STRUCTURE
+    # section these came from also repeated the spread and the consensus count, both
+    # of which the message already states elsewhere.
+    if fair is not None:
+        structure = format_market_structure(markets, fair)
+        if structure:
+            lines.append(f"<b>Highest</b>  {structure['high_name']}")
+            lines.append(f"<b>Lowest</b>   {structure['low_name']}")
     return "\n".join(lines)
 
 
@@ -435,8 +390,7 @@ def send_update_v1(
         _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premium, baselines,
                       world_from_fallback=world_from_fallback),
         _build_dynamics(platform_avg, premium, baselines, momentum),
-        _build_structure(markets, fair, baselines),
-        _build_platforms(markets, baselines),
+        _build_platforms(markets, baselines, fair=fair),
         _build_timestamp(),
     ])
     _send(body)
