@@ -192,17 +192,35 @@ def _build_verdict(signal_state, position):
         return "<b>GOLDPremium: UPDATE</b>"
 
     final = signal_state.final_decision
+
+    # Graduated wording. Three bands drive the logic, but describing anything from
+    # the 40th to the 80th percentile as "middle" overstates the case: a reading at
+    # 76 of 100 is plainly toward the expensive end and should not read as neutral.
     line = None
-    if position is not None and position.band == "CHEAP":
-        line = "Cheap against its own recent range."
-    elif position is not None and position.band == "EXPENSIVE":
-        line = "Expensive against its own recent range."
-    elif position is not None and position.band == "TYPICAL":
-        line = "Middle of its own recent range. No edge here."
+    percentile = getattr(position, "percentile", None) if position else None
+    if percentile is not None:
+        if percentile < 20:
+            line = "Cheap against its own recent range."
+        elif percentile < 40:
+            line = "Below its own recent average."
+        elif percentile < 60:
+            line = "Middle of its own recent range. No edge here."
+        elif percentile < 80:
+            line = "Toward the expensive end of its own range."
+        else:
+            line = "Expensive against its own recent range."
 
     parts = ["<b>GOLDPremium: UPDATE</b>", "", f"<b>{final}</b>"]
     if line:
         parts.append(line)
+
+    # The candidate is surfaced only when it disagrees with the final decision. That
+    # disagreement is the whole point of the hysteresis rule and must stay visible,
+    # but printing both on every message when they almost always agree is noise.
+    candidate = getattr(signal_state, "candidate_decision", None)
+    if candidate and candidate != final:
+        parts.append(f"<i>Candidate was {candidate}, held by the confirmation rule.</i>")
+
     return "\n".join(parts)
 
 
@@ -377,28 +395,15 @@ def _build_platforms(markets, baselines):
 # CURRENT DECISION section
 # ---------------------------------------------------------------------------
 
-def _build_decision(signal_state):
-    if signal_state is None:
-        return ""
-    final = signal_state.final_decision
-    lines = [
-        _update_sep(),
-        "<b>CURRENT DECISION</b>",
-        _update_sep(),
-        f"<b>Valuation</b>  {signal_state.valuation}",
-        f"<b>Momentum</b>  {signal_state.momentum}",
-        f"<b>Structure</b>  {signal_state.structure.replace('_', ' ')}",
-        f"<b>Conflict</b>  {signal_state.conflict.replace('_', ' ')}",
-        "",
-        f"<b>Candidate</b>  {signal_state.candidate_decision}",
-    ]
-    if final in {"BUY", "SELL", "WAIT"}:
-        lines.append(f"<b>Final</b>  <b>{final}</b>")
-    else:
-        lines.append(f"<b>Final</b>  {final}")
-    lines.append("")
-    lines.append(f"<b>{format_timestamp()}</b>")
-    return "\n".join(lines)
+def _build_timestamp():
+    """Footer.
+
+    The decision block that stood here repeated valuation, momentum, structure and
+    the final decision, all of which the message now states before any detail. The
+    candidate is surfaced next to the verdict when it disagrees with the final call,
+    which is the only time that distinction carries information.
+    """
+    return f"<b>{format_timestamp()}</b>"
 
 
 # ---------------------------------------------------------------------------
@@ -432,6 +437,6 @@ def send_update_v1(
         _build_dynamics(platform_avg, premium, baselines, momentum),
         _build_structure(markets, fair, baselines),
         _build_platforms(markets, baselines),
-        _build_decision(signal_state),
+        _build_timestamp(),
     ])
     _send(body)

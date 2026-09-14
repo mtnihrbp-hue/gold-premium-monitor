@@ -39,13 +39,11 @@ Prefer:
 
 ```text
 header
-→ market
-→ decision/state
-→ reason
-→ trends
-→ momentum
+→ final decision + where it sits in its own range
+→ the headline figures (bubble, position, momentum, structure, trend)
+→ market table
+→ price and bubble dynamics
 → market structure
-→ input directions
 → platforms
 → timestamp
 ```
@@ -54,19 +52,43 @@ Keep detailed raw platform evidence near the bottom.
 
 ## Decision section
 
-Expose:
+The decision leads the message. A reader deciding whether to act should not have to
+pass several hundred characters of detail to find the answer.
 
-- valuation
-- momentum
-- structure
-- conflict
-- candidate decision
-- final decision
-- reason
+Expose, in this order:
 
-Candidate and final must remain visibly distinct.
+- final decision, first line
+- where the reading sits in its own recent range
+- candidate decision **only when it differs from final**
+- momentum and structure, in the block carrying the headline figures
 
-**Alert rule:** external BUY/SELL alerts are driven only by the deterministic `final_decision`. A `Candidate: BUY` with `Final: WAIT` is not a BUY alert.
+A trailing block repeating valuation, momentum, structure, conflict, candidate and
+final was removed in SP-C. It duplicated everything the message already stated
+earlier, and valuation in particular carried no information: it read CHEAP on 204 of
+204 recorded states because the fixed threshold sat outside the entire distribution.
+
+**Candidate and final must remain distinguishable**, but showing both on every
+message when they agree is noise. Surface the candidate when it disagrees, which is
+exactly when the confirmation rule has done something worth knowing. In production
+81 of 205 states carried a BUY candidate against a WAIT final, so this is not a rare
+case.
+
+**Alert rule, unchanged:** external BUY/SELL alerts are driven only by the
+deterministic `final_decision`. A `Candidate: BUY` with `Final: WAIT` is not a BUY
+alert.
+
+## Relative position
+
+Where a reading sits in its own recent distribution is reported as a rank out of 100,
+not as a z-score. The bubble distribution is left-skewed, so a long tail of deep
+discounts inflates the standard deviation and a z-score will describe a reading at 76
+of 100 as normal. Rank survives skew.
+
+Wording is graduated rather than three-valued. Describing anything from the 40th to
+the 80th percentile as "middle" overstates the case.
+
+Always show confidence when it is LOW. A position without the amount of history
+behind it invites more trust than it has earned.
 
 ## Formatting rules
 
