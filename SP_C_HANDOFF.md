@@ -344,7 +344,45 @@ a missing context must never stop a decision being persisted.
 Data written from this point is clean. Everything before it remains mixed and is
 marked as such.
 
-## 11. Deferred
+## 11. Operational state — collection cadence
+
+cron-job.org job 8179679 was reconfigured on 2026-09-14.
+
+```text
+schedule     every 1 hour        (was: once daily at 20:00)
+body         {"ref":"SP-C","inputs":{"mode":"analyze"}}
+headers      Content-Type: application/json
+             X-GitHub-Api-Version: 2022-11-28
+responses    saved to job history
+```
+
+The `inputs` object is what makes `SCHEDULED_RUN` resolve true. Without it the
+dispatch produces an UPDATE and no analytical history, which is the defect this
+phase corrected.
+
+Hourly is sufficient for every outcome horizon. C.5 allows ±15 minutes around a
+target, and hourly runs put the +1h, +6h and +24h targets exactly on later runs.
+Thirty minutes would double the sample count but is not required for the horizons
+to resolve.
+
+### Merge checklist
+
+Carry these out when SP-C merges into main:
+
+```text
+1. tag main as v1.3safe before merging
+2. merge SP-C into main after user review
+3. change the cron-job.org body ref from "SP-C" to "main"
+4. remove the legacy GitHub native schedule from gold-monitor.yml
+   once the external trigger is confirmed running on main
+5. update the Cloudflare worker to accept /Analyze and pass
+   inputs mode=analyze, which only works once main carries the input
+```
+
+Step 3 matters: the body pins `ref` to `SP-C`, so after a merge the scheduler would
+keep running the feature branch rather than main.
+
+## 12. Deferred
 
 ```text
 half-life measurement to select the window   needs ~120 days

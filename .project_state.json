@@ -32,7 +32,8 @@
       "Candle build no longer scales with stored history: ANALYZE run 11m19s to 1m53s",
       "SP-C.1 relative bubble valuation (src/analysis/bubble_position.py)",
       "SP-C.2 decision scorecard with baselines (src/analysis/decision_scorecard.py)",
-      "SP-C.1 migration applied: collection provenance and decision context, wired through models, repository and main"
+      "SP-C.1 migration applied: collection provenance and decision context, wired through models, repository and main",
+      "Collection cadence raised to hourly via cron-job.org with mode=analyze; daily recap limited to once per day"
     ],
     "in_progress": [
       "UPDATE and ANALYZE message templates, to be agreed before implementation"
@@ -230,5 +231,13 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "post-C14C supporting-work verification / architecture review"
+  "next_gate": "post-C14C supporting-work verification / architecture review",
+  "operational_state": {
+    "collection_cadence": "hourly since 2026-09-14 (was once daily)",
+    "cron_job_id": 8179679,
+    "cron_body": "{\"ref\":\"SP-C\",\"inputs\":{\"mode\":\"analyze\"}}",
+    "cron_ref_must_change_to_main_after_merge": true,
+    "horizons_supported": "hourly runs put +1h, +6h and +24h targets on exact later runs, inside the C.5 tolerance of 15 minutes",
+    "daily_recap": "fires on the first scheduled run of a calendar day only; state.last_recap_date guards it"
+  }
 }
