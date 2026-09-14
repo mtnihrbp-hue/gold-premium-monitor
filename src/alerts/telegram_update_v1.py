@@ -353,15 +353,6 @@ def _build_platforms(markets, baselines, fair=None):
         rows.append(f"{name:<9}{price_str:>8}{run_delta:>8}{day_text:>8}")
 
     lines.append("<pre>" + "\n".join(rows) + "</pre>")
-
-    # Naming the extremes saves scanning the table. The separate MARKET STRUCTURE
-    # section these came from also repeated the spread and the consensus count, both
-    # of which the message already states elsewhere.
-    if fair is not None:
-        structure = format_market_structure(markets, fair)
-        if structure:
-            lines.append(f"<b>Highest</b>  {structure['high_name']}")
-            lines.append(f"<b>Lowest</b>   {structure['low_name']}")
     return "\n".join(lines)
 
 
