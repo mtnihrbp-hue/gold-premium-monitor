@@ -308,15 +308,31 @@ def main():
             print(f"ERROR: Telegram alert failed: {e}")
 
     if is_scheduled:
-        if email_cfg.get("send_daily_recap", True):
+        # The recap is a daily summary, not a per-run notification. Once the Analyze
+        # wing runs on a real cadence there are dozens of scheduled runs a day, and
+        # sending it from each one would bury the user in duplicates.
+        today_key = now.date().isoformat()
+        recap_already_sent = state.get("last_recap_date") == today_key
+        if email_cfg.get("send_daily_recap", True) and not recap_already_sent:
+            recap_delivered = False
             try:
                 send_email_recap(world, usd, fair, lowest, premium, markets, trends=trends, momentum=momentum, previous_markets=previous_markets)
+                recap_delivered = True
             except Exception as e:
                 print(f"ERROR: Email daily recap failed: {e}")
             try:
                 send_telegram_recap(world, usd, fair, lowest, premium, markets, trends=trends, momentum=momentum, previous_markets=previous_markets, input_directions=input_directions, signal_state=signal_state)
+                recap_delivered = True
             except Exception as e:
                 print(f"ERROR: Telegram daily recap failed: {e}")
+            # Only mark the day done once something actually reached the user. If every
+            # channel failed the next run retries, which costs nothing and self-heals,
+            # whereas marking it sent would silently drop that day's recap.
+            if recap_delivered:
+                state["last_recap_date"] = today_key
+                save_state(state)
+        elif recap_already_sent:
+            print("Daily recap already sent today — skipping.")
     else:
         try:
             # Resolve highest price for UPDATE v1 MARKET section

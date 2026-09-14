@@ -11,6 +11,7 @@ def _default_state():
         "history": [],
         "last_alert": None,
         "alert_history": [],
+        "last_recap_date": None,
         "created_at": datetime.now().isoformat(),
     }
 
@@ -30,6 +31,7 @@ def load_state():
     state.setdefault("history", [])
     state.setdefault("last_alert", None)
     state.setdefault("alert_history", [])
+    state.setdefault("last_recap_date", None)
 
     return state
 
