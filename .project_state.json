@@ -31,12 +31,13 @@
       "Analyze trigger fixed: external schedulers declare mode=analyze so SCHEDULED_RUN resolves true",
       "Candle build no longer scales with stored history: ANALYZE run 11m19s to 1m53s",
       "SP-C.1 relative bubble valuation (src/analysis/bubble_position.py)",
-      "SP-C.2 decision scorecard with baselines (src/analysis/decision_scorecard.py)"
+      "SP-C.2 decision scorecard with baselines (src/analysis/decision_scorecard.py)",
+      "SP-C.1 migration applied: collection provenance and decision context, wired through models, repository and main"
     ],
     "in_progress": [
       "UPDATE and ANALYZE message templates, to be agreed before implementation"
     ],
-    "not_wired": "Neither bubble_position nor decision_scorecard is rendered in any message yet.",
+    "not_wired": "bubble_position and decision_scorecard are computed and the valuation context is now persisted with each decision, but neither is rendered in any message yet.",
     "decision_trigger_finding": "Forward 24h return changes sign near the 40th percentile in 41 days of data. Never hardcoded; the reference recomputes every run.",
     "scoring_rule_finding": "Scoring price direction would credit an always-BUY system with 58% because the local price rises on its own. The bubble rose in 47% of the same cases, so the bubble is scored.",
     "production_scorecard": "24h horizon: 175 scored, hit rate 55.2%, always-WAIT baseline 55.2%, edge 0.0. Correct — final_decision has been WAIT on 204 of 204 states."
@@ -91,7 +92,25 @@
       "platform_candles"
     ],
     "forecast_training_readiness": "NOT_READY_FOR_DEPLOYMENT",
-    "neon_write_policy": "APPROVAL_REQUIRED_FOR_SCHEMA_CHANGES"
+    "neon_write_policy": "APPROVAL_REQUIRED_FOR_SCHEMA_CHANGES",
+    "sp_c1_migration": {
+      "file": "sql/neon_migration_sp_c1.sql",
+      "applied": "2026-09-14",
+      "authorised_by_user": true,
+      "additive_only": true,
+      "columns_added": [
+        "market_snapshots.collection_mode",
+        "price_observations.collection_mode",
+        "market_states.valuation_context_json"
+      ],
+      "indexes_added": [
+        "idx_market_snapshots_mode_time",
+        "idx_price_observations_mode_time",
+        "idx_market_states_valuation_context"
+      ],
+      "verification": "row counts identical before and after across all seven tables; existing rows report collection_mode 'unknown'; valuation_context_json null on all 217 pre-existing states",
+      "known_limitation": "History before 2026-09-14 cannot be separated into scheduled and user readings. Statistics over that period remain drawn from a mixed sample."
+    }
   },
   "architecture_wings": {
     "live_wing": "collect -> validate -> calculate -> current deterministic state -> Telegram",

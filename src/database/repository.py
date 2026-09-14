@@ -28,14 +28,21 @@ def save_market_snapshot(
     signal=None,
     confidence=None,
     platform_prices=None,
+    collection_mode="unknown",
 ):
-    """Save a market snapshot and associated platform prices."""
+    """Save a market snapshot and associated platform prices.
+
+    collection_mode records whether the reading came from a scheduled run or a
+    user-triggered update. Irregular user-triggered calls must not be treated as the
+    canonical technical time series, and without this the two are indistinguishable.
+    """
     session = get_session()
     if session is None:
         raise RuntimeError("Database not configured (DATABASE_URL missing)")
 
     try:
         snapshot = MarketSnapshot(
+            collection_mode=collection_mode,
             timestamp=timestamp,
             fair_price=fair_price,
             premium_percent=premium_percent,
@@ -343,11 +350,14 @@ def get_hypothesis_accuracy(session, hypothesis_type=None, days=30):
 
 # --- SP-A: Market State Persistence ---
 
-def save_market_state(state: "SignalState") -> int:
+def save_market_state(state: "SignalState", valuation_context: dict = None) -> int:
     """Persist a SignalState to the market_states table.
 
     Args:
         state: populated SignalState dataclass
+        valuation_context: relative valuation as it stood when this decision was
+            made. Stored so the scorecard can attribute an outcome to what the
+            system actually knew, rather than to whatever the logic computes later.
 
     Returns:
         id of persisted MarketState record
@@ -374,6 +384,7 @@ def save_market_state(state: "SignalState") -> int:
             final_decision=state.final_decision,
             reason=state.reason,
             timestamp=state.timestamp,
+            valuation_context_json=valuation_context,
         )
         session.add(db_state)
         session.commit()
@@ -702,6 +713,7 @@ def save_price_observation(
     freshness: str = "UNKNOWN",
     collection_run_id: str = None,
     quote_side: str = "SINGLE",
+    collection_mode: str = "unknown",
 ) -> int:
     """Save a price observation to the canonical time-series layer.
 
@@ -735,6 +747,7 @@ def save_price_observation(
             freshness=freshness,
             collection_run_id=collection_run_id,
             quote_side=quote_side,
+            collection_mode=collection_mode,
         )
         session.add(obs)
         session.commit()

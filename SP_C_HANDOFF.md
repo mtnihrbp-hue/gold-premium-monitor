@@ -278,7 +278,73 @@ seven feeds are actually working.
 
 ---
 
-## 10. Deferred
+## 10. Applied migration — SP-C.1
+
+`sql/neon_migration_sp_c1.sql`, applied to production on 2026-09-14 with explicit
+authorisation. Additive only.
+
+```text
+market_snapshots.collection_mode      VARCHAR(20) NOT NULL DEFAULT 'unknown'
+price_observations.collection_mode    VARCHAR(20) NOT NULL DEFAULT 'unknown'
+market_states.valuation_context_json  JSONB
+
+idx_market_snapshots_mode_time
+idx_price_observations_mode_time
+idx_market_states_valuation_context   GIN
+```
+
+Verified either side of the change:
+
+```text
+                        before    after
+market_snapshots          291      291
+price_observations       1685     1685
+market_states             217      217
+analysis_snapshots         62       62
+platform_candles         1205     1205
+news_events              1578     1578
+outcome_evaluations       180      180
+```
+
+No row count changed. Existing rows report `collection_mode = 'unknown'`, and
+`valuation_context_json` was null on all 217 existing states, as intended.
+
+### Why these two additions could not be avoided
+
+Neither fact is derivable from stored data.
+
+**Collection provenance.** Nothing recorded whether a reading came from a scheduled
+run or a user-triggered update, and it cannot be reconstructed. Every statistic in
+this phase is therefore computed over a sample biased toward the moments a user
+happened to look. `skills/data-and-neon.md` requires that irregular user-triggered
+calls not become the canonical technical time series; without this column the two
+were indistinguishable. Historical rows stay `unknown` rather than being guessed at,
+so the bias is visible instead of hidden.
+
+**Decision context.** `market_states` recorded the decision and the older state
+labels but not the relative valuation that drives decisions from SP-C onward. The
+scorecard could therefore say a decision was right but never why the system believed
+it. A single JSONB column carries the context so it can evolve without a migration
+per field.
+
+### Code wired in the same change
+
+```text
+models.py            three columns added
+repository.py        save_market_snapshot, save_price_observation take collection_mode
+                     save_market_state takes valuation_context
+main.py              mode resolved from SCHEDULED_RUN: scheduled | user
+                     _build_valuation_context captures position at decision time
+neon_schema.sql      canonical target schema updated to match
+```
+
+`_build_valuation_context` is non-blocking and returns None on any failure, because
+a missing context must never stop a decision being persisted.
+
+Data written from this point is clean. Everything before it remains mixed and is
+marked as such.
+
+## 11. Deferred
 
 ```text
 half-life measurement to select the window   needs ~120 days

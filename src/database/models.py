@@ -17,6 +17,9 @@ class MarketSnapshot(Base):
     timestamp = Column(DateTime, nullable=False)
     fair_price = Column(Numeric(20, 2), nullable=False)
     premium_percent = Column(Numeric(10, 4), nullable=False)
+    # scheduled | user | unknown. Rows written before the SP-C.1 migration stay
+    # 'unknown' because the distinction was never recorded and cannot be recovered.
+    collection_mode = Column(String(20), nullable=False, default="unknown")
     world_gold_usd = Column(Numeric(10, 2), nullable=True)
     usd_irr = Column(Numeric(20, 2), nullable=True)
     signal = Column(String(10), nullable=True)
@@ -104,6 +107,9 @@ class MarketState(Base):
     candidate_decision = Column(String(10), nullable=False)
     final_decision = Column(String(10), nullable=False)
     reason = Column(Text)
+    # Relative valuation as it stood when this decision was made, so the scorecard
+    # can attribute an outcome to what the system actually knew at the time.
+    valuation_context_json = Column(JSON)
 
     timestamp = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -164,6 +170,7 @@ class PriceObservation(Base):
     price = Column(Numeric(20, 4), nullable=False)
     quote_side = Column(String(10), nullable=False, default="SINGLE")
     freshness = Column(String(20), nullable=False, default="UNKNOWN")
+    collection_mode = Column(String(20), nullable=False, default="unknown")
     collection_run_id = Column(String(64), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 

@@ -29,6 +29,7 @@ from database.connection import get_session
 from database.repository import save_market_snapshot, save_market_state, save_price_observation, get_input_directions
 from intelligence.freshness import evaluate_freshness
 from update.baseline_resolver import resolve_update_baselines
+from analysis.bubble_position import resolve_bubble_position
 
 
 def load_config():
@@ -78,7 +79,43 @@ def _generate_collection_run_id():
     return f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
 
-def _save_price_observations(markets, world, usd, now, stale_threshold, collection_run_id):
+def _build_valuation_context(premium):
+    """Capture the relative valuation that accompanied this decision.
+
+    Stored alongside the decision so the scorecard can later attribute an outcome
+    to what the system knew at the time, rather than to whatever the logic would
+    compute when the scoring runs.
+
+    Non-blocking: returns None on any failure, since a missing context must never
+    prevent a decision from being persisted.
+    """
+    session = get_session()
+    if session is None:
+        return None
+    try:
+        position = resolve_bubble_position(session, current_bubble=premium)
+        if position.band == "INSUFFICIENT_DATA":
+            return {"band": "INSUFFICIENT_DATA", "sample_size": position.sample_size}
+        return {
+            "bubble": position.bubble,
+            "percentile": position.percentile,
+            "band": position.band,
+            "cheap_below": position.cheap_below,
+            "expensive_above": position.expensive_above,
+            "window_days": position.window_days,
+            "sample_size": position.sample_size,
+            "coverage_days": position.coverage_days,
+            "confidence": position.confidence,
+            "drift": position.drift,
+        }
+    except Exception as e:
+        print(f" Valuation context unavailable: {e}")
+        return None
+    finally:
+        session.close()
+
+
+def _save_price_observations(markets, world, usd, now, stale_threshold, collection_run_id, collection_mode="unknown"):
     for name, info in markets.items():
         if info.get("status") != "OK":
             continue
@@ -87,9 +124,9 @@ def _save_price_observations(markets, world, usd, now, stale_threshold, collecti
             source = name.lower()
             if name == "Goldika" and "buy" in info and "sell" in info:
                 for side in ("buy", "sell"):
-                    save_price_observation(instrument="REP_IRAN_GOLD", source=source, timestamp=now, price=info[side], freshness=freshness, collection_run_id=collection_run_id, quote_side=side.upper())
+                    save_price_observation(instrument="REP_IRAN_GOLD", source=source, timestamp=now, price=info[side], freshness=freshness, collection_run_id=collection_run_id, quote_side=side.upper(), collection_mode=collection_mode)
             elif info.get("price") is not None:
-                save_price_observation(instrument="REP_IRAN_GOLD", source=source, timestamp=now, price=info["price"], freshness=freshness, collection_run_id=collection_run_id, quote_side="SINGLE")
+                save_price_observation(instrument="REP_IRAN_GOLD", source=source, timestamp=now, price=info["price"], freshness=freshness, collection_run_id=collection_run_id, quote_side="SINGLE", collection_mode=collection_mode)
         except Exception as e:
             print(f" Price observation {name} failed: {e}")
 
@@ -98,7 +135,7 @@ def _save_price_observations(markets, world, usd, now, stale_threshold, collecti
             continue
         try:
             freshness = evaluate_freshness(now, now, stale_threshold)
-            save_price_observation(instrument=instrument, source=source, timestamp=now, price=price, freshness=freshness, collection_run_id=collection_run_id, quote_side="SINGLE")
+            save_price_observation(instrument=instrument, source=source, timestamp=now, price=price, freshness=freshness, collection_run_id=collection_run_id, quote_side="SINGLE", collection_mode=collection_mode)
         except Exception as e:
             print(f" Price observation {instrument} failed: {e}")
 
@@ -159,7 +196,8 @@ def main():
         print(f"\nERROR: Market data invalid: {e}. Skipping.")
         return
 
-    _save_price_observations(markets, world, usd, now, stale_threshold, collection_run_id)
+    collection_mode = "scheduled" if is_scheduled else "user"
+    _save_price_observations(markets, world, usd, now, stale_threshold, collection_run_id, collection_mode)
 
     if world is None:
         send_telegram_unavailable(usd=usd, markets=markets, reason="World gold price unavailable. All APIs failed and no recent cached data.")
@@ -230,7 +268,7 @@ def main():
     snapshot_id = None
     try:
         platform_prices = [{"platform_name": name, "price_irr": info["price"], "change_irr": None} for name, info in markets.items() if info.get("status") == "OK"]
-        snapshot_id = save_market_snapshot(timestamp=now, fair_price=fair, premium_percent=premium, world_gold_usd=world, usd_irr=usd, signal=signal_state.final_decision, confidence=None, platform_prices=platform_prices)
+        snapshot_id = save_market_snapshot(timestamp=now, fair_price=fair, premium_percent=premium, world_gold_usd=world, usd_irr=usd, signal=signal_state.final_decision, confidence=None, platform_prices=platform_prices, collection_mode=collection_mode)
         print("\nDB: Snapshot saved")
     except Exception as e:
         print(f"\nDB ERROR (snapshot): {e}")
@@ -238,7 +276,7 @@ def main():
     if snapshot_id is not None:
         try:
             signal_state = replace(signal_state, snapshot_id=snapshot_id)
-            save_market_state(signal_state)
+            save_market_state(signal_state, valuation_context=_build_valuation_context(premium))
             print("DB: Market state saved")
         except Exception as e:
             print(f"DB ERROR (market state): {e}")

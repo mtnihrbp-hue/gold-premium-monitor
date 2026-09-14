@@ -1168,6 +1168,26 @@ Neon PostgreSQL is the long-term historical store.
 | `analysis_snapshots` | Scheduled analytical history and analytical packages |
 | `outcome_evaluations` | Retrospective +1h / +6h / +24h measurements |
 
+### SP-C.1 additions, applied 2026-09-14
+
+```text
+market_snapshots.collection_mode      scheduled | user | unknown
+price_observations.collection_mode    scheduled | user | unknown
+market_states.valuation_context_json  relative valuation behind each decision
+```
+
+Rows written before this migration carry `unknown` because the distinction was never
+recorded and cannot be reconstructed. Any statistic computed over that history is
+drawn from a sample biased toward the moments a user happened to look, and should be
+read with that in mind. Data written from 2026-09-14 onward separates the two.
+
+`valuation_context_json` exists so the decision scorecard can attribute an outcome to
+what the system actually knew at decision time, rather than to whatever the logic
+would compute when the scoring runs. It is JSONB so the context can evolve without a
+migration for each field.
+
+Verified additive: all seven table counts identical before and after.
+
 `analysis_snapshots` currently carries:
 
 ```text

@@ -315,7 +315,12 @@ The Analyze wing is the accumulating evidence/history engine that will eventuall
 
 ## 11. Neon production position
 
-Current work requires **no Neon migration**.
+SP-C.1 applied the first migration since C.14A, on 2026-09-14 with explicit
+authorisation: `collection_mode` on `market_snapshots` and `price_observations`,
+and `valuation_context_json` on `market_states`. Additive only, all seven table
+counts identical before and after. Details in `SP_C_HANDOFF.md` section 10.
+
+Prior C.14B, C.14C and UPDATE v1 work required no migration.
 
 Relevant existing structures include:
 
