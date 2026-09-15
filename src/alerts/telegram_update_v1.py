@@ -16,12 +16,9 @@ Visual design decisions:
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from alerts.telegram import _money, _number, _send
+from alerts.telegram import _money, _send
 from alerts.helpers import (
-    classify_candle,
-    bubble_state_short,
     format_pct,
-    format_pp,
     format_market_structure,
     format_timestamp,
     format_m_tomans,
@@ -40,58 +37,84 @@ def _pct_change(current, baseline):
     return (current - baseline) / baseline * 100
 
 
-def _bubble_direction(premium, gap_delta):
-    """Describe movement toward a larger/smaller premium or discount."""
-    if premium is None or gap_delta is None:
-        return "N/A"
-    threshold = 0.05
-    if abs(gap_delta) < threshold:
-        return "STABLE"
-    if premium < 0:
-        return "MORE DISCOUNT" if gap_delta < 0 else "LESS DISCOUNT"
-    if premium > 0:
-        return "MORE PREMIUM" if gap_delta > 0 else "LESS PREMIUM"
-    return "MORE PREMIUM" if gap_delta > 0 else "MORE DISCOUNT"
+# Label column for the non-table sections. Telegram renders these in a
+# proportional font, so the padding aligns approximately rather than exactly;
+# it is wide enough that the values still form a readable column.
+LABEL_WIDTH = 17
 
 
-def _build_dynamics_interpretation(price_direction, price_change, premium, gap_direction, gap_delta):
-    """Build human-readable interpretation from measured price/gap movement.
+def _row(label, value):
+    """Bold label padded to a fixed column.
 
-    Describes observable relationships only. Per C14_HANDOFF.md and
-    RESEARCH_ADOPTION.md, the internal DISCOUNT WIDENING / NARROWING vocabulary
-    must not be surfaced in user-facing output, and no causal claim is made.
+    The padding sits outside the tag because Telegram collapses whitespace held
+    inside one.
     """
-    price_phrase = None
-    if price_direction == "RISING":
-        price_phrase = "Local prices are rising"
-    elif price_direction == "FALLING":
-        price_phrase = "Local prices are falling"
-    elif price_direction == "STABLE":
-        price_phrase = "Local prices are stable"
+    return f"<b>{label}</b>{' ' * max(1, LABEL_WIDTH - len(label))}{value}"
 
-    if price_phrase is not None and price_change is not None:
-        price_phrase += f" ({price_change:+.2f}%)"
 
-    gap_phrase = None
-    if premium is not None:
-        if gap_direction in ("MORE DISCOUNT", "MORE PREMIUM"):
-            side = "below" if premium < 0 else "above"
-            gap_phrase = f"moving further {side} fair value"
-        elif gap_direction in ("LESS DISCOUNT", "LESS PREMIUM"):
-            gap_phrase = "closing the gap to fair value"
-        elif gap_direction == "STABLE":
-            gap_phrase = "holding their distance from fair value"
+def _cont(value):
+    """Continuation of the row above, aligned under its value."""
+    return f"{' ' * LABEL_WIDTH}{value}"
 
-    if gap_phrase is not None and gap_delta is not None and abs(gap_delta) >= 0.05:
-        gap_phrase += f" ({gap_delta:+.2f} pp)"
 
-    if price_phrase and gap_phrase:
-        return f"{price_phrase}, while {gap_phrase}."
-    if price_phrase:
-        return f"{price_phrase}."
-    if gap_phrase:
-        return f"Local prices are {gap_phrase}."
-    return "Insufficient data for interpretation."
+def _gap_naming(premium):
+    """Discount and premium are one measure with opposite signs.
+
+    Every line describing the gap has to flip with that sign, so the naming is
+    resolved once here rather than being decided again at each call site.
+    """
+    if premium is None:
+        return "Gap", "from"
+    return ("Discount", "below") if premium < 0 else ("Premium", "above")
+
+
+def _gap_delta(premium, reference):
+    """Change in the size of the gap, in percentage points.
+
+    Percentage points, not percent: the premium is already a percentage and in
+    this market always negative, so a percent change of it inverts the sign.
+    """
+    if premium is None or reference is None:
+        return None
+    return abs(premium) - abs(reference)
+
+
+def _gap_movement(premium, reference, with_consequence=True):
+    """The move as a verb, a size, and what it means for a buyer.
+
+    The consequence is taken from the signed premium rather than from the size of
+    the gap. Moving toward a larger premium is always more expensive and toward a
+    larger discount always cheaper, including across the zero line, where the two
+    magnitudes can be equal while the market has actually moved a full point.
+    """
+    if premium is None or reference is None:
+        return None
+
+    signed_delta = premium - reference
+    if signed_delta > 0:
+        consequence = "more expensive"
+    elif signed_delta < 0:
+        consequence = "cheaper"
+    else:
+        consequence = None
+
+    # A sign change means the market crossed fair value. Reporting that as an
+    # increase or decrease in the gap would describe the smaller half of the move.
+    if (premium < 0) != (reference < 0):
+        if with_consequence and consequence:
+            return f"crossed fair value — {consequence}"
+        return "crossed fair value"
+
+    change = _gap_delta(premium, reference)
+    # Below half of the last displayed decimal the text would claim a movement
+    # the reader cannot see in the number above it.
+    if consequence is None or abs(change) < 0.005:
+        return "unchanged"
+
+    verb = "increased" if change > 0 else "decreased"
+    if with_consequence:
+        return f"{verb} {abs(change):.2f} pp — {consequence}"
+    return f"{verb} {abs(change):.2f} pp"
 
 
 # ---------------------------------------------------------------------------
@@ -161,12 +184,16 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
         _delta_bare(_pct_change(platform_avg, day.platform_average if day else None)),
         _delta_bare(_pct_change(platform_avg, seven.platform_average)),
     ))
+    # Same naming and same direction as THE NUMBER. The row previously carried the
+    # signed premium, so the identical market movement appeared here with the
+    # opposite sign to the block above it.
+    gap_label, _ = _gap_naming(premium)
     rows.append(_market_row(
-        "Bubble",
-        f"{_number(premium)}%",
-        _delta_bare((premium - run.premium_percent) if run and run.premium_percent is not None else None),
-        _delta_bare((premium - day.premium_percent) if day and day.premium_percent is not None else None),
-        _delta_bare((premium - seven.premium_percent) if seven.premium_percent is not None else None),
+        gap_label,
+        f"{abs(premium):.2f}%" if premium is not None else "N/A",
+        _delta_bare(_gap_delta(premium, run.premium_percent) if run else None),
+        _delta_bare(_gap_delta(premium, day.premium_percent) if day else None),
+        _delta_bare(_gap_delta(premium, seven.premium_percent)),
     ))
 
     lines.append("<pre>" + "\n".join(rows) + "</pre>")
@@ -184,13 +211,19 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
     lines.append("<i>Run compares against the last scheduled reading,</i>")
     lines.append("<i>Day against the first scheduled reading today.</i>")
     lines.append("<i>7D compares against the mean of 7 completed days.</i>")
-    lines.append("<i>Changes are %, except Bubble which is percentage points.</i>")
+    lines.append(f"<i>Changes are %, except {gap_label} which is percentage points.</i>")
+    # Which direction is good for a buyer flips with the sign, so the sentence has
+    # to flip with it too rather than being written for the discount case alone.
+    if premium is not None and premium < 0:
+        lines.append("<i>A bigger discount is cheaper.</i>")
+    elif premium is not None:
+        lines.append("<i>A bigger premium is more expensive.</i>")
     if world_from_fallback:
         # Fail-safe rule: a fallback value must carry degraded provenance to the reader,
         # otherwise a cached price is indistinguishable from a fresh quote.
         lines.append("")
         lines.append("⚠ XAU/USD is a cached fallback, not a fresh quote.")
-        lines.append("Fair Price and Bubble derive from it.")
+        lines.append(f"Fair value and {gap_label} derive from it.")
     return "\n".join(lines)
 
 
@@ -241,86 +274,121 @@ def _build_verdict(signal_state, position):
     return "\n".join(parts)
 
 
-def _build_the_number(premium, lowest, fair, signal_state, position, trend):
-    """The figures a decision actually rests on, in one block."""
+def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state,
+                      position, magnitude, baselines):
+    """The figures a decision actually rests on, in one block.
+
+    Everything here is stated in the direction the market is actually in. The gap
+    is a positive size with its side named once, movement is an increase or a
+    decrease of that size, and each line carries what the move means for a buyer
+    so nothing has to be inferred from a sign.
+    """
+    label, side = _gap_naming(premium)
+    run = baselines.run if baselines else None
+    day = baselines.day if baselines else None
     lines = [_update_sep(), "<b>THE NUMBER</b>", _update_sep()]
-    lines.append(f"<b>Bubble</b>          {_number(premium)}%")
+
+    lines.append(_row(label, f"{abs(premium):.2f}%  {side} fair value"))
+
+    run_move = _gap_movement(premium, run.premium_percent if run else None)
+    if run_move:
+        lines.append(_row(label, run_move))
+        # Ranking the size of a move that did not happen reads as a contradiction.
+        if magnitude is not None and magnitude.status == "OK" and run_move != "unchanged":
+            lines.append(_cont(magnitude.label))
+
+    # The consequence is dropped here because the line above already carries it
+    # for the same gap; repeating it adds length without adding information.
+    day_move = _gap_movement(premium, day.premium_percent if day else None,
+                             with_consequence=False)
+    if day_move:
+        lines.append(_row("vs Today", day_move))
 
     if position is not None and position.percentile is not None:
-        lines.append(f"<b>Position</b>        {position.percentile} of 100")
-        lines.append("                0 = cheapest, 100 = most expensive")
+        window = position.window_days
+        lines.append(_row("Cheaper than",
+                          f"{100 - position.percentile}% of the last {window} days"))
         if position.cheap_below is not None:
-            lines.append(f"<b>Cheap below</b>     {_number(position.cheap_below)}%")
-        if position.confidence in ("LOW", "INSUFFICIENT_DATA"):
-            lines.append(f"<b>Confidence</b>      {position.confidence.replace('_', ' ')}")
-    else:
-        lines.append("<b>Position</b>        not enough history yet")
+            # The threshold is a rank inside the window, not a level measured
+            # against outcomes, so it is named for what it describes and makes no
+            # claim about what follows from reaching it.
+            if position.cheap_below < 0:
+                lines.append(_row("Deep discount",
+                                  f"If {abs(position.cheap_below):.2f}% or more  ({window}D)"))
+            else:
+                lines.append(_row("Cheap zone",
+                                  f"If {position.cheap_below:.2f}% or less  ({window}D)"))
+
+    structure = format_market_structure(markets, fair) if markets else None
+    below = getattr(signal_state, "platforms_below_fair", None) if signal_state else None
+    above = getattr(signal_state, "platforms_above_fair", None) if signal_state else None
+    if below is not None and above is not None and (below + above) > 0:
+        total = below + above
+        lines.append("")
+        if below == total:
+            lines.append(_row("Platforms", f"all {total} below fair value"))
+        elif above == total:
+            lines.append(_row("Platforms", f"all {total} above fair value"))
+        else:
+            lines.append(_row("Platforms", f"{below} of {total} below fair value"))
 
     lines.append("")
-    if signal_state is not None:
-        lines.append(f"<b>Momentum</b>        {signal_state.momentum}")
-        below = getattr(signal_state, "platforms_below_fair", None)
-        above = getattr(signal_state, "platforms_above_fair", None)
-        if below is not None and above is not None:
-            lines.append(f"<b>Structure</b>       {below} of {below + above} below fair")
+    price_change = _pct_change(platform_avg, run.platform_average if run else None)
+    fair_change = _pct_change(fair, run.fair_price if run else None)
+    low_name = structure["low_name"] if structure else None
+    lines.append(_row("Local price", _level_with_change(platform_avg, price_change)))
+    lines.append(_row("Market low", format_m_tomans(lowest)
+                      + (f"  {low_name}" if low_name else "")))
+    lines.append(_row("Fair value", _level_with_change(fair, fair_change)))
 
-    if trend is not None and trend.status == "OK":
-        # Name both sides of every comparison. "now below" on its own leaves the
-        # reader asking below what.
-        lines.append(f"<b>7-day average</b>   {_number(trend.short_average)}%")
-        lines.append(f"<b>Bubble vs 7D</b>    {trend.versus_short.lower()}")
-        reading = {
-            "DISCOUNT_SHRINKING": "discount shrinking",
-            "DISCOUNT_DEEPENING": "discount deepening",
-            "DISCOUNT_FLAT": "discount steady",
-        }.get(trend.reading, "")
-        lines.append(f"<b>7D vs 15D</b>       {trend.cross.lower()}   {reading}".rstrip())
+    # The gap is measured at the cheapest platform, so a single platform moving
+    # alone changes the headline while the market has not moved at all. Naming
+    # that platform and showing where the rest sit lets the reader tell the two
+    # apart instead of reading one vendor's quote as a market event.
+    others = _other_platform_prices(markets, low_name)
+    if others:
+        lines.append("")
+        lines.append(f"<i>{label} is measured at the market low.</i>")
+        lines.append(f"<i>The other {len(others)} range "
+                     f"{format_m_tomans_short(others[0])} - "
+                     f"{format_m_tomans_short(others[-1])}.</i>")
 
-    lines.append("")
-    lines.append(f"<b>Market low</b>      {format_m_tomans(lowest)}")
-    lines.append(f"<b>Fair value</b>      {format_m_tomans(fair)}")
+    # Every number above is a change against some reference. Naming them once
+    # here answers it for the whole block rather than per line.
+    if run and run.timestamp and day and day.timestamp:
+        lines.append("")
+        lines.append(f"<i>All changes are vs the {run.timestamp.strftime('%H:%M')} reading,</i>")
+        lines.append(f"<i>except vs Today, which is vs {day.timestamp.strftime('%H:%M')}.</i>")
+
     return "\n".join(lines)
 
 
-def _build_dynamics(platform_avg, premium, baselines, momentum):
-    run = baselines.run
-    price_change = _pct_change(platform_avg, run.platform_average if run else None)
-    gap_delta = (
-        premium - run.premium_percent
-        if run and run.premium_percent is not None and premium is not None
-        else None
-    )
-    gap_direction = _bubble_direction(premium, gap_delta)
-    bubble_state = bubble_state_short(premium)
-    interpretation = _build_dynamics_interpretation(
-        baselines.price_direction,
-        price_change,
-        premium,
-        gap_direction,
-        gap_delta,
-    )
-    return "\n".join([
-        _update_sep(),
-        "<b>PRICE & BUBBLE DYNAMICS</b>",
-        _update_sep(),
-        f"<b>Local price</b>  {baselines.price_direction}",
-        f"<b>Change</b>  {format_pct(price_change, signed=True)}  (platform avg)",
-        "",
-        # The bubble level itself is stated in THE NUMBER; repeating it here only
-        # gave the reader the same figure twice.
-        f"<b>Direction toward</b>  {gap_direction}",
-        f"<b>Gap Δ</b>  {format_pp(gap_delta, signed=True)}",
-        "",
-        f"<b>Bubble candle</b>  {classify_candle(momentum)}",
-        "",
-        "<b>Interpretation</b>",
-        interpretation,
-    ])
+def _level_with_change(value, change):
+    text = format_m_tomans(value)
+    if change is not None:
+        text += f"  {change:+.2f}%"
+    return text
 
 
-# ---------------------------------------------------------------------------
-# MARKET STRUCTURE section
-# ---------------------------------------------------------------------------
+def _other_platform_prices(markets, low_name):
+    """Sorted prices of every platform except the one setting the market low."""
+    if not markets or not low_name:
+        return []
+    return sorted(
+        float(info["price"])
+        for name, info in markets.items()
+        if name != low_name and info.get("status") == "OK" and info.get("price") is not None
+    )
+
+
+# PRICE & BUBBLE DYNAMICS was removed here. Every figure it carried is now stated
+# once in THE NUMBER, in the same vocabulary as the rest of the message: the local
+# price direction and change became the Local price line, the gap delta became the
+# movement line, and the interpretation sentence became the consequence word
+# attached to that movement. The section restated the same numbers in a second,
+# sign-based vocabulary, which is what made the two halves of the message appear
+# to disagree with each other.
+
 
 # ---------------------------------------------------------------------------
 # PLATFORMS section — narrow table, M Tomans
@@ -394,16 +462,21 @@ def send_update_v1(
     momentum: Optional[Dict] = None,
     world_from_fallback: bool = False,
     position=None,
+    # Accepted and resolved, but not rendered. The 7-day and 15-day average lines
+    # were parked by the product owner as message clutter, with the intention of
+    # revisiting them in ANALYZE rather than UPDATE. The parameter stays so the
+    # resolver keeps a caller and the decision is reversible without rewiring.
     trend=None,
+    magnitude=None,
 ):
     if baselines is None:
         raise RuntimeError("UPDATE v1 requires resolved baselines")
     body = "\n\n".join([
         _build_verdict(signal_state, position),
-        _build_the_number(premium, lowest, fair, signal_state, position, trend),
+        _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state,
+                          position, magnitude, baselines),
         _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premium, baselines,
                       world_from_fallback=world_from_fallback, markets=markets),
-        _build_dynamics(platform_avg, premium, baselines, momentum),
         _build_platforms(markets, baselines, fair=fair),
         _build_timestamp(),
     ])

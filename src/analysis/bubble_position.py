@@ -254,6 +254,89 @@ def resolve_bubble_position(
 
 
 # ---------------------------------------------------------------------------
+# How large this move is, against the distribution of past moves
+# ---------------------------------------------------------------------------
+
+# Band boundaries as percentiles of past absolute changes.
+#
+# Percentile is used rather than a standard deviation or a median absolute
+# deviation for the same reason the position bands use it: the distribution is
+# skewed, so any measure of distance from a centre misreports rank. It also keeps
+# one vocabulary across the whole message. Position and move size both answer
+# "where does this sit against its own history", so the reader learns one idea
+# instead of two, and no threshold in an invented unit has to be explained.
+LARGE_MOVE_PERCENTILE = 50
+UNUSUAL_MOVE_PERCENTILE = 80
+
+
+@dataclass
+class ChangeMagnitude:
+    change_pp: Optional[float]
+    percentile: Optional[int]
+    label: str
+    sample_size: int
+    status: str
+
+
+def resolve_change_magnitude(
+    session,
+    change_pp: Optional[float],
+    window_days: int = DEFAULT_WINDOW_DAYS,
+    now: Optional[datetime] = None,
+) -> ChangeMagnitude:
+    """Rank the size of the current move against the bubble's own past moves.
+
+    Direction is discarded and only size is ranked, so a 2 pp move is judged the
+    same whether the discount grew or shrank. The caller states direction
+    separately, which keeps this measure from having to carry two meanings.
+    """
+    empty = ChangeMagnitude(change_pp, None, "UNKNOWN", 0, "INSUFFICIENT_DATA")
+    if session is None or change_pp is None:
+        return empty
+    if now is None:
+        now = datetime.now()
+
+    try:
+        rows = (
+            session.query(MarketSnapshot.timestamp, MarketSnapshot.premium_percent)
+            .filter(
+                MarketSnapshot.premium_percent.isnot(None),
+                MarketSnapshot.timestamp >= now - timedelta(days=window_days),
+                MarketSnapshot.timestamp <= now,
+            )
+            .order_by(MarketSnapshot.timestamp.asc())
+            .all()
+        )
+    except Exception as e:
+        print(f"Change magnitude query failed: {e}")
+        return empty
+
+    values = [float(p) for _, p in rows if p is not None]
+    if len(values) < MIN_OBSERVATIONS:
+        return empty
+
+    moves = sorted(abs(values[i + 1] - values[i]) for i in range(len(values) - 1))
+    if not moves:
+        return empty
+
+    percentile = _percentile_of(abs(change_pp), moves)
+    if percentile < LARGE_MOVE_PERCENTILE:
+        label = "a normal move"
+    elif percentile < UNUSUAL_MOVE_PERCENTILE:
+        label = "a large move"
+    else:
+        label = "unusually large"
+
+    return ChangeMagnitude(
+        change_pp=round(change_pp, 3),
+        percentile=percentile,
+        label=label,
+        sample_size=len(moves),
+        status="OK",
+    )
+
+
+# ---------------------------------------------------------------------------
 # What happened after comparable readings
 # ---------------------------------------------------------------------------
 

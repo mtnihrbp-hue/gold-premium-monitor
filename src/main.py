@@ -29,7 +29,11 @@ from database.connection import get_session
 from database.repository import save_market_snapshot, save_market_state, save_price_observation, get_input_directions
 from intelligence.freshness import evaluate_freshness
 from update.baseline_resolver import resolve_update_baselines
-from analysis.bubble_position import resolve_bubble_position, resolve_bubble_trend
+from analysis.bubble_position import (
+    resolve_bubble_position,
+    resolve_bubble_trend,
+    resolve_change_magnitude,
+)
 
 
 def load_config():
@@ -115,8 +119,8 @@ def _build_valuation_context(premium):
         session.close()
 
 
-def _resolve_presentation_context(premium):
-    """Relative position and bubble trend for the UPDATE message.
+def _resolve_presentation_context(premium, run_premium=None):
+    """Relative position, bubble trend and move size for the UPDATE message.
 
     These are reads against persisted observations, not an Analyze pipeline run, so
     they stay inside the Live Wing boundary. Non-blocking: a failure here degrades
@@ -124,15 +128,24 @@ def _resolve_presentation_context(premium):
     """
     session = get_session()
     if session is None:
-        return None, None
+        return None, None, None
     try:
+        # Percentage points of gap movement, which is what the magnitude resolver
+        # ranks. A percent change of the premium would invert the sign, since the
+        # premium is itself a percentage and negative throughout this market.
+        change = (
+            abs(premium) - abs(run_premium)
+            if premium is not None and run_premium is not None
+            else None
+        )
         return (
             resolve_bubble_position(session, current_bubble=premium),
             resolve_bubble_trend(session, current_bubble=premium),
+            resolve_change_magnitude(session, change_pp=change),
         )
     except Exception as e:
         print(f" Presentation context unavailable: {e}")
-        return None, None
+        return None, None, None
     finally:
         session.close()
 
@@ -359,7 +372,8 @@ def main():
         try:
             # Resolve highest price for UPDATE v1 MARKET section
             highest_price = markets[high_name]["price"] if high_name in markets else None
-            position, trend = _resolve_presentation_context(premium)
+            run_premium = baselines.run.premium_percent if baselines and baselines.run else None
+            position, trend, magnitude = _resolve_presentation_context(premium, run_premium)
             send_update_v1(
                 world=world,
                 usd=usd,
@@ -376,6 +390,7 @@ def main():
                 world_from_fallback=world_from_fallback,
                 position=position,
                 trend=trend,
+                magnitude=magnitude,
             )
             print("UPDATE v1 sent.")
         except Exception as e:
