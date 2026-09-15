@@ -532,6 +532,20 @@ class BubbleTrend:
     status: str
 
 
+# Messages show two decimal places. Comparisons are made at that precision so the
+# text never asserts a difference the reader cannot see.
+DISPLAY_DECIMALS = 2
+
+
+def _compare_at_display_precision(left: float, right: float) -> str:
+    """ABOVE, BELOW or EQUAL, judged at the precision actually displayed."""
+    rounded_left = round(left, DISPLAY_DECIMALS)
+    rounded_right = round(right, DISPLAY_DECIMALS)
+    if rounded_left == rounded_right:
+        return "EQUAL"
+    return "ABOVE" if rounded_left > rounded_right else "BELOW"
+
+
 def _equal_weighted_daily_mean(series, reference_date, days: int) -> Optional[float]:
     """Mean of daily means over completed days.
 
@@ -597,9 +611,17 @@ def resolve_bubble_trend(
         result.bubble = bubble
         return result
 
-    versus_short = "ABOVE" if bubble > short_average else "BELOW"
-    cross = "ABOVE" if short_average > long_average else "BELOW"
-    reading = "DISCOUNT_SHRINKING" if cross == "ABOVE" else "DISCOUNT_DEEPENING"
+    # Compare at the precision the reader is shown, not at storage precision. Two
+    # values that both display as -3.42% must not carry a claim that one is below the
+    # other; a difference the reader cannot see is not a difference worth asserting.
+    versus_short = _compare_at_display_precision(bubble, short_average)
+    cross = _compare_at_display_precision(short_average, long_average)
+    if cross == "EQUAL":
+        reading = "DISCOUNT_FLAT"
+    elif cross == "ABOVE":
+        reading = "DISCOUNT_SHRINKING"
+    else:
+        reading = "DISCOUNT_DEEPENING"
 
     return BubbleTrend(
         bubble=bubble,

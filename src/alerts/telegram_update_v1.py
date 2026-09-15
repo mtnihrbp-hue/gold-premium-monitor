@@ -269,8 +269,12 @@ def _build_the_number(premium, lowest, fair, signal_state, position, trend):
         # reader asking below what.
         lines.append(f"<b>7-day average</b>   {_number(trend.short_average)}%")
         lines.append(f"<b>Bubble vs 7D</b>    {trend.versus_short.lower()}")
-        reading = "discount shrinking" if trend.reading == "DISCOUNT_SHRINKING" else "discount deepening"
-        lines.append(f"<b>7D vs 15D</b>       {trend.cross.lower()}   {reading}")
+        reading = {
+            "DISCOUNT_SHRINKING": "discount shrinking",
+            "DISCOUNT_DEEPENING": "discount deepening",
+            "DISCOUNT_FLAT": "discount steady",
+        }.get(trend.reading, "")
+        lines.append(f"<b>7D vs 15D</b>       {trend.cross.lower()}   {reading}".rstrip())
 
     lines.append("")
     lines.append(f"<b>Market low</b>      {format_m_tomans(lowest)}")

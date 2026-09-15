@@ -503,6 +503,28 @@ class KPISPC1(unittest.TestCase):
         earliest = _get_earliest_market_snapshot_today(_test_get_session(), now=NOW)
         self.assertAlmostEqual(float(earliest.premium_percent), -7.7, places=2)
 
+    def test_56_values_equal_at_display_precision_report_equal(self):
+        # Two readings that both render as -3.42% must not claim one is below the
+        # other. A difference the reader cannot see is not one worth asserting.
+        _seed([-3.4212] * 10 * 24, start=NOW - timedelta(days=11), step_hours=1)
+        trend = resolve_bubble_trend(
+            _test_get_session(), current_bubble=-3.4234, now=NOW
+        )
+        self.assertEqual(trend.versus_short, "EQUAL")
+
+    def test_57_flat_cross_reads_as_steady(self):
+        _seed([-4.0] * 14 * 24, start=NOW - timedelta(days=15), step_hours=1)
+        trend = resolve_bubble_trend(_test_get_session(), now=NOW)
+        self.assertEqual(trend.cross, "EQUAL")
+        self.assertEqual(trend.reading, "DISCOUNT_FLAT")
+
+    def test_58_visible_difference_still_reports_a_direction(self):
+        _seed([-3.40] * 10 * 24, start=NOW - timedelta(days=11), step_hours=1)
+        trend = resolve_bubble_trend(
+            _test_get_session(), current_bubble=-3.46, now=NOW
+        )
+        self.assertEqual(trend.versus_short, "BELOW")
+
     def test_51_trend_never_emits_a_decision(self):
         _seed([-4.0] * 10 * 24, start=NOW - timedelta(days=11), step_hours=1)
         trend = resolve_bubble_trend(_test_get_session(), now=NOW)

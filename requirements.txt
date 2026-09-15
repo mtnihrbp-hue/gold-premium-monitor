@@ -1,9 +1,25 @@
-requests
-beautifulsoup4
-lxml
+# Exact pins. The application runs unattended on an hourly schedule, so a dependency
+# publishing a breaking release would fail a run with no code change on this side and
+# no diff to explain it.
+#
+# The loose range that used to sit here caused exactly that: scikit-learn>=1.3.0,<2.0.0
+# let CI resolve 1.9.1 while development ran 1.6.1. multi_class was removed in 1.7, and
+# 14 of the 36 C.14B assertions failed on CI while passing locally on the same commit.
+#
+# Versions below are what CI resolves and what the suite is verified against. Upgrade
+# deliberately: bump a pin, run the suite, and keep the result.
+#
+# Transitive dependencies are still unpinned. A lock file would close that gap if it
+# ever matters; direct pins cover the cases seen so far.
+#
+# After changing this file run: pip install -r requirements.txt
+
+requests==2.34.2
+beautifulsoup4==4.15.0
+lxml==6.1.3
 
 bonbast==1.0.2
-resend
-sqlalchemy>=2.0.0
-psycopg2-binary
-scikit-learn>=1.3.0,<2.0.0
+resend==2.44.0
+sqlalchemy==2.0.52
+psycopg2-binary==2.9.13
+scikit-learn==1.9.1
