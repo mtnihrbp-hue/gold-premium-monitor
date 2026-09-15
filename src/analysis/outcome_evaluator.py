@@ -65,6 +65,61 @@ def _get_nearest_observation(
             session.close()
 
 
+def _get_nearest_recorded_premium(
+    target_time: datetime,
+    after_time: datetime,
+    tolerance_minutes: int,
+    session=None,
+) -> Optional[float]:
+    """Premium as it was recorded nearest the target time.
+
+    The bubble was previously left unmeasured on the grounds that it could not be
+    reconstructed without historical fair value. That is no longer true:
+    market_snapshots stores premium_percent on every row, so the value the system
+    actually computed and acted on at that moment can simply be read back. Reading the
+    recorded figure is preferred over recomputing it, because a recomputation could
+    disagree with the number the decision was made against.
+
+    Scheduled readings are preferred so an irregular user-triggered request cannot
+    become an outcome, with a fallback to any reading for history predating the
+    collection_mode migration.
+
+    Applies the same rules as the price series: strictly after after_time so no
+    look-ahead is possible, nearest to target, and only within tolerance.
+    """
+    from database.models import MarketSnapshot
+
+    if session is None:
+        session = get_session()
+        if session is None:
+            return None
+        should_close = True
+    else:
+        should_close = False
+
+    try:
+        tolerance = timedelta(minutes=tolerance_minutes)
+        base = session.query(MarketSnapshot).filter(
+            MarketSnapshot.premium_percent.isnot(None),
+            MarketSnapshot.timestamp > after_time,
+            MarketSnapshot.timestamp <= target_time + tolerance,
+        )
+
+        candidates = base.filter(MarketSnapshot.collection_mode == "scheduled").all()
+        if not candidates:
+            candidates = base.all()
+        if not candidates:
+            return None
+
+        nearest = min(candidates, key=lambda s: abs(s.timestamp - target_time))
+        if abs(nearest.timestamp - target_time) <= tolerance:
+            return float(nearest.premium_percent)
+        return None
+    finally:
+        if should_close:
+            session.close()
+
+
 def _get_historical_representative_price(
     target_time: datetime,
     after_time: datetime,
@@ -104,6 +159,40 @@ def _calculate_movement(
         return None, "INSUFFICIENT_DATA"
 
     movement = ((actual - reference) / reference) * 100
+
+    if abs(movement) <= flat_tolerance:
+        direction = "FLAT"
+    elif movement > 0:
+        direction = "UP"
+    else:
+        direction = "DOWN"
+
+    return round(movement, 4), direction
+
+
+def _calculate_premium_movement(
+    reference: Optional[float],
+    actual: Optional[float],
+    flat_tolerance: float,
+) -> Tuple[Optional[float], str]:
+    """Premium movement in percentage points.
+
+    The premium is itself a percentage, and in this market it is always negative.
+    Passing it through the ordinary percent-change calculation divides by a negative
+    base and inverts the sign: a discount shrinking from -5.0 to -4.0 is a move toward
+    zero, but ((-4.0 - -5.0) / -5.0) * 100 yields -20 and would be recorded as DOWN.
+    Every bubble outcome would carry the wrong direction, and anything training on
+    those labels would learn the market backwards.
+
+    The meaningful measure is the simple difference in percentage points, which is
+    what the rest of the project already uses for bubble movement.
+
+    UP means the discount shrank. DOWN means it deepened.
+    """
+    if reference is None or actual is None:
+        return None, "INSUFFICIENT_DATA"
+
+    movement = actual - reference
 
     if abs(movement) <= flat_tolerance:
         direction = "FLAT"
@@ -189,7 +278,9 @@ def evaluate_snapshot(
             act_xau = float(xau_obs.price) if xau_obs else None
             act_usd = float(usd_obs.price) if usd_obs else None
             act_rep = float(rep_obs.price) if rep_obs else None
-            act_premium = None  # Cannot reconstruct without historical fair value
+            act_premium = _get_nearest_recorded_premium(
+                target_time, reference_time, tolerance_minutes, session=session
+            )
 
             # Actual observation time: earliest valid observation timestamp
             valid_obs = [o for o in (xau_obs, usd_obs, rep_obs) if o is not None]
@@ -199,7 +290,7 @@ def evaluate_snapshot(
             xau_move, xau_dir = _calculate_movement(ref_xau, act_xau, flat_tolerance)
             usd_move, usd_dir = _calculate_movement(ref_usd, act_usd, flat_tolerance)
             rep_move, rep_dir = _calculate_movement(ref_rep, act_rep, flat_tolerance)
-            prem_move, prem_dir = _calculate_movement(ref_premium, act_premium, flat_tolerance)
+            prem_move, prem_dir = _calculate_premium_movement(ref_premium, act_premium, flat_tolerance)
 
             # Determine overall status
             has_any_data = any(v is not None for v in (act_xau, act_usd, act_rep))

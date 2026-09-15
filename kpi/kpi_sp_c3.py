@@ -43,7 +43,7 @@ db_conn.get_session = _test_get_session
 import database.repository as _repo_module
 _repo_module.get_session = _test_get_session
 
-from database.models import Base, AnalysisSnapshot, PriceObservation, OutcomeEvaluation
+from database.models import Base, AnalysisSnapshot, PriceObservation, OutcomeEvaluation, MarketSnapshot
 Base.metadata.create_all(bind=_TEST_ENGINE)
 
 import analysis.snapshot_builder as snapshot_builder
@@ -55,6 +55,7 @@ NOW = datetime(2026, 9, 15, 12, 0, 0)
 def _reset():
     session = _test_get_session()
     session.query(OutcomeEvaluation).delete()
+    session.query(MarketSnapshot).delete()
     session.query(PriceObservation).delete()
     session.query(AnalysisSnapshot).delete()
     session.commit()
@@ -188,6 +189,106 @@ class KPISPC3(unittest.TestCase):
 
     def test_08_backfill_survives_an_empty_database(self):
         self.assertEqual(backfill_outcome_evaluations(hours=168, horizons=[1]), 0)
+
+    # --- the bubble now has an outcome ------------------------------------
+
+    def _seed_market_snapshot(self, timestamp, premium, mode="scheduled"):
+        session = _test_get_session()
+        session.add(MarketSnapshot(
+            timestamp=timestamp, fair_price=240_000_000, premium_percent=premium,
+            world_gold_usd=4300.0, usd_irr=233_000, collection_mode=mode,
+        ))
+        session.commit()
+        session.close()
+
+    def test_09_premium_resolves_from_recorded_history(self):
+        """Previously hardcoded to None on the grounds it could not be reconstructed."""
+        reference = datetime.now() - timedelta(hours=2)
+        snapshot_id = _seed_snapshot(reference, premium=-4.0)
+        _seed_observation(reference, 230_000_000)
+        _seed_observation(reference + timedelta(hours=1), 232_000_000)
+        self._seed_market_snapshot(reference + timedelta(hours=1), -3.0)
+
+        backfill_outcome_evaluations(hours=168, horizons=[1])
+        session = _test_get_session()
+        row = session.query(OutcomeEvaluation).filter(
+            OutcomeEvaluation.analysis_snapshot_id == snapshot_id,
+            OutcomeEvaluation.horizon_hours == 1,
+        ).first()
+        session.close()
+        self.assertIsNotNone(row.actual_premium_percent)
+        self.assertAlmostEqual(float(row.actual_premium_percent), -3.0, places=2)
+        self.assertNotEqual(row.premium_direction, "INSUFFICIENT_DATA")
+
+    def test_10_premium_prefers_a_scheduled_reading(self):
+        reference = datetime.now() - timedelta(hours=2)
+        snapshot_id = _seed_snapshot(reference, premium=-4.0)
+        _seed_observation(reference, 230_000_000)
+        _seed_observation(reference + timedelta(hours=1), 232_000_000)
+        target = reference + timedelta(hours=1)
+        self._seed_market_snapshot(target, -3.0, mode="scheduled")
+        self._seed_market_snapshot(target + timedelta(minutes=2), -9.9, mode="user")
+
+        backfill_outcome_evaluations(hours=168, horizons=[1])
+        session = _test_get_session()
+        row = session.query(OutcomeEvaluation).filter(
+            OutcomeEvaluation.analysis_snapshot_id == snapshot_id,
+            OutcomeEvaluation.horizon_hours == 1,
+        ).first()
+        session.close()
+        self.assertAlmostEqual(float(row.actual_premium_percent), -3.0, places=2)
+
+    def test_11_premium_outside_tolerance_is_not_used(self):
+        reference = datetime.now() - timedelta(hours=2)
+        snapshot_id = _seed_snapshot(reference, premium=-4.0)
+        _seed_observation(reference, 230_000_000)
+        _seed_observation(reference + timedelta(hours=1), 232_000_000)
+        # Recorded three hours past the +1h target, far outside tolerance.
+        self._seed_market_snapshot(reference + timedelta(hours=4), -3.0)
+
+        backfill_outcome_evaluations(hours=168, horizons=[1])
+        session = _test_get_session()
+        row = session.query(OutcomeEvaluation).filter(
+            OutcomeEvaluation.analysis_snapshot_id == snapshot_id,
+            OutcomeEvaluation.horizon_hours == 1,
+        ).first()
+        session.close()
+        self.assertIsNone(row.actual_premium_percent)
+
+    def test_12_premium_never_reads_backwards(self):
+        # A reading before the reference must never satisfy a future horizon.
+        reference = datetime.now() - timedelta(hours=2)
+        snapshot_id = _seed_snapshot(reference, premium=-4.0)
+        _seed_observation(reference, 230_000_000)
+        _seed_observation(reference + timedelta(hours=1), 232_000_000)
+        self._seed_market_snapshot(reference - timedelta(minutes=5), -9.9)
+
+        backfill_outcome_evaluations(hours=168, horizons=[1])
+        session = _test_get_session()
+        row = session.query(OutcomeEvaluation).filter(
+            OutcomeEvaluation.analysis_snapshot_id == snapshot_id,
+            OutcomeEvaluation.horizon_hours == 1,
+        ).first()
+        session.close()
+        self.assertIsNone(row.actual_premium_percent)
+
+    def test_13_premium_movement_direction_is_recorded(self):
+        reference = datetime.now() - timedelta(hours=2)
+        snapshot_id = _seed_snapshot(reference, premium=-5.0)
+        _seed_observation(reference, 230_000_000)
+        _seed_observation(reference + timedelta(hours=1), 232_000_000)
+        # Discount shrank from -5.0 to -4.0.
+        self._seed_market_snapshot(reference + timedelta(hours=1), -4.0)
+
+        backfill_outcome_evaluations(hours=168, horizons=[1])
+        session = _test_get_session()
+        row = session.query(OutcomeEvaluation).filter(
+            OutcomeEvaluation.analysis_snapshot_id == snapshot_id,
+            OutcomeEvaluation.horizon_hours == 1,
+        ).first()
+        session.close()
+        self.assertIsNotNone(row.premium_movement_percent)
+        self.assertEqual(row.premium_direction, "UP")
 
 
 if __name__ == "__main__":
