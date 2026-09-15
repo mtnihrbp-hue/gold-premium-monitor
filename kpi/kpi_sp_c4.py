@@ -260,17 +260,21 @@ class KPISPC4(unittest.TestCase):
         self.assertIn("5.68%  below fair value", text)
         self.assertNotIn("-5.68", text)
 
-    def test_19_block_names_the_platform_that_sets_the_number(self):
+    def test_19_platform_is_named_on_the_line_stating_the_number(self):
+        # Naming it lower down, beside the market low, left the reader connecting a
+        # figure to its source across four lines and a blank. It was reported as
+        # missing from a message that contained it.
         text = _render_number()
-        self.assertIn("MioGold", text)
-        self.assertIn("Discount is measured at the market low.", text)
+        headline = text.split("\n")
+        index = next(i for i, line in enumerate(headline) if "below fair value" in line)
+        self.assertIn("at MioGold, the cheapest of 4", headline[index + 1])
 
     def test_20_block_shows_where_the_other_platforms_sit(self):
         # Without this a single platform's move is indistinguishable from a market
         # move, which is exactly what produced a false "unusually large" reading.
         text = _render_number()
         # Prices are stored in Rials and shown in millions of Tomans.
-        self.assertIn("The other 3 range 23.02M - 23.39M.", text)
+        self.assertIn("The other 3 platforms: 23.02M - 23.39M.", text)
 
     def test_21_other_platform_prices_exclude_the_low_and_any_failure(self):
         others = _other_platform_prices(MARKETS, "MioGold")

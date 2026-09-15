@@ -288,7 +288,17 @@ def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state
     day = baselines.day if baselines else None
     lines = [_update_sep(), "<b>THE NUMBER</b>", _update_sep()]
 
+    structure = format_market_structure(markets, fair) if markets else None
+    low_name = structure["low_name"] if structure else None
+    total_platforms = structure["platform_count"] if structure else None
+
     lines.append(_row(label, f"{abs(premium):.2f}%  {side} fair value"))
+    # The number is computed at one platform's price, so that platform belongs on
+    # the line stating it. Naming it further down, next to the market low, left the
+    # reader to connect a figure to its source across four lines and a blank.
+    if low_name:
+        suffix = f" of {total_platforms}" if total_platforms else ""
+        lines.append(_cont(f"at {low_name}, the cheapest{suffix}"))
 
     run_move = _gap_movement(premium, run.premium_percent if run else None)
     if run_move:
@@ -319,7 +329,6 @@ def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state
                 lines.append(_row("Cheap zone",
                                   f"If {position.cheap_below:.2f}% or less  ({window}D)"))
 
-    structure = format_market_structure(markets, fair) if markets else None
     below = getattr(signal_state, "platforms_below_fair", None) if signal_state else None
     above = getattr(signal_state, "platforms_above_fair", None) if signal_state else None
     if below is not None and above is not None and (below + above) > 0:
@@ -335,7 +344,6 @@ def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state
     lines.append("")
     price_change = _pct_change(platform_avg, run.platform_average if run else None)
     fair_change = _pct_change(fair, run.fair_price if run else None)
-    low_name = structure["low_name"] if structure else None
     lines.append(_row("Local price", _level_with_change(platform_avg, price_change)))
     lines.append(_row("Market low", format_m_tomans(lowest)
                       + (f"  {low_name}" if low_name else "")))
@@ -348,8 +356,7 @@ def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state
     others = _other_platform_prices(markets, low_name)
     if others:
         lines.append("")
-        lines.append(f"<i>{label} is measured at the market low.</i>")
-        lines.append(f"<i>The other {len(others)} range "
+        lines.append(f"<i>The other {len(others)} platforms: "
                      f"{format_m_tomans_short(others[0])} - "
                      f"{format_m_tomans_short(others[-1])}.</i>")
 
