@@ -183,9 +183,9 @@ UPDATE v1
 └── OPERATIONAL — lightweight user-triggered live update
 
 ANALYSIS WING
-└── Foundation implemented but running irregularly.
-    The intended cron-job.org trigger does not reach the Analyze path
-    (see section 4.1). Snapshots come only from the legacy GitHub schedule.
+└── RUNNING. cron-job.org dispatches hourly with mode=analyze,
+    verified 2026-09-15 at exact one-hour spacing inside a
+    06:00-21:00 Asia/Tehran window.
 
 SP-C
 └── OPEN — stabilization first, then the analytical leap
@@ -211,16 +211,26 @@ outcome_evaluations    162 rows      100% INSUFFICIENT_DATA at 1h, 6h and 24h
 
 Three findings follow from this.
 
-**The Analyze trigger is misrouted.** cron-job.org posts to the workflow dispatches
-endpoint, so `github.event_name` is `workflow_dispatch`, `SCHEDULED_RUN` resolves false,
-and `src/main.py` takes the UPDATE path. The daily job produces a Telegram message and
-no analytical history.
+**The Analyze trigger was misrouted. Fixed 2026-09-13.** cron-job.org posts to the
+workflow dispatches endpoint, so `github.event_name` was `workflow_dispatch`,
+`SCHEDULED_RUN` resolved false, and `src/main.py` took the UPDATE path: the daily job
+produced a Telegram message and no analytical history. The workflow now accepts a
+`mode` input and the scheduler declares `mode=analyze`. Verified on 2026-09-15 with
+six consecutive one-hour gaps between scheduled snapshots.
 
-**Outcome evaluation is starved, not broken.** At the achieved cadence there is no
-future observation within the 15-minute tolerance of a +1h or +6h target, and
-consecutive snapshots are rarely 24h apart either. The horizons cannot fill until the
-cadence is fixed. C.14B and C.14C sit downstream of this and have processed zero real
-cases.
+**Outcome evaluation never revisits a snapshot. Open defect.** Cadence was assumed to
+be the cause, but hourly collection has been running since 2026-09-14 and all 213
+evaluations remain `INSUFFICIENT_DATA`.
+
+`snapshot_builder.py` calls `run_outcome_evaluation_for_snapshot()` on the snapshot it
+has just created, whose +1h, +6h and +24h targets are all still in the future. The
+result can only ever be `INSUFFICIENT_DATA`. `backfill_outcome_evaluations()` exists,
+is documented as safe to run repeatedly and evaluates only snapshots lacking a
+complete evaluation, and is never invoked by the runtime.
+
+This is the same failure mode as the C14C news collector and the Analyze trigger:
+capability built, runtime path never reaching it. C.14B and C.14C sit downstream and
+have processed zero real cases as a consequence.
 
 **Static valuation thresholds carry no information.** Across all 278 observations the
 bubble ranged from -8.19% to -1.82%, so `buy_premium_percent: -1.5` was never crossed
@@ -369,10 +379,15 @@ The current decision section may remain in UPDATE while the downstream analytica
 ```text
 current observation
 vs
-latest previous canonical market snapshot
+latest previous SCHEDULED canonical market snapshot
 ```
 
-RUN is not a comparison against arbitrary previous user calls.
+RUN is not a comparison against arbitrary previous user calls. From 2026-09-14 this
+is enforced rather than merely stated: `collection_mode` distinguishes scheduled runs
+from user-triggered updates, and the baseline resolver selects only scheduled
+readings. Before that column existed the resolver took the latest record of any kind,
+so on the UPDATE path the baseline was the user's own previous request and RUN
+measured the interval between two clicks.
 
 **DAY**
 
@@ -382,9 +397,10 @@ vs
 first controlled canonical market snapshot of today
 ```
 
-During the transition period, DAY uses the first canonical `market_snapshots` record of the day.
-
-When the Analysis Wing is fully operational, DAY may migrate to the first controlled Analysis-Wing collection of the day.
+DAY uses the first **scheduled** `market_snapshots` record of the day. The migration
+anticipated here was completed on 2026-09-14, once the Analysis Wing began running on
+an hourly cadence. Both baselines fall back to a record of any collection mode when no
+scheduled record exists, so history predating the change still resolves.
 
 Do not use accumulated user-triggered UPDATE calls as the DAY baseline.
 

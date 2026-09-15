@@ -107,7 +107,7 @@ Sources are recorded in `RESEARCH_ADOPTION.md`.
 
 ## 5. Implemented — `src/analysis/bubble_position.py`
 
-KPI: `kpi/kpi_sp_c1.py` — **27/27 PASS**
+KPI: `kpi/kpi_sp_c1.py` — **55/55 PASS**
 
 ```text
 resolve_bubble_position(session, current_bubble=None, window_days=30, now=None)
@@ -236,7 +236,11 @@ Both are asserted by KPI. A scorecard that retuned thresholds would overfit its 
 history and then report confidence in itself, which the C14C adaptive boundary
 forbids.
 
-Neither module is wired into any message yet.
+`bubble_position` is wired into the UPDATE message as of 2026-09-14, and its output
+is persisted with every decision in `market_states.valuation_context_json`.
+`decision_scorecard` remains unwired: it is admin-facing and has nothing meaningful
+to report while every recorded decision is the same, so it waits until decisions
+begin to vary.
 
 ---
 
@@ -344,7 +348,70 @@ a missing context must never stop a decision being persisted.
 Data written from this point is clean. Everything before it remains mixed and is
 marked as such.
 
-## 11. Operational state — collection cadence
+## 11. UPDATE message — wired 2026-09-14
+
+The relative valuation now reaches the reader. `src/analysis/bubble_position.py`
+gained three further primitives for it, all covered by `kpi_sp_c1.py` (**55/55**).
+
+```text
+resolve_bubble_trend      moving averages of the bubble, not of the price
+resolve_bubble_speed      rate expressed against its own typical daily move
+resolve_zone_episodes     how often the cheap zone occurs and how long it lasts
+```
+
+`resolve_bubble_trend` takes averages on the bubble deliberately. A moving average of
+the local price mostly tracks currency devaluation, so it reports an uptrend almost
+permanently and carries no information. A short average above the long one means the
+discount has been shrinking, which is gold becoming more expensive against fair value.
+
+Position is reported as a rank out of 100 rather than a z-score. The distribution is
+left-skewed — mean -4.08 against median -3.83 — so the deep-discount tail inflates the
+standard deviation and the z-score described a reading at 84 of 100 as NORMAL. The
+z-score is still computed and still drives trigger recalculation; it no longer reaches
+a reader.
+
+Message contract changes are recorded in `UPDATE_V1_IMPLEMENTATION.md`.
+`skills/telegram-product.md` was updated rather than contradicted: it previously
+required a trailing decision section and placed the decision mid-message.
+
+### Defects found while wiring
+
+Three, all caught by rendering against production data rather than by reading code.
+
+**Typical daily move read 7.28pp** when the bubble's entire observed range is 6.4pp.
+The rate was derived from consecutive readings, so a small change across a gap of
+minutes extrapolated to an enormous daily figure. Now measured over genuine 24-hour
+intervals, giving 0.85pp, which matches an independent calculation. Regression test
+added.
+
+**RUN compared against the user's own previous request.** `_get_latest_market_snapshot`
+took the latest row of any kind, so on the UPDATE path the baseline was the user's
+prior click and RUN measured the gap between two clicks. This is why it so often read
+`+0.00%`. Both RUN and DAY now prefer scheduled readings.
+
+**The daily recap fired on every scheduled run.** Tolerable at one run a day, but at
+hourly cadence it would have produced roughly 24 emails and 24 Telegram messages
+daily. It now fires on the first scheduled run of a calendar day, tracked in
+`state.json`, and marks the day complete only once a channel actually delivered so a
+transient failure retries rather than silently dropping the day.
+
+### Process failure recorded
+
+The user agreed a message template, then asked for two specific changes: narrow the
+tables for mobile, and remove a redundant section. Alongside those the implementation
+also dropped a data column, renamed two metrics and relocated two lines — none
+requested. The user's response: *"the msg gets worse each time you change it"*, and
+then *"never ever change an agreed framework without my permission"*.
+
+The dropped column compounded it. `Run` looked useless because it read `+0.00%`, but
+it was broken for a fixable reason, and deleting the symptom removed something the
+user needed while hiding a real defect.
+
+**Rule for this project: implement exactly what was agreed. Anything else is raised as
+a question first, including changes that appear obvious while working on something
+else.**
+
+## 12. Operational state — collection cadence
 
 cron-job.org job 8179679 was reconfigured on 2026-09-14.
 
@@ -365,6 +432,39 @@ target, and hourly runs put the +1h, +6h and +24h targets exactly on later runs.
 Thirty minutes would double the sample count but is not required for the horizons
 to resolve.
 
+### Verified 2026-09-15
+
+The scheduler is confirmed working. Gaps between scheduled snapshots:
+
+```text
+1.00 h   x6      hourly firing inside the window
+9.00 h   x1      21:00 to 06:00 Tehran, the configured overnight pause
+```
+
+Runs appear at :30 UTC because minute 0 in Asia/Tehran is minute 30 UTC.
+
+### Open defect — outcome evaluation never revisits a snapshot
+
+Raising the cadence did not resolve the horizons. All 213 evaluations remain
+`INSUFFICIENT_DATA` despite hourly readings being available, so cadence was not the
+only cause.
+
+`snapshot_builder.py` line 390 calls `run_outcome_evaluation_for_snapshot()` against
+the snapshot it has just created. That snapshot's +1h, +6h and +24h targets are all in
+the future, so the call can only ever record `INSUFFICIENT_DATA`. Nothing returns to
+the snapshot once its horizons mature.
+
+`backfill_outcome_evaluations()` in `src/analysis/outcome_evaluator.py` does exactly
+what is required — it is documented as safe to run repeatedly and evaluates only
+snapshots that lack a complete evaluation — and the runtime never calls it.
+
+This is the fifth occurrence of the same pattern in this project: the C14C news
+collector, the Analyze trigger, the unenforced analysis window, the RUN baseline, and
+now this. Capability is built and tested, and the runtime path never reaches it. The
+production liveness rule in `PROJECT_ORCHESTRATION.md` exists because of it.
+
+Fix is one call on the scheduled path, pending approval.
+
 ### Merge checklist
 
 Carry these out when SP-C merges into main:
@@ -382,7 +482,7 @@ Carry these out when SP-C merges into main:
 Step 3 matters: the body pins `ref` to `SP-C`, so after a merge the scheduler would
 keep running the feature branch rather than main.
 
-## 12. Deferred
+## 13. Deferred
 
 ```text
 half-life measurement to select the window   needs ~120 days
@@ -395,7 +495,7 @@ collection_mode migration                    requires approval
 
 ---
 
-## 11. Known limitation
+## 14. Known limitation
 
 `market_snapshots` does not distinguish scheduled runs from user-triggered updates.
 Both the distribution and the scorecard therefore draw on a mixed sample, biased

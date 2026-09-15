@@ -33,27 +33,39 @@
       "SP-C.1 relative bubble valuation (src/analysis/bubble_position.py)",
       "SP-C.2 decision scorecard with baselines (src/analysis/decision_scorecard.py)",
       "SP-C.1 migration applied: collection provenance and decision context, wired through models, repository and main",
-      "Collection cadence raised to hourly via cron-job.org with mode=analyze; daily recap limited to once per day"
+      "Collection cadence raised to hourly via cron-job.org with mode=analyze; daily recap limited to once per day",
+      "UPDATE message wired to relative valuation: decision leads, THE NUMBER carries bubble, rank out of 100, favourable boundary, confidence, momentum, structure and bubble moving averages",
+      "RUN and DAY baselines now resolve to scheduled readings, so a user's own previous request can no longer serve as a baseline",
+      "Both message tables rebuilt to 33 characters for phone width; CURRENT DECISION and MARKET STRUCTURE removed as duplicated content",
+      "Daily recap limited to the first scheduled run of each calendar day"
     ],
     "in_progress": [
-      "UPDATE and ANALYZE message templates, to be agreed before implementation"
+      "UPDATE message awaiting user confirmation on a real device",
+      "ANALYZE message not yet built; TRACK RECORD parked as admin-only",
+      "Outcome evaluation backfill not wired; blocks every downstream horizon"
     ],
-    "not_wired": "bubble_position and decision_scorecard are computed and the valuation context is now persisted with each decision, but neither is rendered in any message yet.",
+    "not_wired": "decision_scorecard is computed but unwired. It is admin-facing and has nothing to report while every recorded decision is WAIT.",
     "decision_trigger_finding": "Forward 24h return changes sign near the 40th percentile in 41 days of data. Never hardcoded; the reference recomputes every run.",
     "scoring_rule_finding": "Scoring price direction would credit an always-BUY system with 58% because the local price rises on its own. The bubble rose in 47% of the same cases, so the bubble is scored.",
-    "production_scorecard": "24h horizon: 175 scored, hit rate 55.2%, always-WAIT baseline 55.2%, edge 0.0. Correct — final_decision has been WAIT on 204 of 204 states."
+    "production_scorecard": "24h horizon: 175 scored, hit rate 55.2%, always-WAIT baseline 55.2%, edge 0.0. Correct — final_decision has been WAIT on 204 of 204 states.",
+    "defects_found_while_wiring": [
+      "Typical daily move computed as 7.28pp against a total observed range of 6.4pp, caused by extrapolating consecutive readings minutes apart into daily rates. Now measured over genuine 24-hour intervals at 0.85pp.",
+      "RUN baseline took the latest row of any collection mode, so on the UPDATE path it compared against the user's own previous click rather than market movement.",
+      "The daily recap fired on every scheduled run, which at hourly cadence would have sent roughly 24 emails and 24 Telegram messages per day."
+    ]
   },
   "latest_verified_kpi": {
     "phase": "FULL SUITE",
     "files_passed": 21,
     "files_total": 21,
-    "assertions": 438,
+    "assertions": 508,
     "status": "PASS",
     "evidence_source": "executed on SP-C against an isolated in-memory database; also green in CI (.github/workflows/kpi-suite.yml)",
     "notes": [
       "C.2 had been failing since commit ff4496d (C.13 idempotency fix) while documentation recorded 14/14 PASS; the stale assertion was corrected on SP-C.",
       "KPI scripts print status emoji and crash with UnicodeEncodeError under the Windows console codepage after assertions pass. kpi/run_all.py forces UTF-8 for child processes.",
-      "scikit-learn >=1.7 removed the multi_class argument, which broke 14 of 36 C.14B assertions on any modern install. Fixed on SP-C."
+      "scikit-learn >=1.7 removed the multi_class argument, which broke 14 of 36 C.14B assertions on any modern install. Fixed on SP-C.",
+      "SP-C.1 grew from 27 to 55 assertions as percentile bands, expectancy, speed, zone episodes, bubble moving averages and the scheduled-only baseline rule were added."
     ]
   },
   "latest_verified_runtime": {
@@ -238,6 +250,10 @@
     "cron_body": "{\"ref\":\"SP-C\",\"inputs\":{\"mode\":\"analyze\"}}",
     "cron_ref_must_change_to_main_after_merge": true,
     "horizons_supported": "hourly runs put +1h, +6h and +24h targets on exact later runs, inside the C.5 tolerance of 15 minutes",
-    "daily_recap": "fires on the first scheduled run of a calendar day only; state.last_recap_date guards it"
-  }
+    "daily_recap": "fires on the first scheduled run of a calendar day only; state.last_recap_date guards it",
+    "cron_first_fire": "2026-09-14 18:00 Tehran; hourly thereafter",
+    "outcome_horizons_status": "OPEN DEFECT. All 213 evaluations remain INSUFFICIENT_DATA despite hourly readings. snapshot_builder evaluates only the snapshot it just created, whose horizons are all still in the future, and never revisits it. backfill_outcome_evaluations() exists and is never called. Fix pending approval.",
+    "cadence_verified": "2026-09-15: six consecutive one-hour gaps between scheduled snapshots plus one nine-hour overnight pause, matching 0 6-21 Asia/Tehran. Runs appear at :30 UTC because minute 0 Tehran is minute 30 UTC."
+  },
+  "process_rule": "Do not change an agreed design, template or framework without explicit permission, including changes that appear obvious while working on a different task. Raise them as a question instead. Recorded after unrequested edits to an approved message template forced re-review and removed a column that was broken for a fixable reason."
 }
