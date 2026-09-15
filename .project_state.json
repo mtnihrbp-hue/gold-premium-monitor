@@ -37,12 +37,13 @@
       "UPDATE message wired to relative valuation: decision leads, THE NUMBER carries bubble, rank out of 100, favourable boundary, confidence, momentum, structure and bubble moving averages",
       "RUN and DAY baselines now resolve to scheduled readings, so a user's own previous request can no longer serve as a baseline",
       "Both message tables rebuilt to 33 characters for phone width; CURRENT DECISION and MARKET STRUCTURE removed as duplicated content",
-      "Daily recap limited to the first scheduled run of each calendar day"
+      "Daily recap limited to the first scheduled run of each calendar day",
+      "Outcome evaluation backfill wired; 72 evaluations resolved on first production run"
     ],
     "in_progress": [
       "UPDATE message awaiting user confirmation on a real device",
       "ANALYZE message not yet built; TRACK RECORD parked as admin-only",
-      "Outcome evaluation backfill not wired; blocks every downstream horizon"
+      "Bubble outcome measurement: contract change awaiting decision"
     ],
     "not_wired": "decision_scorecard is computed but unwired. It is admin-facing and has nothing to report while every recorded decision is WAIT.",
     "decision_trigger_finding": "Forward 24h return changes sign near the 40th percentile in 41 days of data. Never hardcoded; the reference recomputes every run.",
@@ -56,9 +57,9 @@
   },
   "latest_verified_kpi": {
     "phase": "FULL SUITE",
-    "files_passed": 21,
-    "files_total": 21,
-    "assertions": 508,
+    "files_passed": 22,
+    "files_total": 22,
+    "assertions": 516,
     "status": "PASS",
     "evidence_source": "executed on SP-C against an isolated in-memory database; also green in CI (.github/workflows/kpi-suite.yml)",
     "notes": [
@@ -252,8 +253,9 @@
     "horizons_supported": "hourly runs put +1h, +6h and +24h targets on exact later runs, inside the C.5 tolerance of 15 minutes",
     "daily_recap": "fires on the first scheduled run of a calendar day only; state.last_recap_date guards it",
     "cron_first_fire": "2026-09-14 18:00 Tehran; hourly thereafter",
-    "outcome_horizons_status": "OPEN DEFECT. All 213 evaluations remain INSUFFICIENT_DATA despite hourly readings. snapshot_builder evaluates only the snapshot it just created, whose horizons are all still in the future, and never revisits it. backfill_outcome_evaluations() exists and is never called. Fix pending approval.",
-    "cadence_verified": "2026-09-15: six consecutive one-hour gaps between scheduled snapshots plus one nine-hour overnight pause, matching 0 6-21 Asia/Tehran. Runs appear at :30 UTC because minute 0 Tehran is minute 30 UTC."
+    "outcome_horizons_status": "FIXED 2026-09-15. backfill_outcome_evaluations() wired into the scheduled path; first run resolved 72 evaluations, COMPLETE count zero to 19 (9 at 1h, 2 at 6h, 8 at 24h). Remaining INSUFFICIENT_DATA rows belong to the sparse era and have no reachable partner.",
+    "cadence_verified": "2026-09-15: six consecutive one-hour gaps between scheduled snapshots plus one nine-hour overnight pause, matching 0 6-21 Asia/Tehran. Runs appear at :30 UTC because minute 0 Tehran is minute 30 UTC.",
+    "open_finding_bubble_outcome": "outcome_evaluations never measures the bubble: outcome_evaluator.py sets act_premium = None by design and C.5 test_21 asserts it. The stated reason, that historical fair value cannot be reconstructed, no longer holds since market_snapshots stores premium_percent and fair_price on every row. decision_scorecard is unaffected; C.14B and C.14C are. Awaiting a decision."
   },
   "process_rule": "Do not change an agreed design, template or framework without explicit permission, including changes that appear obvious while working on a different task. Raise them as a question instead. Recorded after unrequested edits to an approved message template forced re-review and removed a column that was broken for a fixable reason."
 }

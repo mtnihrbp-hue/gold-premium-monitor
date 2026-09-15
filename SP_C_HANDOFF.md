@@ -463,7 +463,42 @@ collector, the Analyze trigger, the unenforced analysis window, the RUN baseline
 now this. Capability is built and tested, and the runtime path never reaches it. The
 production liveness rule in `PROJECT_ORCHESTRATION.md` exists because of it.
 
-Fix is one call on the scheduled path, pending approval.
+Fixed 2026-09-15. `backfill_outcome_evaluations()` now runs on the scheduled path
+after per-snapshot evaluation. The first production run reported **72 evaluations
+resolved**, taking the COMPLETE count from zero to 19: nine at +1h, two at +6h, eight
+at +24h. The remainder belong to the sparse era and have no reachable partner, so they
+are correctly unresolvable rather than pending.
+
+Covered by `kpi/kpi_sp_c3.py` (**8/8**), which asserts reachability rather than
+arithmetic. The arithmetic was never broken — `kpi_pre_sp_c5.py` already covered
+backfill, idempotency, tolerance and look-ahead protection and passed throughout. What
+had no coverage was whether the runtime reaches any of it, which is the gap all five
+occurrences of this pattern share.
+
+### Follow-on finding — the bubble has no outcome
+
+Resolving the horizons exposed that `outcome_evaluations` never measures the bubble.
+
+```python
+# outcome_evaluator.py line 192
+act_premium = None  # Cannot reconstruct without historical fair value
+```
+
+It is hardcoded, and `test_21_premium_insufficient` in the C.5 KPI asserts it, so this
+is contract rather than defect. The consequence is that outcome evaluation measures
+gold, XAU/USD and USD/IRR while never measuring the single quantity the system exists
+to track.
+
+The stated reason appears no longer to hold. `market_snapshots` carries
+`premium_percent` and `fair_price` on all 309 rows, so historical fair value is
+available and premium could be resolved by the same nearest-observation method already
+used for the price series.
+
+`decision_scorecard.py` is unaffected because it computes bubble outcomes directly from
+`market_snapshots`. C.14B and C.14C are affected: they consume `outcome_evaluations`,
+so their view permanently excludes the bubble.
+
+Left unchanged pending a decision, since it is a documented and asserted contract.
 
 ### Merge checklist
 
