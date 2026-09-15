@@ -391,6 +391,20 @@ def build_analysis_snapshot(
         except Exception as e:
             print(f"Outcome evaluation failed for snapshot {snapshot_id}: {e}")
 
+        # Evaluating only the snapshot just created can never resolve anything: its
+        # +1h, +6h and +24h targets are all still in the future, so the call above
+        # records INSUFFICIENT_DATA every time. Nothing returned once those horizons
+        # matured, which is why 213 evaluations remained unresolved even after hourly
+        # collection began. The backfill revisits earlier snapshots whose horizons are
+        # now reachable; it is idempotent and skips any horizon already COMPLETE.
+        try:
+            from analysis.outcome_evaluator import backfill_outcome_evaluations
+            resolved = backfill_outcome_evaluations(config=config)
+            if resolved:
+                print(f" Outcome backfill: {resolved} evaluation(s) resolved")
+        except Exception as e:
+            print(f"Outcome backfill failed: {e}")
+
     # PRE-SP-C.14A: non-blocking candle build
     if snapshot_id is not None and snapshot_id > 0:
         try:
