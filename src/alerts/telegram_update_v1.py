@@ -25,6 +25,7 @@ from alerts.helpers import (
     format_m_tomans,
     format_m_tomans_short,
 )
+from analysis.bubble_position import cheap_basis_price, signed_gap
 from update.baseline_resolver import UpdateBaselines
 
 
@@ -146,14 +147,17 @@ def _market_row(metric, now_text, run_text, day_text, seven_day_text):
 
 
 def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premium, baselines,
-                  world_from_fallback=False, markets=None):
+                  world_from_fallback=False, markets=None, valuation=None):
     run = baselines.run
     day = baselines.day
     seven = baselines.seven_day
     lines = [_update_sep(), "<b>MARKET</b>", _update_sep()]
 
+    # "Today" rather than "Day", matching the vs Today row in THE NUMBER. The two
+    # sections described the same reference with two different words and then spent
+    # a footnote each explaining them separately.
     rows = [
-        _market_row("", "Now", "Run", "Day", "7D"),
+        _market_row("", "Now", "Run", "Today", "7D"),
         "─" * MARKET_TABLE_WIDTH,
     ]
 
@@ -178,23 +182,39 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
         _delta_bare(_pct_change(fair, day.fair_price if day else None)),
         _delta_bare(_pct_change(fair, seven.fair_price)),
     ))
-    rows.append(_market_row(
-        "Platform",
-        format_m_tomans_short(platform_avg),
-        _delta_bare(_pct_change(platform_avg, run.platform_average if run else None)),
-        _delta_bare(_pct_change(platform_avg, day.platform_average if day else None)),
-        _delta_bare(_pct_change(platform_avg, seven.platform_average)),
-    ))
+    # The price the valuation rests on, so the table and the block above it are
+    # built from the same number rather than pairing a trimmed reading against an
+    # untrimmed row.
+    basis_now = valuation.basis_price if valuation is not None else None
+    basis_count = valuation.basis_count if valuation is not None else 0
+    if basis_now is not None:
+        rows.append(_market_row(
+            f"Cheap {basis_count}",
+            format_m_tomans_short(basis_now),
+            _delta_bare(_pct_change(basis_now, _baseline_basis(run))),
+            _delta_bare(_pct_change(basis_now, _baseline_basis(day))),
+            _delta_bare(_pct_change(basis_now, seven.cheap_basis)),
+        ))
+    else:
+        rows.append(_market_row(
+            "Platform",
+            format_m_tomans_short(platform_avg),
+            _delta_bare(_pct_change(platform_avg, run.platform_average if run else None)),
+            _delta_bare(_pct_change(platform_avg, day.platform_average if day else None)),
+            _delta_bare(_pct_change(platform_avg, seven.platform_average)),
+        ))
+
     # Same naming and same direction as THE NUMBER. The row previously carried the
     # signed premium, so the identical market movement appeared here with the
     # opposite sign to the block above it.
-    gap_label, _ = _gap_naming(premium)
+    gap = valuation.gap if valuation is not None and valuation.gap is not None else premium
+    gap_label, _ = _gap_naming(gap)
     rows.append(_market_row(
         gap_label,
-        f"{abs(premium):.2f}%" if premium is not None else "N/A",
-        _delta_bare(_gap_delta(premium, run.premium_percent) if run else None),
-        _delta_bare(_gap_delta(premium, day.premium_percent) if day else None),
-        _delta_bare(_gap_delta(premium, seven.premium_percent)),
+        f"{abs(gap):.2f}%" if gap is not None else "N/A",
+        _delta_bare(_gap_delta(gap, _baseline_gap(run))),
+        _delta_bare(_gap_delta(gap, _baseline_gap(day))),
+        _delta_bare(_gap_delta(gap, seven.cheap_basis_gap)),
     ))
 
     lines.append("<pre>" + "\n".join(rows) + "</pre>")
@@ -207,11 +227,19 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
         lines.append(f"<b>Highest</b>  {format_m_tomans(highest)}")
     lines.append(f"<b>Spread</b>   {format_m_tomans(spread)}")
     lines.append("")
-    # Day is point-to-point; the 7D column compares against a mean. Saying so stops
-    # the two being read as the same kind of measure.
-    lines.append("<i>Run compares against the last scheduled reading,</i>")
-    lines.append("<i>Day against the first scheduled reading today.</i>")
-    lines.append("<i>7D compares against the mean of 7 completed days.</i>")
+    # One footnote for the whole message. THE NUMBER used to carry its own pair of
+    # lines naming the same two references, so the reader was told twice.
+    # Day is point-to-point; the 7D column compares against a mean, and saying so
+    # stops the two being read as the same kind of measure.
+    run_clock = format_clock(run.timestamp) if run and run.timestamp else None
+    day_clock = format_clock(day.timestamp) if day and day.timestamp else None
+    if run_clock and day_clock:
+        lines.append(f"<i>Run = {run_clock} (last scheduled), "
+                     f"Today = {day_clock} (first today).</i>")
+    else:
+        lines.append("<i>Run = the last scheduled reading, "
+                     "Today = the first one today.</i>")
+    lines.append("<i>7D = mean of 7 completed days, each weighted equally.</i>")
     lines.append(f"<i>Changes are %, except {gap_label} which is percentage points.</i>")
     # Which direction is good for a buyer flips with the sign, so the sentence has
     # to flip with it too rather than being written for the discount case alone.
@@ -248,32 +276,14 @@ def _build_verdict(signal_state, position):
     if signal_state is None:
         return "<b>GOLDPremium: UPDATE</b>"
 
-    # Graduated wording. Three bands drive the logic, but describing anything from
-    # the 40th to the 80th percentile as "middle" overstates the case: a reading at
-    # 76 of 100 is plainly toward the expensive end and should not read as neutral.
-    line = None
-    percentile = getattr(position, "percentile", None) if position else None
-    if percentile is not None:
-        if percentile < 20:
-            line = "Cheap against its own recent range."
-        elif percentile < 40:
-            line = "Below its own recent average."
-        elif percentile < 60:
-            line = "Middle of its own recent range. No edge here."
-        elif percentile < 80:
-            line = "Toward the expensive end of its own range."
-        else:
-            line = "Expensive against its own recent range."
-
-    parts = ["<b>GOLDPremium: UPDATE</b>"]
-    if line:
-        parts.extend(["", line])
-
-    return "\n".join(parts)
+    # The band sentence was removed too. "Below its own recent average" restated
+    # what "Bigger than 29% of the last 30 days" says one line later, in vaguer
+    # terms and without the figure behind it.
+    return "<b>GOLDPremium: UPDATE</b>"
 
 
 def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state,
-                      position, magnitude, baselines):
+                      position, magnitude, baselines, valuation=None):
     """The figures a decision actually rests on, in one block.
 
     Everything here is stated in the direction the market is actually in. The gap
@@ -290,42 +300,50 @@ def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state
     low_name = structure["low_name"] if structure else None
     total_platforms = structure["platform_count"] if structure else None
 
-    lines.append(_row(label, f"{abs(premium):.2f}%  {side} fair value"))
-    # The number is computed at one platform's price, so that platform belongs on
-    # the line stating it. Naming it further down, next to the market low, left the
-    # reader to connect a figure to its source across four lines and a blank.
-    if low_name:
-        suffix = f" of {total_platforms}" if total_platforms else ""
-        lines.append(_cont(f"at {low_name}, the cheapest{suffix}"))
+    # Everything below rests on the trimmed basis, not on the single cheapest
+    # platform. `premium` is still the stored, minimum-based value and is used only
+    # where a valuation is unavailable.
+    gap = valuation.gap if valuation is not None and valuation.gap is not None else premium
+    label, side = _gap_naming(gap)
+    basis_now = valuation.basis_price if valuation is not None else None
+    basis_count = valuation.basis_count if valuation is not None else 0
 
-    run_move = _gap_movement(premium, run.premium_percent if run else None)
+    lines.append(_row(label, f"{abs(gap):.2f}%  {side} fair value"))
+    if basis_count and total_platforms:
+        lines.append(_cont(f"from the {basis_count} cheapest of {total_platforms}"))
+
+    run_gap = _baseline_gap(run, basis_now)
+    run_move = _gap_movement(gap, run_gap)
     if run_move:
         lines.append(_row(label, run_move))
         # Ranking the size of a move that did not happen reads as a contradiction.
-        if magnitude is not None and magnitude.status == "OK" and run_move != "unchanged":
-            lines.append(_cont(magnitude.label))
+        move = valuation.move_label if valuation is not None else None
+        if move and move != "UNKNOWN" and run_move != "unchanged":
+            lines.append(_cont(move))
 
     # The consequence is dropped here because the line above already carries it
     # for the same gap; repeating it adds length without adding information.
-    day_move = _gap_movement(premium, day.premium_percent if day else None,
-                             with_consequence=False)
+    day_move = _gap_movement(gap, _baseline_gap(day, basis_now), with_consequence=False)
     if day_move:
         lines.append(_row("vs Today", day_move))
 
-    if position is not None and position.percentile is not None:
-        window = position.window_days
-        lines.append(_row("Cheaper than",
-                          f"{100 - position.percentile}% of the last {window} days"))
-        if position.cheap_below is not None:
-            # The threshold is a rank inside the window, not a level measured
-            # against outcomes, so it is named for what it describes and makes no
-            # claim about what follows from reaching it.
-            if position.cheap_below < 0:
+    if valuation is not None and valuation.status == "OK":
+        window = valuation.window_days
+        # "Bigger" rather than "cheaper": the subject is the discount, and the
+        # footnote already defines a bigger discount as the cheaper one. "Cheaper
+        # than 29%" left the reader asking cheaper than what.
+        lines.append(_row("Bigger than",
+                          f"{valuation.bigger_than}% of the last {window} days"))
+        if valuation.deep_at is not None:
+            # A rank inside the window, not a level measured against outcomes, so it
+            # is named for what it describes and claims nothing about what follows
+            # from reaching it.
+            if valuation.deep_at < 0:
                 lines.append(_row("Deep discount",
-                                  f"If {abs(position.cheap_below):.2f}% or more  ({window}D)"))
+                                  f"If {abs(valuation.deep_at):.2f}% or more  ({window}D)"))
             else:
                 lines.append(_row("Cheap zone",
-                                  f"If {position.cheap_below:.2f}% or less  ({window}D)"))
+                                  f"If {valuation.deep_at:.2f}% or less  ({window}D)"))
 
     below = getattr(signal_state, "platforms_below_fair", None) if signal_state else None
     above = getattr(signal_state, "platforms_above_fair", None) if signal_state else None
@@ -340,32 +358,48 @@ def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state
             lines.append(_row("Platforms", f"{below} of {total} below fair value"))
 
     lines.append("")
-    price_change = _pct_change(platform_avg, run.platform_average if run else None)
-    fair_change = _pct_change(fair, run.fair_price if run else None)
-    lines.append(_row("Local price", _level_with_change(platform_avg, price_change)))
+    cheapest = _cheapest_platforms(markets, basis_count)
+    if cheapest:
+        lines.append(_row("Cheapest " + str(len(cheapest)),
+                          ", ".join(name for name, _ in cheapest)))
+        lines.append(_cont(" / ".join(format_m_tomans_short(p) for _, p in cheapest)))
     lines.append(_row("Market low", format_m_tomans(lowest)
                       + (f"  {low_name}" if low_name else "")))
-    lines.append(_row("Fair value", _level_with_change(fair, fair_change)))
+    lines.append(_row("Fair value", _level_with_change(
+        fair, _pct_change(fair, run.fair_price if run else None))))
 
-    # The gap is measured at the cheapest platform, so a single platform moving
-    # alone changes the headline while the market has not moved at all. Naming
-    # that platform and showing where the rest sit lets the reader tell the two
-    # apart instead of reading one vendor's quote as a market event.
-    others = _other_platform_prices(markets, low_name)
+    # Valuation is trimmed, execution is not. Showing where the platforms outside
+    # the basis sit lets the reader tell one vendor moving alone from the market
+    # moving, which is what a single stale quote looked like before.
+    others = _outside_basis_prices(markets, [name for name, _ in cheapest])
     if others:
         lines.append("")
         lines.append(f"<i>The other {len(others)} platforms: "
                      f"{format_m_tomans_short(others[0])} - "
                      f"{format_m_tomans_short(others[-1])}.</i>")
 
-    # Every number above is a change against some reference. Naming them once
-    # here answers it for the whole block rather than per line.
-    if run and run.timestamp and day and day.timestamp:
-        lines.append("")
-        lines.append(f"<i>All changes are vs the {format_clock(run.timestamp)} reading,</i>")
-        lines.append(f"<i>except vs Today, which is vs {format_clock(day.timestamp)}.</i>")
-
     return "\n".join(lines)
+
+
+def _baseline_basis(baseline):
+    """Trimmed basis price of a baseline snapshot, rebuilt from its platform prices."""
+    if baseline is None or not baseline.platform_prices:
+        return None
+    return cheap_basis_price(baseline.platform_prices.values())
+
+
+def _baseline_gap(baseline, fallback_basis=None):
+    """Signed gap of a baseline snapshot, rebuilt on the trimmed basis.
+
+    The baseline carries every platform price it recorded, so the basis is
+    recomputed rather than read from its stored premium, which was minimum-based.
+    """
+    if baseline is None or not baseline.fair_price:
+        return None
+    basis = cheap_basis_price(baseline.platform_prices.values())
+    if basis is None:
+        return baseline.premium_percent
+    return signed_gap(basis, baseline.fair_price)
 
 
 def _level_with_change(value, change):
@@ -375,14 +409,27 @@ def _level_with_change(value, change):
     return text
 
 
-def _other_platform_prices(markets, low_name):
-    """Sorted prices of every platform except the one setting the market low."""
-    if not markets or not low_name:
+def _cheapest_platforms(markets, count):
+    """The `count` cheapest platforms as (name, price), cheapest first."""
+    if not markets or not count:
         return []
+    valid = [
+        (name, float(info["price"])) for name, info in markets.items()
+        if info.get("status") == "OK" and info.get("price") is not None
+    ]
+    return sorted(valid, key=lambda item: item[1])[:count]
+
+
+def _outside_basis_prices(markets, basis_names):
+    """Sorted prices of every platform not inside the valuation basis."""
+    if not markets:
+        return []
+    excluded = set(basis_names or ())
     return sorted(
         float(info["price"])
         for name, info in markets.items()
-        if name != low_name and info.get("status") == "OK" and info.get("price") is not None
+        if name not in excluded
+        and info.get("status") == "OK" and info.get("price") is not None
     )
 
 
@@ -473,15 +520,17 @@ def send_update_v1(
     # resolver keeps a caller and the decision is reversible without rewiring.
     trend=None,
     magnitude=None,
+    valuation=None,
 ):
     if baselines is None:
         raise RuntimeError("UPDATE v1 requires resolved baselines")
     body = "\n\n".join([
         _build_verdict(signal_state, position),
         _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state,
-                          position, magnitude, baselines),
+                          position, magnitude, baselines, valuation=valuation),
         _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premium, baselines,
-                      world_from_fallback=world_from_fallback, markets=markets),
+                      world_from_fallback=world_from_fallback, markets=markets,
+                      valuation=valuation),
         _build_platforms(markets, baselines, fair=fair),
         _build_timestamp(),
     ])

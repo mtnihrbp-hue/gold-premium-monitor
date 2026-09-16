@@ -33,6 +33,9 @@ from analysis.bubble_position import (
     resolve_bubble_position,
     resolve_bubble_trend,
     resolve_change_magnitude,
+    resolve_relative_valuation,
+    cheap_basis_price,
+    signed_gap,
 )
 
 
@@ -83,7 +86,7 @@ def _generate_collection_run_id():
     return f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
 
-def _build_valuation_context(premium):
+def _build_valuation_context(premium, markets=None, fair=None):
     """Capture the relative valuation that accompanied this decision.
 
     Stored alongside the decision so the scorecard can later attribute an outcome
@@ -98,9 +101,27 @@ def _build_valuation_context(premium):
         return None
     try:
         position = resolve_bubble_position(session, current_bubble=premium)
+        # Which sample the reader's valuation was drawn from. The message does not
+        # say, because the line it qualifies claims only "the last 30 days" and that
+        # is true on either path, but an audit needs to know whether a reading was
+        # ranked against verified scheduled history or a mixed-provenance window.
+        valuation = resolve_relative_valuation(session, markets=markets, fair_price=fair)
+        sampling = {
+            "basis": "cheap_3",
+            "basis_gap": valuation.gap,
+            "basis_price": valuation.basis_price,
+            "bigger_than": valuation.bigger_than,
+            "deep_at": valuation.deep_at,
+            "sampling": valuation.sampling,
+            "sample_size": valuation.sample_size,
+            "coverage_days": valuation.coverage_days,
+            "status": valuation.status,
+        }
         if position.band == "INSUFFICIENT_DATA":
-            return {"band": "INSUFFICIENT_DATA", "sample_size": position.sample_size}
+            return {"band": "INSUFFICIENT_DATA", "sample_size": position.sample_size,
+                    "valuation": sampling}
         return {
+            "valuation": sampling,
             "bubble": position.bubble,
             "percentile": position.percentile,
             "band": position.band,
@@ -119,8 +140,30 @@ def _build_valuation_context(premium):
         session.close()
 
 
-def _resolve_presentation_context(premium, run_premium=None):
-    """Relative position, bubble trend and move size for the UPDATE message.
+def _basis_change(markets, fair, baselines):
+    """Change in the trimmed gap against the last scheduled reading, in points.
+
+    Both sides are rebuilt from platform prices. The baseline's stored premium is
+    minimum-based, so subtracting it from a trimmed reading would report a change
+    that is partly a change of definition.
+    """
+    run = baselines.run if baselines else None
+    if run is None or not run.platform_prices or not run.fair_price or not fair:
+        return None
+    prices = [
+        float(info["price"]) for info in (markets or {}).values()
+        if info.get("status") == "OK" and info.get("price") is not None
+    ]
+    now_gap = signed_gap(cheap_basis_price(prices), fair)
+    run_gap = signed_gap(cheap_basis_price(run.platform_prices.values()), run.fair_price)
+    if now_gap is None or run_gap is None:
+        return None
+    return abs(now_gap) - abs(run_gap)
+
+
+def _resolve_presentation_context(premium, run_premium=None, markets=None, fair=None,
+                                  run_basis_gap=None):
+    """Relative valuation, bubble trend and move size for the UPDATE message.
 
     These are reads against persisted observations, not an Analyze pipeline run, so
     they stay inside the Live Wing boundary. Non-blocking: a failure here degrades
@@ -128,7 +171,7 @@ def _resolve_presentation_context(premium, run_premium=None):
     """
     session = get_session()
     if session is None:
-        return None, None, None
+        return None, None, None, None
     try:
         # Percentage points of gap movement, which is what the magnitude resolver
         # ranks. A percent change of the premium would invert the sign, since the
@@ -138,14 +181,20 @@ def _resolve_presentation_context(premium, run_premium=None):
             if premium is not None and run_premium is not None
             else None
         )
+        # The valuation is measured on the trimmed basis, so its own change has to
+        # be measured on that basis too rather than on the minimum-based premium.
+        valuation = resolve_relative_valuation(
+            session, markets=markets, fair_price=fair, change_pp=run_basis_gap,
+        )
         return (
             resolve_bubble_position(session, current_bubble=premium),
             resolve_bubble_trend(session, current_bubble=premium),
             resolve_change_magnitude(session, change_pp=change),
+            valuation,
         )
     except Exception as e:
         print(f" Presentation context unavailable: {e}")
-        return None, None, None
+        return None, None, None, None
     finally:
         session.close()
 
@@ -311,7 +360,8 @@ def main():
     if snapshot_id is not None:
         try:
             signal_state = replace(signal_state, snapshot_id=snapshot_id)
-            save_market_state(signal_state, valuation_context=_build_valuation_context(premium))
+            save_market_state(signal_state, valuation_context=_build_valuation_context(
+                premium, markets=markets, fair=fair))
             print("DB: Market state saved")
         except Exception as e:
             print(f"DB ERROR (market state): {e}")
@@ -373,7 +423,11 @@ def main():
             # Resolve highest price for UPDATE v1 MARKET section
             highest_price = markets[high_name]["price"] if high_name in markets else None
             run_premium = baselines.run.premium_percent if baselines and baselines.run else None
-            position, trend, magnitude = _resolve_presentation_context(premium, run_premium)
+            run_basis_gap = _basis_change(markets, fair, baselines)
+            position, trend, magnitude, valuation = _resolve_presentation_context(
+                premium, run_premium, markets=markets, fair=fair,
+                run_basis_gap=run_basis_gap,
+            )
             send_update_v1(
                 world=world,
                 usd=usd,
@@ -391,6 +445,7 @@ def main():
                 position=position,
                 trend=trend,
                 magnitude=magnitude,
+                valuation=valuation,
             )
             print("UPDATE v1 sent.")
         except Exception as e:

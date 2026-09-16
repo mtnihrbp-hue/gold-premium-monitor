@@ -30,7 +30,8 @@ from datetime import datetime, timedelta
 from statistics import mean, median, pstdev
 from typing import List, Optional
 
-from database.models import MarketSnapshot
+from database.models import MarketSnapshot, PlatformPrice
+from timeutil import local_date
 
 DEFAULT_WINDOW_DAYS = 30
 
@@ -251,6 +252,217 @@ def resolve_bubble_position(
         confidence=_classify_confidence(coverage_days, len(values)),
         drift=_classify_drift(values, spread),
     )
+
+
+# ---------------------------------------------------------------------------
+# Relative valuation on a trimmed basis
+# ---------------------------------------------------------------------------
+
+# How many of the cheapest platforms the valuation price is drawn from.
+#
+# This was the single cheapest platform until 2026-09-16. Measured over 332
+# snapshots, the cheapest platform sits more than 3 median absolute deviations
+# below the median of the rest in 62% of them: it is a tail point, not a market
+# level. That showed up as noise rather than signal — hour-to-hour standard
+# deviation of 0.438 against 0.273 for the mean of the three cheapest, and 8
+# jumps larger than 1 pp between consecutive readings against 1.
+#
+# A jump of that size in an hour is a quote artefact. On 2026-09-15 a single
+# stale MioGold quote moved the reported discount 2.07 pp and would have read as
+# "unusually large, bigger than 94% of the last 30 days" while the market had not
+# moved at all; the quote refreshed the next morning and the discount fell back.
+#
+# Three is a trim, which is the standard treatment for a skewed distribution and
+# the same reasoning that put percentile ahead of z-score above. It keeps the
+# buyer's side of the distribution (3.47% against the median's 2.97%) instead of
+# retreating to the middle of a pack nobody transacts at.
+#
+# The single cheapest platform is still resolved and displayed, as the execution
+# price. What changed is which number the valuation rests on.
+CHEAP_BASIS_COUNT = 3
+
+# Before the collection_mode migration of 2026-09-14, nothing recorded whether a
+# reading came from the schedule or from a user pressing Update, so the window is
+# drawn from a sample whose composition cannot be verified. Scheduled readings are
+# preferred once there are enough of them.
+#
+# Enough means both a count and a calendar span. The count alone is not sufficient:
+# at 16 scheduled runs a day, 30 readings is under two days, and a line reading
+# "of the last 30 days" would be measuring against Tuesday. The Iranian week also
+# has a shape — the Thursday and Friday weekend runs 0.28 and 0.40 pp deeper than
+# the weekday median, against a 0.55 pp spread across the whole week — so a
+# seven-day span either contains a weekend or does not, and that alone shifts the
+# median by more than a typical hourly move. Fourteen days always contains two.
+MIN_SCHEDULED_READINGS = 30
+MIN_SCHEDULED_COVERAGE_DAYS = 14
+
+
+@dataclass
+class RelativeValuation:
+    gap: Optional[float]            # signed; negative is a discount
+    percentile: Optional[int]
+    bigger_than: Optional[int]      # share of the window with a smaller discount
+    deep_at: Optional[float]        # signed threshold at CHEAP_PERCENTILE
+    move_label: str
+    move_percentile: Optional[int]
+    basis_price: Optional[float]
+    basis_count: int
+    window_days: int
+    sample_size: int
+    coverage_days: int
+    sampling: str                   # SCHEDULED | MIXED
+    status: str
+
+
+def cheap_basis_price(prices) -> Optional[float]:
+    """Mean of the cheapest few platform prices."""
+    values = sorted(p for p in prices if p is not None)
+    if not values:
+        return None
+    return mean(values[:min(CHEAP_BASIS_COUNT, len(values))])
+
+
+def signed_gap(basis_price: Optional[float], fair_price: Optional[float]) -> Optional[float]:
+    """Gap to fair value, negative for a discount.
+
+    The same sign convention as premium_percent, so this can be compared against
+    stored history and read by code that already understands that convention.
+    """
+    if basis_price is None or not fair_price:
+        return None
+    return (basis_price / fair_price - 1) * 100
+
+
+def _empty_valuation(window_days: int) -> RelativeValuation:
+    return RelativeValuation(None, None, None, None, "UNKNOWN", None, None, 0,
+                             window_days, 0, 0, "UNKNOWN", "INSUFFICIENT_DATA")
+
+
+def _basis_series(session, window_start, now):
+    """(timestamp, collection_mode, signed gap) per snapshot, on the trimmed basis.
+
+    Rebuilt from platform_prices rather than read from the stored premium_percent,
+    because the stored column is computed from the single cheapest platform. Mixing
+    the two would compare a reading on one basis against a window on another, which
+    is the contamination this whole change exists to remove.
+    """
+    rows = (
+        session.query(
+            MarketSnapshot.id,
+            MarketSnapshot.timestamp,
+            MarketSnapshot.fair_price,
+            MarketSnapshot.collection_mode,
+            PlatformPrice.price_irr,
+        )
+        .join(PlatformPrice, PlatformPrice.snapshot_id == MarketSnapshot.id)
+        .filter(
+            MarketSnapshot.fair_price.isnot(None),
+            PlatformPrice.price_irr.isnot(None),
+            MarketSnapshot.timestamp >= window_start,
+            MarketSnapshot.timestamp <= now,
+        )
+        .all()
+    )
+
+    grouped = {}
+    for snapshot_id, timestamp, fair, mode, price in rows:
+        entry = grouped.setdefault(
+            snapshot_id,
+            {"timestamp": timestamp, "fair": float(fair), "mode": mode, "prices": []},
+        )
+        entry["prices"].append(float(price))
+
+    series = []
+    for entry in grouped.values():
+        gap = signed_gap(cheap_basis_price(entry["prices"]), entry["fair"])
+        if gap is not None:
+            series.append((entry["timestamp"], entry["mode"], gap))
+    series.sort(key=lambda item: item[0])
+    return series
+
+
+def resolve_relative_valuation(
+    session,
+    markets=None,
+    fair_price: Optional[float] = None,
+    change_pp: Optional[float] = None,
+    window_days: int = DEFAULT_WINDOW_DAYS,
+    now: Optional[datetime] = None,
+) -> RelativeValuation:
+    """Where the current reading sits in its own recent distribution.
+
+    Move size is ranked here rather than in a separate call because it needs the
+    same window, rebuilt by the same query. `change_pp` is the change in the size
+    of the gap, in percentage points, which the caller has already resolved against
+    its own baseline.
+    """
+    if session is None:
+        return _empty_valuation(window_days)
+    if now is None:
+        now = datetime.utcnow()
+
+    prices = []
+    if markets:
+        prices = [
+            float(info["price"]) for info in markets.values()
+            if info.get("status") == "OK" and info.get("price") is not None
+        ]
+    basis_price = cheap_basis_price(prices)
+    current = signed_gap(basis_price, fair_price)
+
+    try:
+        series = _basis_series(session, now - timedelta(days=window_days), now)
+    except Exception as e:
+        print(f"Relative valuation query failed: {e}")
+        return _empty_valuation(window_days)
+
+    if current is None:
+        if not series:
+            return _empty_valuation(window_days)
+        current = series[-1][2]
+
+    scheduled = [item for item in series if item[1] == "scheduled"]
+    scheduled_days = len({local_date(item[0]) for item in scheduled})
+    clean = (
+        len(scheduled) >= MIN_SCHEDULED_READINGS
+        and scheduled_days >= MIN_SCHEDULED_COVERAGE_DAYS
+    )
+    chosen = scheduled if clean else series
+    sampling = "SCHEDULED" if clean else "MIXED"
+    values = sorted(item[2] for item in chosen)
+    coverage_days = len({local_date(item[0]) for item in chosen})
+
+    result = _empty_valuation(window_days)
+    result.gap = current
+    result.basis_price = basis_price
+    result.basis_count = min(CHEAP_BASIS_COUNT, len(prices)) if prices else 0
+    result.sample_size = len(values)
+    result.coverage_days = coverage_days
+    result.sampling = sampling
+    if len(values) < MIN_OBSERVATIONS:
+        return result
+
+    percentile = _percentile_of(current, values)
+    result.percentile = percentile
+    result.bigger_than = 100 - percentile
+    result.deep_at = round(_value_at_percentile(values, CHEAP_PERCENTILE), 4)
+    result.status = "OK"
+
+    if change_pp is not None:
+        ordered = [item[2] for item in chosen]
+        moves = sorted(
+            abs(abs(ordered[i + 1]) - abs(ordered[i])) for i in range(len(ordered) - 1)
+        )
+        if moves:
+            move_percentile = _percentile_of(abs(change_pp), moves)
+            result.move_percentile = move_percentile
+            if move_percentile < LARGE_MOVE_PERCENTILE:
+                result.move_label = "a normal move"
+            elif move_percentile < UNUSUAL_MOVE_PERCENTILE:
+                result.move_label = "a large move"
+            else:
+                result.move_label = "unusually large"
+    return result
 
 
 # ---------------------------------------------------------------------------

@@ -38,7 +38,8 @@
       "RUN and DAY baselines now resolve to scheduled readings, so a user's own previous request can no longer serve as a baseline",
       "Both message tables rebuilt to 33 characters for phone width; CURRENT DECISION and MARKET STRUCTURE removed as duplicated content",
       "Daily recap limited to the first scheduled run of each calendar day",
-      "Outcome evaluation backfill wired; 72 evaluations resolved on first production run"
+      "Outcome evaluation backfill wired; 72 evaluations resolved on first production run",
+      "SP-C.5: UPDATE unified on one gap vocabulary; valuation basis moved from the single cheapest platform to the mean of the three cheapest (display path only); distribution sample gated on 30 scheduled readings AND 14 days of local coverage; all times and day boundaries converted to Iran local via src/timeutil.py; BUY/WAIT/SELL verdict removed from UPDATE pending ANALYZE. Recorded in SP_C_HANDOFF.md section 15."
     ],
     "in_progress": [
       "UPDATE message awaiting user confirmation on a real device",
@@ -257,5 +258,18 @@
     "cadence_verified": "2026-09-15: six consecutive one-hour gaps between scheduled snapshots plus one nine-hour overnight pause, matching 0 6-21 Asia/Tehran. Runs appear at :30 UTC because minute 0 Tehran is minute 30 UTC.",
     "open_finding_bubble_outcome": "outcome_evaluations never measures the bubble: outcome_evaluator.py sets act_premium = None by design and C.5 test_21 asserts it. The stated reason, that historical fair value cannot be reconstructed, no longer holds since market_snapshots stores premium_percent and fair_price on every row. decision_scorecard is unaffected; C.14B and C.14C are. Awaiting a decision."
   },
-  "process_rule": "Do not change an agreed design, template or framework without explicit permission, including changes that appear obvious while working on a different task. Raise them as a question instead. Recorded after unrequested edits to an approved message template forced re-review and removed a column that was broken for a fixable reason."
+  "process_rule": "Do not change an agreed design, template or framework without explicit permission, including changes that appear obvious while working on a different task. Raise them as a question instead. Recorded after unrequested edits to an approved message template forced re-review and removed a column that was broken for a fixable reason.",
+  "kpi_suite": {
+    "files": 23,
+    "latest": "kpi_sp_c4.py",
+    "assertions_sp_c4": 45,
+    "status": "23/23 files passing"
+  },
+  "open_decisions": [
+    "premium_percent at source is still minimum-based; changing it requires a 332-row backfill and touches decision authority. Own phase, own approval.",
+    "The decision engine reads a single-vendor price move as a market valuation move (conflict.py matrix). Structural, belongs in the Analyze wing.",
+    "Decision engine edge measured at 0.0 (55.2% hit rate vs 55.2% always-WAIT).",
+    "quote_side is SINGLE on all 2,215 observations; bid vs ask is never recorded.",
+    "ANALYZE message not built. Reasoning chain and TRACK RECORD belong there."
+  ]
 }

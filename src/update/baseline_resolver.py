@@ -16,7 +16,7 @@ No Neon schema changes are required.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Optional, Tuple
 
 from sqlalchemy import func
@@ -24,6 +24,7 @@ from sqlalchemy import func
 from database.connection import get_session
 from database.models import MarketSnapshot, PlatformPrice
 from analysis.trend_resolver import SevenDayTrend, resolve_seven_day_trend
+from timeutil import local_now, to_utc
 
 BUBBLE_MOVEMENT_DEADBAND_PP = 0.05
 PRICE_DIRECTION_STABLE_THRESHOLD_PCT = 0.0001
@@ -92,9 +93,15 @@ def _get_earliest_market_snapshot_today(session, now=None):
     `now` is injectable so the day boundary can be exercised without depending on
     the clock at the moment the tests happen to run.
     """
-    today = (now or datetime.now()).date()
+    # "Today" is the reader's calendar day, not the runner's. Stored timestamps are
+    # UTC, so the boundary is local midnight expressed back in UTC. Comparing on the
+    # stored date would place a reading taken at 01:00 local into yesterday, because
+    # 01:00 local is 21:30 UTC of the previous day.
+    today = local_now(now).date()
+    day_start = to_utc(datetime.combine(today, datetime.min.time()))
     base = session.query(MarketSnapshot).filter(
-        func.date(MarketSnapshot.timestamp) == today
+        MarketSnapshot.timestamp >= day_start,
+        MarketSnapshot.timestamp < day_start + timedelta(days=1),
     )
     scheduled = (
         base.filter(MarketSnapshot.collection_mode == "scheduled")

@@ -1773,3 +1773,45 @@ COLLECT
 ```
 
 while preserving the deterministic and auditable architecture underneath.
+
+
+---
+
+## SP-C.5 — UPDATE presentation and the valuation basis (2026-09-16)
+
+Recorded in full in `SP_C_HANDOFF.md` section 15, including the measurements behind
+each decision. Summary of what is now authoritative:
+
+**Valuation basis.** The discount shown to a reader is the mean of the three cheapest
+platforms, not the single cheapest. The minimum sits more than 3 median absolute
+deviations below the median of the rest in 62% of 332 snapshots — a tail point, not a
+market level — and carried eight times as many >1 pp artefact jumps. The minimum is
+still resolved and displayed as the market low, the execution price.
+
+This is a **display-path change only**. `market_snapshots.premium_percent` is still
+computed from the single cheapest platform and remains what the decision engine,
+`outcome_evaluations` and `analysis_snapshots` consume. The two are deliberately split
+until a phase with its own approval recomputes the stored column. Any code comparing a
+displayed discount against a stored one must account for this.
+
+**Distribution sample.** The 30-day window prefers `collection_mode == "scheduled"`
+rows once there are at least 30 of them spanning at least 14 distinct local days.
+Both conditions are required: 30 readings at hourly cadence is under two days, and the
+Iranian Thursday-Friday weekend runs 0.28 and 0.40 pp deeper than the weekday median,
+so a seven-day span either contains a weekend or does not. The window is rebuilt from
+`platform_prices` on the trimmed basis so that reading and window never mix bases.
+
+**Time.** `src/timeutil.py` is the single definition of local time: a fixed UTC+3:30
+offset. Everything that stores a timestamp stores UTC; everything that displays one or
+groups by day converts first. This covers the message footer, the reference times,
+`trend_resolver` day grouping and its completed-days window, and the `vs Today`
+baseline. Grouping by the stored UTC date cut each day at 03:30 local.
+
+**Decision display.** UPDATE no longer prints BUY/WAIT/SELL. `final_decision` is
+unchanged as the sole alert authority and is still computed and stored every run; only
+its display moved, pending the ANALYZE message where the reasoning chain can accompany
+it.
+
+**Invariant unchanged and re-verified:** the 7D average is an average of daily
+averages, each day weighted equally regardless of reading count, and abstains rather
+than averaging a partial week.

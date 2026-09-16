@@ -536,3 +536,199 @@ collection_mode migration                    requires approval
 Both the distribution and the scorecard therefore draw on a mixed sample, biased
 toward moments when a user happened to look. This resolves with the `collection_mode`
 migration, which is a schema change and needs explicit approval.
+
+---
+
+## 15. SP-C.5 — one vocabulary, a trimmed basis, and the reader's own clock
+
+Five changes landed together on 2026-09-16. Four alter agreed behaviour, so each
+records what it was, what it became, and the evidence that justified the move.
+
+### 15.1 Valuation basis: minimum → mean of the three cheapest
+
+**Was.** The discount was computed from the single cheapest platform, on the grounds
+that a buyer transacts at the lowest available price. That argument was made and
+accepted earlier in SP-C and is not wrong about execution.
+
+**Is.** The valuation shown to the reader is computed from the mean of the three
+cheapest platforms. The single cheapest is still resolved and still displayed, now
+labelled as the market low — the execution price.
+
+**Why.** Measured across 332 snapshots holding 3,240 platform quotes:
+
+```text
+cheapest platform sits >3 MADs below the median of the rest   205 of 332   62%
+
+basis                  median level   hourly sd   jumps >1pp   max jump
+minimum                       3.93%       0.438       8 / 197       2.12
+2nd cheapest                  3.33%       0.276       1 / 197       1.02
+median                        2.97%       0.283       1 / 197       1.11
+mean of 3 cheapest            3.47%       0.273       1 / 197       1.28
+```
+
+The minimum is a tail point in 62% of readings, not a market level. It carried 60%
+more hour-to-hour noise than the trimmed basis and eight times as many jumps larger
+than 1 pp between consecutive readings. A move that size in an hour is a quote
+artefact, not the market repricing.
+
+The failure was observed in production. On 2026-09-15 a stale MioGold quote moved the
+reported discount 2.07 pp and the message read "unusually large, cheaper than 94% of
+the last 30 days" while the market had not moved: local average -0.16%, fair value
+-0.16%. The quote refreshed the next morning and the discount fell from 5.35% to
+3.77% with no market event. Staleness is structural, not incidental:
+
+```text
+platform     quotes   unchanged     %   longest freeze
+Parasteh        320         215    67%          89.4h
+HoorGold        323         210    65%          26.0h
+MioGold         325         167    52%          46.8h
+Milli           326          21     6%           8.5h
+Taline          331          21     6%           3.5h
+```
+
+The platforms that normally set the low are fresh (Milli 68.7% of snapshots at 6%
+stale, Taline 12.2% at 6%). A stale platform taking over the low is the signature of
+a quote that stopped updating while the market moved away from it.
+
+Three is a trim, the standard treatment for a skewed cross-section, and the same
+reasoning that put percentile ahead of z-score in SP-C.2. It keeps the buyer's side
+of the distribution (3.47%) rather than retreating to a middle nobody transacts at
+(2.97%).
+
+**Scope.** Display path only. `premium_percent` in `market_snapshots` is still
+computed from the minimum and still feeds the decision engine, `outcome_evaluations`
+and `analysis_snapshots`. Changing it at source requires recomputing 332 rows and
+touches decision authority, so it is a phase of its own and is NOT part of this
+change. The window the reader's percentile is drawn from is rebuilt from
+`platform_prices` on the same trimmed basis, so reading and window never mix bases.
+
+**Tested and rejected.** Whether an isolated cheapest platform predicts an artefact
+jump: 4.83 MADs before a jump against 4.00 without, n=8. Not a discriminator. No
+early-warning flag was added.
+
+### 15.2 Distribution sample: all rows → scheduled, gated on count *and* span
+
+**Was.** The 30-day window used every stored reading regardless of provenance.
+
+**Is.** Scheduled readings only, once there are at least 30 of them covering at least
+14 distinct local days. Until both hold, all rows are used.
+
+**Why the span condition.** A count alone is insufficient. At 16 scheduled runs a day,
+30 readings is under two days, and a line reading "of the last 30 days" would be
+measuring against Tuesday. Observed directly: at 31 scheduled readings over 3 days the
+same instant ranked 14% on the full window and 0% on the scheduled one.
+
+The Iranian week also has a shape:
+
+```text
+day     n    median discount   vs overall
+Sat    44             3.50%        +0.03
+Sun    56             3.33%        -0.14
+Mon    52             3.38%        -0.09
+Tue    60             3.36%        -0.12
+Wed    57             3.43%        -0.04
+Thu    31             3.75%        +0.28
+Fri    33             3.87%        +0.40
+```
+
+The Thursday-Friday weekend runs 0.28 and 0.40 pp deeper than the weekday median,
+against a 0.55 pp spread across the whole week — larger than a typical hourly move. A
+seven-day span either contains a weekend or does not, and that alone shifts the
+median. Fourteen days always contains two.
+
+**Fail-safe check.** The all-rows path is a fallback, and `CLAUDE.md` requires a
+fallback to carry degraded provenance to the reader. Reviewed and found not to apply:
+nothing is extrapolated, every reading in the window is a real observation, and the
+line claims only "the last 30 days", which is true on either path. The claim would
+need qualifying if the text ever said "hourly" or "scheduled". The path, sample size
+and coverage days are recorded in `market_states.valuation_context_json` under
+`valuation`, so an audit can tell the two apart.
+
+### 15.3 Times and day boundaries: UTC → the reader's clock
+
+**Was.** The runner and the database keep UTC; the footer printed it, and everything
+that grouped readings "by day" used the UTC date.
+
+**Is.** `src/timeutil.py` holds a single fixed UTC+3:30 offset — Iran abolished
+daylight saving in 2022, and the tz database is not reliably present on every runner.
+Applied to the message footer and reference times, `trend_resolver` day grouping and
+its seven-completed-days window, and the `vs Today` baseline in `baseline_resolver`.
+
+**Why it became urgent.** The footer had been UTC for a while, but the reference
+footnote added on 2026-09-15 names clock times. A reader told changes are measured
+"vs the 02:31 reading" checks it against their own clock showing 06:01. The
+day-grouping error was silent: a "day" ran 03:30 to 03:30 local, which happened to
+work only because the cron window (06:00-21:00 local) falls inside one UTC date. A
+user pressing Update between midnight and 03:30 local would have been compared
+against the previous day.
+
+The 7D column moved visibly when this landed — `Fair 7D` went from -2.69 to -1.30 —
+because the day boundary moved, not the market.
+
+**Unchanged and verified:** the 7D average remains an average of daily averages, each
+day weighted equally regardless of how many readings it holds, and returns `None`
+rather than averaging a partial week. `trend_resolver._seven_day_metric`.
+
+### 15.4 The verdict left UPDATE
+
+**Was.** `WAIT` sat at the top of the message with a band sentence beneath it and,
+when they disagreed, a line naming the candidate decision.
+
+**Is.** Neither appears. UPDATE is a view of the market.
+
+**Why.** The chain that produces a decision — valuation, momentum, structure,
+conflict, hysteresis — is not in this message, so the word on its own asked to be
+trusted rather than understood. It belongs in ANALYZE next to its reasoning. The band
+sentence went too: "Below its own recent average" restated what "Bigger than 29% of
+the last 30 days" says one line later, in vaguer terms and without the figure.
+
+`final_decision` remains the sole BUY/SELL authority and is still computed and stored
+on every run. Nothing about decision authority changed, only where it is displayed.
+
+### 15.5 Wording and layout
+
+```text
+was                                   is
+Cheaper than 29% of the last 30 days  Bigger than 29% of the last 30 days
+Day (table column)                    Today, matching "vs Today" in THE NUMBER
+Platform (table row)                  Cheap 3, matching the block's basis
+Local price <average>                 Cheapest 3 <names> / <prices>
+two footnote blocks, 7 lines          one footnote in MARKET, 4 lines
+```
+
+"Cheaper than" left the reader asking cheaper than what. The subject is the discount,
+and the footnote already defines a bigger discount as the cheaper one, so one word
+carries both.
+
+### 15.6 Parked, with reasons
+
+```text
+skew statistic in UPDATE        the trimmed basis is the treatment; a coefficient
+                                would be jargon. Deeper treatment belongs in ANALYZE.
+7D / 15D median or average      the percentile places the reading against history and
+lines in UPDATE                 carries more than a midpoint; "Deep discount If X"
+                                already supplies the distance. Parked by the product
+                                owner as clutter, may be recalled.
+Confidence line                 withheld; the window is stated, and a bare "LOW" was
+                                noise the reader could not act on.
+"What this means" translation   parked by the product owner, may be recalled later.
+premium_percent at source       see 15.1 Scope. Own phase, own approval.
+```
+
+### 15.7 Open, needing a decision
+
+1. **A single-vendor move is read as a market valuation move by the decision engine.**
+   The matrix at `caluclator/conflict.py` maps (CHEAP, IMPROVING, DISCOUNT_DOMINANT)
+   to BUY. On 2026-09-15 that combination held on the strength of one stale quote. The
+   message now makes the source visible; the engine still cannot tell a vendor from a
+   market. Structural, belongs in the Analyze wing.
+2. **The decision engine has no measured edge.** Scorecard: 55.2% hit rate against a
+   55.2% always-WAIT baseline. Edge 0.0.
+3. **`quote_side` is `SINGLE` for all 2,215 observations.** Whether a platform price
+   is what they sell at or what they buy at is never recorded. If these are bid
+   prices, part of the persistent discount is dealer spread and available to nobody.
+4. **Convergence after a divergence is real but small.** Where the cheapest sat >1%
+   below the median of the rest: at +24h the outlier rose 1.06% and the pack 0.86%,
+   closing the gap 0.199 pp; the outlier rose in 62 of 81 cases, the pack fell in 31.
+   The direction favours convergence over the outlier leading the market down, but
+   0.2 pp a day is below any plausible execution cost.

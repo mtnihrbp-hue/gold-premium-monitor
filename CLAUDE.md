@@ -42,7 +42,7 @@ python tests/test_momentum.py
 python kpi/kpi_pre_sp_c14c.py
 ```
 
-Run the entire KPI suite (19 files, 392 assertions) — this is the regression check before calling any phase complete:
+Run the entire KPI suite (23 files) — this is the regression check before calling any phase complete:
 ```
 python kpi/run_all.py
 ```
@@ -93,6 +93,24 @@ FACTS (raw observations) → EVIDENCE (validated package) → INTERPRETATION (st
 ```
 
 Ownership: Collectors collect. Calculators calculate. Intelligence interprets. Feature builders derive. Read models organize. Presentation formats. Persistence stores. `UNKNOWN` / `INSUFFICIENT_DATA` are valid, preferred outputs over fabricated values.
+
+### Time
+
+Everything stored is UTC; everything displayed or grouped by day is Iran local time.
+`src/timeutil.py` holds the single fixed UTC+3:30 offset (Iran abolished DST in 2022,
+and the tz database is not reliably present on every runner). Never call
+`datetime.now()` for a value a reader sees or for a day boundary — grouping by the
+stored UTC date cuts each day at 03:30 local.
+
+### Valuation basis
+
+The discount shown to a reader is the mean of the three cheapest platforms
+(`analysis/bubble_position.cheap_basis_price`). `market_snapshots.premium_percent` is
+still computed from the single cheapest and is what the decision engine,
+`outcome_evaluations` and `analysis_snapshots` consume. This split is deliberate and
+documented in `SP_C_HANDOFF.md` section 15.1 — do not compare a displayed discount
+against a stored one without accounting for it, and do not "fix" one to match the
+other without the phase and approval that change requires.
 
 ### Non-negotiable invariants
 

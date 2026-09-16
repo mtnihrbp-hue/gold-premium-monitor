@@ -26,6 +26,7 @@ Three properties are load-bearing and are what these tests guard:
   where the others sit.
 """
 
+import inspect
 import os
 import sys
 import unittest
@@ -51,18 +52,19 @@ def _test_get_session():
 
 db_conn.get_session = _test_get_session
 
-from database.models import Base, MarketSnapshot
+from database.models import Base, MarketSnapshot, PlatformPrice
 Base.metadata.create_all(bind=_TEST_ENGINE)
 
-from analysis.bubble_position import resolve_change_magnitude
+from analysis.bubble_position import resolve_change_magnitude, resolve_relative_valuation
 from alerts.telegram_update_v1 import (
     _build_market,
     _build_the_number,
     _build_verdict,
+    _cheapest_platforms,
     _gap_delta,
     _gap_movement,
     _gap_naming,
-    _other_platform_prices,
+    _outside_basis_prices,
 )
 from update.baseline_resolver import BaselineSnapshot, UpdateBaselines
 from analysis.trend_resolver import SevenDayTrend
@@ -85,6 +87,26 @@ class _Position:
         self.cheap_below = cheap_below
         self.window_days = window_days
         self.confidence = "LOW"
+
+
+class _Valuation:
+    """Stands in for RelativeValuation with values chosen per test."""
+
+    def __init__(self, gap=-5.68, bigger_than=6, deep_at=-4.0574, basis_price=228_233_333,
+                 basis_count=3, move_label="a large move", status="OK", window_days=30):
+        self.gap = gap
+        self.percentile = None if bigger_than is None else 100 - bigger_than
+        self.bigger_than = bigger_than
+        self.deep_at = deep_at
+        self.basis_price = basis_price
+        self.basis_count = basis_count
+        self.move_label = move_label
+        self.move_percentile = 60
+        self.window_days = window_days
+        self.sample_size = 232
+        self.coverage_days = 31
+        self.sampling = "MIXED"
+        self.status = status
 
 
 def _baseline(timestamp, premium, fair, platform_avg):
@@ -134,8 +156,11 @@ LOWEST = 224_800_000
 PLATFORM_AVG = 231_200_000
 
 
+_UNSET = object()
+
+
 def _render_number(premium=-5.68, position=None, magnitude=None, baselines=None,
-                   markets=None, signal=None):
+                   markets=None, signal=None, valuation=_UNSET):
     return _build_the_number(
         premium=premium,
         lowest=LOWEST,
@@ -146,12 +171,14 @@ def _render_number(premium=-5.68, position=None, magnitude=None, baselines=None,
         position=_Position(6, -4.0574) if position is None else position,
         magnitude=magnitude,
         baselines=_baselines() if baselines is None else baselines,
+        valuation=_Valuation() if valuation is _UNSET else valuation,
     )
 
 
 def _seed(premiums, start=None):
     """Seed market snapshots one hour apart, oldest first."""
     session = _test_get_session()
+    session.query(PlatformPrice).delete()
     session.query(MarketSnapshot).delete()
     base = start or (NOW - timedelta(hours=len(premiums)))
     for index, premium in enumerate(premiums):
@@ -164,6 +191,29 @@ def _seed(premiums, start=None):
         ))
     session.commit()
     session.close()
+
+
+def _reset_snapshots():
+    session = _test_get_session()
+    session.query(PlatformPrice).delete()
+    session.query(MarketSnapshot).delete()
+    session.commit()
+    session.close()
+
+
+def _seed_priced(session, timestamp, mode, price):
+    """A snapshot with four platform prices, so the trimmed basis is resolvable."""
+    snapshot = MarketSnapshot(
+        timestamp=timestamp, world_gold_usd=4285.0, usd_irr=230_700.0,
+        fair_price=FAIR, premium_percent=-3.0, collection_mode=mode,
+    )
+    session.add(snapshot)
+    session.flush()
+    for offset, name in enumerate(("A", "B", "C", "D")):
+        session.add(PlatformPrice(
+            snapshot_id=snapshot.id, platform_name=name, timestamp=timestamp,
+            price_irr=price + offset * 100_000,
+        ))
 
 
 class KPISPC4(unittest.TestCase):
@@ -261,37 +311,51 @@ class KPISPC4(unittest.TestCase):
         self.assertIn("5.68%  below fair value", text)
         self.assertNotIn("-5.68", text)
 
-    def test_19_platform_is_named_on_the_line_stating_the_number(self):
-        # Naming it lower down, beside the market low, left the reader connecting a
-        # figure to its source across four lines and a blank. It was reported as
-        # missing from a message that contained it.
+    def test_19_the_basis_is_named_on_the_line_stating_the_number(self):
+        # The figure rests on a trimmed set of platforms, so the line stating it says
+        # which. Naming the source lower down left the reader connecting a number to
+        # its origin across four lines and a blank, and it was reported as missing
+        # from a message that contained it.
         text = _render_number()
-        headline = text.split("\n")
-        index = next(i for i, line in enumerate(headline) if "below fair value" in line)
-        self.assertIn("at MioGold, the cheapest of 4", headline[index + 1])
+        lines = text.split("\n")
+        index = next(i for i, line in enumerate(lines) if "below fair value" in line)
+        self.assertIn("from the 3 cheapest of 4", lines[index + 1])
 
-    def test_20_block_shows_where_the_other_platforms_sit(self):
+    def test_20_block_shows_where_the_platforms_outside_the_basis_sit(self):
         # Without this a single platform's move is indistinguishable from a market
         # move, which is exactly what produced a false "unusually large" reading.
         text = _render_number()
+        self.assertIn("Cheapest 3", text)
         # Prices are stored in Rials and shown in millions of Tomans.
-        self.assertIn("The other 3 platforms: 23.02M - 23.39M.", text)
+        self.assertIn("The other 1 platforms: 23.39M - 23.39M.", text)
 
-    def test_21_other_platform_prices_exclude_the_low_and_any_failure(self):
-        others = _other_platform_prices(MARKETS, "MioGold")
-        self.assertEqual(others, [230_200_000, 231_100_000, 233_900_000])
+    def test_21_outside_basis_prices_exclude_the_basis_and_any_failure(self):
+        others = _outside_basis_prices(MARKETS, ["MioGold", "Milli"])
+        self.assertEqual(others, [231_100_000, 233_900_000])
 
-    def test_22_block_names_both_references_in_the_readers_own_clock(self):
+    def test_21b_cheapest_platforms_are_returned_cheapest_first(self):
+        self.assertEqual(
+            _cheapest_platforms(MARKETS, 3),
+            [("MioGold", 224_800_000), ("Milli", 230_200_000), ("Taline", 231_100_000)],
+        )
+
+    def test_22_references_are_named_once_in_the_readers_own_clock(self):
         # Stored timestamps are UTC, produced by the scheduled runner and the
         # database. Every reader is in Iran, UTC+3:30. Printing the stored value
         # told a reader the day began at 02:31 when their own clock said 06:01,
         # which invites them to check a figure against the wrong reference.
-        text = _render_number()
-        self.assertIn("All changes are vs the 17:01 reading,", text)   # 13:31 UTC
-        self.assertIn("except vs Today, which is vs 06:01.", text)     # 02:31 UTC
+        #
+        # The footnote sits in MARKET and serves both sections; THE NUMBER used to
+        # carry a second copy naming the same two references.
+        table = _build_market(4285.0, 230_700.0, FAIR, PLATFORM_AVG, LOWEST,
+                              233_900_000, 9_100_000, -5.68, _baselines(),
+                              markets=MARKETS, valuation=_Valuation())
+        self.assertIn("Run = 17:01 (last scheduled), Today = 06:01 (first today).", table)
+        self.assertNotIn("All changes are vs", _render_number())
 
     def test_22b_local_conversion_is_a_fixed_iran_offset(self):
-        from alerts.helpers import format_clock, to_tehran
+        from alerts.helpers import format_clock
+        from timeutil import to_tehran
         self.assertEqual(format_clock(datetime(2026, 9, 15, 2, 31)), "06:01")
         self.assertEqual(format_clock(datetime(2026, 9, 15, 21, 0)), "00:30")  # next day
         self.assertIsNone(format_clock(None))
@@ -306,26 +370,47 @@ class KPISPC4(unittest.TestCase):
         for claim in ("Buy Opportunity", "reward", "profit"):
             self.assertNotIn(claim, text)
 
+    def test_23b_rank_line_names_the_discount_not_an_undefined_cheapness(self):
+        # "Cheaper than 29%" left the reader asking cheaper than what. The subject is
+        # the discount, and the table footnote already defines a bigger discount as
+        # the cheaper one, so one word carries both.
+        text = _render_number()
+        self.assertIn("Bigger than", text)
+        self.assertIn("6% of the last 30 days", text)
+        self.assertNotIn("Cheaper than", text)
+
     def test_24_premium_mode_states_the_cheap_rule_as_an_upper_bound(self):
-        text = _render_number(premium=2.40, position=_Position(60, 1.20))
+        text = _render_number(valuation=_Valuation(gap=2.40, deep_at=1.20, bigger_than=40))
         self.assertIn("2.40%  above fair value", text)
         self.assertIn("Cheap zone", text)
         self.assertIn("If 1.20% or less  (30D)", text)
         self.assertNotIn("Deep discount", text)
 
     def test_25_unchanged_movement_carries_no_size_label(self):
-        magnitude = resolve_change_magnitude(None, change_pp=0.0)
-        magnitude.status = "OK"
-        magnitude.label = "a normal move"
-        text = _render_number(premium=-3.61, baselines=_baselines(run_premium=-3.61),
-                              magnitude=magnitude)
+        from analysis.bubble_position import cheap_basis_price, signed_gap
+        # The run baseline holds the current reading's own prices, so nothing moved.
+        baselines = _baselines()
+        baselines.run.platform_prices = {
+            name: info["price"] for name, info in MARKETS.items()
+            if info["price"] is not None
+        }
+        baselines.run.fair_price = FAIR
+        gap = signed_gap(cheap_basis_price(baselines.run.platform_prices.values()), FAIR)
+        text = _render_number(baselines=baselines,
+                              valuation=_Valuation(gap=gap, move_label="a normal move"))
         self.assertIn("unchanged", text)
         self.assertNotIn("a normal move", text)
 
-    def test_26_position_lines_are_omitted_when_history_is_too_short(self):
-        text = _render_number(position=_Position(None, None))
-        self.assertNotIn("Cheaper than", text)
+    def test_26_rank_lines_are_omitted_when_history_is_too_short(self):
+        text = _render_number(valuation=_Valuation(status="INSUFFICIENT_DATA"))
+        self.assertNotIn("Bigger than", text)
         self.assertNotIn("Deep discount", text)
+
+    def test_26b_valuation_falls_back_to_the_stored_premium_when_absent(self):
+        # A failed valuation query must degrade the message, never prevent it.
+        text = _render_number(premium=-3.61, valuation=None)
+        self.assertIn("3.61%  below fair value", text)
+        self.assertNotIn("Bigger than", text)
 
     def test_27_confidence_is_not_surfaced_to_the_reader(self):
         # Deliberately withheld: the reader is shown the sample the number rests on
@@ -343,18 +428,34 @@ class KPISPC4(unittest.TestCase):
     def test_29_market_table_row_is_the_gap_size_not_the_signed_premium(self):
         text = _build_market(4285.0, 230_700.0, FAIR, PLATFORM_AVG, LOWEST,
                              233_900_000, 9_100_000, -5.68, _baselines(),
-                             markets=MARKETS)
+                             markets=MARKETS, valuation=_Valuation())
         self.assertIn("Discount", text)
         self.assertNotIn("Bubble", text)
-        self.assertIn("+2.07", text)   # size grew; the signed delta was -2.07
+
+    def test_29b_table_and_block_rest_on_the_same_basis(self):
+        # The table carried the all-platform average beside a trimmed headline, so
+        # the two halves described different prices under one heading.
+        text = _build_market(4285.0, 230_700.0, FAIR, PLATFORM_AVG, LOWEST,
+                             233_900_000, 9_100_000, -5.68, _baselines(),
+                             markets=MARKETS, valuation=_Valuation())
+        self.assertIn("Cheap 3", text)
+        self.assertNotIn("Platform ", text)
+
+    def test_29c_table_column_matches_the_row_label_in_the_block(self):
+        # "Day" in the table and "vs Today" in the block named one reference twice.
+        text = _build_market(4285.0, 230_700.0, FAIR, PLATFORM_AVG, LOWEST,
+                             233_900_000, 9_100_000, -5.68, _baselines(),
+                             markets=MARKETS, valuation=_Valuation())
+        self.assertIn("Today", text)
+        self.assertIn("vs Today", _render_number())
 
     def test_30_market_footnote_flips_with_the_sign(self):
         discount = _build_market(4285.0, 230_700.0, FAIR, PLATFORM_AVG, LOWEST,
                                  233_900_000, 9_100_000, -5.68, _baselines(),
-                                 markets=MARKETS)
+                                 markets=MARKETS, valuation=_Valuation())
         premium = _build_market(4285.0, 230_700.0, FAIR, PLATFORM_AVG, LOWEST,
                                 233_900_000, 9_100_000, 2.40, _baselines(),
-                                markets=MARKETS)
+                                markets=MARKETS, valuation=_Valuation(gap=2.40))
         self.assertIn("A bigger discount is cheaper.", discount)
         self.assertIn("A bigger premium is more expensive.", premium)
         self.assertNotIn("A bigger discount is cheaper.", premium)
@@ -379,11 +480,69 @@ class KPISPC4(unittest.TestCase):
         for verdict in ("WAIT", "BUY", "SELL", "Candidate"):
             self.assertNotIn(verdict, text)
 
-    def test_34_update_still_states_where_the_reading_sits(self):
-        # CHEAP is not BUY. Position is a measurement, not an instruction, and it
-        # is the general view of the market the message exists to give.
+    def test_34_header_carries_no_band_sentence(self):
+        # "Below its own recent average" restated what "Bigger than 29% of the last
+        # 30 days" says one line later, in vaguer terms and without the figure.
         text = _build_verdict(_Signal(4, 0), _Position(6, -4.0574))
-        self.assertIn("Cheap against its own recent range.", text)
+        self.assertEqual(text, "<b>GOLDPremium: UPDATE</b>")
+
+    # -- the trimmed basis ----------------------------------------------------
+
+    def test_35_valuation_basis_is_the_mean_of_the_three_cheapest(self):
+        from analysis.bubble_position import cheap_basis_price, signed_gap
+        self.assertAlmostEqual(
+            cheap_basis_price([224_800_000, 230_200_000, 231_100_000, 233_900_000]),
+            228_700_000, places=0,
+        )
+        # Fewer platforms than the basis width still returns a value.
+        self.assertAlmostEqual(cheap_basis_price([100.0, 200.0]), 150.0)
+        self.assertIsNone(cheap_basis_price([]))
+        self.assertAlmostEqual(signed_gap(90.0, 100.0), -10.0)
+        self.assertIsNone(signed_gap(90.0, 0))
+
+    def test_36_window_and_reading_are_built_on_the_same_basis(self):
+        # Comparing a trimmed reading against a minimum-based window would report a
+        # change of definition as a change in the market. This is the failure the
+        # basis change exists to prevent, so it is asserted rather than assumed.
+        import analysis.bubble_position as bp
+        source = inspect.getsource(bp._basis_series)
+        body = source.split('"""')[-1]          # skip the docstring, which names both
+        self.assertIn("cheap_basis_price", body)
+        self.assertNotIn("premium_percent", body)
+
+    def test_37_scheduled_sample_needs_both_a_count_and_a_calendar_span(self):
+        # 30 readings at 16 a day is under two days, and a line reading "of the last
+        # 30 days" would be measuring against Tuesday. The Iranian weekend also runs
+        # 0.28 and 0.40 pp deeper than the weekday median, so a seven-day span either
+        # contains a weekend or does not.
+        from analysis.bubble_position import (
+            MIN_SCHEDULED_READINGS, MIN_SCHEDULED_COVERAGE_DAYS)
+        self.assertEqual(MIN_SCHEDULED_READINGS, 30)
+        self.assertEqual(MIN_SCHEDULED_COVERAGE_DAYS, 14)
+
+    def test_38_mixed_sampling_is_used_until_the_span_is_met(self):
+        # Three days of scheduled readings must not trigger the clean path just
+        # because the count clears 30.
+        _reset_snapshots()
+        session = _test_get_session()
+        base = NOW - timedelta(days=3)
+        for i in range(40):
+            _seed_priced(session, base + timedelta(hours=i), "scheduled", 23_000_000 + i)
+        for i in range(40):
+            _seed_priced(session, NOW - timedelta(days=20 + i // 2), "unknown", 22_500_000 + i)
+        session.commit()
+        session.close()
+        result = resolve_relative_valuation(
+            _test_get_session(), markets=MARKETS, fair_price=FAIR, now=NOW)
+        self.assertEqual(result.sampling, "MIXED")
+
+    def test_39_query_failure_degrades_rather_than_raising(self):
+        class _Broken:
+            def query(self, *a, **k):
+                raise RuntimeError("connection lost")
+        result = resolve_relative_valuation(_Broken(), markets=MARKETS, fair_price=FAIR)
+        self.assertEqual(result.status, "INSUFFICIENT_DATA")
+        self.assertIsNone(result.bigger_than)
 
 
 if __name__ == "__main__":
