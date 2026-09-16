@@ -3,7 +3,7 @@
 Channel-agnostic text formatting used by both Email and Telegram.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 def format_platform_bullets(markets, previous_markets=None):
@@ -313,9 +313,40 @@ def format_arrow(value: float, threshold: float = 0.0) -> str:
         return "→"
     return "↑" if value > 0 else "↓"
 
+# The scheduled runner and the database both keep UTC, while every reader of these
+# messages is in Iran. A message that says "vs the 02:31 reading" against a reader's
+# own clock of 06:01 is not a small discrepancy, it invites them to check a figure
+# against the wrong reference and conclude the number is wrong.
+#
+# A fixed offset rather than a timezone database: Iran abolished daylight saving in
+# 2022 and has been a constant UTC+3:30 since, and the tz database is not reliably
+# present on every runner this code executes on.
+TEHRAN_UTC_OFFSET = timedelta(hours=3, minutes=30)
+
+
+def to_tehran(value):
+    """Convert a naive UTC timestamp to Iran local time.
+
+    Timestamps reaching here are naive and produced in UTC, both by the scheduled
+    runner and by the database. None passes through so callers can format absent
+    values without guarding every call.
+    """
+    if value is None:
+        return None
+    if value.tzinfo is not None:
+        value = value.replace(tzinfo=None) + value.utcoffset()
+    return value + TEHRAN_UTC_OFFSET
+
+
 def format_timestamp():
-    """Return current timestamp string."""
-    return datetime.now().strftime("%Y-%m-%d %H:%M")
+    """Current time as the reader's clock shows it."""
+    return to_tehran(datetime.utcnow()).strftime("%Y-%m-%d %H:%M")
+
+
+def format_clock(value):
+    """Hour and minute of a stored timestamp, in the reader's local time."""
+    local = to_tehran(value)
+    return None if local is None else local.strftime("%H:%M")
 
 
 

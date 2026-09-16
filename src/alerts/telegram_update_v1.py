@@ -18,6 +18,7 @@ from typing import Any, Dict, Optional
 
 from alerts.telegram import _money, _send
 from alerts.helpers import (
+    format_clock,
     format_pct,
     format_market_structure,
     format_timestamp,
@@ -232,16 +233,20 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
 # ---------------------------------------------------------------------------
 
 def _build_verdict(signal_state, position):
-    """Decision first, with the one line that justifies it.
+    """Header and where this reading sits in its own recent range.
 
-    The decision previously sat at the foot of the message, below several hundred
-    characters of detail. A reader wanting to know whether to act had to reach the
-    end to find out.
+    The BUY/WAIT/SELL verdict was removed from here by product decision. UPDATE is
+    a view of the market, not a recommendation, and a bare verdict carried none of
+    the reasoning behind it: the valuation, momentum, structure and conflict chain
+    that produces the decision is not in this message, so the word on its own asked
+    to be trusted rather than understood. It belongs in ANALYZE, where the chain
+    can be shown alongside it.
+
+    The position line stays. It describes where the reading sits, which is a
+    measurement rather than an instruction, and CHEAP is not BUY.
     """
     if signal_state is None:
         return "<b>GOLDPremium: UPDATE</b>"
-
-    final = signal_state.final_decision
 
     # Graduated wording. Three bands drive the logic, but describing anything from
     # the 40th to the 80th percentile as "middle" overstates the case: a reading at
@@ -260,16 +265,9 @@ def _build_verdict(signal_state, position):
         else:
             line = "Expensive against its own recent range."
 
-    parts = ["<b>GOLDPremium: UPDATE</b>", "", f"<b>{final}</b>"]
+    parts = ["<b>GOLDPremium: UPDATE</b>"]
     if line:
-        parts.append(line)
-
-    # The candidate is surfaced only when it disagrees with the final decision. That
-    # disagreement is the whole point of the hysteresis rule and must stay visible,
-    # but printing both on every message when they almost always agree is noise.
-    candidate = getattr(signal_state, "candidate_decision", None)
-    if candidate and candidate != final:
-        parts.append(f"<i>Candidate was {candidate}, held by the confirmation rule.</i>")
+        parts.extend(["", line])
 
     return "\n".join(parts)
 
@@ -364,8 +362,8 @@ def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state
     # here answers it for the whole block rather than per line.
     if run and run.timestamp and day and day.timestamp:
         lines.append("")
-        lines.append(f"<i>All changes are vs the {run.timestamp.strftime('%H:%M')} reading,</i>")
-        lines.append(f"<i>except vs Today, which is vs {day.timestamp.strftime('%H:%M')}.</i>")
+        lines.append(f"<i>All changes are vs the {format_clock(run.timestamp)} reading,</i>")
+        lines.append(f"<i>except vs Today, which is vs {format_clock(day.timestamp)}.</i>")
 
     return "\n".join(lines)
 

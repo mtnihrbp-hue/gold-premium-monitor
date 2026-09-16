@@ -58,6 +58,7 @@ from analysis.bubble_position import resolve_change_magnitude
 from alerts.telegram_update_v1 import (
     _build_market,
     _build_the_number,
+    _build_verdict,
     _gap_delta,
     _gap_movement,
     _gap_naming,
@@ -280,10 +281,21 @@ class KPISPC4(unittest.TestCase):
         others = _other_platform_prices(MARKETS, "MioGold")
         self.assertEqual(others, [230_200_000, 231_100_000, 233_900_000])
 
-    def test_22_block_names_both_references_by_time(self):
+    def test_22_block_names_both_references_in_the_readers_own_clock(self):
+        # Stored timestamps are UTC, produced by the scheduled runner and the
+        # database. Every reader is in Iran, UTC+3:30. Printing the stored value
+        # told a reader the day began at 02:31 when their own clock said 06:01,
+        # which invites them to check a figure against the wrong reference.
         text = _render_number()
-        self.assertIn("All changes are vs the 13:31 reading,", text)
-        self.assertIn("except vs Today, which is vs 02:31.", text)
+        self.assertIn("All changes are vs the 17:01 reading,", text)   # 13:31 UTC
+        self.assertIn("except vs Today, which is vs 06:01.", text)     # 02:31 UTC
+
+    def test_22b_local_conversion_is_a_fixed_iran_offset(self):
+        from alerts.helpers import format_clock, to_tehran
+        self.assertEqual(format_clock(datetime(2026, 9, 15, 2, 31)), "06:01")
+        self.assertEqual(format_clock(datetime(2026, 9, 15, 21, 0)), "00:30")  # next day
+        self.assertIsNone(format_clock(None))
+        self.assertIsNone(to_tehran(None))
 
     def test_23_threshold_is_stated_as_a_rule_without_promising_a_reward(self):
         text = _render_number()
@@ -356,6 +368,22 @@ class KPISPC4(unittest.TestCase):
         import alerts.telegram_update_v1 as module
         self.assertFalse(hasattr(module, "_build_dynamics"))
         self.assertFalse(hasattr(module, "_bubble_direction"))
+
+    def test_33_update_carries_no_buy_wait_sell_verdict(self):
+        # Removed by product decision. UPDATE is a view of the market; the chain
+        # that produces a decision (valuation, momentum, structure, conflict) is
+        # not in this message, so a bare verdict asked to be trusted rather than
+        # understood. It belongs in ANALYZE alongside its reasoning.
+        from alerts.telegram_update_v1 import _build_verdict
+        text = _build_verdict(_Signal(4, 0), _Position(6, -4.0574))
+        for verdict in ("WAIT", "BUY", "SELL", "Candidate"):
+            self.assertNotIn(verdict, text)
+
+    def test_34_update_still_states_where_the_reading_sits(self):
+        # CHEAP is not BUY. Position is a measurement, not an instruction, and it
+        # is the general view of the market the message exists to give.
+        text = _build_verdict(_Signal(4, 0), _Position(6, -4.0574))
+        self.assertIn("Cheap against its own recent range.", text)
 
 
 if __name__ == "__main__":
