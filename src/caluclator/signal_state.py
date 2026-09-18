@@ -64,6 +64,7 @@ def build_signal_state(
     thresholds: dict,
     last_alert: Optional[str],
     snapshot_id: int = 0,
+    last_alert_at: Optional[datetime] = None,
 ) -> SignalState:
     """Orchestrate the full signal state pipeline.
 
@@ -76,6 +77,9 @@ def build_signal_state(
         thresholds: config dict with buy_premium, sell_premium
         last_alert: last alert type sent (BUY, SELL, or None)
         snapshot_id: FK to market_snapshots (updated after DB save)
+        last_alert_at: when that alert was sent, so the hysteresis gate can tell a
+            live cooldown from an expired one. None means unknown, which the gate
+            treats as expired rather than suppressing indefinitely.
 
     Returns:
         fully populated SignalState
@@ -95,7 +99,7 @@ def build_signal_state(
     conflict, candidate = evaluate_conflict(valuation, momentum, structure)
 
     # Hysteresis gate
-    final = apply_hysteresis(candidate, last_alert, thresholds)
+    final = apply_hysteresis(candidate, last_alert, thresholds, last_alert_at=last_alert_at)
 
     # Human-readable reason
     reason = build_reason(

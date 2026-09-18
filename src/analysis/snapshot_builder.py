@@ -26,7 +26,7 @@ from database.repository import (
 from analysis.scheduler import generate_source_run_id
 from analysis.representative_price import get_representative_price
 from analysis.structure import build_structure_state
-from analysis.regime import RegimeClassifier
+from analysis.regime import RegimeClassifier, resolve_stress_thresholds
 
 
 def _compute_price_volatility(prices: list) -> float:
@@ -211,7 +211,26 @@ def build_analysis_snapshot(
 
     # --- PRE-SP-C.4: Reconstruct regime hysteresis from last snapshot ---
     last_snap = get_latest_analysis_snapshot()
-    regime_cfg = (config or {}).get("regime", {})
+    regime_cfg = dict((config or {}).get("regime", {}))
+    # Thresholds are recalculated from the market's own recent distribution rather
+    # than left at the fixed defaults, which two families satisfied on every reading
+    # and which made regime_state read PANIC on all 96 snapshots ever written. An
+    # explicitly configured threshold still wins; calibration only fills what the
+    # caller has not pinned.
+    # Resolved at call time, not import time, because the KPI suites substitute
+    # get_session after this module is imported.
+    from database.connection import get_session as _get_session
+    _calibration_session = _get_session()
+    try:
+        calibrated = resolve_stress_thresholds(_calibration_session)
+    finally:
+        if _calibration_session is not None:
+            _calibration_session.close()
+    if calibrated:
+        merged = dict(calibrated)
+        merged.update(regime_cfg.get("stress_thresholds", {}))
+        regime_cfg["stress_thresholds"] = merged
+        print(f"Regime thresholds calibrated: {calibrated}")
     classifier = RegimeClassifier(regime_cfg)
 
     if last_snap is not None:

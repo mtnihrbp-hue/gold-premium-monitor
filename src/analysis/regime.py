@@ -16,11 +16,36 @@ Regime does NOT issue BUY/SELL.
 """
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta
+from statistics import median
 from typing import Optional, Dict, List
 
 
 # Regime states — fixed by architecture, not configurable
 REGIME_STATES = ["NORMAL", "FEAR", "PANIC", "RELIEF", "UNKNOWN"]
+
+# Stress thresholds were fixed constants calibrated for a market whose premium sits
+# near zero. This market does not: the discount ranged 1.82% to 8.19% over 30 days,
+# so `abs(premium) > 2.0` was satisfied by all but a sliver of the observed range,
+# and `platform_spread > 500000` Rials was satisfied by every reading, since a normal
+# spread is around 3.3 million. Two of the four families were therefore permanently
+# stressed, and the hysteresis at _apply_hysteresis latched the result: regime_state
+# read PANIC on all 96 analysis snapshots ever written.
+#
+# This is the same failure as valuation_state reading CHEAP on every reading, and it
+# takes the same treatment as SP-C.2: a threshold that recalculates itself from the
+# market's own recent distribution rather than a constant the market never crosses.
+#
+# The 80th percentile matches EXPENSIVE_PERCENTILE in bubble_position, so "stressed"
+# means the same thing here as "expensive" does there: the top fifth of its own
+# recent range. Calibration is a separate module-level function, so the classifier
+# stays a pure, deterministic function of its inputs and its injected thresholds.
+STRESS_PERCENTILE = 80
+CALIBRATION_WINDOW_DAYS = 30
+
+# Below this many readings the window cannot support a percentile, and the fixed
+# defaults are kept rather than a threshold derived from a handful of points.
+MIN_CALIBRATION_OBSERVATIONS = 30
 
 
 @dataclass(frozen=True)
@@ -273,3 +298,89 @@ class RegimeClassifier:
         self._previous_state = candidate
         self._confirmation_count = 0
         return candidate, False
+
+
+# ---------------------------------------------------------------------------
+# Calibration — thresholds derived from the market's own recent distribution
+# ---------------------------------------------------------------------------
+
+def _percentile(values, percentile: int):
+    """Value at a percentile of a sorted sample, by rank."""
+    if not values:
+        return None
+    ordered = sorted(values)
+    index = int(percentile / 100.0 * len(ordered))
+    return ordered[max(0, min(len(ordered) - 1, index))]
+
+
+def resolve_stress_thresholds(session, window_days: int = CALIBRATION_WINDOW_DAYS,
+                              now: Optional[datetime] = None) -> Dict[str, float]:
+    """Stress thresholds recalculated from recent history.
+
+    Kept separate from RegimeClassifier so the classifier itself stays a pure,
+    deterministic function of its inputs and the thresholds handed to it: the same
+    evidence and the same thresholds must always produce the same regime, which is
+    what makes it testable. This function is the only part that touches the database.
+
+    Returns only the keys it can actually measure. Volatility and USD change are left
+    to their defaults because nothing here has measured whether those two constants
+    are wrong, and replacing a threshold on suspicion is how the fixed ones got here.
+
+    An empty dict on any failure, so the classifier falls back to its defaults rather
+    than the caller losing a regime reading altogether.
+    """
+    if session is None:
+        return {}
+    if now is None:
+        now = datetime.utcnow()
+
+    from database.models import MarketSnapshot, PlatformPrice
+
+    try:
+        rows = (
+            session.query(MarketSnapshot.id, MarketSnapshot.premium_percent)
+            .filter(
+                MarketSnapshot.premium_percent.isnot(None),
+                MarketSnapshot.timestamp >= now - timedelta(days=window_days),
+                MarketSnapshot.timestamp <= now,
+            )
+            .order_by(MarketSnapshot.timestamp.asc())
+            .all()
+        )
+        premiums = [float(p) for _, p in rows]
+        if len(premiums) < MIN_CALIBRATION_OBSERVATIONS:
+            return {}
+
+        spreads = []
+        prices = (
+            session.query(PlatformPrice.snapshot_id, PlatformPrice.price_irr)
+            .filter(
+                PlatformPrice.snapshot_id.in_([r[0] for r in rows]),
+                PlatformPrice.price_irr.isnot(None),
+            )
+            .all()
+        )
+        grouped: Dict[int, List[float]] = {}
+        for snapshot_id, price in prices:
+            grouped.setdefault(snapshot_id, []).append(float(price))
+        for values in grouped.values():
+            if len(values) >= 2:
+                spreads.append(max(values) - min(values))
+    except Exception as e:
+        print(f"Regime threshold calibration failed: {e}")
+        return {}
+
+    magnitudes = [abs(p) for p in premiums]
+    changes = [abs(premiums[i + 1] - premiums[i]) for i in range(len(premiums) - 1)]
+
+    thresholds: Dict[str, float] = {}
+    magnitude = _percentile(magnitudes, STRESS_PERCENTILE)
+    if magnitude is not None:
+        thresholds["premium_magnitude"] = round(magnitude, 4)
+    change = _percentile(changes, STRESS_PERCENTILE)
+    if change is not None:
+        thresholds["premium_change"] = round(change, 4)
+    spread = _percentile(spreads, STRESS_PERCENTILE)
+    if spread is not None:
+        thresholds["platform_spread"] = round(spread, 2)
+    return thresholds

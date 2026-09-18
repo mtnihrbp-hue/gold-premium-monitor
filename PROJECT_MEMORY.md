@@ -1815,3 +1815,40 @@ it.
 **Invariant unchanged and re-verified:** the 7D average is an average of daily
 averages, each day weighted equally regardless of reading count, and abstains rather
 than averaging a partial week.
+
+
+---
+
+## SP-C.6 — three latches (2026-09-18)
+
+Full record in `SP_C_HANDOFF.md` section 16; failure patterns generalised in
+`LESSONS_LEARNED.md`. What is now authoritative:
+
+**The decision engine had never run.** `apply_hysteresis` suppressed a repeat of the
+same decision with no time bound, and `state.json` persists across runs, so the first
+BUY ever sent disabled every BUY after it. 100 of 100 BUY candidates held;
+`final_decision` was WAIT on all 264 stored decisions. The gate now honours
+`cooldown_hours` (default 24) against a persisted `last_alert_at`, and fails open on
+an unknown timestamp rather than reinstating the latch.
+
+**Correction to a previously recorded finding.** The decision scorecard's "edge 0.0"
+was recorded as evidence the strategy does not work. It is not. The scorecard scored
+`final_decision`, which was a constant, so it compared always-WAIT against always-WAIT.
+The conflict matrix, valuation bands and momentum logic are **untested in production**,
+not failed. Any future reading of that scorecard number must account for this.
+
+**Regime thresholds are now calibrated, not fixed.** `premium_magnitude > 2.0` fired on
+250 of 252 snapshots and `platform_spread > 500000` on 252 of 252, so `regime_state`
+read PANIC on all 96 analysis snapshots. `resolve_stress_thresholds` recalculates
+those two plus `premium_change` at the 80th percentile of the 30-day window; both now
+fire on 50 of 252. `volatility` and `usd_change` remain unverified constants and were
+deliberately not touched.
+
+**Collection had an unbounded subprocess.** `get_usd_sell_rate` ran a third-party CLI
+with no timeout, and 8 of 70 workflow runs were killed by the 20-minute job timeout
+after a network stall. That is the cause of the 2-3 hour gaps in hourly collection.
+Bounded at 60 seconds; the caller's existing fallback degrades USD/IRR to None.
+
+**Sequencing.** The repaired engine has not yet issued a decision. Track record,
+expectancy and the ANALYZE feedback loop all require a decision history that varies,
+so there is an observation period before anything is built on top.

@@ -140,6 +140,25 @@ def _build_valuation_context(premium, markets=None, fair=None):
         session.close()
 
 
+def _last_alert_time(state):
+    """When the last alert was actually sent, from the persisted alert history.
+
+    The hysteresis gate needs this to tell a live cooldown from an expired one.
+    Returns None when nothing has been alerted or the record cannot be parsed, which
+    the gate treats as an expired cooldown rather than an indefinite suppression.
+    """
+    history = (state or {}).get("alert_history") or []
+    for entry in reversed(history):
+        stamp = entry.get("timestamp")
+        if not stamp:
+            continue
+        try:
+            return datetime.fromisoformat(stamp)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
 def _basis_change(markets, fair, baselines):
     """Change in the trimmed gap against the last scheduled reading, in points.
 
@@ -306,7 +325,7 @@ def main():
     if previous_premium is None:
         previous_premium = premium
 
-    signal_state = build_signal_state(premium=premium, fair_price=fair, lowest_price=lowest, markets=markets, previous_premium=previous_premium, thresholds=thresholds, last_alert=last_alert, snapshot_id=0)
+    signal_state = build_signal_state(premium=premium, fair_price=fair, lowest_price=lowest, markets=markets, previous_premium=previous_premium, thresholds=thresholds, last_alert=last_alert, snapshot_id=0, last_alert_at=_last_alert_time(state))
     signal = None
     if signal_state.final_decision in ("BUY", "SELL"):
         signal = {"signal": signal_state.final_decision, "new_alert_type": signal_state.final_decision, "reason": signal_state.reason or f"Final decision: {signal_state.final_decision}."}

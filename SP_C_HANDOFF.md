@@ -732,3 +732,137 @@ premium_percent at source       see 15.1 Scope. Own phase, own approval.
    closing the gap 0.199 pp; the outlier rose in 62 of 81 cases, the pack fell in 31.
    The direction favours convergence over the outlier leading the market down, but
    0.2 pp a day is below any plausible execution cost.
+
+---
+
+## 16. SP-C.6 — three latches (2026-09-18)
+
+Three defects found by asking why the Analyze wing's outputs never varied. All three
+had shipped, passed their tests, and run in production for weeks without raising an
+error. Failure patterns are generalised in `LESSONS_LEARNED.md`.
+
+### 16.1 The decision engine was latched off
+
+`caluclator/signals.apply_hysteresis` suppressed a repeat of the same decision with no
+time bound. `cooldown_hours` was present in the signature and documented as "reserved
+for future use"; the time dimension was never implemented.
+
+`state.json` persists across runs through `actions/cache@v4`
+(`.github/workflows/gold-monitor.yml`), and the latch clears only when a *different*
+alert fires — a SELL, which requires an EXPENSIVE valuation that has never occurred in
+338 readings. So the first BUY ever sent disabled every BUY thereafter.
+
+```text
+final=WAIT  candidate=WAIT   164
+final=WAIT  candidate=BUY    100   <- every BUY candidate, suppressed
+distinct final_decision values ever issued: WAIT only, 264 of 264
+```
+
+**Consequence beyond the missing alerts.** The decision scorecard reported a 55.2% hit
+rate against a 55.2% always-WAIT baseline and an edge of 0.0. That was reported to the
+product owner as evidence the strategy does not work. It was not: the scorecard was
+scoring a constant against a constant. The engine had not been disproven, it had never
+run. The conflict matrix, valuation bands and momentum logic are therefore **untested
+in production**, not failed.
+
+**Fix.** `apply_hysteresis` gains `last_alert_at` and honours `cooldown_hours`,
+defaulting to 24 — a starting value taken from the collection cadence (hourly, 06:00
+to 21:00 local, DAY anchored to the first scheduled reading), to be re-derived from
+measured zone-episode durations once `resolve_zone_episodes` has enough history.
+`main._last_alert_time` reads the timestamp from the persisted alert history.
+
+**Failure direction is deliberately open.** An unknown alert time is treated as an
+expired cooldown, not a live one. Failing closed reinstates the exact latch being
+fixed: one missing timestamp would disable alerting permanently. A duplicate alert is
+noise; silence already cost a hundred signals.
+
+**The conflict matrix is untouched.** `skills/market-analyst.md` forbids replacing it
+with a weighted score without explicit approval. This change is to the gate after it.
+
+### 16.2 Regime stress thresholds never varied
+
+`analysis/regime.py` evaluated four evidence families against fixed constants. Two
+were satisfied by essentially every reading this market produces:
+
+```text
+threshold            value        fired over the 30-day window (252 snapshots)
+premium_magnitude      2.0        250 of 252   99.2%     range is 1.82 - 8.19
+platform_spread    500,000        252 of 252  100.0%     normal spread ~3,300,000
+```
+
+With two of four families permanently stressed and regime hysteresis latching the
+outcome, `regime_state` read PANIC on all 96 analysis snapshots ever written.
+
+**Fix.** `resolve_stress_thresholds(session)` calibrates `premium_magnitude`,
+`premium_change` and `platform_spread` to the 80th percentile of the market's own
+30-day distribution — the same percentile as `bubble_position.EXPENSIVE_PERCENTILE`,
+so "stressed" means what "expensive" means there: the top fifth of its own range.
+
+```text
+threshold            old         calibrated      fires after
+premium_magnitude   2.00            4.9049       50 of 252  19.8%
+premium_change      1.00            0.5984
+platform_spread   500,000       8,076,648       50 of 252  19.8%
+```
+
+Calibration is a module-level function, deliberately separate from `RegimeClassifier`,
+so the classifier stays a pure deterministic function of its inputs and its injected
+thresholds. Explicitly configured thresholds still win; calibration fills only what
+the caller has not pinned. Below 30 observations it returns `{}` and the fixed
+defaults stand.
+
+`volatility` (1.5) and `usd_change` (0.5) are **left alone**. Nothing has measured
+whether those two constants are wrong, and replacing a threshold on suspicion is how
+the other two got here.
+
+### 16.3 An unbounded subprocess was eating scheduled runs
+
+`collector/bonbast.get_usd_sell_rate` ran a third-party CLI through `subprocess.run`
+with no `timeout=`. The CLI performs its own network calls and sets no timeout either.
+
+```text
+8 of the last 70 workflow runs: cancelled
+cancelled runtimes: 10.3, 10.3, 20.4, 20.4, 10.3, 20.4, 10.4, 20.3 minutes
+successful runtimes: n=62, min 1.0, median 4.4, max 14.0
+```
+
+Log of run 35307235950:
+
+```text
+04:31:05  MODE: ANALYZE
+04:31:05  World Gold  gold-api.com  FAILED (NameResolutionError)
+04:50:54  ##[error]The operation was canceled.
+```
+
+A DNS failure on the preceding collector, then 19m49s of silence, then the job
+timeout. Those eight runs are the missing hourly readings — the 2–3 hour gaps observed
+on 09-16, 09-17 and 09-18.
+
+**Fix.** `COLLECT_TIMEOUT_SECONDS = 60`. The caller already wraps this in
+`except Exception` and degrades USD/IRR to `None`, and `TimeoutExpired` is an
+`Exception`, so a timeout now costs one input instead of the whole run.
+
+All eleven HTTP collectors already had timeouts. The single subprocess did not, and it
+was the one that took the system down.
+
+### 16.4 Coverage
+
+`kpi/kpi_sp_c5.py`, 23 assertions. Suite is 24 files.
+
+The assertions are written as *does the output still vary* rather than *does it
+compute*, because all three defects produced correct-looking constants. `test_11`
+drives five simulated days through the gate and requires both BUY and WAIT to appear;
+`test_20` requires two regime inputs to reach different states; `test_16` documents
+the old fixed threshold firing on more than 90% of the observed range so the defect
+is recorded rather than remembered.
+
+### 16.5 Open
+
+- **`kpi_pre_sp_c4.py` makes a real network call** and fails intermittently with a
+  socket timeout. It passes on retry. Pre-existing; a KPI should not depend on the
+  internet.
+- **The repaired engine has not yet issued a decision.** Everything downstream — track
+  record, expectancy, the ANALYZE feedback loop — needs an engine that has actually
+  decided something. Observation period before building on top.
+- `volatility` and `usd_change` regime thresholds remain unverified constants.
+- News is keyword-classified only; 70% `UNKNOWN` relevance. Lowest priority.

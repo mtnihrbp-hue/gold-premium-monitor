@@ -133,3 +133,13 @@ production history accumulation
 ```
 
 Potential future ETF money-flow data is a deferred extension, not part of current UPDATE v1 scope.
+
+
+## LESSONS_LEARNED.md
+
+Failure patterns this project has actually met, in production, written so a future
+session recognises the shape of a defect before spending a week on its symptoms.
+Owner: any session that finds a new class of defect appends to it.
+
+Not a changelog. Chronology lives in `SP_C_HANDOFF.md` and `PROJECT_MEMORY.md`; this
+file holds only the generalised pattern, how to detect it, and what actually fixed it.

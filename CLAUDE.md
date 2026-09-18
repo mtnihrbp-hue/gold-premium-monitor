@@ -42,7 +42,7 @@ python tests/test_momentum.py
 python kpi/kpi_pre_sp_c14c.py
 ```
 
-Run the entire KPI suite (23 files) — this is the regression check before calling any phase complete:
+Run the entire KPI suite (24 files) — this is the regression check before calling any phase complete:
 ```
 python kpi/run_all.py
 ```
@@ -111,6 +111,15 @@ still computed from the single cheapest and is what the decision engine,
 documented in `SP_C_HANDOFF.md` section 15.1 — do not compare a displayed discount
 against a stored one without accounting for it, and do not "fix" one to match the
 other without the phase and approval that change requires.
+
+### Degenerate classifiers
+
+This codebase has produced four classifiers that emitted a single value for months
+without error: `valuation_state=CHEAP`, `regime_state=PANIC`, `final_decision=WAIT`,
+news `relevance=UNKNOWN`. Before trusting or reporting any categorical output, run
+`SELECT <column>, COUNT(*) ... GROUP BY 1` against production. One row means the
+column is a constant and any metric computed over it is meaningless. See
+`LESSONS_LEARNED.md` sections 1-3.
 
 ### Non-negotiable invariants
 
