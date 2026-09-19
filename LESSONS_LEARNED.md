@@ -116,10 +116,23 @@ RUN baseline                    built, compared against the wrong row
 outcome evaluation              built, only ever called on unmatured horizons
 resolve_similar_outcomes        built, never called
 resolve_zone_episodes           built, never called
+regime threshold calibration    built, computed, logged, then discarded
 ```
+
+The eighth was committed in the same change that documented this pattern. Regime
+calibration ran correctly in production and printed its result to the log every hour,
+and `config/config.json` pinned the same three keys, which the merge lets win. The
+unit tests constructed the classifier directly and never loaded the shipped config, so
+the suite was green while the feature was inert. It was caught a day later only
+because someone asked whether the system was healthy.
 
 **Why tests do not catch it.** A unit test calls the function directly. Nothing
 asserts that production does.
+
+**The configuration corollary.** A feature whose behaviour depends on configuration
+needs an assertion against the *shipped configuration file*, not only against values a
+test passes in. `kpi_sp_c5.test_18b` reads `config/config.json` directly for exactly
+this reason.
 
 **The fix.** Assert reachability, not just correctness. `kpi_sp_c3.py` was written
 specifically for this: it checks that the runtime path invokes the capability, not
