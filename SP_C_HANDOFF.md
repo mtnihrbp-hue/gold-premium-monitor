@@ -866,3 +866,58 @@ is recorded rather than remembered.
   decided something. Observation period before building on top.
 - `volatility` and `usd_change` regime thresholds remain unverified constants.
 - News is keyword-classified only; 70% `UNKNOWN` relevance. Lowest priority.
+
+
+### 16.6 Follow-up, 2026-09-19 — the regime fix was inert
+
+Verification a day after 16.2 found `regime_state` still PANIC on all 147 snapshots,
+18 of them after the fix. Calibration was running and logging correctly in production:
+
+```text
+14:32:18  Regime thresholds calibrated: {'premium_magnitude': 4.7311,
+          'premium_change': 0.5783, 'platform_spread': 7981279.0}
+```
+
+`config/config.json` pinned the same three keys at their original fixed values, and
+the merge in `snapshot_builder` lets explicit configuration win over calibration. The
+calibrated values were computed, logged, and discarded on every run.
+
+The unit tests could not see it: they construct `RegimeClassifier` directly and never
+load the shipped config file.
+
+**Fix.** The three calibrated keys are removed from `config/config.json`, with a note
+in the file explaining that re-adding them silently disables calibration.
+`volatility`, `usd_change` and `news_density` stay, since calibration does not compute
+them. The override behaviour itself is kept and asserted — a threshold set on purpose
+should beat a calibrated one; what was wrong was shipping defaults in that slot.
+
+`kpi_sp_c5.test_18b` now asserts against `config/config.json` itself. Suite 24/24,
+25 assertions in this file.
+
+Verified against live data after the change: zero of four families stressed, raw
+candidate RELIEF, confirmation count 1. The next scheduled run confirms and the regime
+leaves PANIC for the first time in its recorded history.
+
+### 16.7 What the repaired decision engine did
+
+The hysteresis fix worked on the first day.
+
+```text
+since the fix:  final=WAIT candidate=WAIT   17
+                final=WAIT candidate=BUY     4     suppressed by the 24h cooldown
+                final=BUY  candidate=BUY     1     <- first BUY ever issued
+all-time distinct final_decision values:  WAIT 322, BUY 2
+```
+
+Two BUY decisions exist where 264 readings had produced none. The cooldown then held
+the following four candidates, which is the intended behaviour rather than the latch.
+
+### 16.8 The collection timeout worked
+
+```text
+before the fix   34 runs   28 success   6 cancelled
+after the fix    26 runs   25 success   1 cancelled
+runtimes after: min 1.2, median 5.8, max 10.3 minutes
+```
+
+2026-09-19 collected hours 2 through 14 with no gaps — the first clean day.

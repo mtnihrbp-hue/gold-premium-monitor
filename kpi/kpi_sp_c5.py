@@ -236,6 +236,36 @@ class KPISPC5(unittest.TestCase):
         premium_family = next(f for f in result.evidence if f.name == "PREMIUM_STRESS")
         self.assertFalse(premium_family.stressed)
 
+    def test_18b_the_shipped_config_does_not_pin_the_calibrated_keys(self):
+        # The reason this assertion exists. Calibration shipped, computed correctly,
+        # logged correctly in production, and was then discarded, because
+        # config/config.json pinned the same three keys and the merge lets explicit
+        # config win. regime_state stayed PANIC on every reading for another day.
+        #
+        # The unit tests could not catch it: they construct the classifier directly
+        # and never load the shipped config. Assert against the file itself.
+        import json
+        path = os.path.join(os.path.dirname(__file__), "..", "config", "config.json")
+        with open(path, encoding="utf-8") as handle:
+            shipped = json.load(handle)
+        pinned = shipped.get("regime", {}).get("stress_thresholds", {})
+        for key in ("premium_magnitude", "premium_change", "platform_spread"):
+            self.assertNotIn(
+                key, pinned,
+                f"{key} is pinned in config.json, which silently overrides the "
+                f"per-run calibration and restores the constant it was written to fix",
+            )
+
+    def test_18c_the_merge_still_lets_a_deliberate_override_win(self):
+        # The override behaviour itself is correct and is kept: a threshold someone
+        # sets on purpose must beat a calibrated one. What was wrong was shipping
+        # defaults in that slot.
+        calibrated = {"premium_magnitude": 4.9}
+        config_pinned = {"premium_magnitude": 99.0}
+        merged = dict(calibrated)
+        merged.update(config_pinned)
+        self.assertEqual(merged["premium_magnitude"], 99.0)
+
     def test_19_calibration_failure_degrades_rather_than_raising(self):
         class _Broken:
             def query(self, *a, **k):

@@ -106,7 +106,7 @@ amount of statistical care downstream will rescue it.
 
 ## 4. Built but not wired
 
-Tested capability the runtime never reaches. Seven instances so far:
+Tested capability the runtime never reaches. Eight instances so far:
 
 ```text
 C14C news collector             built, never invoked
@@ -125,8 +125,9 @@ asserts that production does.
 specifically for this: it checks that the runtime path invokes the capability, not
 that the capability works. Any new module needs one such assertion.
 
-**The cheapest detector.** Count production rows. A feature that has run for a week
-and produced zero rows has not run.
+**The cheapest detector.** Count production rows, and check that the output varies.
+A feature that has run for a week and produced zero rows has not run — and one whose
+output never changes has not run either, whatever the logs say.
 
 ---
 

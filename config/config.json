@@ -14,7 +14,15 @@
     "start_time": "08:00",
     "end_time": "21:00",
     "interval_minutes": 30,
-    "active_days": [0, 1, 2, 3, 4, 5, 6]
+    "active_days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ]
   },
   "email": {
     "send_daily_recap": true,
@@ -26,23 +34,27 @@
     "max_results": 20,
     "min_sample_size": 3
   },
-"news": {
-  "enabled": true,
-  "sources": [
-    "https://www.tasnimnews.com/fa/rss/feed",
-    "https://www.mehrnews.com/rss",
-    "https://www.tehrantimes.com/rss",
-    "https://goldbroker.com/news.rss",
-    "https://kingworldnews.com/feed",
-    "https://www.eghtesadonline.com/fa/rss",
-    "http://cbi.ir/exratesrss.aspx"
-  ],
+  "news": {
+    "enabled": true,
+    "sources": [
+      "https://www.tasnimnews.com/fa/rss/feed",
+      "https://www.mehrnews.com/rss",
+      "https://www.tehrantimes.com/rss",
+      "https://goldbroker.com/news.rss",
+      "https://kingworldnews.com/feed",
+      "https://www.eghtesadonline.com/fa/rss",
+      "http://cbi.ir/exratesrss.aspx"
+    ],
     "fetch_interval_minutes": 30,
     "classification_mode": "keyword",
     "max_items_per_source": 20
   },
   "representative_price": {
-    "fallback_sources": ["Milli", "Ayyareh", "WallGold"],
+    "fallback_sources": [
+      "Milli",
+      "Ayyareh",
+      "WallGold"
+    ],
     "freshness_required": "FRESH"
   },
   "support_resistance": {
@@ -53,39 +65,40 @@
   },
   "regime": {
     "stress_thresholds": {
-      "premium_magnitude": 2.0,
-      "premium_change": 1.0,
       "volatility": 1.5,
       "usd_change": 0.5,
-      "platform_spread": 500000,
       "news_density": 3
     },
     "confirmation_periods": 2,
-    "hysteresis_enabled": true
+    "hysteresis_enabled": true,
+    "stress_thresholds_note": "premium_magnitude, premium_change and platform_spread are deliberately absent. They are calibrated per run from the market's own 30-day distribution by analysis.regime.resolve_stress_thresholds, because fixed values for them fired on 99-100% of readings and made regime_state a constant. Re-adding them here pins them again and silently disables the calibration: explicit config wins by design. volatility, usd_change and news_density stay fixed because nothing has measured whether they are wrong."
   },
   "outcome_evaluation": {
-    "horizons_hours": [1, 6, 24],
+    "horizons_hours": [
+      1,
+      6,
+      24
+    ],
     "target_tolerance_minutes": 15,
     "flat_movement_tolerance": 0.01
   },
-  
   "evidence": {
-        "schema_version": "1",
-        "news_window_hours": 6,
-        "outcome_lookback_hours": 72,
-        "max_historical_context": 5,
-        "max_outcome_context": 5
-    },
-    "intelligence": {
-        "schema_version": "1",
-        "model_provider": "deterministic_fallback",
-        "prompt_version": "1"
-    },
-    "features": {
-        "price_observation_lookback": 100,
-        "premium_lookback_days": 30
-    },
-    "read_model": {
-        "schema_version": "1"
-    }
+    "schema_version": "1",
+    "news_window_hours": 6,
+    "outcome_lookback_hours": 72,
+    "max_historical_context": 5,
+    "max_outcome_context": 5
+  },
+  "intelligence": {
+    "schema_version": "1",
+    "model_provider": "deterministic_fallback",
+    "prompt_version": "1"
+  },
+  "features": {
+    "price_observation_lookback": 100,
+    "premium_lookback_days": 30
+  },
+  "read_model": {
+    "schema_version": "1"
+  }
 }
