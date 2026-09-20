@@ -45,39 +45,46 @@ def load_config():
 
 
 def _fallback_world_from_history(history):
+    """Cached world gold price and the time it was actually observed.
+
+    The observation time is returned, not discarded, so the caller can record the
+    value's real age. Without it the row is persisted as though it were collected
+    now, and nothing downstream can tell a cached quote from a live one.
+    """
     if not history:
-        return None
+        return None, None
     last = history[-1]
     ts_str = last.get("timestamp")
     if not ts_str:
-        return None
+        return None, None
     try:
         ts = datetime.fromisoformat(ts_str)
     except ValueError:
-        return None
-    now = datetime.now()
-    if ts.date() != now.date() or (now - ts).total_seconds() / 3600 > 6:
-        return None
-    return last.get("world_gold")
+        return None, None
+    now = datetime.utcnow()
+    if (now - ts).total_seconds() / 3600 > 6:
+        return None, None
+    return last.get("world_gold"), ts
 
 
 def _fallback_world_from_db(max_age_hours=6):
+    """As above, from the persisted observation stream. Returns (price, observed_at)."""
     from database.models import PriceObservation
     from sqlalchemy import desc
     session = get_session()
     if session is None:
-        return None
+        return None, None
     try:
         obs = session.query(PriceObservation).filter(PriceObservation.instrument == "XAUUSD").order_by(desc(PriceObservation.timestamp)).first()
         if obs is None or obs.price is None:
-            return None
-        age_hours = (datetime.now() - obs.timestamp).total_seconds() / 3600
+            return None, None
+        age_hours = (datetime.utcnow() - obs.timestamp).total_seconds() / 3600
         if age_hours > max_age_hours:
-            return None
-        return float(obs.price)
+            return None, None
+        return float(obs.price), obs.timestamp
     except Exception as e:
         print(f" World Gold DB fallback failed: {e}")
-        return None
+        return None, None
     finally:
         session.close()
 
@@ -218,7 +225,9 @@ def _resolve_presentation_context(premium, run_premium=None, markets=None, fair=
         session.close()
 
 
-def _save_price_observations(markets, world, usd, now, stale_threshold, collection_run_id, collection_mode="unknown"):
+def _save_price_observations(markets, world, usd, now, stale_threshold, collection_run_id,
+                             collection_mode="unknown", world_observed_at=None,
+                             world_from_fallback=False):
     for name, info in markets.items():
         if info.get("status") != "OK":
             continue
@@ -233,12 +242,27 @@ def _save_price_observations(markets, world, usd, now, stale_threshold, collecti
         except Exception as e:
             print(f" Price observation {name} failed: {e}")
 
-    for instrument, source, price in (("XAUUSD", "kitco_fallback", world), ("USD/IRR", "bonbast", usd)):
+    # World gold is the one input that can be served from cache, and both of its
+    # provenance channels used to be inert: `source` was the literal "kitco_fallback"
+    # whether the value was live or cached, and freshness was
+    # evaluate_freshness(now, now, ...), which is FRESH by construction -- 3,316 of
+    # 3,316 stored rows read FRESH. The reader got a warning in the message; nothing
+    # downstream could tell the difference, and no stored row could be audited after
+    # the fact. That is the fail-safe law satisfied for a human and not for the system.
+    #
+    # Platform observations keep (now, now) deliberately. They are fetched live at
+    # `now`, and a platform does not disclose the age of its own quote, so anything
+    # other than FRESH there would be invented precision.
+    world_source = "kitco_cached" if world_from_fallback else "kitco"
+    world_freshness = evaluate_freshness(world_observed_at or now, now, stale_threshold)
+    for instrument, source, price, fresh in (
+        ("XAUUSD", world_source, world, world_freshness),
+        ("USD/IRR", "bonbast", usd, evaluate_freshness(now, now, stale_threshold)),
+    ):
         if price is None:
             continue
         try:
-            freshness = evaluate_freshness(now, now, stale_threshold)
-            save_price_observation(instrument=instrument, source=source, timestamp=now, price=price, freshness=freshness, collection_run_id=collection_run_id, quote_side="SINGLE", collection_mode=collection_mode)
+            save_price_observation(instrument=instrument, source=source, timestamp=now, price=price, freshness=fresh, collection_run_id=collection_run_id, quote_side="SINGLE", collection_mode=collection_mode)
         except Exception as e:
             print(f" Price observation {instrument} failed: {e}")
 
@@ -276,11 +300,18 @@ def main():
             print(f" World Gold validation failed: {e}")
             world = None
     world_from_fallback = False
+    world_observed_at = now
     if world is None:
-        world = _fallback_world_from_history(history) or _fallback_world_from_db(max_age_hours=6)
+        # Not `a or b`: both fallbacks return a (price, observed_at) pair, and a
+        # (None, None) tuple is truthy.
+        world, world_observed_at = _fallback_world_from_history(history)
+        if world is None:
+            world, world_observed_at = _fallback_world_from_db(max_age_hours=6)
         world_from_fallback = world is not None
         if world_from_fallback:
-            print(" World Gold: using cached fallback value (degraded provenance)")
+            age = (now - world_observed_at).total_seconds() / 3600 if world_observed_at else None
+            suffix = f", {age:.1f}h old" if age is not None else ""
+            print(f" World Gold: using cached fallback value (degraded provenance){suffix}")
 
     try:
         usd = get_usd_sell_rate()
@@ -300,12 +331,17 @@ def main():
         return
 
     collection_mode = "scheduled" if is_scheduled else "user"
-    _save_price_observations(markets, world, usd, now, stale_threshold, collection_run_id, collection_mode)
+    _save_price_observations(markets, world, usd, now, stale_threshold, collection_run_id, collection_mode,
+                             world_observed_at=world_observed_at, world_from_fallback=world_from_fallback)
 
     if world is None:
         send_telegram_unavailable(usd=usd, markets=markets, reason="World gold price unavailable. All APIs failed and no recent cached data.")
         return
 
+    # calculate_fair_price inherits its unit from usd_irr, which bonbast reports in
+    # Tomans. The x10 converts to Rials, the unit every persisted price uses. This
+    # conversion belongs in the collector per CLAUDE.md, not here; it is left in place
+    # because relocating it changes where a stored-value semantic is applied.
     fair = calculate_fair_price(world, usd) * 10
     try:
         validate_fair_price(fair)

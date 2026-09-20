@@ -319,6 +319,75 @@ class KPISPC5(unittest.TestCase):
         self.assertIn("timeout=", source)
 
 
+    # -- 4. world-gold fallback provenance (SP-C-003) --------------------------
+
+    def test_24_fallbacks_return_the_observation_time_not_just_a_price(self):
+        import main
+        for fn in (main._fallback_world_from_history, main._fallback_world_from_db):
+            result = fn([]) if fn is main._fallback_world_from_history else fn()
+            self.assertIsInstance(result, tuple)
+            self.assertEqual(len(result), 2)
+
+    def test_25_history_fallback_reports_the_stored_timestamp(self):
+        import main
+        stamp = (datetime.utcnow() - timedelta(hours=2)).isoformat()
+        price, observed = main._fallback_world_from_history(
+            [{"timestamp": stamp, "world_gold": 4321.0}])
+        self.assertEqual(price, 4321.0)
+        self.assertEqual(observed.isoformat(), stamp)
+
+    def test_26_history_fallback_refuses_a_value_beyond_the_age_cap(self):
+        import main
+        stamp = (datetime.utcnow() - timedelta(hours=9)).isoformat()
+        self.assertEqual(
+            main._fallback_world_from_history([{"timestamp": stamp, "world_gold": 1.0}]),
+            (None, None))
+
+    def test_27_a_none_pair_is_not_mistaken_for_a_value(self):
+        # `a or b` over these functions is a live bug: (None, None) is truthy, so the
+        # tuple itself would be assigned as the world gold price.
+        import inspect, main
+        body = inspect.getsource(main.main)
+        self.assertNotIn("_fallback_world_from_history(history) or", body)
+
+    def test_28_a_cached_world_price_is_distinguishable_in_storage(self):
+        # Both provenance channels were inert: source was the literal
+        # "kitco_fallback" whether live or cached, and freshness was
+        # evaluate_freshness(now, now, ...) -- FRESH on 3,316 of 3,316 rows.
+        import inspect, main
+        source = inspect.getsource(main._save_price_observations)
+        # Comment lines are stripped: the old literal is quoted in the explanation
+        # above the fix, and an assertion that reads prose is not an assertion.
+        code = " ".join(l for l in source.splitlines()
+                        if not l.lstrip().startswith("#"))
+        self.assertIn("kitco_cached", code)
+        self.assertIn("world_from_fallback", code)
+        self.assertNotIn('"kitco_fallback"', code)
+
+    def test_29_world_freshness_is_evaluated_not_hardcoded(self):
+        from intelligence.freshness import evaluate_freshness
+        now = datetime(2026, 9, 20, 12, 0)
+        self.assertEqual(evaluate_freshness(now, now, 15), "FRESH")
+        self.assertEqual(
+            evaluate_freshness(now - timedelta(hours=5), now, 15), "STALE")
+
+    def test_30_platform_observations_keep_collection_time_freshness(self):
+        # Deliberate: platforms are fetched live at `now` and do not disclose the age
+        # of their own quote, so anything but FRESH there is invented precision.
+        import inspect, main
+        body = inspect.getsource(main._save_price_observations)
+        self.assertIn("evaluate_freshness(now, now, stale_threshold)", body)
+
+    def test_31_fair_price_docstring_no_longer_claims_the_wrong_unit(self):
+        from caluclator.gold import calculate_fair_price
+        doc = calculate_fair_price.__doc__ or ""
+        self.assertNotIn("in IRR per gram", doc)
+        self.assertIn("Toman", doc)
+        # and the arithmetic is unchanged
+        self.assertAlmostEqual(calculate_fair_price(2000.0, 50000.0),
+                               2000.0 * 50000.0 / 31.1034768 * 0.75, places=4)
+
+
 if __name__ == "__main__":
     loader = unittest.TestLoader()
     suite = loader.loadTestsFromTestCase(KPISPC5)

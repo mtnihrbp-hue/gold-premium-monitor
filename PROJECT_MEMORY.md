@@ -5,6 +5,32 @@ This file is the **canonical project-specific architecture, implementation state
 
 ---
 
+
+---
+
+## Resolved defects index
+
+This document narrates defects in detail. A third-party audit in 2026-09 filed a
+finding that had been fixed seven days earlier, because the narrative reads as a
+description of current state until the sentence that says otherwise. **Check here
+before reading any failure narrative below as live.**
+
+| defect | fixed | reference |
+|---|---|---|
+| Analyze trigger misrouted; scheduled runs took the UPDATE path | 2026-09-13 | this file, "The Analyze trigger was misrouted" |
+| RUN baseline compared against the user's own previous request | 2026-09-14 | SP-C.1 |
+| valuation_state read CHEAP on every reading (fixed threshold) | 2026-09-15 | SP-C.2 |
+| Outcome evaluations never resolved after their horizons matured | 2026-09-15 | SP-C.3 |
+| Message times and day boundaries were UTC, not Iran local | 2026-09-16 | SP-C.5, section 15.3 |
+| Valuation computed from a single cheapest platform (tail point) | 2026-09-16 | SP-C.5, section 15.1 |
+| final_decision latched to WAIT; 100 of 100 BUY candidates suppressed | 2026-09-18 | SP-C.6, section 16.1 |
+| regime_state read PANIC on every snapshot (fixed thresholds) | 2026-09-18 | SP-C.6, section 16.2 |
+| Unbounded collector subprocess killing scheduled runs | 2026-09-18 | SP-C.6, section 16.3 |
+| Regime calibration inert because config pinned the same keys | 2026-09-19 | SP-C.6, section 16.6 |
+| Deep discount threshold moved within a day; reader's own clicks in the window | 2026-09-20 | SP-C.7, section 17 |
+| World gold fallback indistinguishable from a live quote in storage | 2026-09-20 | SP-C.8, section 18 |
+
+
 ## 1. Documentation Authority
 
 | Source | Responsibility |
@@ -1874,3 +1900,32 @@ consequences any future change must preserve:
 
 The reference therefore ignores the current partial day, matching the rule
 `trend_resolver` already applies to the 7D average.
+
+
+---
+
+## SP-C.8 — world gold provenance, and a correction (2026-09-20)
+
+Full record in `SP_C_HANDOFF.md` section 18.
+
+**A cached world gold price is now distinguishable in storage.** `source` reads
+`kitco` when live and `kitco_cached` when served from a fallback, and `freshness` is
+evaluated against the value's real observation time instead of
+`evaluate_freshness(now, now, ...)`, which was FRESH by construction on all 3,316
+stored rows. Both fallbacks return `(price, observed_at)` rather than discarding the
+age. Platform observations deliberately keep collection-time freshness: a platform
+does not disclose the age of its own quote.
+
+**Correction to an alarm raised in this session.** 36 of 39 consecutive identical
+XAU/USD readings were reported as probable fallback abuse. They are market closure.
+XAU/USD repeats on 100% of weekend readings and 0-3% of weekdays; USD/IRR repeats on
+61-69% of Thursday and Friday readings. The severity of the provenance finding drops
+from High to Medium accordingly: the defect is real, but there is no evidence the
+fallback fires often.
+
+**Open, and larger than the above.** Closed-market readings are structurally
+different from open-market ones -- median gap 3.06% against 3.44% -- and nothing
+marks them. They sit in the same 30-day distribution, so a weekend reading is ranked
+against a pool that is 70% weekday. Measured distortion: the threshold is biased
+0.09 pp, and a weekend reading's rank moves 13.8 points on average when ranked within
+its own session instead. Session marking is approved in principle; the design is open.

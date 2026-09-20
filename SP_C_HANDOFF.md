@@ -1012,3 +1012,119 @@ and it is the same rule the 7D column already follows.
 `kpi_sp_c4.py` gains six assertions (50 total): constant across one local day, steps
 at the boundary, today's readings excluded, user rows excluded, and the live rank
 still responding. Suite 24/24.
+
+
+---
+
+## 18. SP-C.8 - world gold provenance, and a false alarm corrected (2026-09-20)
+
+Prompted by a third-party audit of SP-C. Three findings reviewed; one confirmed.
+
+### 18.1 SP-C-001 rejected, and why it was filed
+
+The audit reported that scheduled runs take the UPDATE path and produce no analytical
+history. That was true until 2026-09-13 and is documented in `PROJECT_MEMORY.md` --
+including the sentence stating it was fixed. The reviewer read the defect narrative as
+current state.
+
+Verified current: the workflow declares `inputs.mode`, cron-job.org sends
+`mode=analyze`, `main.py:253` routes on it, and `analysis_snapshots` records 16-17 per
+day with news ingestion at ~350 events per 24h.
+
+**Consequence taken:** `PROJECT_MEMORY.md` now carries a **Resolved defects index** at
+the top. A document that narrates failures in detail needs a place to check before
+reading one as live.
+
+### 18.2 SP-C-002 partially confirmed, narrowed
+
+The audit's framing -- `main.py` as a growing orchestration hotspot -- is not supported
+by its own criteria. 480 lines, 10 functions, decision logic properly delegated,
+Update/Analyze cleanly separated.
+
+One real violation, which the audit missed: `calculate_fair_price` documented itself as
+returning IRR while returning Tomans, with the x10 correction applied 300 lines away in
+`main.py`. Any second caller trusting the docstring would be out by a factor of ten.
+
+**Fixed:** the docstring, and a comment at the call site naming the unit contract.
+**Not fixed:** the location of the x10. Relocating it changes where a stored-value
+semantic is applied and breaks `src/tests/test_gold.py`; same class as the
+premium_percent basis split, so it gets its own phase.
+
+### 18.3 SP-C-003 confirmed
+
+Two provenance channels for world gold, both inert:
+
+```text
+source      literal "kitco_fallback" whether live or cached   266 of 266 rows
+freshness   evaluate_freshness(now, now, ...)                 3,316 of 3,316 FRESH
+```
+
+`world_from_fallback` was set in `main.py` and used once, to render a Telegram
+warning. It never reached persistence. The fail-safe law in `CLAUDE.md` requires a
+fallback to carry degraded provenance; it was carried to the human and not to the
+system.
+
+**Fixed.** Both fallbacks return `(price, observed_at)` instead of discarding the age.
+`source` is `kitco` or `kitco_cached`. `freshness` is evaluated against the real
+observation time. No migration: both columns already existed for this purpose.
+
+Platform observations deliberately keep `(now, now)`. They are fetched live, and a
+platform does not disclose the age of its own quote, so anything but FRESH there is
+invented precision.
+
+**A bug introduced and caught during this change:** the first edit made the fallbacks
+return tuples while the call site still read
+`_fallback_world_from_history(...) or _fallback_world_from_db(...)`. `(None, None)` is
+truthy, so the tuple itself would have been assigned as the world gold price.
+`test_27` now guards the shape.
+
+### 18.4 Severity revised down, and a false alarm corrected
+
+SP-C-003 was initially rated High on the grounds that 36 of 39 consecutive XAU/USD
+readings were identical, suggesting the fallback fired constantly.
+
+**That was wrong.** The sample was taken on a Saturday and consisted almost entirely
+of weekend readings. The product owner identified the cause immediately: the world
+gold market closes at the weekend, and USD/IRR goes stale on the Iranian weekend.
+Measured:
+
+```text
+XAU/USD frozen:   Sat 89%   Sun 90%   Mon-Fri 0-3%
+USD/IRR frozen:   Thu 61%   Fri 62%   other days 23-35%
+```
+
+Both exactly as described. Severity drops to **Medium**: the defect is real, but there
+is no evidence the fallback fires often.
+
+A check was also run on whether the Thu/Fri discount deepening -- used to justify the
+14-day coverage gate in section 15.2 -- is an artifact of the frozen USD rate. It is
+not: USD frozen 3.34% against USD moving 3.38%. That decision stands.
+
+### 18.5 What the question actually surfaced
+
+Closed-market readings are a structurally different population:
+
+```text
+XAU frozen   n=128   median gap 3.06%
+XAU moving   n=292   median gap 3.44%
+```
+
+Nothing marks them, so they sit in the same 30-day distribution. Measured distortion:
+
+```text
+threshold bias, open-only vs pooled     mean +0.091 pp   max +0.171 pp
+rank shift, open-market readings        mean  5.0 points
+rank shift, closed-market readings      mean 13.8 points   max 27
+readings whose rank moves >= 10 points  24 of 120  (20%)
+
+sample sizes if split:  pooled 257   open 179   closed 78
+```
+
+Session marking is approved in principle. The design is open and carries at least one
+hard constraint: a 30-day window contains only 8-9 weekend days, so a closed-session
+sample can never satisfy `MIN_SCHEDULED_COVERAGE_DAYS = 14`. See section 19 when
+written.
+
+### 18.6 Coverage
+
+`kpi_sp_c5.py` grows to 33 assertions. Suite 24/24.

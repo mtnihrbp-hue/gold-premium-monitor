@@ -255,6 +255,17 @@ a section, I also dropped a column, renamed metrics and moved lines. The product
 owner's response — *"the msg gets worse each time you change it"* — was correct. Fix
 what was asked. Propose the rest.
 
+**Check the calendar before calling a flat series a defect.** 36 of 39 consecutive
+XAU/USD readings were identical, which I reported as probable fallback abuse. They
+were identical because the world gold market closes at the weekend, and I had sampled
+"the last 40 readings" on a Saturday. Measured properly: XAU/USD repeats on 100% of
+Saturday and Sunday readings and 0-3% of weekdays; USD/IRR repeats on 61-69% of
+Thursday and Friday readings, the Iranian weekend. Neither is a defect.
+
+The general form: **this system's inputs have trading calendars, and a frozen series
+is the expected output of a closed market.** Before treating one as evidence of
+anything, group by weekday. It costs one query.
+
 **Do not generalise from one sample without saying so.** I recommended dropping a line
 because two figures matched at 08:30, without noting that at 08:30 the last scheduled
 run *is* the day's open and they must match. At 20:00 they diverge completely. If a
