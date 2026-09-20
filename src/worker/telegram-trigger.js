@@ -13,18 +13,6 @@
 //   TELEGRAM_BOT_TOKEN = from @BotFather
 //   TELEGRAM_CHAT_ID   = your chat ID
 
-// Which branch /Update runs against.
-//
-// workflow_dispatch runs the workflow file AND the application code from this ref,
-// so it decides which version of the system answers a user. It pointed at "main"
-// while active development ran on SP-C, which is why /Update returned the previous
-// message format while the hourly scheduled runs returned the current one.
-//
-// cron-job.org carries the same value in its own request body and must be changed
-// with it. Both move back to "main" when SP-C merges -- see the merge checklist in
-// SP_C_HANDOFF.md.
-const TARGET_REF = "SP-C";
-
 export default {
   async fetch(request, env, ctx) {
     if (request.method !== "POST") {
@@ -73,8 +61,7 @@ export default {
           `Check:\n` +
           `1. Token is <b>Classic</b> (not Fine-Grained)\n` +
           `2. Token has <b>repo</b> scope\n` +
-          `3. Token not expired\n` +
-          `4. Branch <b>${TARGET_REF}</b> exists and carries the workflow file`;
+          `3. Token not expired`;
 
         await sendTelegram(env, chatId, errorMsg);
         console.error(`GitHub ${ghRes.status}: ${errBody}`);
@@ -99,6 +86,10 @@ export default {
 };
 
 // Trigger GitHub Actions
+//
+// ref decides which branch's workflow file AND application code answer the user.
+// It must match the ref cron-job.org sends, and both return to "main" when SP-C
+// merges -- see the merge checklist in SP_C_HANDOFF.md.
 async function triggerGitHub(env) {
   // NOTE: GITHUB_REPO must be FULL path: "owner/repo-name"
   const url = `https://api.github.com/repos/${env.GITHUB_REPO}/actions/workflows/gold-monitor.yml/dispatches`;
@@ -115,17 +106,13 @@ async function triggerGitHub(env) {
       "Content-Type": "application/json",
       "User-Agent": "GoldMonitorBot/1.0",
     },
-    body: JSON.stringify({ ref: TARGET_REF }),
+    body: JSON.stringify({ ref: "SP-C" }),
   });
 }
 
 // Check latest workflow run
 async function getWorkflowStatus(env) {
-  // Scoped to this workflow and this branch. The unscoped /actions/runs endpoint
-  // returns the newest run of ANY workflow in the repository, so /Status could report
-  // a KPI suite run instead of the monitor.
-  const url = `https://api.github.com/repos/${env.GITHUB_REPO}` +
-    `/actions/workflows/gold-monitor.yml/runs?per_page=1&branch=${TARGET_REF}`;
+  const url = `https://api.github.com/repos/${env.GITHUB_REPO}/actions/runs?per_page=1`;
 
   try {
     const res = await fetch(url, {
@@ -143,7 +130,7 @@ async function getWorkflowStatus(env) {
 
     const data = await res.json();
     if (!data.workflow_runs || data.workflow_runs.length === 0) {
-      return `ℹ️ No workflow runs found on ${TARGET_REF}.`;
+      return "ℹ️ No workflow runs found.";
     }
 
     const run = data.workflow_runs[0];
@@ -165,7 +152,7 @@ async function getWorkflowStatus(env) {
     }
 
     // run.name carries the workflow's run-name, which resolves to UPDATE or ANALYZE.
-    return `${emoji} <b>Latest Run</b> (${TARGET_REF})\n` +
+    return `${emoji} <b>Latest Run</b>\n` +
            `Wing: ${run.name || "n/a"}\n` +
            `Status: ${stateText}\n` +
            `Started: ${started} (Tehran)\n` +

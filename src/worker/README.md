@@ -20,7 +20,7 @@ because a reader would trust it.
 ## The branch ref
 
 ```js
-const TARGET_REF = "SP-C";
+body: JSON.stringify({ ref: "SP-C" }),
 ```
 
 `workflow_dispatch` runs the workflow file **and the application code** from this ref.
@@ -65,3 +65,28 @@ Set in the Cloudflare Workers dashboard (Settings → Variables):
 5. Send `Update` and confirm the message format matches the branch you expect
 
 Step 4 is the check that catches a wrong ref before a wrong report does.
+
+
+## Pending improvements, not yet deployed
+
+Neither is urgent and neither justifies a redeploy on its own. Apply them the next
+time the worker is edited for another reason. They are recorded here rather than
+applied to the file above, because this file mirrors what is **actually running** and
+must not be allowed to describe something else.
+
+**1. `Status` reports the wrong workflow.** It queries the unscoped runs endpoint,
+which returns the newest run of *any* workflow in the repository, so it can report a
+KPI suite run instead of the monitor. Scope it:
+
+```js
+const url = `https://api.github.com/repos/${env.GITHUB_REPO}` +
+  `/actions/workflows/gold-monitor.yml/runs?per_page=1&branch=SP-C`;
+```
+
+Adding `run.name` to the reply also surfaces which wing ran, since the workflow's
+`run-name` resolves to UPDATE or ANALYZE.
+
+**2. The ref appears in two places** — the dispatch body and, once the fix above
+lands, the status query. Lifting it to a single `const TARGET_REF` at the top of the
+file makes the value that decides which version of the system answers a user visible
+rather than buried in a request body, and makes the merge-time change one edit.
