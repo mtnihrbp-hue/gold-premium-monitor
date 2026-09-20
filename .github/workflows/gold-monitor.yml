@@ -4,8 +4,19 @@ on:
 
   workflow_dispatch:
 
-  schedule:
-    - cron: "30 14 * * *"
+# The GitHub native schedule was removed on 2026-09-20. Do not re-add it.
+#
+# GitHub only runs `schedule` events on the default branch, so it fired this branch's
+# workflow with this branch's code against production Neon once a day, regardless of
+# where development was happening. On 2026-09-19 that run was cancelled by the job
+# timeout, because this branch does not carry the collector timeout fix.
+#
+# The Analysis Wing is driven by cron-job.org, which posts to the dispatches endpoint
+# hourly with {"ref": "...", "inputs": {"mode": "analyze"}} and therefore runs the
+# branch that is actually current. The native schedule duplicated it at 14:30 UTC with
+# stale code, and collided with the cron-job.org run at the same minute.
+#
+# See PROJECT_OPERATIONS.md, "Branch ref control plane".
 
 jobs:
 
