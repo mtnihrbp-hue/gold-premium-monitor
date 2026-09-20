@@ -31,7 +31,7 @@ from statistics import mean, median, pstdev
 from typing import List, Optional
 
 from database.models import MarketSnapshot, PlatformPrice
-from timeutil import local_date
+from timeutil import local_date, to_utc
 
 DEFAULT_WINDOW_DAYS = 30
 
@@ -410,8 +410,22 @@ def resolve_relative_valuation(
     basis_price = cheap_basis_price(prices)
     current = signed_gap(basis_price, fair_price)
 
+    # The reference distribution ends at the last completed local day, and the window
+    # is measured back from there. Ranking today's reading against a distribution that
+    # already contains today made the threshold move several times a day: the
+    # percentile index is int(0.40 * n), so it advances every two or three readings
+    # and picks a different value out of the sorted window. Over three days the
+    # displayed threshold changed fifteen times. Anchored to completed days it changes
+    # twice, once at each day boundary, and is constant within a day.
+    #
+    # This is the convention trend_resolver already uses for the 7D average, and the
+    # cost is the same: the reference ignores the current partial day, which for a
+    # 30-day level is immaterial.
+    reference_end = to_utc(datetime.combine(local_date(now), datetime.min.time()))
     try:
-        series = _basis_series(session, now - timedelta(days=window_days), now)
+        series = _basis_series(
+            session, reference_end - timedelta(days=window_days), now
+        )
     except Exception as e:
         print(f"Relative valuation query failed: {e}")
         return _empty_valuation(window_days)
@@ -421,13 +435,21 @@ def resolve_relative_valuation(
             return _empty_valuation(window_days)
         current = series[-1][2]
 
-    scheduled = [item for item in series if item[1] == "scheduled"]
+    settled = [item for item in series if item[0] < reference_end]
+
+    scheduled = [item for item in settled if item[1] == "scheduled"]
     scheduled_days = len({local_date(item[0]) for item in scheduled})
     clean = (
         len(scheduled) >= MIN_SCHEDULED_READINGS
         and scheduled_days >= MIN_SCHEDULED_COVERAGE_DAYS
     )
-    chosen = scheduled if clean else series
+    # User-triggered readings are excluded from the fallback sample as well as the
+    # clean one. PROJECT_MEMORY.md already required that accumulated user calls not
+    # serve as a baseline, and leaving them in meant the act of pressing Update moved
+    # the threshold being read: one click on 2026-09-19 shifted it 0.0106 pp. The
+    # unlabelled pre-migration rows cannot be filtered this way, which is what the
+    # scheduled-only gate eventually resolves.
+    chosen = scheduled if clean else [item for item in settled if item[1] != "user"]
     sampling = "SCHEDULED" if clean else "MIXED"
     values = sorted(item[2] for item in chosen)
     coverage_days = len({local_date(item[0]) for item in chosen})
@@ -449,7 +471,8 @@ def resolve_relative_valuation(
     result.status = "OK"
 
     if change_pp is not None:
-        ordered = [item[2] for item in chosen]
+        # Ranked against the same settled sample, in time order.
+        ordered = [item[2] for item in sorted(chosen, key=lambda item: item[0])]
         moves = sorted(
             abs(abs(ordered[i + 1]) - abs(ordered[i])) for i in range(len(ordered) - 1)
         )

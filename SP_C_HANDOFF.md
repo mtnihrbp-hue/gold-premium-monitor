@@ -921,3 +921,94 @@ runtimes after: min 1.2, median 5.8, max 10.3 minutes
 ```
 
 2026-09-19 collected hours 2 through 14 with no gaps — the first clean day.
+
+
+---
+
+## 17. SP-C.7 - the reference level stopped moving under the reader (2026-09-20)
+
+The product owner noticed `Deep discount` reading 3.36 in one message and 3.35 in
+another 35 minutes later, and asked why a reference level moves within a day.
+
+Three causes, only one of them legitimate.
+
+**1. The percentile index advances as the window grows.** `deep_at` is
+`ordered[int(0.40 * n)]`. Each new reading raises n, and every second or third
+reading advances the index one place onto a different value:
+
+```text
+n=277  index=110  value=3.3333
+n=278  index=111  value=3.3211
+n=280  index=112  value=3.3198
+```
+
+**2. The reader's own Update calls were inside the window.** 16 of 278 rows were
+collection_mode 'user', and removing them shifted the threshold 0.0134 pp. One click
+on 2026-09-19 moved it 0.0106 pp:
+
+```text
+09-19 14:39   user   n=272   3.3597
+09-19 15:14   user   n=271   3.3491   -0.0106
+```
+
+`PROJECT_MEMORY.md` already required that accumulated user-triggered calls not serve
+as a baseline. The scheduled-only gate enforces it, but that gate is not yet active
+(14 days of coverage required, 6 available), and the fallback sample defined in
+section 15.2 did not exclude them. An under-specification in SP-C.5, not a new defect.
+
+**3. Genuine market drift**, 3.3701 to 3.3211 over three days. This should be visible.
+
+### 17.1 The fix
+
+**A - user rows are excluded from the fallback sample**, not only the clean one.
+Unlabelled pre-migration rows still cannot be filtered this way, which is what the
+scheduled-only gate eventually resolves.
+
+**B - the reference distribution ends at the last completed local day**, with the
+window measured back from that boundary. Ranking today's reading against a pool that
+already contained today is what let the pool move under the reading being ranked.
+This is the convention `trend_resolver` already uses for the 7D average.
+
+Measured over three days, counting changes in the displayed two-decimal value:
+
+```text
+option                        changes
+current (all rows, live)           15
+A alone                            17
+B alone                             3
+A + B                               2
+```
+
+Day by day, A+B:
+
+```text
+2026-09-14   14 readings   3.43   constant
+2026-09-15   22 readings   3.40   constant
+2026-09-16   17 readings   3.44   constant
+2026-09-17   18 readings   3.42   constant
+2026-09-18   20 readings   3.37   constant
+2026-09-19   21 readings   3.37   constant
+2026-09-20    7 readings   3.35   constant
+```
+
+A alone makes the displayed value marginally less stable (17 against 15). It is kept
+regardless: it is a correctness fix, not a stability one. The act of reading a number
+must not change it.
+
+### 17.2 What deliberately still moves
+
+`Bigger than X%` ranks the current reading and continues to update every run. Only
+the distribution it is ranked against is frozen. Verified: two different current
+readings against the same settled pool give the same deep_at and different
+bigger_than.
+
+### 17.3 Trade-off, accepted by the product owner
+
+The reference ignores the current partial day. For a 30-day level that is immaterial,
+and it is the same rule the 7D column already follows.
+
+### 17.4 Coverage
+
+`kpi_sp_c4.py` gains six assertions (50 total): constant across one local day, steps
+at the boundary, today's readings excluded, user rows excluded, and the live rank
+still responding. Suite 24/24.

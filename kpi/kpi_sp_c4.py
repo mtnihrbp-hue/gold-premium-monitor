@@ -500,6 +500,86 @@ class KPISPC4(unittest.TestCase):
         self.assertAlmostEqual(signed_gap(90.0, 100.0), -10.0)
         self.assertIsNone(signed_gap(90.0, 0))
 
+    # -- the reference distribution is settled, and excludes the reader ------
+
+    def _seed_days(self, days=8, per_day=6, user_on_day=None):
+        """Priced snapshots across several local days, oldest first."""
+        from timeutil import local_date, to_utc
+        _reset_snapshots()
+        session = _test_get_session()
+        start = to_utc(datetime.combine(local_date(NOW), datetime.min.time()))
+        for day_back in range(days, 0, -1):
+            day_start = start - timedelta(days=day_back)
+            for slot in range(per_day):
+                mode = "scheduled"
+                if user_on_day is not None and day_back == user_on_day and slot == 0:
+                    mode = "user"
+                # Priced near FAIR so the resulting gaps land in a realistic
+                # -4% to -6% band rather than outside any plausible reading.
+                _seed_priced(session, day_start + timedelta(hours=6 + slot),
+                             mode, 225_000_000 + day_back * 400_000 + slot * 30_000)
+        # today's own readings, which must not enter the reference pool
+        for slot in range(4):
+            _seed_priced(session, start + timedelta(hours=slot), "scheduled",
+                         210_000_000 + slot * 10_000)
+        session.commit()
+        session.close()
+
+    def test_35b_threshold_is_constant_across_one_local_day(self):
+        # It moved fifteen times in three days: the percentile index is
+        # int(0.40 * n), so it advanced every two or three readings as the window
+        # grew under it. Anchored to completed days it steps only at the boundary.
+        self._seed_days()
+        session = _test_get_session()
+        morning = resolve_relative_valuation(session, markets=MARKETS, fair_price=FAIR,
+                                             now=NOW.replace(hour=4))
+        evening = resolve_relative_valuation(session, markets=MARKETS, fair_price=FAIR,
+                                             now=NOW.replace(hour=19))
+        self.assertEqual(morning.status, "OK")
+        self.assertEqual(morning.deep_at, evening.deep_at)
+
+    def test_35c_threshold_steps_at_the_day_boundary(self):
+        self._seed_days()
+        session = _test_get_session()
+        today = resolve_relative_valuation(session, markets=MARKETS, fair_price=FAIR,
+                                           now=NOW)
+        yesterday = resolve_relative_valuation(session, markets=MARKETS, fair_price=FAIR,
+                                               now=NOW - timedelta(days=1))
+        self.assertNotEqual(today.deep_at, yesterday.deep_at)
+
+    def test_35d_todays_readings_stay_out_of_the_reference(self):
+        # Ranking today against a pool containing today is what let the pool move
+        # under the reading being ranked.
+        self._seed_days()
+        session = _test_get_session()
+        result = resolve_relative_valuation(session, markets=MARKETS, fair_price=FAIR,
+                                            now=NOW)
+        # 8 days x 6 readings seeded before today; today's 4 must be excluded.
+        self.assertEqual(result.sample_size, 48)
+
+    def test_35e_the_readers_own_clicks_are_excluded(self):
+        # Pressing Update moved the threshold being read: one click on 2026-09-19
+        # shifted it 0.0106 pp. PROJECT_MEMORY.md already required that user calls
+        # not serve as a baseline; the fallback sample had not been honouring it.
+        self._seed_days(user_on_day=3)
+        session = _test_get_session()
+        result = resolve_relative_valuation(session, markets=MARKETS, fair_price=FAIR,
+                                            now=NOW)
+        self.assertEqual(result.sampling, "MIXED")
+        self.assertEqual(result.sample_size, 47)   # one of the 48 was user-triggered
+
+    def test_35f_the_live_rank_still_moves_within_a_day(self):
+        # Only the reference is frozen. "Bigger than X%" ranks the current reading
+        # and must react to it, or the message would stop responding to the market.
+        self._seed_days()
+        session = _test_get_session()
+        cheap = dict(MARKETS, MioGold={"status": "OK", "price": 200_000_000})
+        dear = dict(MARKETS, MioGold={"status": "OK", "price": 237_000_000})
+        a = resolve_relative_valuation(session, markets=cheap, fair_price=FAIR, now=NOW)
+        b = resolve_relative_valuation(session, markets=dear, fair_price=FAIR, now=NOW)
+        self.assertEqual(a.deep_at, b.deep_at)
+        self.assertNotEqual(a.bigger_than, b.bigger_than)
+
     def test_36_window_and_reading_are_built_on_the_same_basis(self):
         # Comparing a trimmed reading against a minimum-based window would report a
         # change of definition as a change in the market. This is the failure the

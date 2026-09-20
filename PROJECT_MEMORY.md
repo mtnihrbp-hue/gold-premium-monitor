@@ -1852,3 +1852,25 @@ Bounded at 60 seconds; the caller's existing fallback degrades USD/IRR to None.
 **Sequencing.** The repaired engine has not yet issued a decision. Track record,
 expectancy and the ANALYZE feedback loop all require a decision history that varies,
 so there is an observation period before anything is built on top.
+
+
+---
+
+## SP-C.7 - reference distribution is settled, not live (2026-09-20)
+
+Full record in `SP_C_HANDOFF.md` section 17.
+
+`resolve_relative_valuation` draws its reference distribution from **completed local
+days only**, with the 30-day window measured back from that boundary, and excludes
+collection_mode 'user' rows from the fallback sample as well as the clean one. Two
+consequences any future change must preserve:
+
+- **`Deep discount` is constant within a local day** and steps once at the boundary.
+  It moved up to fifteen times in three days before this, because the percentile
+  index `int(0.40 * n)` advances as the window grows and because the reader's own
+  Update calls were inside the window: pressing Update moved the number being read.
+- **`Bigger than X%` deliberately stays live.** It ranks the current reading; only
+  the distribution behind it is frozen.
+
+The reference therefore ignores the current partial day, matching the rule
+`trend_resolver` already applies to the 7D average.
