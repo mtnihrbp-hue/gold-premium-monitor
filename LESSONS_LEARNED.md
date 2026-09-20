@@ -250,6 +250,20 @@ failed. `kpi/run_all.py` forces UTF-8 for child output. Always use the runner.
 
 ## 10. Process notes that earned their place
 
+**Interesting is not actionable.** An investigation into market sessions produced a
+genuinely novel finding -- Iran's trading calendar and the world gold calendar are
+almost exactly out of phase, so the two inputs driving fair value take turns. I
+immediately began designing a message line around it. The product owner asked the
+question I had skipped: does this improve decision quality, or is it just wording?
+
+It was just wording. No number changed. The correction it implied was smaller than the
+noise it sat in, and the underlying data was already correct.
+
+**The test to apply before proposing any addition: name the number that changes.** If
+none does, the finding belongs in documentation, not in the product. That matters
+particularly here, where a week had already been spent removing lines from the same
+message.
+
 **Do not change an agreed design without asking.** Asked to fix mobile width and trim
 a section, I also dropped a column, renamed metrics and moved lines. The product
 owner's response — *"the msg gets worse each time you change it"* — was correct. Fix

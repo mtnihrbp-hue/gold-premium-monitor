@@ -1128,3 +1128,134 @@ written.
 ### 18.6 Coverage
 
 `kpi_sp_c5.py` grows to 33 assertions. Suite 24/24.
+
+
+---
+
+## 19. Market sessions - investigated, deliberately not implemented (2026-09-20)
+
+An investigation that ended in no code change. Written down because the reasoning is
+the deliverable, and because two of the wrong turns are attractive enough that someone
+will take them again.
+
+### 19.1 The structural fact
+
+Iran and the world gold market keep different calendars, and they are almost exactly
+out of phase. Saturday is the **first** day of the Iranian working week, not a
+weekend. Measured over 42 days, as the share of consecutive same-day readings where
+each input changed:
+
+```text
+day     n    XAU moves   USD moves   fair moves   what drives fair value
+Sat    58          0%         60%          60%    currency alone
+Sun    68          0%         74%          74%    currency alone
+Mon    46        100%         70%         100%    both
+Tue    53         98%         60%          98%    both
+Wed    61         97%         72%          97%    both
+Thu    42        100%         29%         100%    world gold alone
+Fri    46         98%         28%          98%    world gold alone
+```
+
+**The two drivers take turns.** Iran's busiest days are the world's quietest and the
+reverse. Thursday and Friday are the Iranian weekend, which is why USD/IRR goes quiet
+while world gold trades normally.
+
+### 19.2 Fair value is NOT frozen when world gold is closed
+
+This is the correction most likely to be needed by a future reader. It is tempting to
+assume that with XAU frozen on Sat/Sun, fair value is pinned to Friday's close. It is
+not. Fair value is XAU x USD, and USD moves on 60-74% of weekend readings.
+
+Cumulative fair-value movement across each observed closure, with XAU frozen
+throughout:
+
+```text
+week 32   19.55M -> 19.45M Tomans   -0.54%    USD 186,700 -> 185,700
+week 33   19.74M -> 19.68M Tomans   -0.32%    USD 187,000 -> 186,400
+week 34   21.26M -> 22.12M Tomans   +4.02%    USD 191,500 -> 199,200
+week 35   21.65M -> 22.17M Tomans   +2.38%    USD 201,500 -> 206,300
+week 36   23.74M -> 24.06M Tomans   +1.35%    USD 222,200 -> 225,200
+week 37   24.89M -> 24.04M Tomans   -3.41%    USD 237,300 -> 229,200
+week 38   24.14M -> 24.41M Tomans   +1.14%    USD 228,600 -> 231,200
+```
+
+A 4% move in fair value over a weekend with the world market shut the whole time.
+**Any message or model that describes weekend fair value as stale is wrong.** The gold
+component is stale; the number is live.
+
+### 19.3 Why closed-market readings are NOT split out
+
+Closed-market readings are a structurally different population:
+
+```text
+XAU moving   n=292   median gap 3.44%
+XAU frozen   n=128   median gap 3.06%
+```
+
+Splitting the distribution by session was approved in principle and then rejected on
+measurement. Three reasons, in descending order of weight.
+
+**1. The user's decision spans sessions.** The question is never "is this a good
+Saturday", it is "buy now or wait". From Saturday, waiting means Monday. Ranking a
+Saturday only against other Saturdays destroys exactly the comparison the decision
+requires.
+
+**2. The correction is smaller than the noise.** Pairing each weekend's last reading
+with the following Monday's first, over six transitions:
+
+```text
+re-rate on reopen    mean -0.205 pp   median -0.174 pp   sd 0.524
+                     deeper 2/6, shallower 4/6
+XAU move over closure  mean -0.085%   sd 0.664
+```
+
+Mean -0.205 with a standard error of 0.214 is indistinguishable from zero. There is no
+detectable bias to correct. Meanwhile the weekend/weekday systematic difference is
+0.28 pp and the uncertainty around reopen is 0.52 pp -- **the noise is roughly twice
+the signal.** Session ranking would apply precision that is not present.
+
+**3. These are Iran's most active days, not degraded observations.** Quarantining
+Sat/Sun would isolate the busiest days of the Iranian working week into their own
+small bucket.
+
+Had it been implemented, the measured effect would have been:
+
+```text
+threshold bias, open-only vs pooled     mean +0.091 pp   max +0.171 pp
+rank shift, open-market readings        mean  5.0 points
+rank shift, closed-market readings      mean 13.8 points   max 27
+sample sizes if split:  pooled 257   open 179   closed 78
+```
+
+It also carried a hard arithmetic blocker: a 30-day window contains only 8-9 weekend
+days, so a closed session can never satisfy MIN_SCHEDULED_COVERAGE_DAYS = 14.
+
+**Sample size caveat.** Six reopen transitions is thin. The conclusion "no bias" is
+provisional. Re-test when a dozen closures are available; the finding may change and
+this section should be revisited rather than cited.
+
+### 19.4 Also rejected: a user-facing driver line
+
+A line naming the active driver -- "World gold closed. Fair value is moving on the
+currency." -- was designed and dropped. It changes no number. The discount, the
+threshold and the rank are identical with or without it.
+
+The reasoning that killed it is worth keeping: **the data is already correct.** If a
+buyer transacts in Tehran on Saturday, the world value of that gold *is* Friday's
+close; there is no better reference in existence. Fair value computed from a live USD
+rate and a last-close XAU is the right number, not an approximation of one.
+
+### 19.5 The one place this may actually matter
+
+**Outcome evaluation horizons are session-dependent.** A 24-hour outcome measured
+Saturday to Sunday captures Iranian-side movement against a frozen gold reference. The
+same horizon measured Wednesday to Thursday captures both drivers. They are not the
+same measurement.
+
+The ANALYZE feedback loop rests entirely on those evaluations. With ~500 resolved
+outcomes expected by end of September this becomes testable: **do closure-spanning
+horizons behave differently from open-market ones?** If yes, ANALYZE must account for
+it. If no, this whole section is trivia.
+
+That question is the only actionable output of this investigation, and it belongs to
+the ANALYZE phase.

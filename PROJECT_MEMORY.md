@@ -1929,3 +1929,32 @@ marks them. They sit in the same 30-day distribution, so a weekend reading is ra
 against a pool that is 70% weekday. Measured distortion: the threshold is biased
 0.09 pp, and a weekend reading's rank moves 13.8 points on average when ranked within
 its own session instead. Session marking is approved in principle; the design is open.
+
+
+---
+
+## Market sessions (2026-09-20)
+
+Full record in SP_C_HANDOFF.md section 19. Three things a future session must not get
+wrong:
+
+**Iran and the world keep opposite calendars.** Saturday is the first day of the
+Iranian working week. XAU/USD does not move at all on Sat/Sun; USD/IRR moves on 60-74%
+of those readings. On Thu/Fri -- the Iranian weekend -- it inverts: XAU moves on
+98-100% of readings and USD on 28-29%. The two drivers take turns.
+
+**Fair value is NOT frozen when world gold is closed.** Fair value is XAU x USD, and
+USD is live on Sat/Sun. Observed closures moved fair value by up to +4.02% and -3.41%
+with the world market shut throughout. Any statement that weekend fair value is stale
+is wrong.
+
+**Closed-market readings are deliberately pooled with open-market ones.** Investigated
+and rejected: the buyer's decision spans sessions, the systematic difference (0.28 pp)
+is smaller than the reopen uncertainty (0.52 pp), and Sat/Sun are Iran's most active
+days rather than degraded observations. No session column, no split ranking, no
+user-facing driver line. Re-test when a dozen reopen transitions exist; the current
+conclusion rests on six.
+
+**Open for ANALYZE:** outcome evaluation horizons are session-dependent. A 24h horizon
+spanning a closure measures Iranian-side movement alone. The feedback loop rests on
+those evaluations, so this needs testing before it is trusted.
