@@ -394,3 +394,51 @@ Telegram command behavior
 ```
 
 Document every resulting operational state change.
+
+
+---
+
+## Branch ref control plane
+
+Three things decide which version of the system runs, and they are configured in
+three different places. They must be changed together.
+
+| trigger | where configured | carries | current |
+|---|---|---|---|
+| Telegram `/Update` | Cloudflare worker, `TARGET_REF` | `{"ref": "..."}` | `SP-C` |
+| hourly Analyze | cron-job.org request body | `{"ref": "...", "inputs": {"mode": "analyze"}}` | `SP-C` |
+| legacy daily schedule | `gold-monitor.yml` `on.schedule` | **default branch only** | `main`, see below |
+
+`workflow_dispatch` runs the workflow file **and the application code** from `ref`.
+A mismatch does not fail — it silently answers with a different version of the system.
+That is exactly what happened between 2026-09-15 and 2026-09-20: cron-job.org pointed
+at `SP-C` and the worker at `main`, so scheduled runs produced the current message
+format while `/Update` produced the previous one, from the same bot.
+
+The repository copy of the worker is `src/worker/telegram-trigger.js`. It is not
+executed from here. Edit it there first and paste into Cloudflare, so the two do not
+drift — they had drifted a full generation before 2026-09-20.
+
+### Wings across one workflow file
+
+The worker sends no inputs. `gold-monitor.yml` declares `mode` with a default of
+`update`, so a user command runs with `SCHEDULED_RUN=false` on the Live Wing. Only
+cron-job.org sends `inputs.mode = "analyze"`, which sets `SCHEDULED_RUN=true` and runs
+the Analysis Wing. This is the mechanism that keeps the two wings separate.
+
+### Legacy GitHub native schedule
+
+`on.schedule: cron "30 14 * * *"` is still declared. GitHub only runs `schedule`
+events on the **default branch**, so it fires `main`'s workflow with `main`'s code,
+once a day at 14:30 UTC, against production Neon — and it collides with the
+cron-job.org run at the same minute.
+
+It is on the SP-C merge checklist for removal. Until then it is a daily write to
+production from a branch nobody is developing on.
+
+### Cache scope
+
+`state.json` is persisted through `actions/cache@v4`. GitHub scopes caches per
+branch, with the default branch readable as a fallback. While `/Update` ran on `main`
+and the schedule on `SP-C`, the two kept **separate** `last_alert` histories, which is
+the state the hysteresis cooldown reads. Pointing both at the same ref unifies them.
