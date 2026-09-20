@@ -426,15 +426,26 @@ The worker sends no inputs. `gold-monitor.yml` declares `mode` with a default of
 cron-job.org sends `inputs.mode = "analyze"`, which sets `SCHEDULED_RUN=true` and runs
 the Analysis Wing. This is the mechanism that keeps the two wings separate.
 
-### Legacy GitHub native schedule
+### Legacy GitHub native schedule — REMOVED 2026-09-20
 
-`on.schedule: cron "30 14 * * *"` is still declared. GitHub only runs `schedule`
-events on the **default branch**, so it fires `main`'s workflow with `main`'s code,
-once a day at 14:30 UTC, against production Neon — and it collides with the
+`on.schedule: cron "30 14 * * *"` was removed from `main` in `c1799fe` and mirrored
+on `SP-C` so the merge cannot reintroduce it. A comment stands in its place in the
+workflow file explaining why.
+
+GitHub only runs `schedule` events on the **default branch**, so it fired `main`'s
+workflow with `main`'s code against production Neon once a day, regardless of where
+development was happening. `main` carries none of this sprint's fixes, so the
+2026-09-19 run was cancelled by the job timeout after the unbounded collector
+subprocess stalled — writing partial data before it died. It also collided with the
 cron-job.org run at the same minute.
 
-It is on the SP-C merge checklist for removal. Until then it is a daily write to
-production from a branch nobody is developing on.
+`workflow_dispatch` is the only trigger now. The Telegram worker and cron-job.org
+both use it and were unaffected.
+
+The `SCHEDULED_RUN` and `run-name` expressions still test
+`github.event_name == 'schedule'`. That arm is now unreachable and is kept as a
+defensive condition rather than deleted, so re-adding a schedule would still route to
+the Analyze wing rather than silently running UPDATE.
 
 ### Cache scope
 

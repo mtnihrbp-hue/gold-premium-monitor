@@ -23,8 +23,21 @@ on:
           - update
           - analyze
 
-  schedule:
-    - cron: "30 14 * * *"
+# The GitHub native schedule was removed on 2026-09-20. Do not re-add it.
+#
+# GitHub only runs `schedule` events on the default branch, so it fired main's
+# workflow with main's code against production Neon once a day, regardless of where
+# development was happening. main carries none of this sprint's fixes, so the
+# 2026-09-19 run was cancelled by the job timeout after the unbounded collector
+# subprocess stalled.
+#
+# The Analysis Wing is driven by cron-job.org, which posts to the dispatches endpoint
+# hourly with an explicit ref and inputs.mode=analyze, so it runs the branch that is
+# actually current. The native schedule duplicated that at 14:30 UTC, in the same
+# minute, with stale code.
+#
+# Removed from main in c1799fe and mirrored here so the merge does not reintroduce it.
+# See PROJECT_OPERATIONS.md, "Branch ref control plane".
 
 jobs:
 

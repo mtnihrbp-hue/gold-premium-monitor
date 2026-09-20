@@ -508,7 +508,7 @@ Carry these out when SP-C merges into main:
 1. tag main as v1.3safe before merging
 2. merge SP-C into main after user review
 3. change the cron-job.org body ref from "SP-C" to "main"
-4. remove the legacy GitHub native schedule from gold-monitor.yml
+4. ~~remove the legacy GitHub native schedule~~ DONE 2026-09-20, c1799fe on main from gold-monitor.yml
    once the external trigger is confirmed running on main
 5. update the Cloudflare worker to accept /Analyze and pass
    inputs mode=analyze, which only works once main carries the input
