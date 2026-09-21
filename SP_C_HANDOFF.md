@@ -1259,3 +1259,72 @@ it. If no, this whole section is trivia.
 
 That question is the only actionable output of this investigation, and it belongs to
 the ANALYZE phase.
+
+
+---
+
+## 20. SP-C.9 - the collector ceiling that did not bind (2026-09-21)
+
+One scheduled run still died at the job timeout after the bonbast fix: 2026-09-21
+05:30 UTC, cancelled at 20.3 minutes, having written nothing. That hourly reading does
+not exist. Cancellation rate had fallen from 18% to 4%, so the remaining cause was
+different from the one fixed in 16.3.
+
+The GitHub log was unreachable from this machine (TLS handshake timeout to the Actions
+log receiver, three attempts), so the diagnosis is from code and from the absence of a
+snapshot at that slot.
+
+### 20.1 The defect
+
+`collector/iran.get_market_prices` documented a hard 20-second ceiling and did not have
+one:
+
+```python
+with ThreadPoolExecutor(max_workers=len(COLLECTORS)) as executor:
+    ...
+    done, not_done = wait(..., timeout=GLOBAL_COLLECTOR_TIMEOUT, ...)
+    for future in not_done:
+        future.cancel()          # no-op: the future is already running
+```
+
+Two independent reasons it failed:
+
+1. `future.cancel()` only cancels a future that has **not started**. `max_workers`
+   equals the collector count, so all eleven start immediately and none is cancellable.
+2. Leaving the `with` block calls `executor.shutdown(wait=True)`, which blocks until
+   the slowest thread finishes. The capped `wait()` was followed immediately by an
+   uncapped one.
+
+The trigger is that `requests`' `timeout=` **does not bound DNS resolution**. On a
+degraded runner a collector thread hangs indefinitely, so the process sat until the
+job timeout and no snapshot, no message and no analysis were produced.
+
+This is the fourth instance in this project of a bound that is documented and does not
+bind, after the decision hysteresis, the regime hysteresis and the bonbast subprocess.
+
+### 20.2 The fix
+
+Daemon threads with a single shared deadline. `join()` takes a real timeout, and a
+daemon thread cannot hold the interpreter open at exit -- which a `ThreadPoolExecutor`
+worker can, because `concurrent.futures` registers an atexit hook that joins them.
+
+One deadline rather than one timeout per join: eleven sequential joins of
+`GLOBAL_COLLECTOR_TIMEOUT` would permit eleven times the intended ceiling.
+
+A hung collector now costs one platform instead of the whole run.
+
+### 20.3 The flaky KPI, fixed by the same reasoning
+
+`kpi_pre_sp_c4.test_15_invi_failure_isolated` called `get_market_prices()` against all
+eleven live sites. It failed intermittently on a socket timeout, and it could never
+fail for the reason it was written to catch, because a healthy network makes the
+isolation path unreachable. It was a network test wearing a unit test's name.
+
+Now substitutes two stub collectors, one of which raises, and asserts the isolation
+property directly. Ran three times consecutively, green each time.
+
+### 20.4 Coverage
+
+`kpi_sp_c5.py` gains three assertions (36 total): the ceiling binds against a
+deliberately hanging collector, the threads are daemons, and the ceiling is a single
+deadline. Suite 24/24.

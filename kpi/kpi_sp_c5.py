@@ -319,6 +319,65 @@ class KPISPC5(unittest.TestCase):
         self.assertIn("timeout=", source)
 
 
+    # -- 3b. a fourth ceiling that did not bind --------------------------------
+
+    def test_23b_a_hanging_collector_cannot_take_the_run_with_it(self):
+        """GLOBAL_COLLECTOR_TIMEOUT has to actually bound the call.
+
+        It did not. wait() was capped correctly, but future.cancel() only cancels a
+        future that has not started, and with max_workers equal to the collector
+        count every future starts at once -- so nothing was ever cancellable.
+        Leaving the ThreadPoolExecutor context manager then called
+        shutdown(wait=True), which blocks until the slowest thread finishes. The
+        documented ceiling was followed immediately by an unbounded wait.
+
+        requests' timeout= does not bound DNS resolution, so a degraded network
+        leaves a collector thread hung indefinitely. The 2026-09-21 05:30 UTC
+        scheduled run died at the job timeout having written nothing; that hourly
+        reading does not exist.
+        """
+        import time
+        import collector.iran as iran
+
+        def healthy():
+            return {"platform": "Healthy", "price": 1}
+
+        def hangs():
+            time.sleep(30)
+            return {"platform": "Hangs", "price": 1}
+        hangs.__name__ = "get_hangs_price"
+
+        collectors, ceiling = iran.COLLECTORS, iran.GLOBAL_COLLECTOR_TIMEOUT
+        iran.COLLECTORS, iran.GLOBAL_COLLECTOR_TIMEOUT = [healthy, hangs], 1
+        try:
+            started = time.monotonic()
+            markets = iran.get_market_prices()
+            elapsed = time.monotonic() - started
+        finally:
+            iran.COLLECTORS, iran.GLOBAL_COLLECTOR_TIMEOUT = collectors, ceiling
+
+        self.assertLess(elapsed, 10,
+                        "the global collector timeout did not bound the call")
+        self.assertEqual(markets["Healthy"]["status"], "OK")
+        self.assertIn("timed out", markets["Hangs"]["status"])
+
+    def test_23c_collector_threads_cannot_hold_the_interpreter_open(self):
+        # Non-daemon pool threads keep Python alive at exit even after the function
+        # returns, which converts a bounded call back into a hung process.
+        import inspect
+        import collector.iran as iran
+        source = inspect.getsource(iran.get_market_prices)
+        self.assertIn("daemon=True", source)
+        self.assertNotIn("ThreadPoolExecutor", source)
+
+    def test_23d_the_ceiling_is_one_deadline_not_one_per_collector(self):
+        # Eleven sequential joins of GLOBAL_COLLECTOR_TIMEOUT each would permit
+        # eleven times the intended ceiling.
+        import inspect
+        import collector.iran as iran
+        source = inspect.getsource(iran.get_market_prices)
+        self.assertIn("deadline", source)
+
     # -- 4. world-gold fallback provenance (SP-C-003) --------------------------
 
     def test_24_fallbacks_return_the_observation_time_not_just_a_price(self):

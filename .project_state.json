@@ -43,7 +43,8 @@
       "SP-C.6: three latches repaired. apply_hysteresis gained the time dimension it documented but never implemented (100 of 100 BUY candidates had been suppressed permanently); regime stress thresholds calibrated to the 80th percentile of the 30-day window (two of four families had fired on ~100% of readings, PANIC on 96 of 96 snapshots); bonbast subprocess bounded at 60s (8 of 70 workflow runs were being killed by the job timeout). Recorded in SP_C_HANDOFF.md section 16 and LESSONS_LEARNED.md.",
       "SP-C.7: the valuation reference distribution is now drawn from completed local days only and excludes user-triggered rows from the fallback sample. Deep discount moved up to 15 times in 3 days, partly because the reader's own Update calls were inside the window, and is now constant within a local day. Bigger than X% deliberately stays live. Recorded in SP_C_HANDOFF.md section 17.",
       "SP-C.8: world gold fallback provenance now reaches storage (source kitco vs kitco_cached, freshness evaluated against real observation time). calculate_fair_price docstring corrected (claimed IRR, returns Toman). PROJECT_MEMORY gains a resolved-defects index after a third-party audit filed a finding fixed seven days earlier. Corrected my own false alarm: 36/39 identical XAU readings are weekend market closure, not fallback abuse.",
-      "Market session investigation (2026-09-20): concluded with NO code change. Iran and world gold keep opposite calendars; fair value is not frozen on Sat/Sun because USD is live (closures moved it up to +4.02%). Session splitting rejected on measurement: correction 0.28pp against reopen noise 0.52pp, and the buyer's decision spans sessions. Recorded in SP_C_HANDOFF.md section 19."
+      "Market session investigation (2026-09-20): concluded with NO code change. Iran and world gold keep opposite calendars; fair value is not frozen on Sat/Sun because USD is live (closures moved it up to +4.02%). Session splitting rejected on measurement: correction 0.28pp against reopen noise 0.52pp, and the buyer's decision spans sessions. Recorded in SP_C_HANDOFF.md section 19.",
+      "SP-C.9: collector global ceiling now binds. get_market_prices documented a 20s cap that did nothing -- future.cancel() cannot cancel a started future and the executor context manager then joined every thread, so a DNS hang (which requests' timeout does not bound) killed the whole run. Now daemon threads with one shared deadline. Also de-networked kpi_pre_sp_c4.test_15, which called all eleven live sites and failed intermittently. Recorded in SP_C_HANDOFF.md 20."
     ],
     "in_progress": [
       "UPDATE message awaiting user confirmation on a real device",
@@ -266,7 +267,7 @@
   "kpi_suite": {
     "files": 24,
     "latest": "kpi_sp_c5.py",
-    "assertions_sp_c5": 33,
+    "assertions_sp_c5": 36,
     "status": "24/24 files passing"
   },
   "open_decisions": [

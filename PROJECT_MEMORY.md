@@ -1958,3 +1958,22 @@ conclusion rests on six.
 **Open for ANALYZE:** outcome evaluation horizons are session-dependent. A 24h horizon
 spanning a closure measures Iranian-side movement alone. The feedback loop rests on
 those evaluations, so this needs testing before it is trusted.
+
+
+---
+
+## SP-C.9 - collector ceiling (2026-09-21)
+
+Full record in `SP_C_HANDOFF.md` section 20.
+
+`collector/iran.get_market_prices` documented a 20-second global ceiling that did not
+bind: `future.cancel()` cannot cancel a started future, and the ThreadPoolExecutor
+context manager then called `shutdown(wait=True)`. Since `requests`' `timeout=` does
+not bound DNS resolution, a degraded network hung a collector thread and the whole run
+died at the job timeout with nothing written. Now daemon threads with one shared
+deadline; a hung collector costs one platform, not the run.
+
+**Fourth instance of a documented bound that did not bind** -- after the decision
+hysteresis, the regime hysteresis and the bonbast subprocess. When reviewing any
+timeout in this codebase, check that the mechanism can actually interrupt the thing it
+claims to cap.

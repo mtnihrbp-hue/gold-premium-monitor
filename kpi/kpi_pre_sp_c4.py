@@ -218,12 +218,34 @@ class KPIPreSPC4(unittest.TestCase):
 
     # --- KPI-15: Invi failure isolated ---
     def test_15_invi_failure_isolated(self):
-        from collector.iran import get_market_prices
+        """One collector raising must not take the others down.
+
+        This used to call get_market_prices() against all eleven live sites: a
+        network test wearing a unit test's name. It failed intermittently on a
+        socket timeout, and it could not fail for the reason it was written to
+        catch, because a healthy network makes the isolation path unreachable.
+        The property is substituted in instead.
+        """
+        import collector.iran as iran
+
+        def healthy():
+            return {"platform": "Healthy", "price": 230_000_000}
+
+        def broken():
+            raise RuntimeError("simulated source failure")
+        broken.__name__ = "get_invi_price"
+
+        original = iran.COLLECTORS
+        iran.COLLECTORS = [healthy, broken]
         try:
-            markets = get_market_prices()
-            self.assertIsInstance(markets, dict)
-        except Exception as e:
-            self.fail(f"get_market_prices crashed: {e}")
+            markets = iran.get_market_prices()
+        finally:
+            iran.COLLECTORS = original
+
+        self.assertIsInstance(markets, dict)
+        self.assertEqual(markets["Healthy"]["status"], "OK")
+        self.assertEqual(markets["Healthy"]["price"], 230_000_000)
+        self.assertTrue(markets["Invi"]["status"].startswith("ERROR"))
 
     # --- KPI-16: Invi does not alter fallback ---
     def test_16_fallback_unchanged(self):

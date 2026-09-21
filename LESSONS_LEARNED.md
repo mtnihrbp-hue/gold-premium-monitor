@@ -164,6 +164,24 @@ one subprocess did not, and it was the one that took the system down.
 `subprocess.Popen(` and confirm a timeout on each. Watch for arguments on
 continuation lines — a naive grep reports false positives.
 
+**A timeout that cannot interrupt is not a timeout.** `collector/iran` documented a
+20-second global ceiling and had none. `wait()` was capped correctly, but
+`future.cancel()` only cancels a future that has not *started*, and the
+`ThreadPoolExecutor` context manager then called `shutdown(wait=True)` — so the capped
+wait was followed immediately by an uncapped one. A hung collector took the entire run
+with it.
+
+Two things to check on any timeout in this codebase, not just its presence:
+
+- **can the mechanism actually interrupt the work?** Cancelling a queued task is not
+  cancelling a running one. Nothing in Python kills a running thread.
+- **what happens after the timeout fires?** A bounded wait followed by an unbounded
+  join is unbounded.
+
+And a specific trap: `requests`' `timeout=` bounds connect and read, **not DNS
+resolution**. A degraded network produces an unbounded thread despite a correct-looking
+timeout argument. That is what made this one fire in production.
+
 ---
 
 ## 6. A unit that is right in storage and wrong in display
