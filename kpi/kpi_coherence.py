@@ -572,6 +572,38 @@ class KPICoherence(unittest.TestCase):
         self.assertEqual(state([-0.02, -0.02, 0.01, 0.01, 0.01]), "PREMIUM_DOMINANT")
         self.assertEqual(state([-0.02, -0.02, -0.02, 0.01, 0.01]), "DISCOUNT_DOMINANT")
 
+    def test_27_no_kpi_reaches_the_live_network(self):
+        """A KPI that fetches a live page is a network test wearing a unit test's
+        name. It goes red when a site is slow, unreachable or geoblocked, and it
+        cannot fail for the reason it was written -- a healthy network makes the
+        error path unreachable.
+
+        This has now happened twice in the same file. `kpi_pre_sp_c4.test_15` was
+        de-networked earlier and carries a docstring about it; `test_13` beside it
+        was still calling invi.ir and asserting status == "OK", and took the suite
+        red mid-session. Both are substituted now.
+
+        The rule: a KPI may name a collector entry point only if the same file also
+        rebinds the transport it uses.
+        """
+        entry_points = {
+            "get_invi_price": ("requests.get =", "invi.requests.get ="),
+            "get_world_gold_price": ("requests.get =", "kitco.requests.get ="),
+            "get_usd_sell_rate": ("subprocess.run =",),
+            "get_market_prices": ("COLLECTORS =", "iran.COLLECTORS ="),
+            "fetch_feed": ("requests.get =", "feedparser.parse ="),
+        }
+        offenders = []
+        for path in sorted(REPO.glob("kpi/*.py")):
+            body = _code(path)
+            for symbol, substitutions in entry_points.items():
+                if f"{symbol}(" not in body:
+                    continue
+                if not any(sub in body for sub in substitutions):
+                    offenders.append(f"{path.name}:{symbol}")
+        self.assertEqual(offenders, [],
+                         "a KPI calls a collector without substituting its transport")
+
     # -- 6. the register must stay honest -------------------------------------
 
     def test_30_every_accepted_divergence_names_both_sides_and_a_reason(self):

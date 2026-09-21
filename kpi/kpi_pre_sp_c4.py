@@ -9,6 +9,7 @@ import sys
 sys.path.insert(0, "src")
 
 import os
+import json
 import unittest
 from datetime import datetime, timedelta
 
@@ -203,12 +204,42 @@ class KPIPreSPC4(unittest.TestCase):
 
     # --- KPI-13: Invi collector contract ---
     def test_13_invi_contract(self):
-        from collector.invi import get_invi_price
-        result = get_invi_price()
-        self.assertIn("platform", result)
-        self.assertIn("price", result)
+        """The parsing contract, without the network.
+
+        This called the live site and asserted status == "OK", so the suite went red
+        whenever invi.ir was slow, unreachable or behind a geoblock -- a network test
+        wearing a unit test's name, which is the same fault test_15 below already
+        documents having been fixed once. Instance two, in the same file.
+
+        Substituting the HTTP layer keeps what the test is actually for: that the
+        __NEXT_DATA__ payload is found, that the 1/1000 source unit is normalised to
+        the IRR/gram contract, and that the shape is right. Whether the site is up is
+        an operational question and does not belong in a KPI.
+        """
+        import collector.invi as invi
+
+        payload = json.dumps({"props": {"pageProps": {"success": {"result": {
+            "summary": {"current_price": 23_456_789}}}}}})
+
+        class _Response:
+            text = (f'<script id="__NEXT_DATA__" type="application/json">'
+                    f'{payload}</script>')
+
+            def raise_for_status(self):
+                return None
+
+        original = invi.requests.get
+        invi.requests.get = lambda *a, **k: _Response()
+        try:
+            result = invi.get_invi_price()
+        finally:
+            invi.requests.get = original
+
         self.assertEqual(result["platform"], "Invi")
         self.assertEqual(result["status"], "OK")
+        self.assertIn("price", result)
+        # 1/1000 of the canonical IRR/gram value, per the collector's own contract.
+        self.assertAlmostEqual(result["price"], 23_456_789_000.0, places=2)
 
     # --- KPI-14: Invi in COLLECTORS ---
     def test_14_invi_registered(self):

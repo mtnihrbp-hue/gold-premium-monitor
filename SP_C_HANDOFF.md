@@ -2551,3 +2551,31 @@ The D gate opens on a date that can be calculated exactly. The news measurement 
 gate: it can be run at any time, it has been run, and it currently says nothing. What
 changes on 2026-10-21 is that a volume-based measure stops being contaminated and the
 answer becomes trustworthy rather than merely available.
+
+### 28.6 A red suite went out, and why
+
+While committing section 28 the KPI runner reported `kpi_pre_sp_c4` at 18/19 and the
+commit went through anyway. The command was
+
+```bash
+python kpi/run_all.py 2>&1 | tail -4 && git add -A && git commit ...
+```
+
+A pipeline's exit status is the **last** command's, so `tail` returning 0 made `&&`
+proceed over a failing suite. The gate was there and did not hold.
+
+The failure itself was `test_13_invi_contract`, which called invi.ir live and
+asserted `status == "OK"`. It is a network test wearing a unit test's name -- the
+same fault that `test_15` two tests below already carries a docstring about having
+been fixed. Instance two, in the same file, undetected because it only fails when the
+site is slow or blocked.
+
+Both are fixed. `test_13` substitutes the HTTP layer and now asserts what it was
+actually for: that the `__NEXT_DATA__` payload is parsed and that Invi's 1/1000 source
+unit is normalised to the IRR/gram contract. `kpi_coherence.test_27` generalises it --
+a KPI may name a collector entry point only if the same file rebinds the transport it
+uses -- so instance three cannot appear quietly.
+
+The suite ran clean three times consecutively afterwards. Recorded here rather than
+quietly fixed, because the process failure matters more than the flake: a verification
+step that can be bypassed by a pipe is not a verification step.
