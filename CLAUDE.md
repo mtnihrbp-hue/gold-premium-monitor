@@ -42,7 +42,7 @@ python tests/test_momentum.py
 python kpi/kpi_pre_sp_c14c.py
 ```
 
-Run the entire KPI suite (24 files) — this is the regression check before calling any phase complete:
+Run the entire KPI suite (26 files) — this is the regression check before calling any phase complete:
 ```
 python kpi/run_all.py
 ```
@@ -133,6 +133,24 @@ That difference is deliberate and documented; it is not drift to be tidied up.
 Thresholds that get compared against readings (`fire_at`, `rearm_at`, the deep-zone
 threshold) are never rounded: gaps land on values like `8.999999999999996`, and
 rounding to `9.0` excludes the readings the threshold was drawn from. Round at render.
+
+### Cross-cutting coherence
+
+`kpi/kpi_coherence.py` is the only KPI that checks modules **against each other**.
+Every other file checks one module or one surface against the market, which is how 25
+passing files coexisted with `Deep discount` meaning 3.29% in one message and 3.70% in
+another. When you fix a defect that spans two modules, the assertion belongs there.
+
+It also carries `ACCEPTED`, the register of divergences that are real and deliberately
+unfixed — each naming what diverges, why, and the document that records it. **An entry
+whose divergence has been fixed fails the suite**, which forces the register to be
+retired rather than left asserting a state that no longer exists. Do not add an entry
+to silence a failure; add one only with the approval that the underlying change needs.
+
+Currently registered, and worth knowing before you touch the decision engine:
+`market_states.valuation_state` is `CHEAP` on 364 of 364 rows while the percentile band
+stored in the same row disagrees on 114 of 134, and `caluclator/valuation.py` reads
+config keys that `config/config.json` does not define. See `SP_C_HANDOFF.md` §25.
 
 ### Degenerate classifiers
 

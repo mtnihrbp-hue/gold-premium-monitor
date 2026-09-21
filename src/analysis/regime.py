@@ -20,6 +20,8 @@ from datetime import datetime, timedelta
 from statistics import median
 from typing import Optional, Dict, List
 
+from analysis.bubble_position import _value_at_percentile
+
 
 # Regime states — fixed by architecture, not configurable
 REGIME_STATES = ["NORMAL", "FEAR", "PANIC", "RELIEF", "UNKNOWN"]
@@ -305,12 +307,15 @@ class RegimeClassifier:
 # ---------------------------------------------------------------------------
 
 def _percentile(values, percentile: int):
-    """Value at a percentile of a sorted sample, by rank."""
+    """Value at a percentile of an unsorted sample, by rank.
+
+    Delegates rather than reimplements. This was the third byte-identical copy of
+    the same index formula in the analysis package, found by `kpi_coherence.test_05`
+    on its first run -- the same shape that let `Deep discount` mean two numbers.
+    """
     if not values:
         return None
-    ordered = sorted(values)
-    index = int(percentile / 100.0 * len(ordered))
-    return ordered[max(0, min(len(ordered) - 1, index))]
+    return _value_at_percentile(sorted(values), percentile)
 
 
 def resolve_stress_thresholds(session, window_days: int = CALIBRATION_WINDOW_DAYS,

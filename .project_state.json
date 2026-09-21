@@ -268,11 +268,13 @@
   },
   "process_rule": "Do not change an agreed design, template or framework without explicit permission, including changes that appear obvious while working on a different task. Raise them as a question instead. Recorded after unrequested edits to an approved message template forced re-review and removed a column that was broken for a fixable reason.",
   "kpi_suite": {
-    "files": 25,
-    "latest": "kpi_sp_c6.py",
+    "files": 26,
+    "latest": "kpi_coherence.py",
     "assertions_sp_c4": 53,
     "assertions_sp_c6": 33,
-    "status": "25/25 files passing"
+    "assertions_coherence": 17,
+    "status": "26/26 files passing",
+    "note": "kpi_coherence.py checks modules against each other and carries the register of accepted divergences. An entry whose divergence is fixed fails the suite, so the register cannot go stale."
   },
   "open_decisions": [
     "The push is buy-side only. A shallow discount is the sell-side mirror and is the same measurement with the comparison flipped; deferred until the first trigger has proven itself.",
@@ -284,10 +286,12 @@
     "quote_side is SINGLE on all observations; bid vs ask is never recorded.",
     "kpi_pre_sp_c4.py makes a real network call and fails intermittently on timeout.",
     "regime volatility and usd_change thresholds remain unverified constants.",
-    "ANALYZE message not built. Reasoning chain and TRACK RECORD belong there."
+    "ANALYZE message not built. Reasoning chain and TRACK RECORD belong there.",
+    "The valuation leg of the conflict matrix is a constant. valuation_state is CHEAP on 364/364 rows; the -1.5 threshold sits 0.02 pp outside the entire observed range of 438 readings and has never been crossed. The percentile replacement exists and is persisted but unwired. Replacing the leg is a foundation change to the SP-A pipeline: needs its own phase and the product owner's approval. SP_C_HANDOFF.md section 25.5."
   ],
   "corrections": [
     "Decision scorecard 'edge 0.0' does NOT mean the strategy failed. final_decision was a constant (WAIT 264/264) because of the hysteresis latch, so the scorecard compared always-WAIT against always-WAIT. The engine is untested, not disproven.",
-    "SP-C.13 (2026-09-21): `Deep discount` named two different numbers at once -- 3.29% in UPDATE (40th percentile of the signed gap) and 3.70% in ANALYZE and the push (85th of the size). One label, two definitions, shown together; a reader at 3.40% was told deep and got no push. The level is now resolved once by bubble_position.deep_discount_threshold over one pool, and UPDATE, ANALYZE and the push all call it. The ranking pool for `Bigger than X%` deliberately stays separate. Two further defects found while fixing it: the push compared abs(gap), so a premium would have alerted as a deep discount (latent -- all 437 readings on record are discounts), and rounding the threshold lifted it above the readings it was drawn from, so a zone with eight readings measured zero episodes. Recorded in SP_C_HANDOFF.md section 24."
+    "SP-C.13 (2026-09-21): `Deep discount` named two different numbers at once -- 3.29% in UPDATE (40th percentile of the signed gap) and 3.70% in ANALYZE and the push (85th of the size). One label, two definitions, shown together; a reader at 3.40% was told deep and got no push. The level is now resolved once by bubble_position.deep_discount_threshold over one pool, and UPDATE, ANALYZE and the push all call it. The ranking pool for `Bigger than X%` deliberately stays separate. Two further defects found while fixing it: the push compared abs(gap), so a premium would have alerted as a deep discount (latent -- all 437 readings on record are discounts), and rounding the threshold lifted it above the readings it was drawn from, so a zone with eight readings measured zero episodes. Recorded in SP_C_HANDOFF.md section 24.",
+    "SP-C.14 (2026-09-21): added kpi/kpi_coherence.py, the first KPI that checks modules against each other rather than against the market. Found on its first run: a third copy of the percentile formula in regime.py (fixed, delegates now); caluclator/valuation.py reading config keys buy_premium/sell_premium which config.json does not define, so the configured sell threshold of 3.0 has never been in effect (OPEN); valuation_context_json persisted every run and read by nothing (OPEN). Also corrected a false row in PROJECT_MEMORY.md's defect index: valuation_state was recorded as fixed in SP-C.2 but is still CHEAP on 364/364 rows, disagreeing with the percentile band on 114 of the 134 rows carrying both. Recorded in SP_C_HANDOFF.md section 25."
   ]
 }

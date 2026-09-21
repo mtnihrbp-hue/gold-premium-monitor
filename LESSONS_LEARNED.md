@@ -440,3 +440,48 @@ it, and the code read as correct because in this market it was.
 **The rule.** Taking an absolute value discards a fact. When the label on the output
 asserts a direction, assert the direction on the input too — and check whether the
 sample simply never contained the other case.
+
+---
+
+## 13. Fixing the instance and recording the class
+
+The pattern behind most of this file.
+
+A defect is found in one place. It gets fixed there, a KPI is written for that place,
+and the defect index records the *class* as closed. Nothing in the process ever asks
+where else this shape exists -- and the document that would raise the question is the
+document just written by the person who did not ask it.
+
+Proven in this repo. `PROJECT_MEMORY.md` recorded `valuation_state read CHEAP on every
+reading (fixed threshold)` as resolved on 2026-09-15. SP-C.2 had replaced the fixed
+threshold **for the reader**. The column the decision engine reads was untouched and
+went on writing CHEAP every hour -- 364 of 364 rows, including rows written six days
+after the index said it was fixed. The percentile replacement was computed, persisted
+to `valuation_context_json`, and read by nothing.
+
+Two conditions kept it invisible:
+
+- **Correctness was checked inside a boundary.** Each module against the market, each
+  surface against its own tests. Never module against module. The contradiction lived
+  between two individually correct things, and `valuation_state=CHEAP` beside
+  `band=EXPENSIVE` sat in the same database row for weeks.
+- **The record hides what the record has never contained.** `CHEAP` looks correct
+  because the market really has been cheap. The `-1.5` threshold sits 0.02 pp outside
+  the entire observed range of 438 readings, so it has never been crossed and never
+  been tested by reality. A degenerate classifier and a correct one are
+  indistinguishable until the world changes.
+
+**The rules.**
+
+1. `GROUP BY` in production before writing "fixed" anywhere. The repo already mandates
+   this for classifiers; it was not applied to the defect index itself. The audit that
+   falsified the row above took four minutes.
+2. A defect index entry names the **class** and lists **every** instance, open ones
+   included. "Fixed in SP-C.2" becomes "instance 1 fixed, instances 2 and 3 open".
+3. Cross-module assertions are their own KPI file, not something remembered after
+   someone else catches one. `kpi/kpi_coherence.py` exists for this, and its register
+   of accepted divergences fails the suite when an entry is silently fixed -- a
+   register that can go stale is a second copy of the problem it prevents.
+
+What actually caught the last three of these: a human reading the real outputs side by
+side. Not review, not the suite. That is where the signal is, and it is cheap to look.

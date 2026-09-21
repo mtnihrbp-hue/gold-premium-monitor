@@ -1839,3 +1839,142 @@ KPI suite 25/25 files. kpi_sp_c4 50 -> 53, kpi_sp_c6 30 -> 33.
 - UPDATE renders `If 3.70% or more`, ANALYZE renders `3.70% or more`. Same statement,
   two renderings. The approved UPDATE wording is kept; the substantive defect was the
   number, and that is now one number.
+
+---
+
+## 25. SP-C.14 - a KPI that checks modules against each other (2026-09-21)
+
+Written after section 24, on the product owner's instruction, because the defect in
+section 24 was caught by a human reading three messages side by side and nothing in a
+suite of 25 files would ever have landed on it.
+
+### 25.1 Why the existing suite could not have caught it
+
+Every KPI file before this one checks **one module or one surface against the
+market**. `kpi_sp_c4` checks UPDATE renders correctly. `kpi_sp_c6` checks the push
+fires correctly. Both passed while the two surfaces disagreed, because the
+contradiction did not live inside either of them.
+
+An assertion that spans two modules is never written by accident. It has to be the
+purpose of a file.
+
+### 25.2 What `kpi/kpi_coherence.py` asserts
+
+```text
+group                          asserts
+one concept, one definition    the three surfaces' constants are the same object,
+                               each reaches deep_discount_threshold in source, and
+                               over one seeded dataset all three resolve to the same
+                               float
+no duplicated formula          the percentile index formula is defined exactly once
+                               across analysis/, caluclator/ and alerts/
+config reaches the code        every `thresholds.get("key")` in caluclator/ names a
+                               key config.json actually defines
+classifiers are not constants  evaluate_valuation and the percentile band are each
+                               exercised over the real production distribution
+two labels for one reading     evaluate_valuation and _classify_band are compared
+                               row by row
+direction claims               a premium never fires a deep-discount push; re-arming
+                               stays sign-blind
+rounding                       a threshold never excludes its own source readings
+built but not wired            a persisted analysis artifact has a consumer
+the register                   see below
+```
+
+Seventeen assertions. The suite is now **26 files**.
+
+### 25.3 The register of accepted divergences
+
+Some divergences are real and deliberately unfixed. They live in `ACCEPTED`, a dict
+at the top of the file, and each entry must name what diverges, why it is tolerated,
+and a document that records it. `test_30`, `test_31` and `test_32` enforce all three
+and cap the register at eight entries.
+
+The property that matters: **an entry whose divergence has been fixed makes the file
+fail.** Proven by construction -- renaming `valuation.py`'s config key to the one
+that exists fails `test_10` and `test_11`, which forces the entry to be retired
+rather than left asserting a state that no longer exists.
+
+That is not decoration. `PROJECT_MEMORY.md` recorded `valuation_state read CHEAP on
+every reading` as resolved on 2026-09-15 while production kept writing CHEAP every
+hour for six more days. A register that can go stale is a second copy of the problem
+it exists to prevent.
+
+The five current entries are listed in 25.5.
+
+### 25.4 What it found on its first run
+
+Three defects, none of them the one it was written for.
+
+**A third copy of the percentile formula.** `analysis/regime.py._percentile` was
+byte-identical to `bubble_position._value_at_percentile` and to the copy already
+removed from `analyze_report` in SP-C.13. It now delegates. No behaviour change --
+the formula was the same -- but it was the third instance of the exact shape that let
+`Deep discount` mean two numbers.
+
+**`caluclator/valuation.py` reads config keys that do not exist.** It asks for
+`buy_premium` and `sell_premium`; `config/config.json` defines `buy_premium_percent`
+and `sell_premium_percent`. Both lookups miss and fall through to hardcoded defaults
+of `-1.5` and `2.0`. The buy default happens to equal the configured value, so the
+mismatch is invisible. The sell default does not: the configured `3.0` **has never
+been in effect**, and editing `config/config.json` does nothing to the classifier.
+
+This is the inverse of SP-C.6 section 16.6, where config pinned the same keys the
+code computed. Same class, opposite direction.
+
+`caluclator/signals.py` has the milder form: it reads `cooldown_hours`, which config
+does not define, so the 24-hour cooldown looks configurable and is not.
+
+**`market_states.valuation_context_json` is write-only.** Built in SP-C.2, persisted
+on every run since, read by nothing anywhere in `src/`. Instance ten of built but not
+wired.
+
+### 25.5 The state of the valuation leg, measured
+
+This is the largest open divergence and it was found by the audit that produced this
+file rather than by the file itself.
+
+```text
+market_states, all 364 rows
+  valuation_state                     CHEAP  364 / 364
+
+market_states, the 134 rows that also carry the percentile band
+  valuation_state (fixed threshold)   CHEAP      134
+  valuation band  (percentile)        TYPICAL     60
+                                      EXPENSIVE   54
+                                      CHEAP       20
+  the two labels disagree on          114 of 134 rows
+
+market_snapshots.premium_percent, all 438 rows
+  range                               -8.19% to -1.52%
+  rows shallower than buy_premium     0
+```
+
+The threshold that decides CHEAP sits 0.02 pp outside the entire observed range. It
+has never been crossed, in either direction, in 438 readings.
+
+`valuation_state` is the valuation leg of the conflict matrix
+(Valuation -> Premium Direction -> Momentum -> Structure -> Conflict -> Candidate ->
+Hysteresis -> Final). One of three inputs has been a constant for the whole record.
+The three BUYs issued came from momentum and structure moving; valuation contributed
+nothing to any of them.
+
+**Not fixed here.** Replacing the decision engine's valuation leg is a foundation
+change to the SP-A pipeline. It is registered, documented and measured, and it is the
+product owner's call.
+
+### 25.6 A correction to this repository's own record
+
+`PROJECT_MEMORY.md` carried:
+
+```text
+| valuation_state read CHEAP on every reading (fixed threshold) | 2026-09-15 | SP-C.2 |
+```
+
+That row was false when written and is corrected in this change. SP-C.2 replaced the
+fixed threshold **for the reader** and left the column **the decision engine reads**
+untouched, then recorded the class as closed. The instance was fixed; the class was
+not; the index said otherwise.
+
+Every future entry in that index names the class and lists its instances, open ones
+included.

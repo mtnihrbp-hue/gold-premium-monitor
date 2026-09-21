@@ -19,7 +19,7 @@ before reading any failure narrative below as live.**
 |---|---|---|
 | Analyze trigger misrouted; scheduled runs took the UPDATE path | 2026-09-13 | this file, "The Analyze trigger was misrouted" |
 | RUN baseline compared against the user's own previous request | 2026-09-14 | SP-C.1 |
-| valuation_state read CHEAP on every reading (fixed threshold) | 2026-09-15 | SP-C.2 |
+| valuation_state read CHEAP on every reading (fixed threshold) | **PARTLY** 2026-09-15 | SP-C.2 fixed the reader's valuation only. The column the decision engine reads is still CHEAP on 364/364 rows -- open, see SP-C.14, section 25.5 |
 | Outcome evaluations never resolved after their horizons matured | 2026-09-15 | SP-C.3 |
 | Message times and day boundaries were UTC, not Iran local | 2026-09-16 | SP-C.5, section 15.3 |
 | Valuation computed from a single cheapest platform (tail point) | 2026-09-16 | SP-C.5, section 15.1 |
@@ -32,6 +32,9 @@ before reading any failure narrative below as live.**
 | `Deep discount` labelled two different numbers across UPDATE and ANALYZE | 2026-09-21 | SP-C.13, section 24 |
 | Push fired on `abs(gap)`, so a premium would alert as a deep discount | 2026-09-21 | SP-C.13, section 24.5 |
 | Rounded threshold excluded the readings it was drawn from | 2026-09-21 | SP-C.13, section 24.6 |
+| A third copy of the percentile formula, in regime.py | 2026-09-21 | SP-C.14, section 25.4 |
+| valuation.py reads config keys that do not exist; configured sell threshold never in effect | **OPEN** | SP-C.14, section 25.4 |
+| valuation_context_json persisted every run, read by nothing | **OPEN** | SP-C.14, section 25.4 |
 
 
 ## 1. Documentation Authority
@@ -2116,3 +2119,39 @@ DISCOUNT. Latent only: all 437 readings on record are discounts.
 and a zone containing eight of them measured zero episodes. `fire_at`, `rearm_at` and
 the deep-zone threshold are unrounded. `band_pp` and `noise_pp` are displayed only and
 stay rounded.
+
+
+---
+
+## SP-C.14 - cross-cutting coherence is now a test (2026-09-21)
+
+Full record in `SP_C_HANDOFF.md` section 25.
+
+**`kpi/kpi_coherence.py` checks modules against each other**, which no other KPI file
+does. Every file before it checks one module or one surface against the market, which
+is why 25 passing files coexisted with `Deep discount` meaning two numbers. Suite is
+now **26 files**.
+
+**Accepted divergences live in a register**, `ACCEPTED`, at the top of that file. Each
+entry must name what diverges, why it is tolerated and a document that records it, and
+the tests enforce all three. **An entry whose divergence has been fixed fails the
+suite**, so the register cannot go stale the way the defect index did.
+
+**Found on its first run:** a third byte-identical copy of the percentile formula in
+`regime.py` (now delegating); `caluclator/valuation.py` reading config keys that do not
+exist, so the configured sell threshold of 3.0 has never been in effect and editing
+config does nothing; `valuation_context_json` persisted on every run and read by
+nothing.
+
+**The valuation leg is a constant and this is open.** `valuation_state` is CHEAP on
+364 of 364 rows. On the 134 rows that also carry the percentile band, the two labels
+disagree 114 times -- CHEAP beside EXPENSIVE in the same row. Stored `premium_percent`
+spans -8.19% to -1.52% and the `-1.5` threshold has never been crossed in 438
+readings. One of the conflict matrix's three inputs carries no information. Replacing
+it is a foundation change to the SP-A pipeline and needs its own phase.
+
+**A correction to this file.** The defect index recorded `valuation_state read CHEAP on
+every reading` as resolved in SP-C.2. It was not: SP-C.2 fixed the reader's valuation
+and left the column the decision engine reads untouched. The row is corrected above.
+Future index entries name the class and list its open instances, not just the instance
+that was fixed.
