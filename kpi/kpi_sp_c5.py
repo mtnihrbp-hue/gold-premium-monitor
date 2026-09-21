@@ -528,6 +528,96 @@ class KPISPC5(unittest.TestCase):
         self.assertGreaterEqual(len(sources), 6)
 
 
+    # -- 6. the premium leg the preference filter discarded (SP-C.11) ----------
+
+    def _seed_premium_rows(self, rows):
+        """(offset_minutes_from_target, collection_mode, premium) seeded around a target."""
+        session = _test_get_session()
+        session.query(PlatformPrice).delete()
+        session.query(MarketSnapshot).delete()
+        for offset, mode, premium in rows:
+            session.add(MarketSnapshot(
+                timestamp=self.TARGET + timedelta(minutes=offset),
+                world_gold_usd=4300.0, usd_irr=230_000.0, fair_price=240_000_000,
+                premium_percent=premium, collection_mode=mode,
+            ))
+        session.commit()
+        session.close()
+
+    TARGET = NOW
+    AFTER = NOW - timedelta(hours=24)
+
+    def test_39_a_near_unscheduled_row_beats_a_distant_scheduled_one(self):
+        """This is the defect. The preference was applied to the whole window before
+        the nearest row was chosen, so a scheduled reading an hour away shadowed an
+        unscheduled one four minutes away and the fallback never ran. The function
+        returned None although a usable row existed, and the evaluation was written
+        COMPLETE with no premium leg: 26 of 249 rows, 11 of them after the fallback
+        was supposedly in place.
+        """
+        from analysis.outcome_evaluator import _get_nearest_recorded_premium
+        self._seed_premium_rows([(-4, "unknown", -3.51), (-61, "scheduled", -4.90)])
+        got = _get_nearest_recorded_premium(self.TARGET, self.AFTER, 15,
+                                            session=_test_get_session())
+        self.assertIsNotNone(got, "a usable row four minutes away was discarded")
+        self.assertAlmostEqual(got, -3.51, places=2)
+
+    def test_40_scheduled_still_wins_a_tie(self):
+        # The preference exists so an irregular user-triggered request cannot become
+        # an outcome. It survives -- as a tie-break, not as a pre-filter.
+        from analysis.outcome_evaluator import _get_nearest_recorded_premium
+        self._seed_premium_rows([(5, "user", -2.00), (-5, "scheduled", -4.00)])
+        got = _get_nearest_recorded_premium(self.TARGET, self.AFTER, 15,
+                                            session=_test_get_session())
+        self.assertAlmostEqual(got, -4.00, places=2)
+
+    def test_41_rows_before_the_target_window_are_not_candidates(self):
+        # The window had an upper bound only, leaving it open all the way back to
+        # after_time -- a whole horizon earlier.
+        from analysis.outcome_evaluator import _get_nearest_recorded_premium
+        self._seed_premium_rows([(-120, "scheduled", -9.99)])
+        got = _get_nearest_recorded_premium(self.TARGET, self.AFTER, 15,
+                                            session=_test_get_session())
+        self.assertIsNone(got, "a row two hours from target must not be used")
+
+    def test_42_rows_after_the_tolerance_are_not_candidates(self):
+        from analysis.outcome_evaluator import _get_nearest_recorded_premium
+        self._seed_premium_rows([(40, "scheduled", -9.99)])
+        self.assertIsNone(_get_nearest_recorded_premium(
+            self.TARGET, self.AFTER, 15, session=_test_get_session()))
+
+    def test_43_no_look_ahead_past_the_reference_time(self):
+        # Strictly after after_time, so a reading from before the decision cannot
+        # become its own outcome.
+        from analysis.outcome_evaluator import _get_nearest_recorded_premium
+        session = _test_get_session()
+        session.query(PlatformPrice).delete()
+        session.query(MarketSnapshot).delete()
+        session.add(MarketSnapshot(
+            timestamp=self.AFTER - timedelta(minutes=1), world_gold_usd=4300.0,
+            usd_irr=230_000.0, fair_price=240_000_000, premium_percent=-3.0,
+            collection_mode="scheduled"))
+        session.commit(); session.close()
+        self.assertIsNone(_get_nearest_recorded_premium(
+            self.TARGET, self.AFTER, 15, session=_test_get_session()))
+
+    def test_44_empty_window_abstains(self):
+        from analysis.outcome_evaluator import _get_nearest_recorded_premium
+        self._seed_premium_rows([])
+        self.assertIsNone(_get_nearest_recorded_premium(
+            self.TARGET, self.AFTER, 15, session=_test_get_session()))
+
+    def test_45_proximity_is_ranked_before_provenance(self):
+        # A regression guard on the shape of the fix: the old implementation could
+        # not have ranked on distance and mode together.
+        import inspect
+        from analysis.outcome_evaluator import _get_nearest_recorded_premium
+        source = inspect.getsource(_get_nearest_recorded_premium)
+        body = source.split('"""')[-1]
+        self.assertNotIn('base.filter(MarketSnapshot.collection_mode == "scheduled")', body)
+        self.assertIn("target_time - tolerance", body)
+
+
 if __name__ == "__main__":
     loader = unittest.TestLoader()
     suite = loader.loadTestsFromTestCase(KPISPC5)

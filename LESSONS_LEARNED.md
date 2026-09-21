@@ -289,6 +289,28 @@ from that.
 config change and cost nothing; the LLM work it displaced would have been weeks and
 would have improved nothing.
 
+**A preference applied before a filter becomes a veto.**
+`_get_nearest_recorded_premium` preferred scheduled readings, applied that preference
+to the whole candidate window, and only then picked the nearest row. A scheduled
+reading an hour away shadowed an unscheduled one four minutes away, the documented
+fallback never executed, and the function returned nothing although a usable row was
+sitting right there.
+
+The preference was correct. Its position in the pipeline was not.
+
+**Order matters in a selection chain: filter for validity, rank for quality,
+prefer as a tie-break.** A preference promoted to a filter silently discards data it
+was never meant to reject -- and the symptom is absence, which nothing alerts on.
+
+**The message has a fixed vocabulary; a synonym is a defect, not a style choice.**
+Three times in one sprint I introduced a word the product owner had already replaced:
+`widening` after we settled on increased/decreased, `dearer` after we settled on
+expensive, `grew` after both. Each time the reasoning felt local and each time it
+reintroduced the two-vocabulary problem the message had just been cleaned of.
+
+Before writing any user-facing line, check the words already in use for that concept.
+A near-synonym reads as a new concept to someone who did not write it.
+
 **Interesting is not actionable.** An investigation into market sessions produced a
 genuinely novel finding -- Iran's trading calendar and the world gold calendar are
 almost exactly out of phase, so the two inputs driving fair value take turns. I

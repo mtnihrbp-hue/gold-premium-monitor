@@ -99,22 +99,38 @@ def _get_nearest_recorded_premium(
 
     try:
         tolerance = timedelta(minutes=tolerance_minutes)
-        base = session.query(MarketSnapshot).filter(
+        # Bound both sides around the target. The upper bound alone left the window
+        # open all the way back to after_time, which is a whole horizon earlier, so
+        # rows hours away from the target were still candidates.
+        candidates = session.query(MarketSnapshot).filter(
             MarketSnapshot.premium_percent.isnot(None),
             MarketSnapshot.timestamp > after_time,
+            MarketSnapshot.timestamp >= target_time - tolerance,
             MarketSnapshot.timestamp <= target_time + tolerance,
-        )
-
-        candidates = base.filter(MarketSnapshot.collection_mode == "scheduled").all()
-        if not candidates:
-            candidates = base.all()
+        ).all()
         if not candidates:
             return None
 
-        nearest = min(candidates, key=lambda s: abs(s.timestamp - target_time))
-        if abs(nearest.timestamp - target_time) <= tolerance:
-            return float(nearest.premium_percent)
-        return None
+        # Proximity decides; scheduled only breaks a tie.
+        #
+        # The preference used to be applied to the whole window before the nearest
+        # row was chosen, so a scheduled reading an hour away shadowed an unscheduled
+        # one four minutes away and the fallback never ran. The function then returned
+        # None despite a perfectly usable row existing, and the evaluation was written
+        # with outcome_status COMPLETE and no premium leg at all: 26 of 249 rows, and
+        # 11 of them after the fallback was supposedly in place.
+        #
+        # The preference exists so an irregular user-triggered request cannot *become*
+        # an outcome. It was never meant to discard a good reading in favour of
+        # nothing, which is what ordering it ahead of proximity did.
+        def _rank(snapshot):
+            return (
+                abs(snapshot.timestamp - target_time),
+                0 if snapshot.collection_mode == "scheduled" else 1,
+            )
+
+        nearest = min(candidates, key=_rank)
+        return float(nearest.premium_percent)
     finally:
         if should_close:
             session.close()

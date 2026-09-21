@@ -2008,3 +2008,27 @@ unchanged.
 **Unresolved:** donya-e-eqtesad.com and tejaratnews.com parse from inside Iran but are
 unproven from a GitHub runner. Check their per-source yield after a day of scheduled
 runs; silent geoblocking is what killed the previous three.
+
+
+---
+
+## SP-C.11 - outcome premium leg (2026-09-21)
+
+Full record in `SP_C_HANDOFF.md` section 22.
+
+`_get_nearest_recorded_premium` applied its scheduled-preference to the whole window
+before choosing the nearest row, and bounded that window on one side only. A scheduled
+reading an hour from the target therefore shadowed an unscheduled one four minutes
+away, the fallback never ran, and the lookup returned `None` despite a usable row
+existing. 26 of 249 `COMPLETE` evaluations were written with no premium leg at all.
+
+**Proximity now decides; `scheduled` only breaks a tie**, and the window is bounded on
+both sides of the target. The preference still does the job it was written for --
+stopping a user's click from becoming an outcome -- without discarding good data.
+
+All 26 rows were repairable and have been backfilled. `COMPLETE` rows with a missing
+premium leg: 0. Row counts on every table unchanged.
+
+**Note for anyone consuming outcome_evaluations:** nothing in `src/` reads the premium
+leg yet -- `dataset.py` labels on `rep_gold_direction`. The ANALYZE feedback loop will
+be its first consumer.

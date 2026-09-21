@@ -1441,3 +1441,87 @@ handler now prints what it caught.
 `kpi_sp_c5.py` grows to 43 assertions, including two that read `config/config.json`
 directly: the retired feeds must not reappear, and the targeted queries must be
 present. Suite 24/24.
+
+
+---
+
+## 22. SP-C.11 - the preference filter that discarded good readings (2026-09-21)
+
+Found while designing ANALYZE. `outcome_evaluations` carried 26 rows whose
+`outcome_status` was `COMPLETE` while `premium_direction` was `INSUFFICIENT_DATA` --
+a row asserting it was complete and that its primary leg was not.
+
+### 22.1 The defect
+
+`_get_nearest_recorded_premium` prefers scheduled readings so an irregular
+user-triggered request cannot become an outcome. The preference was applied to the
+whole window **before** the nearest row was selected:
+
+```python
+base = query(...).filter(timestamp > after_time,
+                         timestamp <= target_time + tolerance)   # upper bound only
+candidates = base.filter(collection_mode == "scheduled").all()
+if not candidates:
+    candidates = base.all()                                      # never reached
+nearest = min(candidates, key=lambda s: abs(s.timestamp - target_time))
+if abs(nearest.timestamp - target_time) <= tolerance: ...
+```
+
+Two compounding faults:
+
+1. **The window was bounded on one side only.** It ran from `after_time` -- a whole
+   horizon earlier -- to `target + tolerance`, so rows hours from the target were
+   candidates.
+2. **The preference ran before proximity.** If any scheduled row existed anywhere in
+   that wide window the fallback never executed, `min` picked the nearest *scheduled*
+   row, and if that was beyond tolerance the function returned `None`.
+
+So a scheduled reading an hour away shadowed an unscheduled one four minutes away,
+and the function returned nothing although a usable row existed:
+
+```text
+target        nearest ANY        nearest SCHEDULED
+09-17 22:02      8m unknown          61m scheduled
+09-16 21:51      4m unknown          50m scheduled
+09-15 11:20      7m user             19m scheduled
+```
+
+The preference exists to stop a user's click *becoming* an outcome. Ordering it ahead
+of proximity made it discard a good reading in favour of nothing.
+
+### 22.2 Why it mattered now
+
+Nothing in `src/` reads the premium leg of `outcome_evaluations` -- `dataset.py`
+labels on `rep_gold_direction`. Instance nine of built-but-not-wired, and the ANALYZE
+feedback loop is about to become its first consumer. The defect was harmless only
+because nobody had looked.
+
+It was also live, not historical: 11 of the 26 post-date the fallback being wired.
+
+### 22.3 The fix
+
+Bound the window on both sides of the target, then rank on `(distance, scheduled)` so
+**proximity decides and provenance only breaks a tie**. The preference survives in the
+form it was actually meant to take.
+
+### 22.4 The repair
+
+All 26 were recoverable -- a snapshot carrying a premium sat within 15 minutes of
+every target. Backfilled with before/after verification:
+
+```text
+COMPLETE rows with no premium leg   26 -> 0
+premium_direction on COMPLETE       UP 142, DOWN 104, FLAT 6   (no INSUFFICIENT_DATA)
+outcome_evaluations / market_snapshots / analysis_snapshots / market_states
+                                    row counts unchanged
+```
+
+Recovered movements are sensible, spanning -2.21 to +2.50 pp with both directions
+represented.
+
+### 22.5 Coverage
+
+`kpi_sp_c5.py` grows to 50 assertions. `test_39` is the defect itself: a row four
+minutes away must beat one sixty-one minutes away. `test_40` holds the tie-break so
+the fix cannot be "simplified" into dropping the preference. `test_41` guards the
+lower bound. Suite 24/24.
