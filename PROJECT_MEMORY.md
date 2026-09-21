@@ -2032,3 +2032,37 @@ premium leg: 0. Row counts on every table unchanged.
 **Note for anyone consuming outcome_evaluations:** nothing in `src/` reads the premium
 leg yet -- `dataset.py` labels on `rep_gold_direction`. The ANALYZE feedback loop will
 be its first consumer.
+
+
+---
+
+## SP-C.12 - ANALYZE and the push (2026-09-21)
+
+Full record in `SP_C_HANDOFF.md` section 23.
+
+**ANALYZE** reports what the record shows: what followed past readings at the current
+level, the 30-day distribution and deep zone, how fast the local price moves, and the
+sample everything rests on. No decision, no forecast. The decision record is built and
+hidden until it has a sample.
+
+**`/Analyze` is a read-only wing.** A third workflow mode, `report`, carried by its
+own `REPORT_ONLY` variable and returning before any collection. Required by
+`skills/telegram-product.md`: a user request must not silently become an Analysis Wing
+execution. Asserted by row counts, not by comment.
+
+**The push** fires when the discount reaches the 85th percentile of its own 30-day
+window and re-arms only below `fire - 1.5 x (p90 step size)`, floored at 0.25 pp. Both
+levels recomputed from completed days. The band is a width rather than a second
+percentile because a percentile pair's width drifted 0.24 to 0.84 pp against noise of
+0.46 pp, and at the narrow end would not have filtered anything.
+
+**The gate fails open.** Unknown armed state means armed. The flag lives in the same
+Actions cache whose loss latched `last_alert` into permanent WAIT. A lost cache must
+cost a duplicate message, never silence.
+
+**Neither surface recommends.** No BUY, SELL or WAIT in either, per the standing rule
+that external alerts are driven only by `final_decision`.
+
+**Measurement note:** deep-zone episodes break across gaps over three hours. The
+series has a nightly nine-hour hole, and bridging it reported a two-hour zone as
+fifteen.

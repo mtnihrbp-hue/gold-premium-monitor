@@ -166,6 +166,88 @@ def _last_alert_time(state):
     return None
 
 
+def _send_analyze_report():
+    """Answer the Telegram Analyze command from persisted state.
+
+    Reads only. Non-blocking in the same sense as the rest of the presentation layer:
+    a failure here degrades to a message saying so rather than a silent absence.
+    """
+    from analysis.analyze_report import build_analyze_report
+    from alerts.telegram_analyze import send_analyze
+
+    session = get_session()
+    if session is None:
+        print("REPORT: no database session")
+        return
+    try:
+        report = build_analyze_report(session)
+        send_analyze(report)
+        print(f"REPORT sent. status={report.status} "
+              f"readings={report.health.readings} cases={report.level.cases}")
+    except Exception as e:
+        print(f"REPORT failed: {e}")
+    finally:
+        session.close()
+
+
+def _evaluate_deep_discount_push(markets, fair, state):
+    """Fire the deep-discount push if the level is reached and the trigger is armed.
+
+    Scheduled runs only. The push exists because the deep zone typically closes
+    inside five hours, which is shorter than the interval between a reader
+    remembering to look.
+    """
+    from analysis.analyze_report import resolve_deep_zone
+    from analysis.push_trigger import resolve_push_thresholds, evaluate_push
+    from alerts.telegram_analyze import send_push
+    from caluclator.gold import find_lowest_market_price
+
+    session = get_session()
+    if session is None:
+        return
+    try:
+        prices = [
+            float(info["price"]) for info in (markets or {}).values()
+            if info.get("status") == "OK" and info.get("price") is not None
+        ]
+        gap = signed_gap(cheap_basis_price(prices), fair)
+        thresholds = resolve_push_thresholds(session)
+        # None, not False: an absent key means the state was never written or the
+        # cache was lost, and the gate treats unknown as armed.
+        armed = state.get("deep_discount_armed") if state else None
+        decision = evaluate_push(gap, thresholds, armed)
+        print(f"PUSH: gap={gap if gap is None else round(gap, 2)} "
+              f"fire_at={thresholds.fire_at} rearm_at={thresholds.rearm_at} "
+              f"armed={armed} -> {decision.reason}")
+
+        if state is not None:
+            state["deep_discount_armed"] = decision.armed_after
+
+        if not decision.should_fire:
+            return
+
+        lowest = find_lowest_market_price(markets)
+        low_name = None
+        if lowest is not None:
+            for name, info in (markets or {}).items():
+                if info.get("status") == "OK" and info.get("price") == lowest:
+                    low_name = name
+                    break
+        send_push(
+            decision,
+            resolve_deep_zone(session, current_gap=gap),
+            lowest=lowest,
+            low_name=low_name,
+            basis_count=min(3, len(prices)),
+            platform_count=len(prices),
+        )
+        print("PUSH sent: deep discount")
+    except Exception as e:
+        print(f"PUSH evaluation failed: {e}")
+    finally:
+        session.close()
+
+
 def _basis_change(markets, fair, baselines):
     """Change in the trimmed gap against the last scheduled reading, in points.
 
@@ -275,7 +357,15 @@ def main():
     history = state["history"]
     last_alert = state["last_alert"]
     is_scheduled = os.environ.get("SCHEDULED_RUN", "false").lower() == "true"
-    print(f"MODE: {'ANALYZE' if is_scheduled else 'UPDATE'}")
+    report_only = os.environ.get("REPORT_ONLY", "false").lower() == "true"
+    print(f"MODE: {'REPORT' if report_only else ('ANALYZE' if is_scheduled else 'UPDATE')}")
+
+    if report_only:
+        # The Live Wing boundary in its strictest form. A reader asking what the
+        # record shows must not collect prices, create a snapshot or produce an
+        # outcome, so this returns before any collection happens at all.
+        _send_analyze_report()
+        return
     collection_run_id = _generate_collection_run_id()
     now = datetime.now()
     stale_threshold = config.get("freshness", {}).get("stale_threshold_minutes", 15)
@@ -435,6 +525,13 @@ def main():
                     print(f"DB: Analysis snapshot {analysis_snapshot_id} created")
             except Exception as e:
                 print(f"DB ERROR (analysis snapshot): {e}")
+        _evaluate_deep_discount_push(markets, fair, state)
+        # state is saved above, before the analysis snapshot is built, so the armed
+        # flag the push just set would be discarded without this. Left unsaved it
+        # would read as unknown on every run, the gate would fail open every time,
+        # and the push would fire on every reading above the level -- which is the
+        # flicker the re-arm band exists to prevent.
+        save_state(state)
 
     should_send_alert = bool(signal and signal["signal"] in ("BUY", "SELL") and email_cfg.get("send_alerts", True))
     if should_send_alert:

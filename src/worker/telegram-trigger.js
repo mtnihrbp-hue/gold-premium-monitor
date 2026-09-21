@@ -42,6 +42,7 @@ export default {
         "🤖 <b>Gold Monitor Bot</b>\n\n" +
         "Commands:\n" +
         "• <b>Update</b> — Fresh market report (~1–2 min)\n" +
+        "• <b>Analyze</b> — What the record shows (~1 min)\n" +
         "• <b>Status</b>  — Check latest workflow run\n\n" +
         "The bot will also send a heartbeat while collecting data."
       );
@@ -72,6 +73,29 @@ export default {
       return new Response("OK");
     }
 
+    // ─── Analyze ───
+    // Sends inputs.mode = "report", which is the read-only wing: it answers from
+    // persisted state and collects nothing. skills/telegram-product.md requires that
+    // a user request must not silently become an Analysis Wing execution.
+    if (command === "analyze" || command === "analysis") {
+      const ghRes = await triggerGitHub(env, "report");
+
+      if (!ghRes.ok) {
+        let errBody = "";
+        try { errBody = await ghRes.text(); } catch {}
+        await sendTelegram(env, chatId,
+          `❌ <b>GitHub Error ${ghRes.status}</b>
+
+${errBody.slice(0, 400)}`);
+        console.error(`GitHub ${ghRes.status}: ${errBody}`);
+        return new Response("GitHub error", { status: 500 });
+      }
+
+      await sendTelegram(env, chatId, "⏳ <b>Analyze triggered</b>
+Report arriving shortly...");
+      return new Response("OK");
+    }
+
     // ─── Status ───
     if (command === "status") {
       const statusMsg = await getWorkflowStatus(env);
@@ -80,7 +104,8 @@ export default {
     }
 
     // ─── Unknown ───
-    await sendTelegram(env, chatId, "Unknown command. Send <b>Update</b> or <b>Status</b>.");
+    await sendTelegram(env, chatId,
+      "Unknown command. Send <b>Update</b>, <b>Analyze</b> or <b>Status</b>.");
     return new Response("OK");
   },
 };
@@ -90,13 +115,14 @@ export default {
 // ref decides which branch's workflow file AND application code answer the user.
 // It must match the ref cron-job.org sends, and both return to "main" when SP-C
 // merges -- see the merge checklist in SP_C_HANDOFF.md.
-async function triggerGitHub(env) {
+async function triggerGitHub(env, mode) {
   // NOTE: GITHUB_REPO must be FULL path: "owner/repo-name"
   const url = `https://api.github.com/repos/${env.GITHUB_REPO}/actions/workflows/gold-monitor.yml/dispatches`;
 
-  // No inputs are sent. The workflow declares mode with a default of "update", which
-  // GitHub applies, so SCHEDULED_RUN stays false and this takes the Live Wing path.
-  // Only cron-job.org sends inputs.mode = "analyze".
+  // mode is omitted for /Update: the workflow declares a default of "update", which
+  // GitHub applies, so SCHEDULED_RUN stays false and it takes the Live Wing path.
+  // "report" is the read-only wing. Only cron-job.org sends "analyze", which is the
+  // one that writes history.
   return fetch(url, {
     method: "POST",
     headers: {
@@ -106,7 +132,9 @@ async function triggerGitHub(env) {
       "Content-Type": "application/json",
       "User-Agent": "GoldMonitorBot/1.0",
     },
-    body: JSON.stringify({ ref: "SP-C" }),
+    body: JSON.stringify(
+      mode ? { ref: "SP-C", inputs: { mode } } : { ref: "SP-C" }
+    ),
   });
 }
 

@@ -311,6 +311,17 @@ reintroduced the two-vocabulary problem the message had just been cleaned of.
 Before writing any user-facing line, check the words already in use for that concept.
 A near-synonym reads as a new concept to someone who did not write it.
 
+**An episode cannot span a period nobody observed.** Deep-zone duration first
+measured 15 hours. Collection runs 06:00 to 21:00 local, so the series carries a
+nightly nine-hour hole: 66 of 264 intervals exceed three hours against a median
+spacing of one. Two readings either side of a night were joining into a single
+episode, and the reported duration was mostly time nobody looked at. Broken across
+gaps, the same zone measures 2 hours.
+
+**Before reporting any duration, frequency or streak, check the sampling interval of
+the series it is measured on.** A gap is not a continuation, and the resulting number
+is wrong in the direction that flatters it.
+
 **Interesting is not actionable.** An investigation into market sessions produced a
 genuinely novel finding -- Iran's trading calendar and the world gold calendar are
 almost exactly out of phase, so the two inputs driving fair value take turns. I

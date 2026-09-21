@@ -338,6 +338,13 @@ def _empty_valuation(window_days: int) -> RelativeValuation:
                              window_days, 0, 0, "UNKNOWN", "INSUFFICIENT_DATA")
 
 
+def basis_series(session, window_start, now):
+    """Public alias. ANALYZE and the push trigger build on the same series the
+    valuation uses, so a reading and the history it is compared against can never be
+    on different bases."""
+    return _basis_series(session, window_start, now)
+
+
 def _basis_series(session, window_start, now):
     """(timestamp, collection_mode, signed gap) per snapshot, on the trimmed basis.
 

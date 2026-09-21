@@ -46,7 +46,8 @@
       "Market session investigation (2026-09-20): concluded with NO code change. Iran and world gold keep opposite calendars; fair value is not frozen on Sat/Sun because USD is live (closures moved it up to +4.02%). Session splitting rejected on measurement: correction 0.28pp against reopen noise 0.52pp, and the buyer's decision spans sessions. Recorded in SP_C_HANDOFF.md section 19.",
       "SP-C.9: collector global ceiling now binds. get_market_prices documented a 20s cap that did nothing -- future.cancel() cannot cancel a started future and the executor context manager then joined every thread, so a DNS hang (which requests' timeout does not bound) killed the whole run. Now daemon threads with one shared deadline. Also de-networked kpi_pre_sp_c4.test_15, which called all eleven live sites and failed intermittently. Recorded in SP_C_HANDOFF.md 20.",
       "SP-C.10: news source list replaced. mehrnews (1,987 items/7d, 0 relevant) and three geoblocked feeds removed; targeted Google News queries plus investing.com and two Iranian economic papers added. news_events.source now records feed identity instead of the constant 'rss', with the dedup namespace deliberately pinned. 2,861 mehrnews rows deleted, all other tables verified unchanged. Recorded in SP_C_HANDOFF.md section 21.",
-      "SP-C.11: _get_nearest_recorded_premium applied its scheduled-preference before proximity and bounded its window on one side only, so a distant scheduled row shadowed a near unscheduled one and the lookup returned None despite usable data. 26 of 249 COMPLETE evaluations had no premium leg. Proximity now decides and scheduled breaks ties; all 26 backfilled, row counts unchanged. Recorded in SP_C_HANDOFF.md section 22."
+      "SP-C.11: _get_nearest_recorded_premium applied its scheduled-preference before proximity and bounded its window on one side only, so a distant scheduled row shadowed a near unscheduled one and the lookup returned None despite usable data. 26 of 249 COMPLETE evaluations had no premium leg. Proximity now decides and scheduled breaks ties; all 26 backfilled, row counts unchanged. Recorded in SP_C_HANDOFF.md section 22.",
+      "SP-C.12: ANALYZE built (what followed past readings at this level, the 30-day distribution and deep zone, local price movement, and the sample it rests on) plus a deep-discount push with a thermostat re-arm band. /Analyze is a read-only third workflow mode that returns before any collection. The gate fails open on unknown state. Neither surface carries a decision. skills/telegram-product.md reconciled in five places. Recorded in SP_C_HANDOFF.md section 23."
     ],
     "in_progress": [
       "UPDATE message awaiting user confirmation on a real device",
@@ -267,12 +268,13 @@
   },
   "process_rule": "Do not change an agreed design, template or framework without explicit permission, including changes that appear obvious while working on a different task. Raise them as a question instead. Recorded after unrequested edits to an approved message template forced re-review and removed a column that was broken for a fixable reason.",
   "kpi_suite": {
-    "files": 24,
-    "latest": "kpi_sp_c5.py",
-    "assertions_sp_c5": 50,
-    "status": "24/24 files passing"
+    "files": 25,
+    "latest": "kpi_sp_c6.py",
+    "assertions_sp_c6": 30,
+    "status": "25/25 files passing"
   },
   "open_decisions": [
+    "The push is buy-side only. A shallow discount is the sell-side mirror and is the same measurement with the comparison flipped; deferred until the first trigger has proven itself.",
     "donya-e-eqtesad.com and tejaratnews.com parse from inside Iran but are unproven from a GitHub runner. Check per-source yield after a day of scheduled runs.",
     "ANALYZE: outcome evaluation horizons are session-dependent. A 24h horizon spanning a world-market closure measures Iranian-side movement alone. Testable once ~500 outcomes are resolved; the feedback loop depends on it.",
     "The repaired decision engine has not yet issued a decision. ANALYZE, track record and expectancy all need a decision history that varies. Observation period first.",

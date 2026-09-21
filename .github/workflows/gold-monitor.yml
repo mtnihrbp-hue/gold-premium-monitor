@@ -5,10 +5,17 @@ name: Gold Premium Monitor
 # otherwise silently run the UPDATE path and produce no analytical history.
 # The caller therefore declares intent, which keeps the Live and Analyze wings separate:
 # a user /Update stays UPDATE, and only an explicit mode=analyze runs the pipeline.
+#
+# mode=report is the third wing and writes nothing at all. It answers the Telegram
+# /Analyze command by reading persisted state. skills/telegram-product.md requires
+# that "a user request must not silently become an Analysis Wing execution or
+# historical learning observation", so a reader asking what the record shows must not
+# collect prices, must not create a snapshot, and must not produce an outcome.
 
 run-name: >-
-  ${{ (github.event_name == 'schedule' || github.event.inputs.mode == 'analyze')
-      && 'ANALYZE' || 'UPDATE' }}
+  ${{ github.event.inputs.mode == 'report' && 'REPORT'
+      || ((github.event_name == 'schedule' || github.event.inputs.mode == 'analyze')
+          && 'ANALYZE' || 'UPDATE') }}
 
 on:
 
@@ -22,6 +29,7 @@ on:
         options:
           - update
           - analyze
+          - report
 
 # The GitHub native schedule was removed on 2026-09-20. Do not re-add it.
 #
@@ -93,6 +101,10 @@ jobs:
           # Without this Python block-buffers stdout into a pipe, so a run killed by the
           # job timeout discards its entire log. The runs that fail are exactly the ones
           # whose output is lost, leaving no way to see where they stalled.
+          # Read-only report wing. Set independently of SCHEDULED_RUN so a report can
+          # never be mistaken for an Analyze run and start writing history.
+          REPORT_ONLY: ${{ github.event.inputs.mode == 'report' && 'true' || 'false' }}
+
           PYTHONUNBUFFERED: "1"
 
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}

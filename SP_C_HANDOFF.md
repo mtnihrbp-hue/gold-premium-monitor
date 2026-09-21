@@ -1525,3 +1525,152 @@ represented.
 minutes away must beat one sixty-one minutes away. `test_40` holds the tie-break so
 the fix cannot be "simplified" into dropping the preference. `test_41` guards the
 lower bound. Suite 24/24.
+
+
+---
+
+## 23. SP-C.12 - ANALYZE and the deep-discount push (2026-09-21)
+
+UPDATE says where the market is. The question it raises and never answers is whether
+that matters. ANALYZE answers it from the record: counts and ranks over readings that
+already happened, and no forecast.
+
+### 23.1 What ANALYZE says
+
+Three sections and a data footer.
+
+**WHEN THE DISCOUNT WAS AT THIS LEVEL.** Past readings whose discount sat near the
+current one, and what the following 24 hours did to each. "At this level" is printed
+as a band so it is a number rather than a claim. The heading went through three
+drafts: "AFTER READINGS LIKE TODAY" was read as "after today's reading", and today
+supplies only the level -- nothing about today as a period is involved.
+
+**THE LAST 30 DAYS.** Range, typical level, where today sits, and the deep zone: its
+threshold, how often it opened, how long it stayed open.
+
+**PRICE MOVEMENT.** How fast the price a buyer actually pays moves, hour to hour, and
+what counts as sharp. Measured on the trimmed basis price rather than the discount,
+because exposure is to what you pay. Both directions reported without comment: a
+sharp fall is an opportunity to one reader and a reason to sell to another.
+
+**DATA.** Sample size, sampling quality, how much of the outcome record has resolved.
+
+The decision record is built and **hidden** until it has a sample. Three decisions is
+an anecdote, and `skills/market-analyst.md` forbids manufacturing confidence from a
+small one.
+
+### 23.2 The read-only wing
+
+`skills/telegram-product.md`: *a user request must not silently become an Analysis
+Wing execution or historical learning observation.*
+
+So `/Analyze` is a third workflow mode, `report`, carried by its own `REPORT_ONLY`
+environment variable rather than derived from `SCHEDULED_RUN`. `main.py` returns
+before any collection happens: no prices fetched, no snapshot, no outcome, no row of
+any kind. `kpi_sp_c6.test_20` asserts the row counts are unchanged across a report,
+and `test_21` asserts the module contains no write call at all.
+
+### 23.3 The push, and why a bare threshold does not work
+
+The deep zone typically stays open **two hours**, longest observed **five**. A reader
+who looks when they remember to look will miss most of them. That is the entire
+justification for interrupting; nothing else the system knows earns it.
+
+Firing on a threshold crossing produces a burst per episode. Measured at the 85th
+percentile over 44 days: 23 crossings, median duration twelve minutes. On 8-9 August
+a single episode that went nowhere produced four alerts in 41 hours, two of them 35
+minutes apart.
+
+So the trigger is a thermostat. Fire at the high level; re-arm only once the discount
+has returned below a lower one. Same data: 9 alerts instead of 23, never closer than
+23 hours, 14 flickers suppressed. `kpi_sp_c6.test_10` replays those exact readings
+and requires the naive count to be 4 and the banded count to be 1.
+
+### 23.4 Why the band is a width, not a second percentile
+
+The obvious design is "fire p85, re-arm p50". Measured, the distance between those
+two percentiles ranged **0.24 to 0.84 pp** across the observation period, while the
+90th-percentile reading-to-reading change is **0.46 pp**. At the narrow end the band
+would have been half the noise it exists to filter.
+
+A percentile pair has a width that drifts independently of what it is filtering. The
+re-arm level is therefore `fire - 1.5 x (p90 of the step size)`, with a floor of
+0.25 pp so a very quiet market cannot collapse it to nothing. The multiple is the
+elbow of a measured sweep: below it flicker survives, above it separate episodes
+merge.
+
+### 23.5 Both levels move
+
+The 85th percentile of the discount moved **0.81 pp** in six weeks: 4.49% on 13
+August, 3.70% on 21 September. A level fixed at either date is wrong at the other,
+which is the failure that produced `valuation_state=CHEAP` on every reading and
+`regime_state=PANIC` on every snapshot. Both levels are recomputed from completed
+days only, so they hold still within a day and step at the boundary.
+
+Worth recording: at the current distribution `p85` and `median + 1 standard
+deviation` agree to within **0.02 pp**, the distribution having become near-symmetric
+(Pearson skew -0.09) once the trimmed basis removed the outlier tail. The product
+owner's instinct arrived at the same level from the other direction. It is
+implemented as a rank because that is the ruler the rest of the system uses and
+because a rank survives the distribution skewing again.
+
+### 23.6 The gate fails open
+
+The armed flag lives in `state.json`, carried between runs by the Actions cache --
+the same cache whose loss latched `last_alert` into a permanent WAIT and suppressed
+100 consecutive BUY candidates.
+
+**Unknown state means armed.** A lost cache costs a duplicate message, which is
+noise. The opposite costs silence, which nothing alerts on and which this project has
+already paid for once. `kpi_sp_c6.test_06` is the assertion.
+
+**A bug caught during wiring:** `save_state` runs before the analysis snapshot is
+built, so the armed flag set by the push was being discarded. Left that way the gate
+would read unknown every run, fail open every run, and fire on every reading above
+the level -- the exact flicker the band exists to prevent. `test_29` guards the save.
+
+### 23.7 Neither surface recommends
+
+`skills/telegram-product.md` reserves external BUY/SELL alerts to the deterministic
+`final_decision`. ANALYZE and the push carry no BUY, SELL or WAIT, no recommendation
+and no forecast. `test_22` and `test_24` assert the absence.
+
+### 23.8 A measurement error found and fixed
+
+Deep-zone duration first reported **15 hours**. Collection runs 06:00 to 21:00 local,
+so the series carries a nightly gap of roughly nine hours: 66 of 264 intervals exceed
+three hours against a median spacing of one. Two readings either side of a night were
+joining into one episode, and the reported duration was mostly unobserved time.
+
+Episodes now break across any gap above three hours. Typical duration reads **2
+hours**, longest **5** -- observed time only, and the number the push is justified by.
+
+### 23.9 Coverage
+
+`kpi/kpi_sp_c6.py`, 30 assertions. Suite is 25 files.
+
+### 23.10 Documentation contradictions found and resolved
+
+`skills/telegram-product.md` was written against the pre-SP-C message and contradicted
+the current system in five places. All five are resolved in that file:
+
+```text
+was                                             now
+/Analysis as the planned command                /Analyze -- the workflow input, the
+                                                run-name and the merge checklist all
+                                                already said analyze
+"the decision leads the message"                removed from UPDATE in SP-C.8; it
+                                                belongs with its reasoning, which is
+                                                not in that message
+message hierarchy listing PRICE & BUBBLE        both sections dissolved in SP-C.5
+DYNAMICS and MARKET STRUCTURE
+"always show confidence when it is LOW"         withheld by product decision, SP-C.5
+                                                section 15.6
+"the bubble distribution is left-skewed"        measured -0.09 on the trimmed basis;
+                                                the conclusion (use rank) still holds
+                                                for robustness, the justification
+                                                does not
+```
+
+The binding rule in that file -- external BUY/SELL alerts driven only by
+`final_decision` -- is unchanged and shaped this work rather than conflicting with it.
