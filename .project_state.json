@@ -253,7 +253,7 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "post-C14C supporting-work verification / architecture review",
+  "next_gate": "Observe SP-C for 2-3 days from 2026-09-21, then merge SP-C into main (tag main v1.3safe first), then repoint cron-job.org and the Cloudflare worker from SP-C to main, then broadcast to readers. Sequence agreed 2026-09-21, recorded in SP_C_HANDOFF.md section 29.",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
@@ -300,5 +300,12 @@
     "SP-C.15 (2026-09-21): replaced the decision engine's valuation leg. valuation_state had been CHEAP on 364/364 rows because its fixed -1.5 threshold sat 0.02 pp outside the observed range of 438 readings, so the first input to the conflict matrix carried no information. It is now a rank over the settled non-user window, with a direction gate: CHEAP also requires the reading to be below fair value and EXPENSIVE requires it above, because a percentile-EXPENSIVE reading means 'less discounted than usual' and the matrix turns EXPENSIVE + WEAKENING into SELL -- on rank alone the engine would have sold a market trading 1.6% below fair value. Below MIN_OBSERVATIONS the answer is UNKNOWN and the matrix abstains; there is deliberately no fixed-threshold fallback. Replayed over 366 decisions: CHEAP 366 -> CHEAP 111/FAIR 222/UNKNOWN 33, BUY 131 -> 63. Also fixed the config keys valuation.py had been reading that do not exist (the configured sell threshold of 3.0 had never been in effect) and ANALYZE's projected clean-from date, which was a day early. Recorded in SP_C_HANDOFF.md section 26.",
     "SP-C.16 (2026-09-21): a deliberate tidy pass over every numeric bound in src/ and the production database. Fixed: resolve_bubble_position used the machine clock, an unsettled window and user rows (SP-C.5/C.7 defects never back-ported); 74 datetime.now() calls across 14 modules moved to utcnow, with no datetime.now() now permitted anywhere in src/; six constants for two tolerances collapsed into src/tolerances.py; the news classifier, which matched 'us' as a bare substring inside base64 image tokens in RSS summaries and so put 879 of 1441 articles into IRAN_US_NEGOTIATION including an advertisement and a tourism piece -- markup is stripped, matching is on word boundaries, specific rules need a subject and an action, and Persian keywords were added; 1070 news rows re-classified in place. Registered but not fixed: structure_state is DISCOUNT_DOMINANT on 365 of 367 rows and no rank can fix it because the quantity it classifies is a point mass, and the news LLM path has never run. Answered no to wiring news into ANALYZE, with a three-stage proposal in section 27.7. Recorded in SP_C_HANDOFF.md section 27.",
     "SP-C.17 (2026-09-21): corrected SP-C.16's characterisation of the structure leg. Section 27.4 called it a measure that cannot vary and proposed replacing it; measuring the three candidate replacements first reversed that. The incumbent separates at z = -2.04 on the seven days it fires, while platform spread, cheapest-to-median gap and breadth sit at z = -0.98, 0.07 and 1.40 against a standard error of about 13 pp on the difference. Conflating 'the output is nearly constant' with 'the measure carries no information' is the error; only the first had been measured. The leg stays and PREMIUM_DOMINANT must remain reachable. Also corrected: the news stage-2 measurement does not need a month of new articles -- the backfill made it runnable today, and it was run. It says nothing. The actual blocker is that four news sources began 2026-09-21, so volume is not comparable across the window until about 2026-10-21."
-  ]
+  ],
+  "rollout": {
+    "step_1_observe": "2-3 days on SP-C from 2026-09-21. Watching: that BUY still occurs now the valuation leg varies, the D gate on 2026-09-28, the first firing of the push, and that valuation_context agrees with the decision on every new row.",
+    "step_2_merge": "Tag main as v1.3safe, then merge SP-C. 51 commits ahead as of 2026-09-21.",
+    "step_3_repoint": "cron-job.org job 8179679 and the Cloudflare worker both send ref SP-C; both return to main.",
+    "step_4_broadcast": "Readers receive, only the owner triggers. Needs TELEGRAM_BROADCAST_IDS, _send iterating the list, and an audience per message type with a KPI asserting operator messages never reach readers. Section 29.3.",
+    "not_yet": "Routing a requester's identity through the workflow, which /Update for other readers would require. Section 29.1."
+  }
 }

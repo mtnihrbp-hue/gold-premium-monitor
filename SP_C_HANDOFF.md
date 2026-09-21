@@ -2579,3 +2579,81 @@ uses -- so instance three cannot appear quietly.
 The suite ran clean three times consecutively afterwards. Recorded here rather than
 quietly fixed, because the process failure matters more than the flake: a verification
 step that can be bypassed by a pipe is not a verification step.
+
+---
+
+## 29. Rollout sequence, agreed 2026-09-21
+
+Four steps, in order, each gated on the one before it. Agreed with the product owner
+after establishing what "opening the bot" would actually require.
+
+```text
+1  observe          2-3 days on SP-C, watching message behaviour and stability
+2  merge            SP-C -> main, after tagging main as v1.3safe
+3  repoint          cron-job.org and the Cloudflare worker from SP-C to main
+4  broadcast        friends receive; nobody but the owner triggers
+```
+
+### 29.1 Why the bot cannot simply be "opened"
+
+It is single-user in two independent places, and only the first is a config change:
+
+```text
+src/worker/telegram-trigger.js   if (chatId !== env.TELEGRAM_CHAT_ID) -> 403
+src/alerts/telegram.py           payload = { chat_id: TELEGRAM_CHAT_ID, ... }
+```
+
+The worker rejects strangers; widening that is an allowlist. The second is the real
+obstacle: **the application does not know who asked.** The worker dispatches a GitHub
+Actions run carrying no user identity, and the app sends every report to one
+hard-coded chat. Widen the worker alone and a second reader's `/Update` triggers a
+full collection whose report is delivered to the owner instead of to them.
+
+Routing the requester through means changing the worker, the workflow inputs and
+`alerts/telegram.py` together.
+
+### 29.2 Why broadcast before triggers
+
+`/Update` is a full production collection: eleven Iranian platforms, Kitco, bonbast,
+and two database writes. Several readers pressing it through the day multiplies
+outbound traffic against small Iranian sites already suspected of geoblocking CI
+runners. Losing a source would damage the data accumulation that steps 1-3 exist to
+protect.
+
+What is **not** a risk, because it was already built: user-triggered rows are excluded
+from every reference window (SP-C.7, SP-C.13, SP-C.15), so additional readers cannot
+contaminate the statistics. The exposure is source traffic, not data quality.
+
+Receiving costs nothing. A broadcast list gives the feedback that matters -- whether
+the messages read correctly to someone who did not build them -- with no extra
+collection, no extra runs and no extra source traffic.
+
+### 29.3 What step 4 requires when it comes
+
+- `TELEGRAM_BROADCAST_IDS`, a comma-separated secret, distinct from
+  `TELEGRAM_CHAT_ID` which stays the operator's.
+- `_send` iterates the list.
+- **An audience per message type**, which is the part worth designing rather than
+  assuming. Reader messages: the deep-discount push, ANALYZE, UPDATE. Operator
+  messages: `Status`, errors, data-unavailable notices, the daily recap. A KPI should
+  assert that operator messages never reach the broadcast list.
+- The worker allowlist stays as it is. Readers receive; they do not trigger.
+
+### 29.4 What step 1 is watching for
+
+Today changed more of the decision path than any single day so far, so the
+observation window is not a formality:
+
+```text
+valuation_state   first varied 2026-09-21. Replay says BUY candidates should roughly
+                  halve (131 -> 63 across the record). Watch that BUY still occurs at
+                  all -- a leg that never fires is the failure this replaced.
+D gate            2026-09-28. ANALYZE should flip Sampling to "scheduled only" and
+                  the deep-discount level may step as the pool narrows.
+the push          has never fired. fire_at is 3.70% against readings of 2.8-3.2%.
+                  The first firing is the first live test of the thermostat.
+valuation_context now ranked on the settled pool, so the audit record and the decision
+                  should agree on every new row.
+news              abstains far more often. No reader-visible surface, so watch only
+                  for collection errors.
+```
