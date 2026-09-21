@@ -126,19 +126,18 @@ ACCEPTED = {
                "decision depend on its own audit trail.",
         "doc": ("SP_C_HANDOFF.md", "26.6"),
     },
-    "structure_leg_measures_a_constant": {
+    "structure_leg_fires_rarely": {
         "what": "market_states.structure_state is DISCOUNT_DOMINANT on 365 of 367 "
-                "rows; the leg asks what share of platforms sit below fair value, "
-                "and in a market that is always at a discount the answer is always "
-                "'almost all'",
-        "why": "Unlike the valuation leg this is not a stale bound -- 345 of 367 "
-               "rows sit at exactly 1.00, so no threshold and no rank over that "
-               "quantity can separate anything. Fixing it means changing what "
-               "'structure' measures, which is a product decision about the "
-               "conflict matrix, not a threshold change. Measured alternative in "
-               "the same rows: platform spread runs 0.73% to 6.86% of fair price, "
-               "median 2.02%, and varies.",
-        "doc": ("SP_C_HANDOFF.md", "27.4"),
+                "rows -- a rare-event detector rather than a classifier that "
+                "separates the typical reading",
+        "why": "Deliberately left alone. Measured over 440 snapshots, the three "
+               "candidate replacements (platform spread, cheapest-to-median gap, "
+               "breadth) all sit within one standard error of chance at z = -0.98, "
+               "0.07 and 1.40, while the incumbent separates at z = -2.04 on the "
+               "seven days it does fire. Replacing a leg of the decision matrix "
+               "with a measured non-signal would be worse than leaving a rare one "
+               "in place. Review when the non-DISCOUNT_DOMINANT count reaches 30.",
+        "doc": ("SP_C_HANDOFF.md", "28.1"),
     },
     "news_llm_path_never_ran": {
         "what": "news_events.classification_method is KEYWORD on all 1441 rows; "
@@ -542,25 +541,36 @@ class KPICoherence(unittest.TestCase):
         self.assertEqual(unwired, expected,
                          "a persisted analysis artifact has no consumer")
 
-    def test_26_the_structure_leg_is_still_measuring_a_constant(self):
-        """Registered, not fixed. If the measure changes, retire the entry.
+    def test_26_the_structure_leg_is_a_rare_event_detector(self):
+        """Registered, not fixed -- and the rare case must stay reachable.
 
-        The leg classifies on the share of platforms below fair value. Every reading
-        on record is a discount, so that share is 1.00 on 345 of 367 rows and the
-        0.6 boundary has been crossed twice in the life of the system.
+        Across the whole discount range the leg returns one value, which is why it
+        reads DISCOUNT_DOMINANT on 365 of 367 rows. That is not the same as useless:
+        on the seven days it fires the other way the outcomes differ sharply
+        (z = -2.04, against -0.98 / 0.07 / 1.40 for the three candidate
+        replacements). Anyone simplifying this function must keep PREMIUM_DOMINANT
+        and MIXED reachable.
         """
-        if "structure_leg_measures_a_constant" not in ACCEPTED:
+        if "structure_leg_fires_rarely" not in ACCEPTED:
             self.skipTest("entry retired")
         from caluclator.structure import evaluate_structure
         fair = 240_000_000
-        states = set()
-        for discount in (0.8, 2.0, 3.5, 5.0, 8.0):
-            markets = {n: {"price": fair * (1 - discount / 100), "status": "OK"}
-                       for n in "ABCDE"}
-            states.add(evaluate_structure(markets, fair)["state"])
-        self.assertEqual(states, {"DISCOUNT_DOMINANT"},
-                         "the structure leg now separates readings -- retire the "
+
+        def state(fractions):
+            markets = {str(i): {"price": fair * (1 + f), "status": "OK"}
+                       for i, f in enumerate(fractions)}
+            return evaluate_structure(markets, fair)["state"]
+
+        # Every discount, however deep, gives the same answer -- the constant.
+        across = {state([-d / 100] * 5) for d in (0.8, 2.0, 3.5, 5.0, 8.0)}
+        self.assertEqual(across, {"DISCOUNT_DOMINANT"},
+                         "the leg now separates ordinary readings -- retire the "
                          "register entry and delete this test")
+
+        # But the rare cases are still reachable, and they carry the signal.
+        self.assertEqual(state([0.01] * 5), "PREMIUM_DOMINANT")
+        self.assertEqual(state([-0.02, -0.02, 0.01, 0.01, 0.01]), "PREMIUM_DOMINANT")
+        self.assertEqual(state([-0.02, -0.02, -0.02, 0.01, 0.01]), "DISCOUNT_DOMINANT")
 
     # -- 6. the register must stay honest -------------------------------------
 

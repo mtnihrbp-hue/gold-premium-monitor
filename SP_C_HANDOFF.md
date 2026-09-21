@@ -2405,3 +2405,149 @@ No module defines a shared tolerance locally.
 - The 6-hour outcome horizon resolves worst of the three: 66 COMPLETE against 111
   INSUFFICIENT_DATA, because a 6h horizon from an afternoon reading lands in the
   overnight collection gap. The 1h and 24h horizons resolve at roughly 57%.
+
+---
+
+## 28. The structure leg, measured — and a correction (2026-09-21)
+
+Section 27.4 registered the structure leg as "measuring something that cannot vary"
+and proposed that the measure itself was wrong. Measuring the alternatives before
+changing anything reversed that conclusion. The leg stays.
+
+### 28.1 What the candidates actually do
+
+Three replacements, each ranked against its own 30-day window and split into
+top/bottom third, then scored the way the valuation leg was scored in SP-C.15:
+forward 24 hours, one observation per local day per bucket, discount narrowing
+counted as the buyer's gain.
+
+```text
+candidate            LOW bucket        HIGH bucket       gap      z    verdict
+below_fair (current)  1/7   14.3%      24/43  55.8%     41.5   -2.04   separates
+platform spread      11/23  47.8%      19/31  61.3%     13.5   -0.98   chance
+cheapest-to-median   13/22  59.1%      18/31  58.1%      1.0    0.07   nothing
+breadth              17/29  58.6%      13/32  40.6%     18.0    1.40   chance
+
+valuation leg        16/39  41.0%      22/28  78.6%     37.5   -3.06   separates
+```
+
+With roughly 30 observations a bucket the standard error on a proportion is about
+9 pp and on a difference about 13 pp, so a 13-18 pp gap is one standard error. None
+of the three replacements is distinguishable from chance.
+
+### 28.2 The correction
+
+The incumbent is **not** uninformative. It is a **rare-event detector**: it returns
+one value across the whole discount range, which is why it reads DISCOUNT_DOMINANT on
+365 of 367 rows, but on the seven days it reads otherwise the outcomes differ more
+than for any candidate tested.
+
+Section 27.4 conflated "the output is nearly constant" with "the measure carries no
+information". Those are different claims and only the first was measured. `z = -2.04`
+on the incumbent against `-0.98`, `0.07` and `1.40` on the replacements is the
+opposite of the conclusion that section drew.
+
+**The caveat is large and stated deliberately.** The LOW bucket holds seven days,
+where `n·p ≈ 1` and the normal approximation is poor. One day either way moves the
+z substantially. This is evidence that the leg should not be *replaced*, not evidence
+that it works.
+
+### 28.3 Alternatives considered, and what each would cost
+
+```text
+A  leave it, document it as a rare-event gate      no change; keeps the only
+   RECOMMENDED                                     non-valuation separation measured
+
+B  replace with platform spread rank               changes the matrix input on ~2/3
+                                                   of readings, on z = -0.98 -- that
+                                                   is wiring in a measured non-signal
+
+C  add dispersion as a fourth leg                  conflict matrix goes from 27 rows
+                                                   to 81, every one needing a
+                                                   deliberate decision, justified by
+                                                   nothing measured
+
+D  drop to a two-leg matrix                        simplest, and discards the seven
+                                                   days that separate most sharply of
+                                                   anything outside the valuation leg
+
+E  turn the 0.6 bound into a rank                  achieves nothing: the quantity is
+                                                   1.00 on 345 of 367 rows and a
+                                                   percentile of a point mass is the
+                                                   point mass
+```
+
+A is taken. The cost of being wrong about A is that a rare signal keeps contributing
+on 2% of readings; the cost of being wrong about B or C is a decision engine whose
+third input is noise, on every reading, with the appearance of having been improved.
+
+### 28.4 The review trigger
+
+Registered rather than closed, with an explicit condition instead of an open-ended
+"revisit later": **when the non-DISCOUNT_DOMINANT count reaches 30**, the LOW bucket
+becomes large enough to test properly, and the question is answerable rather than
+suggestive. At the current rate — 2 in 367 readings — that is a long way off, and
+that is itself the finding: the leg is waiting for a market state this record has
+barely seen.
+
+`kpi_coherence.test_26` asserts both halves: that the leg still returns one value
+across the ordinary discount range, and that `PREMIUM_DOMINANT` and the mixed case
+stay **reachable**. Anyone simplifying `evaluate_structure` breaks the second.
+
+### 28.5 News: what the measurement says today, and the date that actually matters
+
+The stage-2 measurement proposed in 27.7 was described there as needing "about a
+month of correctly-classified articles". That was wrong in one respect and right in
+another, and it is worth separating them.
+
+**It could be run today, and was.** The backfill re-classified the stored corpus in
+place, and a keyword classifier is deterministic over text that existed at
+publication, so there is no lookahead problem: 478 classified articles across 32 days
+that also carry market readings. The result:
+
+```text
+event type on a day          days   next-day |change|   days without
+MILITARY_ESCALATION            18          0.43 pp          0.57 pp
+SANCTIONS                      13          0.45 pp          0.54 pp
+GLOBAL_GOLD_EVENT              14          0.39 pp          0.57 pp
+CURRENCY_POLICY                 5          0.42 pp          0.53 pp
+CBI_POLICY                      3          0.32 pp          0.53 pp
+INFLATION                       3          0.20 pp          0.54 pp
+```
+
+Every category shows *less* next-day movement on the days it appears. Six out of six
+in the same direction, all small, on samples of 3 to 18 days. That consistency is
+more likely a calendar artifact than a finding — days with classified articles are
+weekdays, and the Iranian week has a shape this system has already measured — but
+either way there is nothing here to print.
+
+**The real blocker is a structural break, not a sample size.** Four sources began on
+2026-09-21:
+
+```text
+source                first seen     articles
+tejaratnews.com       2026-09-21           64
+donya-e-eqtesad.com   2026-09-21           61
+investing.com         2026-09-21           17
+tehrantimes.com       2026-09-21           14
+
+articles per local day   2026-09-20:  67     2026-09-21: 219
+```
+
+Daily volume stepped 3.3x in one day because the feed changed, not because the world
+did. Any measure that ranks an article count against its own recent window is
+comparing two different feeds, and the rank code confirms it: no day in the current
+window ranks in the bottom third, because every recent day is a post-change day.
+
+So the date to work to is **roughly 2026-10-21**, thirty days of a stable feed — not
+the D gate's 2026-09-28. They are two different kinds of waiting:
+
+```text
+D gate      mechanical and dated    14 settled scheduled days   2026-09-28, certain
+news        statistical power       ~30 days of one feed        ~2026-10-21, approximate
+```
+
+The D gate opens on a date that can be calculated exactly. The news measurement has no
+gate: it can be run at any time, it has been run, and it currently says nothing. What
+changes on 2026-10-21 is that a volume-based measure stops being contaminated and the
+answer becomes trustworthy rather than merely available.

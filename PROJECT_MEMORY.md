@@ -40,7 +40,7 @@ before reading any failure narrative below as live.**
 | datetime.now() against UTC-stored timestamps, 74 calls in 14 modules | 2026-09-21 | SP-C.16, section 27.3 |
 | Six constants for two tolerances, under four names | 2026-09-21 | SP-C.16, section 27.6 |
 | News classifier matched "us" inside base64 image tokens; 879 of 1441 mislabelled | 2026-09-21 | SP-C.16, section 27.5 |
-| structure_state is DISCOUNT_DOMINANT on 365 of 367 rows | **OPEN** | SP-C.16, section 27.4 -- needs a product decision, registered |
+| structure_state is DISCOUNT_DOMINANT on 365 of 367 rows | **MEASURED, LEFT ALONE** | SP-C.17, section 28 -- a rare-event detector, not a dead leg; all three candidate replacements are within one standard error of chance |
 | News LLM classification path has never run | **OPEN** | SP-C.16, section 27.5 |
 
 
@@ -2260,12 +2260,12 @@ UNKNOWN is the improvement**; the old figure was bought by mislabelling.
 
 **Registered, not fixed -- both need a product decision:**
 
-- **The structure leg measures something that cannot vary.** `structure_state` is
-  `DISCOUNT_DOMINANT` on 365 of 367 rows because it classifies on the share of
-  platforms below fair value, which is 1.00 on 345 of them. Unlike the valuation leg
-  this is **not** a stale bound -- no threshold and no rank over a point mass can
-  separate anything. Changing what "structure" measures is a change to the conflict
-  matrix. Platform spread, in the same rows, runs 0.73% to 6.86% and does vary.
+- **The structure leg fires rarely.** `structure_state` is `DISCOUNT_DOMINANT` on
+  365 of 367 rows. **Corrected in SP-C.17:** that is not the same as carrying no
+  information. Measured, the leg separates at z = -2.04 on the seven days it fires
+  the other way, while platform spread, cheapest-to-median gap and breadth sit at
+  z = -0.98, 0.07 and 1.40 -- all within one standard error of chance. It stays, and
+  `PREMIUM_DOMINANT` must remain reachable. Section 28.
 - **The news LLM path has never run.** `classification_method` is KEYWORD on all rows.
 
 **News in ANALYZE: no, not yet.** Asked directly; answered with evidence. After the

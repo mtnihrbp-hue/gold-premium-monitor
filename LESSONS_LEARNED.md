@@ -565,8 +565,26 @@ meaningless.
 
 There is usually something informative nearby that is being ignored. In the same rows
 that made `structure_state` constant, platform spread runs 0.73% to 6.86% of fair
-price with a median of 2.02%. Whether it predicts anything is untested — the point is
-only that it moves, and the thing being measured does not.
+price with a median of 2.02%.
+
+**And then measure it before you swap it in.** That paragraph was written before the
+alternatives were tested, and testing them reversed the conclusion. Platform spread,
+cheapest-to-median gap and breadth came in at z = −0.98, 0.07 and 1.40 — all within
+one standard error of chance — while the incumbent, the one that looks dead,
+separates at z = −2.04 on the seven days it fires. It is a rare-event detector, not
+an empty one.
+
+So there is a **third** case, and it is the one that catches you after you have
+learned the first two:
+
+- the output is nearly constant **because the event is rare**, and the rare case is
+  where the information is
+
+"A classifier that almost never changes its answer" and "a classifier that carries no
+information" are different claims. Only the first is visible in a `GROUP BY`. The
+second needs the outcomes, and the cost of assuming it is a decision engine whose
+input is a measured non-signal, on every reading, wearing the appearance of a
+repair.
 
 **And a third possibility, which is neither.** After SP-C.15 the `EXPENSIVE` branch of
 the valuation leg can never fire, because the market has never traded above fair
