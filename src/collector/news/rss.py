@@ -5,6 +5,7 @@ Non-fatal: returns [] on any failure.
 """
 
 import hashlib
+import re
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
@@ -13,6 +14,7 @@ import requests
 
 
 from typing import List, Dict, Any, Optional, Union, Tuple
+from urllib.parse import urlparse, parse_qs
 ...
 def collect_rss_feed(url: str, timeout: Union[int, Tuple[int, int]] = 15) -> List[Dict[str, Any]]:
     """Fetch and parse a single RSS/Atom feed."""
@@ -53,7 +55,36 @@ def fetch_rss_feed(url: str, timeout: int = 15) -> str:
     return response.text
 
 
-def parse_rss_xml(xml_text: str) -> List[Dict[str, Any]]:
+def source_label(url: str) -> str:
+    """Stable, readable identity for a feed.
+
+    news_events.source was the literal string "rss" on all 4,019 rows ever written,
+    so which feed an item came from was only recoverable by parsing its URL -- and a
+    per-source yield measurement is exactly what showed one feed producing 87% of the
+    volume and none of the signal.
+
+    Google News query feeds share a host, so the query is carried too; without it
+    three different topic feeds would be indistinguishable.
+    """
+    try:
+        parsed = urlparse(url or "")
+        host = (parsed.netloc or "").replace("www.", "").lower()
+        if not host:
+            return "unknown"
+        if "news.google.com" in host:
+            query = (parse_qs(parsed.query).get("q") or [""])[0]
+            topic = re.sub(r"\+?when:[^+]*", "", query).replace("+", " ").strip()
+            return f"google:{topic}"[:200] if topic else "google"
+        return host[:200]
+    except Exception as e:
+        # This used to swallow a missing-import NameError and return "unknown" for
+        # every Google News feed, which is exactly the silent-degradation pattern
+        # this module is meant to be fixing.
+        print(f"  RSS   source label failed for {url}: {type(e).__name__}: {e}")
+        return "unknown"
+
+
+def parse_rss_xml(xml_text: str, source: str = "rss") -> List[Dict[str, Any]]:
     """Parse RSS XML into normalized news items.
 
     Supports RSS 2.0 <item> and Atom <entry> formats.
@@ -80,21 +111,21 @@ def parse_rss_xml(xml_text: str) -> List[Dict[str, Any]]:
 
     # Try RSS 2.0 items
     for item in root.iter(item_tag):
-        parsed = _extract_item(item, ns)
+        parsed = _extract_item(item, ns, source)
         if parsed:
             items.append(parsed)
 
     # Try Atom entries
     if not items:
         for entry in root.iter(entry_tag):
-            parsed = _extract_atom_entry(entry, ns)
+            parsed = _extract_atom_entry(entry, ns, source)
             if parsed:
                 items.append(parsed)
 
     return items
 
 
-def _extract_item(item_elem, ns: Dict[str, str]) -> Optional[Dict[str, Any]]:
+def _extract_item(item_elem, ns: Dict[str, str], source: str = "rss") -> Optional[Dict[str, Any]]:
     """Extract fields from an RSS <item>."""
     title = _get_text(item_elem, "title", ns)
     link = _get_text(item_elem, "link", ns)
@@ -112,12 +143,12 @@ def _extract_item(item_elem, ns: Dict[str, str]) -> Optional[Dict[str, Any]]:
         title=title,
         summary=description or "",
         url=link or "",
-        source="rss",
+        source=source,
         published_at=published,
     )
 
 
-def _extract_atom_entry(entry_elem, ns: Dict[str, str]) -> Optional[Dict[str, Any]]:
+def _extract_atom_entry(entry_elem, ns: Dict[str, str], source: str = "rss") -> Optional[Dict[str, Any]]:
     """Extract fields from an Atom <entry>."""
     title = _get_text(entry_elem, "title", ns)
     link = ""
@@ -140,7 +171,7 @@ def _extract_atom_entry(entry_elem, ns: Dict[str, str]) -> Optional[Dict[str, An
         title=title,
         summary=summary or "",
         url=link or "",
-        source="rss",
+        source=source,
         published_at=pub_date,
     )
 
@@ -159,6 +190,17 @@ def _get_text(parent, tag: str, ns: Dict[str, str]) -> Optional[str]:
     return None
 
 
+# Namespace for the deduplication key.
+#
+# The key used to be hashed over the `source` field, which was the constant string
+# "rss" on every row ever written -- so in practice it has always been a hash of the
+# title alone. Now that `source` carries real feed identity, hashing it would change
+# every key and re-ingest the entire corpus as new, and would stop the same story
+# arriving from two feeds from deduplicating at all. The namespace is therefore
+# pinned to the historical value, deliberately, and is not the source label.
+DEDUP_NAMESPACE = "rss"
+
+
 def _normalize_item(
     title: str,
     summary: str,
@@ -168,9 +210,8 @@ def _normalize_item(
 ) -> Dict[str, Any]:
     """Normalize a news item into the canonical schema."""
     collected_at = datetime.now(timezone.utc)
-    # Deduplication key: hash of normalized title + source
     dedup_key = hashlib.sha256(
-        f"{source}:{title.strip().lower()}".encode("utf-8")
+        f"{DEDUP_NAMESPACE}:{title.strip().lower()}".encode("utf-8")
     ).hexdigest()[:32]
 
     return {
@@ -191,7 +232,7 @@ def collect_rss_feed(url: str, timeout: int = 15) -> List[Dict[str, Any]]:
     """
     try:
         xml_text = fetch_rss_feed(url, timeout=timeout)
-        items = parse_rss_xml(xml_text)
+        items = parse_rss_xml(xml_text, source=source_label(url))
         print(f"  RSS   {url:<40} {len(items)} item(s)")
         return items
     except requests.exceptions.Timeout:

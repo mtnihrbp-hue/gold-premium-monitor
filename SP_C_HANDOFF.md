@@ -1328,3 +1328,116 @@ property directly. Ran three times consecutively, green each time.
 `kpi_sp_c5.py` gains three assertions (36 total): the ceiling binds against a
 deliberately hanging collector, the threads are daemons, and the ceiling is a single
 deadline. Suite 24/24.
+
+
+---
+
+## 21. SP-C.10 - the news feed was collecting the wrong news (2026-09-21)
+
+`EVENT_STRESS` is one of four regime families and had never fired: 0 HIGH or CRITICAL
+events in 72 hours. That was filed as "the keyword classifier needs replacing with an
+LLM". It was not a classifier problem.
+
+### 21.1 What was actually being collected
+
+Per-source yield over seven days, recoverable only by parsing URLs because
+`news_events.source` was the literal string `rss` on every row:
+
+```text
+host                    items   relevance
+mehrnews.com            1,987   100% UNKNOWN
+tehrantimes.com           230   161 RELEVANT
+kingworldnews.com          51    31 RELEVANT
+goldbroker.com             10    10 RELEVANT
+```
+
+Sample headlines from the dominant source: a health budget review, a baker fined in
+North Khorasan, a hiking trail cleanup, 2kg of opium seized, basketball players
+exempted from military service, a wind forecast for Ilam.
+
+**A national general-news firehose, ingested at ~280 items a day, yielding nothing.**
+No classifier can extract market signal from an opium seizure report.
+
+Three further configured feeds returned nothing at all. The product owner identified
+the cause immediately: they are geoblocked from a GitHub runner outside Iran.
+Confirmed by probe -- Tasnim gives `RemoteDisconnected`, CBI gives `ConnectionReset`,
+Eghtesad Online returns an empty document.
+
+**Half the source list was dead and nobody could see it**, because per-source yield
+was not measurable without parsing URLs by hand.
+
+### 21.2 What the system could not see
+
+On 2026-09-20 the regime moved NORMAL to FEAR to RELIEF driven entirely by USD/IRR,
+while world gold was closed. There were also Middle East attack rumours that did not
+materialise, and gold fell 0.92% over 72 hours. None of that reached the system.
+
+A probe of candidate feeds returned, on the first try:
+
+```text
+google:iran rial currency   "Rial Slides to 232,000 as Retirees March and Parliament..."
+google:middle east ...      "Middle East braces for more violence as Iran claims US..."
+donya-e-eqtesad.com         "قیمت طلا امروز... /کاهش قیمت طلا"   (gold price falls today)
+```
+
+The first names 232,000 -- the exact USD level that drove the FEAR episode.
+
+### 21.3 The new source list
+
+```text
+kept      goldbroker.com, kingworldnews.com, tehrantimes.com
+added     investing.com/rss/commodities.rss
+          news.google.com  q=gold price          (2-day window)
+          news.google.com  q=iran rial currency  (7-day window)
+          news.google.com  q=middle east strike OR attack  (2-day window)
+          donya-e-eqtesad.com, tejaratnews.com
+removed   mehrnews.com, tasnimnews.com, eghtesadonline.com, cbi.ir
+```
+
+**Targeted queries rather than firehoses.** A topic query sets signal-to-noise at the
+source instead of ingesting a nation's news and filtering afterwards. Verified
+end-to-end: all nine sources return parseable, on-topic items, 160 per cycle before
+deduplication.
+
+**The two Iranian feeds are unproven from a GitHub runner.** They parse from inside
+Iran. Reachability from outside is the same unknown that silently killed Tasnim, and
+it can only be settled by a real scheduled run. Watch their per-source yield -- which
+is now possible, because of the next item.
+
+### 21.4 Feed identity is recorded
+
+`news_events.source` was `rss` on all 4,019 rows: a sixth degenerate column.
+`source_label()` now derives a stable identity from the URL, carrying the query for
+Google News feeds so three topic feeds sharing one host stay distinguishable.
+
+**The dedup key deliberately did not change.** It was hashed over `source`, which was
+always the constant `rss`, so in practice it has always been a hash of the title
+alone. Hashing real identity would re-key the entire corpus as new, and would stop the
+same story arriving from two feeds from deduplicating at all. `DEDUP_NAMESPACE` is
+pinned to the historical value on purpose.
+
+### 21.5 Database cleanup
+
+2,861 Mehr rows deleted, approved by the product owner. Verified before and after:
+
+```text
+news_events          4,040 -> 1,179     (2,861 deleted, 0 of them ever RELEVANT)
+foreign keys referencing news_events: 0
+market_snapshots, platform_prices, market_states, price_observations,
+analysis_snapshots, outcome_evaluations, platform_candles:  all unchanged
+
+remaining by host: tehrantimes 624, goldbroker 361, kingworldnews 194
+```
+
+### 21.6 A bug found while building this
+
+`source_label` returned `unknown` for every Google News feed. The cause was a missing
+`import re`, and a bare `except Exception: return "unknown"` swallowed the `NameError`
+silently -- the exact silent-degradation pattern this change exists to remove. The
+handler now prints what it caught.
+
+### 21.7 Coverage
+
+`kpi_sp_c5.py` grows to 43 assertions, including two that read `config/config.json`
+directly: the retired feeds must not reappear, and the targeted queries must be
+present. Suite 24/24.

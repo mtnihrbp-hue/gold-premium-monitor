@@ -44,7 +44,8 @@
       "SP-C.7: the valuation reference distribution is now drawn from completed local days only and excludes user-triggered rows from the fallback sample. Deep discount moved up to 15 times in 3 days, partly because the reader's own Update calls were inside the window, and is now constant within a local day. Bigger than X% deliberately stays live. Recorded in SP_C_HANDOFF.md section 17.",
       "SP-C.8: world gold fallback provenance now reaches storage (source kitco vs kitco_cached, freshness evaluated against real observation time). calculate_fair_price docstring corrected (claimed IRR, returns Toman). PROJECT_MEMORY gains a resolved-defects index after a third-party audit filed a finding fixed seven days earlier. Corrected my own false alarm: 36/39 identical XAU readings are weekend market closure, not fallback abuse.",
       "Market session investigation (2026-09-20): concluded with NO code change. Iran and world gold keep opposite calendars; fair value is not frozen on Sat/Sun because USD is live (closures moved it up to +4.02%). Session splitting rejected on measurement: correction 0.28pp against reopen noise 0.52pp, and the buyer's decision spans sessions. Recorded in SP_C_HANDOFF.md section 19.",
-      "SP-C.9: collector global ceiling now binds. get_market_prices documented a 20s cap that did nothing -- future.cancel() cannot cancel a started future and the executor context manager then joined every thread, so a DNS hang (which requests' timeout does not bound) killed the whole run. Now daemon threads with one shared deadline. Also de-networked kpi_pre_sp_c4.test_15, which called all eleven live sites and failed intermittently. Recorded in SP_C_HANDOFF.md 20."
+      "SP-C.9: collector global ceiling now binds. get_market_prices documented a 20s cap that did nothing -- future.cancel() cannot cancel a started future and the executor context manager then joined every thread, so a DNS hang (which requests' timeout does not bound) killed the whole run. Now daemon threads with one shared deadline. Also de-networked kpi_pre_sp_c4.test_15, which called all eleven live sites and failed intermittently. Recorded in SP_C_HANDOFF.md 20.",
+      "SP-C.10: news source list replaced. mehrnews (1,987 items/7d, 0 relevant) and three geoblocked feeds removed; targeted Google News queries plus investing.com and two Iranian economic papers added. news_events.source now records feed identity instead of the constant 'rss', with the dedup namespace deliberately pinned. 2,861 mehrnews rows deleted, all other tables verified unchanged. Recorded in SP_C_HANDOFF.md section 21."
     ],
     "in_progress": [
       "UPDATE message awaiting user confirmation on a real device",
@@ -267,10 +268,11 @@
   "kpi_suite": {
     "files": 24,
     "latest": "kpi_sp_c5.py",
-    "assertions_sp_c5": 36,
+    "assertions_sp_c5": 43,
     "status": "24/24 files passing"
   },
   "open_decisions": [
+    "donya-e-eqtesad.com and tejaratnews.com parse from inside Iran but are unproven from a GitHub runner. Check per-source yield after a day of scheduled runs.",
     "ANALYZE: outcome evaluation horizons are session-dependent. A 24h horizon spanning a world-market closure measures Iranian-side movement alone. Testable once ~500 outcomes are resolved; the feedback loop depends on it.",
     "The repaired decision engine has not yet issued a decision. ANALYZE, track record and expectancy all need a decision history that varies. Observation period first.",
     "premium_percent at source is still minimum-based; changing it requires a 332-row backfill and touches decision authority. Own phase, own approval.",

@@ -268,6 +268,27 @@ failed. `kpi/run_all.py` forces UTF-8 for child output. Always use the runner.
 
 ## 10. Process notes that earned their place
 
+**A bare `except` will hide your own missing import.** `source_label` returned
+`"unknown"` for every Google News feed. The cause was a missing `import re`; the
+handler was `except Exception: return "unknown"`, so a `NameError` became a plausible
+default and the function looked like it worked. It was found only because the output
+was inspected by eye.
+
+This is the silent-degradation pattern the same commit was written to remove, produced
+while removing it. A fallback that cannot distinguish "this input has no identity" from
+"this code is broken" is a constant with extra steps. **Log what you caught**, even in
+a helper that is allowed to degrade.
+
+**Collecting the wrong thing beats analysing it badly.** `EVENT_STRESS` had never
+fired in the system's life, which was filed as a classifier problem needing an LLM. The
+feed was a national general-news firehose: 1,987 items in seven days, zero relevant,
+headlines about opium seizures and basketball. No classifier extracts market signal
+from that.
+
+**Check what a pipeline is being fed before improving how it thinks.** The fix was a
+config change and cost nothing; the LLM work it displaced would have been weeks and
+would have improved nothing.
+
 **Interesting is not actionable.** An investigation into market sessions produced a
 genuinely novel finding -- Iran's trading calendar and the world gold calendar are
 almost exactly out of phase, so the two inputs driving fair value take turns. I

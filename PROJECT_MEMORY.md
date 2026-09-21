@@ -1977,3 +1977,34 @@ deadline; a hung collector costs one platform, not the run.
 hysteresis, the regime hysteresis and the bonbast subprocess. When reviewing any
 timeout in this codebase, check that the mechanism can actually interrupt the thing it
 claims to cap.
+
+
+---
+
+## SP-C.10 - news sources (2026-09-21)
+
+Full record in `SP_C_HANDOFF.md` section 21.
+
+**The news feed was collecting general Iranian news, not market news.** mehrnews.com
+supplied 1,987 of 2,278 items over seven days with zero relevant among them -- opium
+seizures, weather, basketball. Three further feeds (Tasnim, Eghtesad Online, CBI) were
+geoblocked from the GitHub runner and returned nothing. `EVENT_STRESS` had never fired
+because the sources could not produce a market event, not because the classifier was
+weak.
+
+Replaced with targeted Google News queries (gold price, iran rial currency, middle
+east strike OR attack) plus investing.com commodities and two Iranian economic papers.
+**A topic query sets signal-to-noise at the source** rather than ingesting a nation's
+news and filtering afterwards.
+
+**`news_events.source` now records feed identity** instead of the constant `rss`. The
+dedup key deliberately still hashes the historical `rss` namespace: it was always
+effectively a title hash, and changing it would re-key the corpus and break
+cross-feed deduplication.
+
+**2,861 mehrnews rows deleted** with before/after verification; all other table counts
+unchanged.
+
+**Unresolved:** donya-e-eqtesad.com and tejaratnews.com parse from inside Iran but are
+unproven from a GitHub runner. Check their per-source yield after a day of scheduled
+runs; silent geoblocking is what killed the previous three.

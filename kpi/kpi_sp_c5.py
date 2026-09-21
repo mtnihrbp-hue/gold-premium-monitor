@@ -447,6 +447,87 @@ class KPISPC5(unittest.TestCase):
                                2000.0 * 50000.0 / 31.1034768 * 0.75, places=4)
 
 
+    # -- 5. news source provenance and the feed list (SP-C.10) -----------------
+
+    def test_32_feed_identity_is_recorded_not_a_constant(self):
+        # news_events.source was the literal string "rss" on all 4,019 rows ever
+        # written. Which feed an item came from was recoverable only by parsing its
+        # URL -- and a per-source yield measurement is exactly what exposed one feed
+        # producing 71% of the corpus and none of the signal.
+        from collector.news.rss import source_label
+        self.assertEqual(source_label("https://goldbroker.com/news.rss"), "goldbroker.com")
+        self.assertEqual(source_label("https://www.tehrantimes.com/rss"), "tehrantimes.com")
+        self.assertNotEqual(source_label("https://goldbroker.com/news.rss"), "rss")
+
+    def test_33_google_query_feeds_are_distinguishable_from_each_other(self):
+        # Three topic feeds share one host. Without the query they would all record
+        # as "news.google.com" and per-source yield would be meaningless again.
+        from collector.news.rss import source_label
+        gold = source_label("https://news.google.com/rss/search?q=gold+price+when:2d&hl=en-US")
+        rial = source_label("https://news.google.com/rss/search?q=iran+rial+currency+when:7d&hl=en-US")
+        self.assertEqual(gold, "google:gold price")
+        self.assertEqual(rial, "google:iran rial currency")
+        self.assertNotEqual(gold, rial)
+
+    def test_34_source_label_degrades_without_raising(self):
+        from collector.news.rss import source_label
+        for bad in ("", None, "not a url", "://broken"):
+            self.assertIsInstance(source_label(bad), str)
+
+    def test_35_the_dedup_key_did_not_change_meaning(self):
+        # The key was hashed over `source`, which was always the constant "rss" -- so
+        # in practice it has always been a hash of the title. Now that source carries
+        # real identity, hashing it would re-ingest the entire corpus as new and would
+        # stop the same story from two feeds deduplicating at all.
+        from datetime import datetime, timezone
+        from collector.news.rss import _normalize_item, DEDUP_NAMESPACE
+        self.assertEqual(DEDUP_NAMESPACE, "rss")
+        now = datetime(2026, 9, 21, tzinfo=timezone.utc)
+        a = _normalize_item("Gold rallies", "", "https://a.com/1", "goldbroker.com", now)
+        b = _normalize_item("Gold rallies", "", "https://b.com/9", "google:gold price", now)
+        self.assertEqual(a["dedup_key"], b["dedup_key"],
+                         "the same headline from two feeds must still deduplicate")
+        self.assertNotEqual(a["source"], b["source"])
+
+    def test_36_source_survives_parsing_into_the_item(self):
+        from collector.news.rss import parse_rss_xml
+        xml = """<?xml version="1.0"?><rss version="2.0"><channel>
+          <item><title>Rial slides</title><link>https://x.com/1</link>
+          <description>d</description><pubDate>Mon, 21 Sep 2026 06:00:00 GMT</pubDate></item>
+        </channel></rss>"""
+        items = parse_rss_xml(xml, source="google:iran rial currency")
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["source"], "google:iran rial currency")
+
+    def test_37_the_retired_feeds_are_not_in_the_shipped_config(self):
+        # Assert against the shipped file, not values a test passes in. The regime
+        # calibration was inert for a day because config pinned what code computed.
+        import json
+        path = os.path.join(os.path.dirname(__file__), "..", "config", "config.json")
+        with open(path, encoding="utf-8") as handle:
+            sources = json.load(handle)["news"]["sources"]
+        joined = " ".join(sources)
+        for retired, why in (
+            ("mehrnews.com", "2,861 rows, 0 relevant"),
+            ("tasnimnews.com", "geoblocked from outside Iran"),
+            ("eghtesadonline.com", "returns 0 items"),
+            ("cbi.ir", "connection reset, and it is rate data not news"),
+        ):
+            self.assertNotIn(retired, joined, f"{retired} was retired: {why}")
+
+    def test_38_the_targeted_queries_are_configured(self):
+        import json
+        path = os.path.join(os.path.dirname(__file__), "..", "config", "config.json")
+        with open(path, encoding="utf-8") as handle:
+            sources = json.load(handle)["news"]["sources"]
+        joined = " ".join(sources)
+        # The two inputs the system was blind to during the 2026-09-20 move.
+        self.assertIn("iran+rial", joined)
+        self.assertIn("middle+east", joined)
+        self.assertIn("gold+price", joined)
+        self.assertGreaterEqual(len(sources), 6)
+
+
 if __name__ == "__main__":
     loader = unittest.TestLoader()
     suite = loader.loadTestsFromTestCase(KPISPC5)

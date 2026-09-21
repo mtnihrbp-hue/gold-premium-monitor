@@ -37,17 +37,25 @@
   "news": {
     "enabled": true,
     "sources": [
-      "https://www.tasnimnews.com/fa/rss/feed",
-      "https://www.mehrnews.com/rss",
-      "https://www.tehrantimes.com/rss",
       "https://goldbroker.com/news.rss",
       "https://kingworldnews.com/feed",
-      "https://www.eghtesadonline.com/fa/rss",
-      "http://cbi.ir/exratesrss.aspx"
+      "https://www.investing.com/rss/commodities.rss",
+      "https://news.google.com/rss/search?q=gold+price+when:2d&hl=en-US&gl=US&ceid=US:en",
+      "https://news.google.com/rss/search?q=iran+rial+currency+when:7d&hl=en-US&gl=US&ceid=US:en",
+      "https://news.google.com/rss/search?q=middle+east+strike+OR+attack+when:2d&hl=en-US&gl=US&ceid=US:en",
+      "https://donya-e-eqtesad.com/rss",
+      "https://tejaratnews.com/feed",
+      "https://www.tehrantimes.com/rss"
     ],
     "fetch_interval_minutes": 30,
     "classification_mode": "keyword",
-    "max_items_per_source": 20
+    "max_items_per_source": 20,
+    "sources_removed_2026_09_21": {
+      "https://www.mehrnews.com/rss": "1,987 items in 7 days, 0 relevant: a national news firehose",
+      "https://www.tasnimnews.com/fa/rss/feed": "RemoteDisconnected from outside Iran (geoblocked)",
+      "https://www.eghtesadonline.com/fa/rss": "returns 0 items",
+      "http://cbi.ir/exratesrss.aspx": "ConnectionReset from outside Iran; also rate data, not news"
+    }
   },
   "representative_price": {
     "fallback_sources": [
