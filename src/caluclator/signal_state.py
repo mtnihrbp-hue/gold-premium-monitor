@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Any, Optional
 
-from caluclator.valuation import evaluate_valuation
 from caluclator.momentum import get_premium_direction, evaluate_momentum
 from caluclator.structure import evaluate_structure
 from caluclator.conflict import evaluate_conflict, build_reason
@@ -65,6 +64,7 @@ def build_signal_state(
     last_alert: Optional[str],
     snapshot_id: int = 0,
     last_alert_at: Optional[datetime] = None,
+    valuation: Optional[str] = None,
 ) -> SignalState:
     """Orchestrate the full signal state pipeline.
 
@@ -80,12 +80,22 @@ def build_signal_state(
         last_alert_at: when that alert was sent, so the hysteresis gate can tell a
             live cooldown from an expired one. None means unknown, which the gate
             treats as expired rather than suppressing indefinitely.
+        valuation: CHEAP | FAIR | EXPENSIVE, already resolved against the reading's
+            own recent window by `analysis.bubble_position.resolve_decision_valuation`.
+            **None means UNKNOWN**, and the conflict matrix abstains.
+
+            This used to be computed here from a fixed threshold, which returned
+            CHEAP on all 364 stored decisions because the threshold sat outside the
+            entire observed range. It is passed in rather than computed because
+            ranking needs the window, the window needs a session, and a calculator
+            must not open one. There is deliberately no fixed-threshold fallback: a
+            fallback that always answers is exactly how this leg became a constant.
 
     Returns:
         fully populated SignalState
     """
-    # Valuation
-    valuation = evaluate_valuation(premium, thresholds)
+    # Valuation — resolved by the caller against the settled window, or absent.
+    valuation = valuation or "UNKNOWN"
 
     # Momentum
     premium_direction = get_premium_direction(premium, previous_premium)

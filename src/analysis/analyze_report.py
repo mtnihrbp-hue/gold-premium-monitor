@@ -476,8 +476,16 @@ def resolve_data_health(session, now: Optional[datetime] = None,
         if not clean and scheduled_days:
             # The gate clears once the span reaches its minimum; project from the
             # days already banked rather than printing a hand-typed date.
+            #
+            # The +1 is the settled window. `scheduled_days[-1] + remaining` is the
+            # day the last missing day gets *banked*, and the window excludes the
+            # current day, so the gate opens on the day after that. Measured
+            # 2026-09-21: 7 days banked, 09-14 to 09-20, the fourteenth lands on
+            # 09-27, and the first reading judged against fourteen settled scheduled
+            # days is on 09-28. The message read 09-27.
             remaining = MIN_SCHEDULED_COVERAGE_DAYS - len(scheduled_days)
-            result.clean_from = (scheduled_days[-1] + timedelta(days=remaining)).isoformat()
+            result.clean_from = (
+                scheduled_days[-1] + timedelta(days=remaining + 1)).isoformat()
 
         result.outcomes_total = session.query(OutcomeEvaluation).count()
         result.outcomes_resolved = session.query(OutcomeEvaluation).filter(

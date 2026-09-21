@@ -317,21 +317,58 @@ class KPISPC1(unittest.TestCase):
         )
         self.assertEqual(cheap.band, "CHEAP")
 
-    def test_31_band_expensive_above_the_boundary(self):
+    def test_31_band_expensive_needs_rank_and_a_premium(self):
+        """EXPENSIVE asserts the market is above fair value, so rank alone cannot
+        earn it. A high rank in a window of discounts means "less discounted than
+        usual", and the conflict matrix turns EXPENSIVE + WEAKENING into SELL -- on
+        rank alone this engine would have issued SELL on a market trading 1.6%
+        *below* fair value. See SP-C.15."""
         _seed([-5.0 + i * 0.05 for i in range(40)])
         pos = resolve_bubble_position(_test_get_session(), now=NOW)
+
+        # Top of the window, but still a discount.
         pricey = resolve_bubble_position(
             _test_get_session(), current_bubble=pos.expensive_above + 0.5, now=NOW
         )
-        self.assertEqual(pricey.band, "EXPENSIVE")
+        self.assertGreaterEqual(pricey.percentile, 80)
+        self.assertEqual(pricey.band, "FAIR",
+                         "a discount must never be labelled EXPENSIVE")
+
+        # Same rank, genuinely above fair value.
+        dear = resolve_bubble_position(
+            _test_get_session(), current_bubble=4.0, now=NOW,
+            thresholds={"buy_premium_percent": -1.5, "sell_premium_percent": 3.0},
+        )
+        self.assertEqual(dear.band, "EXPENSIVE")
+
+    def test_31b_a_sell_can_never_be_reached_from_a_discount(self):
+        """The property that matters, asserted end to end through the matrix rather
+        than on the label alone."""
+        from caluclator.conflict import evaluate_conflict
+        _seed([-5.0 + i * 0.05 for i in range(40)])
+        pos = resolve_bubble_position(
+            _test_get_session(), current_bubble=-3.0, now=NOW,
+            thresholds={"buy_premium_percent": -1.5, "sell_premium_percent": 3.0},
+        )
+        for momentum in ("IMPROVING", "WEAKENING", "NEUTRAL"):
+            for structure in ("DISCOUNT_DOMINANT", "MIXED", "PREMIUM_DOMINANT"):
+                _, candidate = evaluate_conflict(pos.band, momentum, structure)
+                self.assertNotEqual(candidate, "SELL")
 
     def test_32_band_survives_a_skewed_distribution(self):
         # A long cheap tail inflates the spread, so the z-score reports NORMAL while
-        # the reading actually sits in the top fifth. The band must follow rank.
+        # the reading actually sits in the top fifth. The band must follow rank --
+        # which it does: the reading is out of the cheap band, hence not CHEAP. It
+        # is not EXPENSIVE either, because it is still a 3% discount (test_31).
         _seed([-9.0] * 10 + [-4.0] * 25 + [-3.0] * 5)
         pos = resolve_bubble_position(_test_get_session(), current_bubble=-3.0, now=NOW)
         self.assertEqual(pos.zone, "NORMAL")
-        self.assertEqual(pos.band, "EXPENSIVE")
+        self.assertGreaterEqual(pos.percentile, 80)
+        self.assertEqual(pos.band, "FAIR")
+        # And a genuinely cheap reading in the same skewed window is still caught.
+        deep = resolve_bubble_position(
+            _test_get_session(), current_bubble=-9.0, now=NOW)
+        self.assertEqual(deep.band, "CHEAP")
 
     # --- expectancy --------------------------------------------------------
 

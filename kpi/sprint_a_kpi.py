@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from caluclator.valuation import evaluate_valuation
+from caluclator.valuation import classify_valuation
 from caluclator.momentum import get_premium_direction, evaluate_momentum
 from caluclator.structure import evaluate_structure
 from caluclator.conflict import evaluate_conflict
@@ -26,14 +26,16 @@ from alerts.telegram import format_decision_section
 
 def kpi_1_valuation_cheap_recognized():
     """1. Deep discount recognized as CHEAP."""
-    result = evaluate_valuation(-4.0, {"buy_premium": -1.5, "sell_premium": 2.0})
+    result = classify_valuation(10, -4.0, cheap_rank=40, expensive_rank=80,
+                                buy_at=-1.5, sell_at=3.0)
     assert result == "CHEAP", f"FAIL: expected CHEAP, got {result}"
     print("  ✓ KPI-1: Valuation cheap recognized")
 
 
 def kpi_2_valuation_expensive_recognized():
     """2. High premium recognized as EXPENSIVE."""
-    result = evaluate_valuation(3.0, {"buy_premium": -1.5, "sell_premium": 2.0})
+    result = classify_valuation(95, 3.0, cheap_rank=40, expensive_rank=80,
+                                buy_at=-1.5, sell_at=3.0)
     assert result == "EXPENSIVE", f"FAIL: expected EXPENSIVE, got {result}"
     print("  ✓ KPI-2: Valuation expensive recognized")
 
@@ -94,9 +96,10 @@ def kpi_8_state_persisted_to_neon():
         lowest_price=90.0,
         markets=markets,
         previous_premium=-2.0,
-        thresholds={"buy_premium": -1.5, "sell_premium": 2.0},
+        thresholds={"buy_premium_percent": -1.5, "sell_premium_percent": 3.0},
         last_alert=None,
         snapshot_id=42,
+        valuation="CHEAP",
     )
     required_fields = [
         "snapshot_id", "valuation", "momentum", "premium_direction",
@@ -123,9 +126,10 @@ def kpi_9_telegram_contains_normalized_state():
         lowest_price=90.0,
         markets=markets,
         previous_premium=-2.0,
-        thresholds={"buy_premium": -1.5, "sell_premium": 2.0},
+        thresholds={"buy_premium_percent": -1.5, "sell_premium_percent": 3.0},
         last_alert=None,
         snapshot_id=0,
+        valuation="CHEAP",
     )
     text = format_decision_section(state)
     assert "CHEAP" in text, "FAIL: valuation not in telegram"

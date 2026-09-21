@@ -30,6 +30,7 @@ from datetime import datetime, timedelta
 from statistics import mean, median, pstdev
 from typing import List, Optional
 
+from caluclator.valuation import classify_valuation
 from database.models import MarketSnapshot, PlatformPrice
 from timeutil import local_date, to_utc
 
@@ -130,21 +131,34 @@ def _value_at_percentile(sorted_values: List[float], percentile: int) -> float:
     return sorted_values[max(0, min(len(sorted_values) - 1, index))]
 
 
-def _classify_band(percentile: Optional[int]) -> str:
-    """Plain bands for presentation.
+def _classify_band(percentile: Optional[int], premium: Optional[float] = None,
+                   thresholds: Optional[dict] = None) -> str:
+    """The same label the decision engine gets, for the same reading.
 
     Percentile is used rather than the z-score because the bubble distribution is
     left-skewed: a long tail of deep discounts inflates the standard deviation, so
     a z-score reports readings as normal while they sit in the top fifth of the
     range. Rank survives skew; distance from the mean does not.
+
+    This used to be an independent classifier returning CHEAP / TYPICAL / EXPENSIVE
+    on rank alone, and it sat in `valuation_context_json` beside a column computed
+    from a fixed threshold. The two disagreed on 114 of the 134 rows that carry
+    both -- CHEAP in the column, EXPENSIVE in the JSON, the same row, the same
+    moment. It now delegates, so a row cannot contradict itself.
+
+    `TYPICAL` became `FAIR` in the same change: the conflict matrix keys on FAIR,
+    and one concept must not answer to two words. Nothing displayed this label, so
+    no reader saw the rename.
     """
     if percentile is None:
         return "INSUFFICIENT_DATA"
-    if percentile < CHEAP_PERCENTILE:
-        return "CHEAP"
-    if percentile >= EXPENSIVE_PERCENTILE:
-        return "EXPENSIVE"
-    return "TYPICAL"
+    thresholds = thresholds or {}
+    return classify_valuation(
+        percentile, premium,
+        cheap_rank=CHEAP_PERCENTILE, expensive_rank=EXPENSIVE_PERCENTILE,
+        buy_at=thresholds.get("buy_premium_percent", -1.5),
+        sell_at=thresholds.get("sell_premium_percent", 3.0),
+    )
 
 
 def _classify_zone(z_score: Optional[float]) -> str:
@@ -196,6 +210,7 @@ def resolve_bubble_position(
     current_bubble: Optional[float] = None,
     window_days: int = DEFAULT_WINDOW_DAYS,
     now: Optional[datetime] = None,
+    thresholds: Optional[dict] = None,
 ) -> BubblePosition:
     """Locate the current bubble within its own recent distribution.
 
@@ -261,7 +276,7 @@ def resolve_bubble_position(
         percentile=percentile,
         cheap_below=round(_value_at_percentile(ordered, CHEAP_PERCENTILE), 4),
         expensive_above=round(_value_at_percentile(ordered, EXPENSIVE_PERCENTILE), 4),
-        band=_classify_band(percentile),
+        band=_classify_band(percentile, bubble, thresholds),
         zone=_classify_zone(z_score),
         confidence=_classify_confidence(coverage_days, len(values)),
         drift=_classify_drift(values, spread),
@@ -392,6 +407,111 @@ def deep_discount_threshold(readings) -> Optional[float]:
     # zone with eight readings in it measures zero episodes. Callers format to two
     # decimals; nothing compares against a rounded copy.
     return _value_at_percentile(sizes, DEEP_DISCOUNT_PERCENTILE)
+
+
+@dataclass
+class DecisionValuation:
+    """The valuation leg handed to the conflict matrix."""
+    state: str = "UNKNOWN"
+    premium: Optional[float] = None
+    percentile: Optional[int] = None
+    cheap_below: Optional[float] = None      # premium at which CHEAP starts
+    expensive_above: Optional[float] = None  # premium at which EXPENSIVE starts
+    sample_size: int = 0
+    coverage_days: int = 0
+    window_days: int = DEFAULT_WINDOW_DAYS
+    status: str = "INSUFFICIENT_DATA"
+
+
+def stored_premium_series(session, window_start, now):
+    """(timestamp, collection_mode, stored premium_percent) per snapshot.
+
+    Deliberately the **stored** column rather than the trimmed basis every displayed
+    figure uses. The decision engine, `analysis_snapshots` and `outcome_evaluations`
+    all speak in `premium_percent`, and `LESSONS_LEARNED.md` section 8 is explicit
+    that a reading must be ranked against a window built on its own basis. Ranking a
+    min-based reading against a trimmed-basis window would move it 0.55 pp on median
+    with no market movement at all.
+
+    The two bases are a registered, deliberate divergence
+    (`SP_C_HANDOFF.md` 15.1); this function keeps the decision leg on one side of it
+    rather than straddling both.
+    """
+    rows = (
+        session.query(MarketSnapshot.timestamp,
+                      MarketSnapshot.collection_mode,
+                      MarketSnapshot.premium_percent)
+        .filter(
+            MarketSnapshot.premium_percent.isnot(None),
+            MarketSnapshot.timestamp >= window_start,
+            MarketSnapshot.timestamp <= now,
+        )
+        .order_by(MarketSnapshot.timestamp.asc())
+        .all()
+    )
+    return [(timestamp, mode, float(premium)) for timestamp, mode, premium in rows]
+
+
+def resolve_decision_valuation(
+    session,
+    premium: Optional[float],
+    thresholds: dict,
+    now: Optional[datetime] = None,
+    window_days: int = DEFAULT_WINDOW_DAYS,
+) -> DecisionValuation:
+    """Rank the current reading and label it, for the decision engine.
+
+    Three properties are load-bearing, and all three were missing from
+    `resolve_bubble_position`, which is the other function that ranks this quantity:
+
+    - **The reference is settled.** It ends at the last completed local day, so the
+      label holds still against a fixed yardstick within a day rather than drifting
+      as the window grows. Same rule as SP-C.7.
+    - **The reader's own clicks are excluded.** Pressing Update must not move the
+      level the decision engine is measured against.
+    - **Too little history means UNKNOWN**, which the conflict matrix turns into an
+      abstention. There is no fixed-threshold fallback, because a fallback that
+      always answers is how this leg became a constant in the first place.
+
+    `thresholds` is injected rather than read here, matching `RegimeDetector`, so
+    nothing in `analysis/` reaches for a config file.
+    """
+    result = DecisionValuation(premium=premium, window_days=window_days)
+    if session is None or premium is None:
+        return result
+    if now is None:
+        now = datetime.utcnow()
+
+    reference_end = to_utc(datetime.combine(local_date(now), datetime.min.time()))
+    try:
+        series = stored_premium_series(
+            session, reference_end - timedelta(days=window_days), now)
+    except Exception as e:
+        print(f"Decision valuation query failed: {e}")
+        return result
+
+    pool = reference_readings(series, reference_end)
+    values = sorted(item[2] for item in pool)
+    result.sample_size = len(values)
+    result.coverage_days = len({local_date(item[0]) for item in pool})
+    if len(values) < MIN_OBSERVATIONS:
+        return result
+
+    buy_at = thresholds.get("buy_premium_percent", -1.5)
+    sell_at = thresholds.get("sell_premium_percent", 3.0)
+
+    result.percentile = _percentile_of(premium, values)
+    result.cheap_below = round(
+        min(_value_at_percentile(values, CHEAP_PERCENTILE), buy_at), 4)
+    result.expensive_above = round(
+        max(_value_at_percentile(values, EXPENSIVE_PERCENTILE), sell_at), 4)
+    result.state = classify_valuation(
+        result.percentile, premium,
+        cheap_rank=CHEAP_PERCENTILE, expensive_rank=EXPENSIVE_PERCENTILE,
+        buy_at=buy_at, sell_at=sell_at,
+    )
+    result.status = "OK"
+    return result
 
 
 def _basis_series(session, window_start, now):

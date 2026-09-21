@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from caluclator.valuation import evaluate_valuation
+from caluclator.valuation import classify_valuation
 from caluclator.momentum import get_premium_direction, evaluate_momentum
 from caluclator.structure import evaluate_structure
 from caluclator.conflict import evaluate_conflict
@@ -22,25 +22,29 @@ from caluclator.signal_state import build_signal_state, SignalState
 
 def test_valuation_cheap():
     """premium = -4.0, threshold = -1.5 → CHEAP"""
-    result = evaluate_valuation(-4.0, {"buy_premium": -1.5, "sell_premium": 2.0})
+    result = classify_valuation(10, -4.0, cheap_rank=40, expensive_rank=80,
+                                buy_at=-1.5, sell_at=3.0)
     assert result == "CHEAP", f"Expected CHEAP, got {result}"
 
 
 def test_valuation_expensive():
     """premium = 3.0, threshold = 2.0 → EXPENSIVE"""
-    result = evaluate_valuation(3.0, {"buy_premium": -1.5, "sell_premium": 2.0})
+    result = classify_valuation(95, 3.0, cheap_rank=40, expensive_rank=80,
+                                buy_at=-1.5, sell_at=3.0)
     assert result == "EXPENSIVE", f"Expected EXPENSIVE, got {result}"
 
 
 def test_valuation_fair():
     """premium = 0.5 → FAIR"""
-    result = evaluate_valuation(0.5, {"buy_premium": -1.5, "sell_premium": 2.0})
+    result = classify_valuation(50, 0.5, cheap_rank=40, expensive_rank=80,
+                                buy_at=-1.5, sell_at=3.0)
     assert result == "FAIR", f"Expected FAIR, got {result}"
 
 
 def test_valuation_unknown():
     """premium = None → UNKNOWN"""
-    result = evaluate_valuation(None, {"buy_premium": -1.5, "sell_premium": 2.0})
+    result = classify_valuation(None, None, cheap_rank=40, expensive_rank=80,
+                                buy_at=-1.5, sell_at=3.0)
     assert result == "UNKNOWN", f"Expected UNKNOWN, got {result}"
 
 
@@ -238,9 +242,10 @@ def test_build_signal_state_integration():
         lowest_price=90.0,
         markets=markets,
         previous_premium=-2.0,
-        thresholds={"buy_premium": -1.5, "sell_premium": 2.0},
+        thresholds={"buy_premium_percent": -1.5, "sell_premium_percent": 3.0},
         last_alert=None,
         snapshot_id=0,
+        valuation="CHEAP",
     )
     assert state.valuation == "CHEAP"
     assert state.momentum == "IMPROVING"

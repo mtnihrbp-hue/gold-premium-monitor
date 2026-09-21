@@ -19,7 +19,7 @@ before reading any failure narrative below as live.**
 |---|---|---|
 | Analyze trigger misrouted; scheduled runs took the UPDATE path | 2026-09-13 | this file, "The Analyze trigger was misrouted" |
 | RUN baseline compared against the user's own previous request | 2026-09-14 | SP-C.1 |
-| valuation_state read CHEAP on every reading (fixed threshold) | **PARTLY** 2026-09-15 | SP-C.2 fixed the reader's valuation only. The column the decision engine reads is still CHEAP on 364/364 rows -- open, see SP-C.14, section 25.5 |
+| valuation_state read CHEAP on every reading (fixed threshold) | 2026-09-15 **and** 2026-09-21 | SP-C.2 fixed the reader's valuation; the decision engine's column stayed constant on 364/364 rows until SP-C.15 replaced it with a rank. Both instances now closed, section 26 |
 | Outcome evaluations never resolved after their horizons matured | 2026-09-15 | SP-C.3 |
 | Message times and day boundaries were UTC, not Iran local | 2026-09-16 | SP-C.5, section 15.3 |
 | Valuation computed from a single cheapest platform (tail point) | 2026-09-16 | SP-C.5, section 15.1 |
@@ -33,8 +33,9 @@ before reading any failure narrative below as live.**
 | Push fired on `abs(gap)`, so a premium would alert as a deep discount | 2026-09-21 | SP-C.13, section 24.5 |
 | Rounded threshold excluded the readings it was drawn from | 2026-09-21 | SP-C.13, section 24.6 |
 | A third copy of the percentile formula, in regime.py | 2026-09-21 | SP-C.14, section 25.4 |
-| valuation.py reads config keys that do not exist; configured sell threshold never in effect | **OPEN** | SP-C.14, section 25.4 |
-| valuation_context_json persisted every run, read by nothing | **OPEN** | SP-C.14, section 25.4 |
+| valuation.py reads config keys that do not exist; configured sell threshold never in effect | 2026-09-21 | SP-C.15, section 26.5 |
+| valuation_context_json persisted every run, read by nothing | **BY DESIGN** | reclassified as an audit record in SP-C.15, section 26.6 |
+| ANALYZE projected the scheduled gate one day early | 2026-09-21 | SP-C.15, section 26.9 |
 
 
 ## 1. Documentation Authority
@@ -2155,3 +2156,64 @@ every reading` as resolved in SP-C.2. It was not: SP-C.2 fixed the reader's valu
 and left the column the decision engine reads untouched. The row is corrected above.
 Future index entries name the class and list its open instances, not just the instance
 that was fixed.
+
+
+---
+
+## SP-C.15 - the valuation leg carries information (2026-09-21)
+
+Full record in `SP_C_HANDOFF.md` section 26.
+
+**What was wrong.** `valuation_state` was CHEAP on 364 of 364 rows. Its fixed
+threshold of `-1.5` sat 0.02 pp outside the entire observed range of 438 readings, so
+it had never been crossed. It is the first input to the conflict matrix, so every
+decision the engine has made rested on two legs while reporting three.
+
+**The leg is now a rank with a direction gate.**
+`caluclator.valuation.classify_valuation` is the only place a valuation label is
+produced:
+
+```text
+CHEAP       rank < CHEAP_PERCENTILE       AND  premium <= buy_premium_percent
+EXPENSIVE   rank >= EXPENSIVE_PERCENTILE  AND  premium >= sell_premium_percent
+FAIR        anything else
+UNKNOWN     no rank -- too little history
+```
+
+**The direction gate is load-bearing, do not remove it.** A percentile-EXPENSIVE
+reading means "less discounted than usual", not "above fair value", and the matrix
+turns EXPENSIVE + WEAKENING into SELL. On rank alone this engine would issue SELL on a
+market trading 1.6% *below* fair value. On the record the sell gate never opens
+because the highest premium ever stored is -1.52%. That is correct, not degenerate:
+the world has not supplied the other case. See `LESSONS_LEARNED.md` section 13.
+
+**No fallback.** Below `MIN_OBSERVATIONS` the answer is UNKNOWN and the matrix
+abstains. A fallback that always answers is how this leg became a constant.
+
+**The reference is settled and excludes user rows**, on the SP-C.13 pool discipline,
+and ranks the **stored** `premium_percent` against a window of stored
+`premium_percent` (`stored_premium_series`). Ranking it against the trimmed basis
+would move it 0.55 pp on median with no market movement.
+
+**`build_signal_state` no longer classifies**, it receives. Ranking needs a window, a
+window needs a session, and a calculator must not open one. Omitting the argument
+yields UNKNOWN.
+
+**One classifier.** `bubble_position._classify_band` delegates to the same function,
+so `valuation_context_json` and `valuation_state` cannot contradict each other again;
+they disagreed on 114 of 134 rows. `TYPICAL` became `FAIR`.
+
+**Config keys that were never read.** `valuation.py` asked for `buy_premium` /
+`sell_premium`; config defines `buy_premium_percent` / `sell_premium_percent`. Both
+missed and fell through to hardcoded defaults, so the configured sell threshold of 3.0
+had never been in effect. Fixed. `cooldown_hours` is now defined at 24, the value
+already in force.
+
+**Measured over the record.** `CHEAP 366` becomes `CHEAP 111, FAIR 222, UNKNOWN 33`;
+candidates `BUY 131` becomes `BUY 63`; 91 of 366 candidates change. Collapsed to one
+observation per local day, CHEAP readings were followed by the discount narrowing
+78.6% of the time against 41.0% for FAIR. Descriptive, in-sample, not a validated
+edge.
+
+**Also fixed:** ANALYZE's projected `clean from` date was a day early. The window is
+settled, so the gate opens the day after the last missing scheduled day is banked.

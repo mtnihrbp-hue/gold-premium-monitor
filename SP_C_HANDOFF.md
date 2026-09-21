@@ -1978,3 +1978,176 @@ not; the index said otherwise.
 
 Every future entry in that index names the class and lists its instances, open ones
 included.
+
+---
+
+## 26. SP-C.15 - the valuation leg starts carrying information (2026-09-21)
+
+The largest open divergence in section 25.5, closed on the product owner's
+authorization.
+
+### 26.1 What was wrong
+
+```text
+market_states.valuation_state        CHEAP  364 / 364 rows
+stored premium_percent               -8.19% to -1.52%
+rows shallower than buy_premium       0
+```
+
+`evaluate_valuation` compared the premium against a fixed threshold of `-1.5`. That
+threshold sat **0.02 pp outside the entire observed range** of 438 readings, so it had
+never been crossed in either direction and the column had never held any value but
+CHEAP.
+
+`valuation_state` is the first input to the conflict matrix:
+
+```text
+Valuation -> Premium Direction -> Momentum -> Structure -> Conflict
+          -> Candidate -> Hysteresis -> Final
+```
+
+One of three inputs carried no information for the entire record. Every decision the
+engine has made rested on two legs while reporting three, and the decision scorecard
+measured an edge of 0.0 because it was scoring a constant against a constant.
+
+The replacement already existed and was wired to nothing. SP-C.2 built the percentile
+band, stored it in `valuation_context_json` **beside** the column, and the two
+disagreed on 114 of the 134 rows carrying both -- CHEAP in the column, EXPENSIVE in
+the JSON, the same row, the same moment.
+
+### 26.2 The near-miss that shaped the design
+
+The obvious fix -- feed the percentile band straight into the matrix -- would have
+been a serious mistake, and it is worth recording why it was rejected.
+
+A percentile-EXPENSIVE reading means *less discounted than usual*. It does **not**
+mean the market is above fair value. The matrix turns `EXPENSIVE + WEAKENING` into
+`SELL`. Fed a bare rank, this engine would have started issuing SELL on a market
+trading 1.6% **below** fair value.
+
+So each label carries the direction it asserts, which is `LESSONS_LEARNED.md` section
+12 applied where it actually bites:
+
+```text
+CHEAP       rank below CHEAP_PERCENTILE      AND  premium <= buy_premium_percent
+EXPENSIVE   rank at or above EXPENSIVE_...   AND  premium >= sell_premium_percent
+FAIR        anything else
+UNKNOWN     no rank -- the window is too short to place the reading
+```
+
+On the record the sell-side gate never opens: the highest premium ever stored is
+-1.52%, so EXPENSIVE cannot occur and SELL cannot fire. **This is correct, not
+degenerate.** The market has genuinely never traded above fair value. Section 13 of
+`LESSONS_LEARNED.md` is the distinction: a constant output is a defect only when the
+world contained the other case and the classifier missed it. Do not "fix" this by
+removing the gate.
+
+### 26.3 Three properties the new leg inherits deliberately
+
+`resolve_bubble_position`, the other function that ranks this quantity, has none of
+them -- it uses `datetime.now()`, includes today, and counts user rows. Those are the
+SP-C.5 and SP-C.7 defects, fixed once in `resolve_relative_valuation` and never
+back-ported: the same fix-the-instance pattern as section 25.6. The new leg is built
+on the SP-C.13 pool discipline instead:
+
+- **The reference is settled**, ending at the last completed local day, so the label
+  is measured against a yardstick that holds still within a day.
+- **User rows are excluded**, so pressing Update cannot move the level the decision
+  engine is judged against.
+- **Below `MIN_OBSERVATIONS` the answer is UNKNOWN**, which the matrix turns into an
+  abstention. There is deliberately **no fixed-threshold fallback**: a fallback that
+  always answers is exactly how this leg became a constant.
+
+It ranks the **stored** `premium_percent` against a window of stored
+`premium_percent` (`stored_premium_series`), not against the trimmed basis every
+displayed figure uses. Ranking a min-based reading against a trimmed-basis window
+would move it 0.55 pp on median with no market movement -- `LESSONS_LEARNED.md`
+section 8. The two-basis split stays registered and untouched.
+
+### 26.4 One classifier, not two agreeing ones
+
+`caluclator/valuation.classify_valuation` is the only place a valuation label is
+produced. `bubble_position._classify_band` delegates to it, so
+`valuation_context_json` and `valuation_state` cannot contradict each other again.
+`TYPICAL` became `FAIR` in the same change -- the matrix keys on FAIR, one concept
+must not answer to two words, and nothing displayed that label so no reader saw it.
+
+`build_signal_state` no longer classifies. It **receives** the state, because ranking
+needs a window, a window needs a session, and a calculator must not open one. Omitting
+it yields UNKNOWN rather than a guess.
+
+### 26.5 Config keys that were never read
+
+`caluclator/valuation.py` asked for `buy_premium` and `sell_premium`. `config.json`
+defines `buy_premium_percent` and `sell_premium_percent`. Both lookups missed and fell
+through to hardcoded defaults of `-1.5` and `2.0`. The buy default happened to equal
+the configured value, which hid the fault; the sell default did not, so the configured
+`3.0` **had never been in effect** and editing the file did nothing.
+
+Fixed by the rewrite. `signals.py` had the milder form -- `cooldown_hours` was not
+defined in config, so the 24-hour cooldown looked configurable and was not. It is now
+defined at `24`, the value already in force, so nothing moves.
+
+`kpi_coherence.test_11` now asserts the configured bound actually changes the answer,
+which merely having the key present does not prove.
+
+### 26.6 `valuation_context_json` stays write-only, on purpose
+
+It remains in the register, with a different reason. It is no longer a replacement
+waiting to be wired -- that replacement has now shipped. It is an audit record: what
+the system knew when a decision was made, so the scorecard can attribute an outcome
+later without recomputing it from whatever the logic says at scoring time. A consumer
+inside `src/` would make the decision depend on its own audit trail.
+
+### 26.7 What the record says this changes
+
+Replayed across all 366 stored decisions, rebuilding each rank from the settled
+non-user window as it stood at that moment:
+
+```text
+valuation_state   CHEAP 366          ->  CHEAP 111, FAIR 222, UNKNOWN 33
+candidate         BUY 131, WAIT 235  ->  BUY 63,    WAIT 270, UNKNOWN 33
+EXPENSIVE readings                   ->  0
+candidates changed                       91 of 366
+```
+
+The 33 UNKNOWNs are the opening month, before the window reaches
+`MIN_OBSERVATIONS`. They abstain.
+
+And the separation is real. Collapsing to one observation per local day per state, to
+remove the overlap between hourly readings sharing a 24-hour horizon:
+
+```text
+state    days   discount narrowed   mean
+CHEAP      28               78.6%   +0.65 pp
+FAIR       39               41.0%   -0.32 pp
+```
+
+**Stated as description, not as a validated edge.** It is in-sample, one market regime
+over forty days, and `skills/market-analyst.md` forbids manufacturing confidence from
+a small sample. The sufficient claim is narrower: the fixed threshold could not
+produce this table at all, because one bucket has nothing to be compared with.
+
+### 26.8 Verification
+
+```text
+KPI suite 26 files. kpi_sp_c1 58 -> 59, kpi_coherence 17 -> 20.
+Register of accepted divergences: 5 entries -> 3.
+```
+
+Two entries closed because the divergence was fixed, which failed the suite until the
+entries were retired -- the anti-rot property of section 25.3 doing its job on the
+first change after it was written.
+
+### 26.9 Still open
+
+- `resolve_bubble_position` keeps the unsettled window, `datetime.now()` and the
+  included user rows described in 26.3. Nothing decides on it any more, but it feeds
+  `valuation_context_json`, so the audit record is ranked slightly differently from
+  the decision it accompanies. Its own change.
+- The `-1.5` and `3.0` bounds are now direction gates rather than triggers, and
+  neither has been re-derived from data. The ranks (40 / 80) come from 41 days of
+  observation in SP-C.2 and are still the starting values, not measured ones.
+- `ANALYZE` prints "clean from 2026-09-27"; the scheduled gate opens on **2026-09-28**
+  (first scheduled day 09-14, fourteen settled days ends 09-27, so the first day the
+  window contains them is the 28th). Off by one, presentation only.

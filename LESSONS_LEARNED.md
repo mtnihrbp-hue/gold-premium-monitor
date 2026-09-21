@@ -485,3 +485,43 @@ Two conditions kept it invisible:
 
 What actually caught the last three of these: a human reading the real outputs side by
 side. Not review, not the suite. That is where the signal is, and it is cheap to look.
+
+
+---
+
+## 14. The safe-looking fix that was the dangerous one
+
+`valuation_state` had been CHEAP on 364 of 364 rows because its threshold sat outside
+the observed range. The percentile band that should replace it already existed,
+already varied, and was already being computed on every run. Swapping one for the
+other looked like a two-line change.
+
+It would have started issuing SELL on a market trading below fair value.
+
+A percentile-EXPENSIVE reading means *less discounted than usual*. It does not mean
+the market is above fair value. The conflict matrix turns `EXPENSIVE + WEAKENING` into
+`SELL`, so the ranked band — correct as a description of position — becomes a false
+claim about direction the moment it is read by something that acts on direction.
+
+Nothing in the band was wrong. Nothing in the matrix was wrong. The defect would have
+been created entirely by connecting them, and it would have been created by the change
+that fixed a real, measured, well-documented bug.
+
+**The rules.**
+
+1. **A value means what its producer measured, not what its consumer assumes.** Before
+   wiring an existing quantity into a new consumer, state in one sentence what it
+   asserts, and check that against what the consumer will do with it. "Rank within the
+   window" and "above fair value" are different sentences.
+2. **Check the fix for the failure mode of the thing it replaces.** The old leg could
+   never say EXPENSIVE, so SELL had never fired and no test, no KPI and no production
+   row covered that path. The replacement made a dead branch live, and a dead branch
+   going live is a new feature with no history behind it.
+3. **Carry the direction with the label.** Same rule as section 12, applied one layer
+   up: `CHEAP` and `EXPENSIVE` now each require the reading to be on the side of fair
+   value the word claims. The gate never opens on the record — every reading is a
+   discount — and that is the correct answer, not a dead bound to be tidied away.
+
+The general shape: the most dangerous change is not the one that looks risky. It is
+the obviously-correct one that removes a constraint nobody realised was load-bearing,
+because the constraint was an accident.

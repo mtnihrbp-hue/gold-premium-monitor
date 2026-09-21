@@ -11,18 +11,26 @@ caught by a human reading three production messages side by side. Nothing in a s
 of 25 files landed on it, and nothing would have, because an assertion that spans two
 modules has to be written on purpose.
 
-Auditing for that one defect then turned up three more of the same shape, all older:
+Auditing for that one defect then turned up three more of the same shape, all older,
+and this file was written before any of them were fixed:
 
-    valuation_state is CHEAP on 364 of 364 rows (fixed threshold) while the
-    percentile band stored in the same row reads EXPENSIVE on 54 of 134
+    valuation_state was CHEAP on 364 of 364 rows (fixed threshold) while the
+    percentile band stored in the same row read EXPENSIVE on 54 of 134
+    -- closed in SP-C.15, both now come from one classifier
 
-    caluclator/valuation.py reads config keys `buy_premium` / `sell_premium`,
+    caluclator/valuation.py read config keys `buy_premium` / `sell_premium`,
     which do not exist -- config.json defines `buy_premium_percent` /
-    `sell_premium_percent` -- so it silently uses its own defaults and the
-    configured sell threshold of 3.0 has never been in effect
+    `sell_premium_percent` -- so it silently used its own defaults and the
+    configured sell threshold of 3.0 had never been in effect
+    -- closed in SP-C.15
 
     valuation_context_json is computed and persisted on every run and nothing
-    anywhere reads it
+    in src/ reads it
+    -- still registered, now as a deliberate audit record
+
+Two of the three closed on the first change made after this file existed, and closing
+them failed the suite until their register entries were retired. That is the intended
+behaviour, not a nuisance: see below.
 
 --------------------------------------------------------------------------------
 The register
@@ -77,7 +85,7 @@ Base.metadata.create_all(bind=_TEST_ENGINE)
 from analysis import analyze_report as ar
 from analysis import bubble_position as bp
 from analysis import push_trigger as pt
-from caluclator.valuation import evaluate_valuation
+from caluclator.valuation import classify_valuation
 
 NOW = datetime(2026, 9, 21, 12, 0, 0)
 FAIR = 240_000_000
@@ -93,7 +101,7 @@ PRODUCTION_SHAPE = [0.83, 1.20, 1.55, 1.90, 2.10, 2.35, 2.50, 2.68, 2.80, 2.95,
 
 # The same market on the *stored* basis: premium_percent is computed from the single
 # cheapest platform, so it runs deeper -- -8.19% to -1.52% across all 438 rows. It is
-# a separate constant because `evaluate_valuation` consumes the stored column while
+# a separate constant because the decision leg ranks the stored column while
 # every displayed figure comes from the trimmed basis, and feeding a classifier the
 # wrong one of the two is itself the divergence this file is about.
 #
@@ -109,31 +117,14 @@ STORED_PREMIUM_SHAPE = [-1.52, -1.70, -1.95, -2.20, -2.48, -2.75, -3.00, -3.28,
 # ---------------------------------------------------------------------------
 
 ACCEPTED = {
-    "valuation_state_vs_band": {
-        "what": "market_states.valuation_state (fixed threshold) against the "
-                "percentile band in bubble_position",
-        "why": "Replacing the decision engine's valuation leg is a foundation "
-               "change to the SP-A pipeline and needs its own phase and the "
-               "product owner's approval. Recorded, not silently tolerated.",
-        "doc": ("PROJECT_MEMORY.md", "SP-C.13"),
-    },
-    "config_keys_not_defined": {
-        "what": "caluclator/valuation.py reads `buy_premium` / `sell_premium` and "
-                "caluclator/signals.py reads `cooldown_hours`; config.json defines "
-                "none of the three, so all three silently use hardcoded defaults",
-        "why": "Pointing valuation.py at the real keys moves the sell threshold "
-               "from its hardcoded 2.0 to the configured 3.0, changing what the "
-               "decision engine calls EXPENSIVE. Defining cooldown_hours is safe "
-               "but belongs with that decision rather than ahead of it.",
-        "doc": ("PROJECT_MEMORY.md", "SP-C.13"),
-    },
     "valuation_context_unwired": {
         "what": "market_states.valuation_context_json is written every run and "
-                "read by nothing",
-        "why": "It is the percentile valuation built in SP-C.2, persisted ahead "
-               "of the consumer that would replace the fixed-threshold column. "
-               "Wiring it is the same foundation change as above.",
-        "doc": ("LESSONS_LEARNED.md", "Built but not wired"),
+                "read by nothing in src/",
+        "why": "Deliberately an audit record rather than an input. It captures what "
+               "the system knew when a decision was made so the scorecard can "
+               "attribute an outcome later; a consumer inside src/ would make the "
+               "decision depend on its own audit trail.",
+        "doc": ("SP_C_HANDOFF.md", "26.6"),
     },
     "displayed_gap_vs_stored_premium": {
         "what": "the discount shown to a reader (mean of the 3 cheapest) against "
@@ -194,6 +185,30 @@ def _python_files(*subdirs):
 
 def _read(path):
     return path.read_text(encoding="utf-8", errors="replace")
+
+
+def _code(path):
+    """The file with comments and string literals removed.
+
+    Scanning raw text for a symbol counts the prose that discusses it. The first
+    version of `test_25` reported `valuation_context_json` as wired because a
+    docstring in `caluclator/valuation.py` explains why it is not -- a test passing
+    for the exact reason it exists to catch. This file is about assertions that span
+    modules; an assertion that cannot tell code from a comment spans nothing.
+    """
+    import io as _io
+    import tokenize as _tokenize
+
+    source = _read(path)
+    kept = []
+    try:
+        for token in _tokenize.generate_tokens(_io.StringIO(source).readline):
+            if token.type in (_tokenize.COMMENT, _tokenize.STRING):
+                continue
+            kept.append(token.string)
+    except (_tokenize.TokenError, IndentationError, SyntaxError):
+        return source
+    return "\n".join(kept)
 
 
 def _config():
@@ -281,65 +296,108 @@ class KPICoherence(unittest.TestCase):
         pattern = re.compile(r"thresholds\.get\(\s*[\"'](\w+)[\"']")
         missing = {}
         for path in _python_files("caluclator"):
-            for key in pattern.findall(_read(path)):
+            for key in pattern.findall(_code(path)):
                 if key not in configured:
                     missing.setdefault(path.name, set()).add(key)
 
-        expected = ({"valuation.py": {"buy_premium", "sell_premium"},
-                     "signals.py": {"cooldown_hours"}}
-                    if "config_keys_not_defined" in ACCEPTED else {})
-        self.assertEqual({k: set(v) for k, v in missing.items()}, expected,
+        self.assertEqual({k: sorted(v) for k, v in missing.items()}, {},
                          "a module reads a threshold key config does not define")
 
-    def test_11_the_registered_config_mismatch_is_still_real(self):
-        """If it has been fixed, this file must be updated rather than left to
-        assert a state that no longer exists."""
-        if "config_keys_not_defined" not in ACCEPTED:
-            self.skipTest("entry retired")
-        source = _read(SRC / "caluclator" / "valuation.py")
-        self.assertIn('thresholds.get("buy_premium"', source,
-                      "valuation.py now reads the real key -- retire the register "
-                      "entry and delete this test")
+    def test_11_the_configured_bounds_actually_reach_the_classifier(self):
+        """Not enough that the keys exist -- the values must change the answer.
+        `sell_premium_percent` was 3.0 in config and 2.0 in effect for months,
+        because the lookup missed and fell through to a hardcoded default."""
+        thresholds = _config()["thresholds"]
+        sell_at = thresholds["sell_premium_percent"]
+        kw = dict(cheap_rank=40, expensive_rank=80,
+                  buy_at=thresholds["buy_premium_percent"])
+        self.assertEqual(
+            classify_valuation(95, sell_at, sell_at=sell_at, **kw), "EXPENSIVE")
+        self.assertEqual(
+            classify_valuation(95, sell_at - 0.01, sell_at=sell_at, **kw), "FAIR",
+            "the configured sell threshold does not bind")
 
     # -- 3. two classifiers of one concept ------------------------------------
 
-    def test_12_a_classifier_is_not_a_constant_over_the_real_distribution(self):
-        """The repo's own rule, made executable. Four classifiers in this codebase
-        emitted a single value for months without erroring."""
-        thresholds = _config()["thresholds"]
-        states = {evaluate_valuation(p, thresholds) for p in STORED_PREMIUM_SHAPE}
-        if "valuation_state_vs_band" in ACCEPTED:
-            self.assertEqual(states, {"CHEAP"},
-                             "evaluate_valuation is no longer degenerate -- retire "
-                             "the register entry")
-        else:
-            self.assertGreater(len(states), 1)
-
-    def test_13_the_percentile_band_is_not_a_constant(self):
-        """The replacement is not degenerate, which is what makes the divergence in
-        test_14 a defect rather than a tie."""
-        ordered = sorted(STORED_PREMIUM_SHAPE)
-        bands = {bp._classify_band(bp._percentile_of(value, ordered))
-                 for value in ordered}
-        self.assertGreater(len(bands), 1)
-        self.assertIn("EXPENSIVE", bands)
-
-    def test_14_the_two_valuations_of_one_reading_are_registered(self):
-        """`valuation_state` and the percentile band label the same reading. In
-        production they disagreed on 114 of 134 rows -- CHEAP beside EXPENSIVE, same
-        row, same moment."""
+    def test_12_the_valuation_leg_is_not_a_constant(self):
+        """The repo's own rule, made executable. This column read CHEAP on 364 of
+        364 rows because its threshold sat 0.02 pp outside the observed range of
+        438 readings, and no test noticed for months."""
         thresholds = _config()["thresholds"]
         ordered = sorted(STORED_PREMIUM_SHAPE)
-        disagreements = sum(
-            1 for value in ordered
-            if evaluate_valuation(value, thresholds)
-            != bp._classify_band(bp._percentile_of(value, ordered))
-        )
-        if "valuation_state_vs_band" in ACCEPTED:
-            self.assertGreater(disagreements, 0,
-                               "the two valuations now agree -- retire the entry")
-        else:
-            self.assertEqual(disagreements, 0)
+        states = {
+            classify_valuation(
+                bp._percentile_of(value, ordered), value,
+                cheap_rank=bp.CHEAP_PERCENTILE,
+                expensive_rank=bp.EXPENSIVE_PERCENTILE,
+                buy_at=thresholds["buy_premium_percent"],
+                sell_at=thresholds["sell_premium_percent"])
+            for value in ordered
+        }
+        self.assertGreater(len(states), 1,
+                           "the valuation leg is a constant over the real record")
+        self.assertIn("CHEAP", states)
+        self.assertIn("FAIR", states)
+
+    def test_13_a_discount_is_never_labelled_expensive(self):
+        """EXPENSIVE asserts the market is above fair value, and the conflict matrix
+        turns EXPENSIVE + WEAKENING into SELL. On rank alone this engine would have
+        issued SELL on a market trading 1.5% below fair value."""
+        thresholds = _config()["thresholds"]
+        ordered = sorted(STORED_PREMIUM_SHAPE)
+        for value in ordered:
+            state = classify_valuation(
+                bp._percentile_of(value, ordered), value,
+                cheap_rank=bp.CHEAP_PERCENTILE,
+                expensive_rank=bp.EXPENSIVE_PERCENTILE,
+                buy_at=thresholds["buy_premium_percent"],
+                sell_at=thresholds["sell_premium_percent"])
+            if value < 0:
+                self.assertNotEqual(state, "EXPENSIVE", f"{value} is a discount")
+
+    def test_14_one_reading_cannot_carry_two_valuations(self):
+        """`valuation_state` and the band in `valuation_context_json` labelled the
+        same row and disagreed on 114 of 134 -- CHEAP in the column, EXPENSIVE in
+        the JSON, the same moment. Both now come from one function."""
+        self.assertIn("classify_valuation(",
+                      inspect.getsource(bp._classify_band),
+                      "the band must delegate, not classify")
+        self.assertIn("classify_valuation(",
+                      inspect.getsource(bp.resolve_decision_valuation),
+                      "the decision leg must delegate, not classify")
+        self.assertNotIn("evaluate_valuation",
+                         _read(SRC / "caluclator" / "signal_state.py"),
+                         "the fixed-threshold classifier is back in the pipeline")
+
+    def test_15_the_valuation_leg_abstains_rather_than_guessing(self):
+        """There is deliberately no fixed-threshold fallback. A fallback that always
+        answers is how this leg became a constant."""
+        _seed(_hourly([2.0, 2.5, 3.0]))
+        result = bp.resolve_decision_valuation(
+            _test_get_session(), -3.0, _config()["thresholds"], now=NOW)
+        self.assertEqual(result.state, "UNKNOWN")
+        self.assertEqual(result.status, "INSUFFICIENT_DATA")
+        from caluclator.conflict import evaluate_conflict
+        self.assertEqual(
+            evaluate_conflict("UNKNOWN", "IMPROVING", "DISCOUNT_DOMINANT")[1],
+            "UNKNOWN", "an unknown valuation must abstain, not default to WAIT")
+
+    def test_16_the_valuation_reference_is_settled_and_excludes_user_rows(self):
+        """Same discipline as the deep-discount level. A reference containing today
+        moves under the reading being measured, and the reader pressing Update must
+        not move the level the decision engine is judged against."""
+        source = inspect.getsource(bp.resolve_decision_valuation)
+        self.assertIn("reference_readings(series, reference_end)", source)
+        self.assertIn("local_date(now)", source)
+
+    def test_17_the_leg_and_the_reader_rank_on_their_own_basis(self):
+        """The decision leg ranks the stored min-based premium against a window of
+        stored min-based premiums. Ranking it against the trimmed-basis window every
+        displayed figure uses would move it 0.55 pp on median with no market
+        movement -- LESSONS_LEARNED section 8."""
+        source = inspect.getsource(bp.resolve_decision_valuation)
+        self.assertIn("stored_premium_series(", source)
+        self.assertNotIn("basis_series(", source)
 
     # -- 4. a direction claim needs a direction -------------------------------
 
@@ -383,8 +441,12 @@ class KPICoherence(unittest.TestCase):
         writers = {"models.py", "repository.py", "main.py"}
         unwired = []
         for column in ("valuation_context_json",):
+            # An attribute read or a key lookup, not a bare mention. The first
+            # version of this test counted the prose in two docstrings that discuss
+            # the column as consumers of it, and passed for the wrong reason.
+            access = re.compile(rf"""\.{column}\b|\[\s*["']{column}["']\s*\]""")
             readers = [p.name for p in _python_files()
-                       if column in _read(p) and p.name not in writers]
+                       if access.search(_code(p)) and p.name not in writers]
             if not readers:
                 unwired.append(column)
         expected = (["valuation_context_json"]

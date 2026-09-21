@@ -31,6 +31,7 @@ from intelligence.freshness import evaluate_freshness
 from update.baseline_resolver import resolve_update_baselines
 from analysis.bubble_position import (
     resolve_bubble_position,
+    resolve_decision_valuation,
     resolve_bubble_trend,
     resolve_change_magnitude,
     resolve_relative_valuation,
@@ -93,7 +94,26 @@ def _generate_collection_run_id():
     return f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
 
-def _build_valuation_context(premium, markets=None, fair=None):
+def _resolve_decision_valuation(premium, thresholds):
+    """The valuation leg, or an abstention.
+
+    Non-blocking in the same way `_build_valuation_context` is: a database failure
+    must degrade the decision to UNKNOWN, never prevent the run. UNKNOWN reaches the
+    conflict matrix as an abstention, which is the fail-safe law -- on missing data,
+    abstain rather than extrapolate.
+    """
+    from analysis.bubble_position import DecisionValuation
+    try:
+        session = get_session()
+        if session is None:
+            return DecisionValuation(premium=premium)
+        return resolve_decision_valuation(session, premium, thresholds)
+    except Exception as e:
+        print(f"Decision valuation failed, abstaining: {e}")
+        return DecisionValuation(premium=premium)
+
+
+def _build_valuation_context(premium, markets=None, fair=None, thresholds=None):
     """Capture the relative valuation that accompanied this decision.
 
     Stored alongside the decision so the scorecard can later attribute an outcome
@@ -107,7 +127,8 @@ def _build_valuation_context(premium, markets=None, fair=None):
     if session is None:
         return None
     try:
-        position = resolve_bubble_position(session, current_bubble=premium)
+        position = resolve_bubble_position(session, current_bubble=premium,
+                                           thresholds=thresholds)
         # Which sample the reader's valuation was drawn from. The message does not
         # say, because the line it qualifies claims only "the last 30 days" and that
         # is true on either path, but an audit needs to know whether a reading was
@@ -451,7 +472,16 @@ def main():
     if previous_premium is None:
         previous_premium = premium
 
-    signal_state = build_signal_state(premium=premium, fair_price=fair, lowest_price=lowest, markets=markets, previous_premium=previous_premium, thresholds=thresholds, last_alert=last_alert, snapshot_id=0, last_alert_at=_last_alert_time(state))
+    # The valuation leg is ranked against the reading's own settled window rather
+    # than compared with a fixed line. Resolved here because it needs a session, and
+    # a calculator must not open one. A failure returns UNKNOWN, which makes the
+    # conflict matrix abstain -- never a guess, and never the old constant.
+    decision_valuation = _resolve_decision_valuation(premium, thresholds)
+
+    signal_state = build_signal_state(premium=premium, fair_price=fair, lowest_price=lowest, markets=markets, previous_premium=previous_premium, thresholds=thresholds, last_alert=last_alert, snapshot_id=0, last_alert_at=_last_alert_time(state), valuation=decision_valuation.state)
+    print(f"Valuation: {decision_valuation.state} "
+          f"(rank {decision_valuation.percentile}, n={decision_valuation.sample_size}, "
+          f"status={decision_valuation.status})")
     signal = None
     if signal_state.final_decision in ("BUY", "SELL"):
         signal = {"signal": signal_state.final_decision, "new_alert_type": signal_state.final_decision, "reason": signal_state.reason or f"Final decision: {signal_state.final_decision}."}
@@ -506,7 +536,7 @@ def main():
         try:
             signal_state = replace(signal_state, snapshot_id=snapshot_id)
             save_market_state(signal_state, valuation_context=_build_valuation_context(
-                premium, markets=markets, fair=fair))
+                premium, markets=markets, fair=fair, thresholds=thresholds))
             print("DB: Market state saved")
         except Exception as e:
             print(f"DB ERROR (market state): {e}")

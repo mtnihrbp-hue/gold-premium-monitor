@@ -147,10 +147,36 @@ whose divergence has been fixed fails the suite**, which forces the register to 
 retired rather than left asserting a state that no longer exists. Do not add an entry
 to silence a failure; add one only with the approval that the underlying change needs.
 
-Currently registered, and worth knowing before you touch the decision engine:
-`market_states.valuation_state` is `CHEAP` on 364 of 364 rows while the percentile band
-stored in the same row disagrees on 114 of 134, and `caluclator/valuation.py` reads
-config keys that `config/config.json` does not define. See `SP_C_HANDOFF.md` §25.
+Three entries are currently registered. Two more closed in SP-C.15, and closing them
+failed the suite until they were retired — that is the mechanism working, not a bug.
+See `SP_C_HANDOFF.md` §25 and §26.
+
+### The valuation leg
+
+`market_states.valuation_state` is the first input to the conflict matrix. It is a
+**rank with a direction gate**, produced only by
+`caluclator/valuation.classify_valuation`:
+
+```
+CHEAP       rank < CHEAP_PERCENTILE       AND  premium <= buy_premium_percent
+EXPENSIVE   rank >= EXPENSIVE_PERCENTILE  AND  premium >= sell_premium_percent
+FAIR        anything else
+UNKNOWN     no rank — the matrix then abstains
+```
+
+The direction gate is load-bearing. A percentile-EXPENSIVE reading means "less
+discounted than usual", **not** "above fair value", and the matrix turns
+`EXPENSIVE + WEAKENING` into `SELL` — on rank alone this engine would sell a market
+trading 1.6% *below* fair value. On the record the sell gate never opens, because the
+highest premium ever stored is −1.52%. That is correct, not a dead bound to tidy away.
+
+There is deliberately **no fixed-threshold fallback**: below `MIN_OBSERVATIONS` the
+answer is `UNKNOWN`. A fallback that always answers is how this leg spent months
+reading `CHEAP` on 364 of 364 rows. `build_signal_state` receives the state rather than
+computing it, because ranking needs a session and a calculator must not open one.
+
+It ranks the **stored** `premium_percent` against a window of stored `premium_percent`,
+on the settled non-user pool. See `SP_C_HANDOFF.md` §26 and `LESSONS_LEARNED.md` §14.
 
 ### Degenerate classifiers
 

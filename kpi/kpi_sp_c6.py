@@ -334,6 +334,24 @@ class KPISPC6(unittest.TestCase):
         self.assertIn("deep_discount_threshold(series)", source,
                       "the push must read the shared level, not compute its own")
 
+    def test_24e_the_projected_clean_date_accounts_for_the_settled_window(self):
+        """The window excludes the current day, so the gate opens the day *after*
+        the last missing scheduled day is banked. ANALYZE printed 2026-09-27 for a
+        gate that opens on the 28th."""
+        base = NOW - timedelta(days=10)
+        rows = [(base + timedelta(days=d, hours=h), "scheduled", 3.0)
+                for d in range(7) for h in range(5)]
+        _seed(rows)
+        health = ar.resolve_data_health(_test_get_session(), now=NOW)
+        self.assertEqual(health.sampling, "MIXED")
+        banked = sorted({ar.local_date(r[0]) for r in rows})
+        from analysis.bubble_position import MIN_SCHEDULED_COVERAGE_DAYS
+        remaining = MIN_SCHEDULED_COVERAGE_DAYS - len(banked)
+        self.assertEqual(
+            health.clean_from,
+            (banked[-1] + timedelta(days=remaining + 1)).isoformat(),
+            "the projection must clear the settled window, not land on it")
+
     def test_25_the_decision_record_is_hidden_until_it_has_a_sample(self):
         # Three decisions is an anecdote. market-analyst.md forbids manufacturing
         # confidence from a small sample.
