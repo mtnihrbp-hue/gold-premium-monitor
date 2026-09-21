@@ -322,6 +322,22 @@ gaps, the same zone measures 2 hours.
 the series it is measured on.** A gap is not a continuation, and the resulting number
 is wrong in the direction that flatters it.
 
+**A check that cannot fail is not a check.** `node --check` was run against the
+Cloudflare worker repeatedly during SP-C.12 and reported success every time. It
+cannot parse a file containing `export` as CommonJS, falls back, and returns 0
+without validating. An unterminated string sat on line 94 through all of it, and the
+worker would have been broken the moment it was pasted into production.
+
+Verified by construction: `printf 'export default { a: 1 };
+const x = "abc
+def";
+'`
+passes `node --check` and fails `node --check` on the same content named `.mjs`.
+
+**Before trusting a verification tool, make it fail on purpose.** A check that has
+never been seen to reject anything is indistinguishable from no check, and it is
+worse than none because it is quoted as evidence.
+
 **Interesting is not actionable.** An investigation into market sessions produced a
 genuinely novel finding -- Iran's trading calendar and the world gold calendar are
 almost exactly out of phase, so the two inputs driving fair value take turns. I

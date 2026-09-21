@@ -56,6 +56,21 @@ Set in the Cloudflare Workers dashboard (Settings → Variables):
 | `TELEGRAM_BOT_TOKEN` | From @BotFather |
 | `TELEGRAM_CHAT_ID` | Numeric chat ID, as a string |
 
+## Validating before you deploy
+
+`node --check file.js` **silently passes a file containing `export`** -- it cannot
+parse it as CommonJS, falls back, and returns 0 without validating anything. This
+worker uses `export default`, so every `node --check` run against it during SP-C.12
+reported success while an unterminated string sat on line 94.
+
+Check it as a module:
+
+```
+cp src/worker/telegram-trigger.js /tmp/w.mjs && node --check /tmp/w.mjs
+```
+
+The `.mjs` extension is what makes node parse it as an ES module and actually look.
+
 ## Deploying a change
 
 1. Edit `telegram-trigger.js` here and commit, so the repo stays the source of truth
@@ -63,6 +78,8 @@ Set in the Cloudflare Workers dashboard (Settings → Variables):
 3. Replace the whole file, **Save and deploy**
 4. Send `Status` in Telegram and confirm the branch shown in the reply
 5. Send `Update` and confirm the message format matches the branch you expect
+6. Send `Analyze` and confirm a report arrives. It reads persisted state and writes
+   nothing, so it is safe to send repeatedly.
 
 Step 4 is the check that catches a wrong ref before a wrong report does.
 

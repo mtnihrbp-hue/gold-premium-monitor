@@ -91,8 +91,7 @@ ${errBody.slice(0, 400)}`);
         return new Response("GitHub error", { status: 500 });
       }
 
-      await sendTelegram(env, chatId, "⏳ <b>Analyze triggered</b>
-Report arriving shortly...");
+      await sendTelegram(env, chatId, "⏳ <b>Analyze triggered</b>\nReport arriving shortly...");
       return new Response("OK");
     }
 
