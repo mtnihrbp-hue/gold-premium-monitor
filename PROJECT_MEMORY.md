@@ -36,6 +36,12 @@ before reading any failure narrative below as live.**
 | valuation.py reads config keys that do not exist; configured sell threshold never in effect | 2026-09-21 | SP-C.15, section 26.5 |
 | valuation_context_json persisted every run, read by nothing | **BY DESIGN** | reclassified as an audit record in SP-C.15, section 26.6 |
 | ANALYZE projected the scheduled gate one day early | 2026-09-21 | SP-C.15, section 26.9 |
+| resolve_bubble_position used the machine clock, an unsettled window and user rows | 2026-09-21 | SP-C.16, section 27.2 |
+| datetime.now() against UTC-stored timestamps, 74 calls in 14 modules | 2026-09-21 | SP-C.16, section 27.3 |
+| Six constants for two tolerances, under four names | 2026-09-21 | SP-C.16, section 27.6 |
+| News classifier matched "us" inside base64 image tokens; 879 of 1441 mislabelled | 2026-09-21 | SP-C.16, section 27.5 |
+| structure_state is DISCOUNT_DOMINANT on 365 of 367 rows | **OPEN** | SP-C.16, section 27.4 -- needs a product decision, registered |
+| News LLM classification path has never run | **OPEN** | SP-C.16, section 27.5 |
 
 
 ## 1. Documentation Authority
@@ -2217,3 +2223,59 @@ edge.
 
 **Also fixed:** ANALYZE's projected `clean from` date was a day early. The window is
 settled, so the gate opens the day after the last missing scheduled day is banked.
+
+
+---
+
+## SP-C.16 - the tidy pass (2026-09-21)
+
+Full record in `SP_C_HANDOFF.md` section 27.
+
+**`resolve_bubble_position` now settles its window.** It used `datetime.now()`, ranked
+against a window that ran to `now`, and counted user rows -- the SP-C.5 and SP-C.7
+defects, fixed once in a sibling and never back-ported. It uses `reference_readings`
+now, so the audit record in `valuation_context_json` is ranked the same way as the
+decision it accompanies. `kpi_coherence.test_18` asserts both resolvers settle.
+
+**One clock.** 74 calls to `datetime.now()` across 14 modules are now `utcnow`.
+Everything stored is UTC; the machine clock was correct only because CI runners are
+UTC. `kpi_pre_sp_c2.test_13` proved it -- a two-hour lookback reached back five and a
+half hours on a UTC+3:30 workstation and passed in CI. **No `datetime.now()` may
+appear anywhere in `src/`**; `kpi_coherence.test_19` enforces it.
+
+**One definition per tolerance.** `src/tolerances.py` holds `UNCHANGED_DEADBAND_PP`
+and `COMPARABLE_BAND_FRACTION`. They existed as six constants under four names across
+four modules. `kpi_coherence.test_20` forbids a local redefinition.
+
+**The news classifier was matching on image URLs.** `IRAN_US_NEGOTIATION` held 879 of
+1441 articles -- including an advertisement and a tourism piece -- because `"us"`
+matched as a bare substring inside base64 image tokens in RSS summary HTML. Fixed on
+four fronts: markup and long tokens are stripped before classification; matching is on
+word boundaries; specific rules need a subject **and** an action; Persian keywords
+added, since the two highest-volume sources publish in Persian and `طلا` appeared 6
+times in 1441 rows. Bare `"us"` is gone as a country token -- lowercased, it is also
+the English pronoun. 1070 rows re-classified in place; only classification columns
+were touched. `IRAN_US_NEGOTIATION` 879 -> 27, `UNKNOWN` 288 -> 904. **The rise in
+UNKNOWN is the improvement**; the old figure was bought by mislabelling.
+
+**Registered, not fixed -- both need a product decision:**
+
+- **The structure leg measures something that cannot vary.** `structure_state` is
+  `DISCOUNT_DOMINANT` on 365 of 367 rows because it classifies on the share of
+  platforms below fair value, which is 1.00 on 345 of them. Unlike the valuation leg
+  this is **not** a stale bound -- no threshold and no rank over a point mass can
+  separate anything. Changing what "structure" measures is a change to the conflict
+  matrix. Platform spread, in the same rows, runs 0.73% to 6.86% and does vary.
+- **The news LLM path has never run.** `classification_method` is KEYWORD on all rows.
+
+**News in ANALYZE: no, not yet.** Asked directly; answered with evidence. After the
+repair the classifier is 62% UNKNOWN, impact is UNKNOWN on 94% and direction on 91%,
+and busy news days differ from quiet days by 0.19 pp of intraday premium range on 22
+observations a side. A line in ANALYZE would lend a measured report's authority to
+that. Three-stage proposal in section 27.7: the repair (done), then measure daily
+article count as a rank against forward discount movement, then -- only if the
+separation is real -- one line in the DATA section phrased as a count and a rank, with
+no direction or sentiment.
+
+**Also fixed:** ANALYZE's projected `clean from` date was a day early; it reads
+2026-09-28 now, which is correct.

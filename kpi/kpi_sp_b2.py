@@ -110,6 +110,87 @@ def kpi_7_event_type_classification():
     print("  ✓ KPI-7: Event type classification works")
 
 
+def kpi_7b_markup_is_not_prose():
+    """7b. Image tokens in RSS summaries must not classify anything.
+
+    The single largest defect this classifier has had: `"us"` matched as a bare
+    substring inside a base64 image token embedded in the summary HTML, and put 879
+    of 1441 articles into IRAN_US_NEGOTIATION -- including a remote-working notice,
+    an advertisement and a tourism piece.
+    """
+    from intelligence.event_classifier import clean_text
+    junk = "jrxp5qg1cmewilhah818sdxwp2hnfnwfxyaiaicmusgadyj8ofnnlsj37wf3nzt"
+    cleaned = clean_text(f'<img src="http://example.ir/{junk}.jpg"/> hello &amp; world')
+    assert junk not in cleaned, f"FAIL: markup survived cleaning -> {cleaned}"
+    assert "hello" in cleaned, f"FAIL: prose was destroyed -> {cleaned}"
+    result = classify_news_item({
+        "title": "ادارات این استان تا پایان سال 1405 دورکار شدند",
+        "summary": f'<img src="http://example.ir/{junk}.jpg"/>',
+    })
+    assert result["event_type"] == "UNKNOWN", (
+        f"FAIL: markup classified as {result['event_type']}")
+    print("  ✓ KPI-7b: markup and image tokens are stripped before classification")
+
+
+def kpi_7c_keywords_match_whole_words():
+    """7c. `"us"` is inside "business", "because" and "Russia"."""
+    from intelligence.event_classifier import _has_any_keyword
+    assert not _has_any_keyword("this business is because of russia", ["us"])
+    assert _has_any_keyword("the us and iran", ["us"])
+    print("  ✓ KPI-7c: keywords match on word boundaries, not substrings")
+
+
+def kpi_7d_a_subject_alone_is_not_an_event():
+    """7d. "Iran" is the country most of this feed is about, not a negotiation.
+
+    The old rule fired on any one of six common words, so the subject alone was
+    enough. A specific event now needs a subject *and* an action.
+    """
+    subject_only = classify_news_item(
+        {"title": "Foreign diplomats visit historic sites in Urmia, Iran",
+         "summary": ""})
+    assert subject_only["event_type"] != "IRAN_US_NEGOTIATION", (
+        f"FAIL: subject alone classified as {subject_only['event_type']}")
+    both = classify_news_item(
+        {"title": "Iran and US resume nuclear talks in Geneva", "summary": ""})
+    assert both["event_type"] == "IRAN_US_NEGOTIATION", (
+        f"FAIL: subject and action gave {both['event_type']}")
+    print("  ✓ KPI-7d: a specific event needs a subject and an action")
+
+
+def kpi_7e_persian_sources_are_classifiable():
+    """7e. The two highest-volume sources publish in Persian.
+
+    With an English-only keyword list they matched nothing: across 1441 stored
+    articles `طلا` appeared 6 times and `ریال` once, so the sources closest to this
+    market were the ones the classifier could not read.
+    """
+    cases = [
+        ("قیمت طلا در بازار تهران افزایش یافت", "GLOBAL_GOLD_EVENT"),
+        ("نرخ ارز در بازار آزاد کاهش یافت", "CURRENCY_POLICY"),
+        ("بانک مرکزی بخشنامه جدید ارزی ابلاغ کرد", "CBI_POLICY"),
+    ]
+    for title, expected in cases:
+        result = classify_news_item({"title": title, "summary": ""})
+        assert result["event_type"] == expected, (
+            f"FAIL: {title} -> {result['event_type']}, expected {expected}")
+    print("  ✓ KPI-7e: Persian headlines classify")
+
+
+def kpi_7f_unmatched_stays_unknown():
+    """7f. UNKNOWN is the honest answer, not a bucket to be minimised.
+
+    Verified in production the new rules leave 896 of 1441 UNKNOWN, up from
+    288. That is the point: the old 288 was achieved by giving 879 articles a label
+    the text did not support.
+    """
+    result = classify_news_item({"title": "بلو بیزنس در دسترس همه", "summary": ""})
+    assert result["event_type"] == "UNKNOWN", f"FAIL: {result['event_type']}"
+    assert result["relevance"] == "UNKNOWN"
+    assert result["impact"] == "UNKNOWN"
+    print("  ✓ KPI-7f: unmatched items abstain rather than guess")
+
+
 def kpi_8_direction_handling():
     """8. Clear directional signals captured; ambiguous remains UNKNOWN."""
     clear = classify_news_item({"title": "Sanctions Expected to Weaken Rial", "summary": ""})
@@ -163,6 +244,11 @@ if __name__ == "__main__":
         kpi_7_event_type_classification,
         kpi_8_direction_handling,
         kpi_9_event_persistence_schema,
+        kpi_7b_markup_is_not_prose,
+        kpi_7c_keywords_match_whole_words,
+        kpi_7d_a_subject_alone_is_not_an_event,
+        kpi_7e_persian_sources_are_classifiable,
+        kpi_7f_unmatched_stays_unknown,
         kpi_10_db_unavailable_degradation,
     ]
 

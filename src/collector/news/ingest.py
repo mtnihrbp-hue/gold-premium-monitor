@@ -116,5 +116,5 @@ def run_news_ingestion(config: Dict[str, Any]) -> Dict[str, Any]:
         "total_new": total_new,
         "total_duplicate": total_duplicate,
         "total_failed": total_failed,
-        "processed_at": datetime.now().isoformat(),
+        "processed_at": datetime.utcnow().isoformat(),
     }

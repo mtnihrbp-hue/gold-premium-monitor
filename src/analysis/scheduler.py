@@ -95,7 +95,7 @@ def get_next_analysis_windows(
         List of datetimes representing upcoming analysis windows
     """
     if from_time is None:
-        from_time = datetime.now()
+        from_time = datetime.utcnow()
 
     if active_days is None:
         active_days = DEFAULT_ACTIVE_DAYS
@@ -144,7 +144,7 @@ def should_run_analysis(
         True if analysis should proceed
     """
     if dt is None:
-        dt = datetime.now()
+        dt = datetime.utcnow()
 
     if config is None:
         config = {}

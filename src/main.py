@@ -91,7 +91,7 @@ def _fallback_world_from_db(max_age_hours=6):
 
 
 def _generate_collection_run_id():
-    return f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    return f"run_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
 
 
 def _resolve_decision_valuation(premium, thresholds):
@@ -388,7 +388,7 @@ def main():
         _send_analyze_report()
         return
     collection_run_id = _generate_collection_run_id()
-    now = datetime.now()
+    now = datetime.utcnow()
     stale_threshold = config.get("freshness", {}).get("stale_threshold_minutes", 15)
 
     previous_markets = {}

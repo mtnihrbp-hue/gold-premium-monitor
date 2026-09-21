@@ -98,9 +98,21 @@ Ownership: Collectors collect. Calculators calculate. Intelligence interprets. F
 
 Everything stored is UTC; everything displayed or grouped by day is Iran local time.
 `src/timeutil.py` holds the single fixed UTC+3:30 offset (Iran abolished DST in 2022,
-and the tz database is not reliably present on every runner). Never call
-`datetime.now()` for a value a reader sees or for a day boundary — grouping by the
-stored UTC date cuts each day at 03:30 local.
+and the tz database is not reliably present on every runner). Grouping by the stored
+UTC date cuts each Iranian day at 03:30 local — use `local_date`.
+
+**`datetime.now()` must not appear anywhere in `src/`**, and `kpi_coherence.test_19`
+enforces that. It returns the runner's local time while every stored timestamp is
+UTC, so a filter written against it is correct only while the runner happens to be
+UTC. CI runners are, which is exactly why 74 such calls survived across 14 modules
+until SP-C.16. Use `datetime.utcnow()`.
+
+### Shared tolerances
+
+`src/tolerances.py` holds `UNCHANGED_DEADBAND_PP` and `COMPARABLE_BAND_FRACTION`, one
+definition each, for the same reason `timeutil` holds one definition of time. They
+existed as six constants under four names across four modules until SP-C.16. Import
+them; do not restate them. `kpi_coherence.test_20` fails on a local redefinition.
 
 ### Valuation basis
 
@@ -147,9 +159,9 @@ whose divergence has been fixed fails the suite**, which forces the register to 
 retired rather than left asserting a state that no longer exists. Do not add an entry
 to silence a failure; add one only with the approval that the underlying change needs.
 
-Three entries are currently registered. Two more closed in SP-C.15, and closing them
-failed the suite until they were retired — that is the mechanism working, not a bug.
-See `SP_C_HANDOFF.md` §25 and §26.
+Five entries are currently registered. Two closed in SP-C.15 and two were added in
+SP-C.16; closing one fails the suite until its entry is retired — that is the
+mechanism working, not a bug. See `SP_C_HANDOFF.md` §25, §26 and §27.
 
 ### The valuation leg
 
@@ -180,12 +192,23 @@ on the settled non-user pool. See `SP_C_HANDOFF.md` §26 and `LESSONS_LEARNED.md
 
 ### Degenerate classifiers
 
-This codebase has produced four classifiers that emitted a single value for months
+This codebase has produced five classifiers that emitted a single value for months
 without error: `valuation_state=CHEAP`, `regime_state=PANIC`, `final_decision=WAIT`,
-news `relevance=UNKNOWN`. Before trusting or reporting any categorical output, run
-`SELECT <column>, COUNT(*) ... GROUP BY 1` against production. One row means the
-column is a constant and any metric computed over it is meaningless. See
-`LESSONS_LEARNED.md` sections 1-3.
+news `relevance=UNKNOWN`, and `structure_state=DISCOUNT_DOMINANT` (still open). Before
+trusting or reporting any categorical output, run
+`SELECT <column>, COUNT(*) ... GROUP BY 1` against production. One row means the column
+is a constant and any metric computed over it is meaningless.
+
+Then run the same query on the **quantity the classifier consumes**, because the two
+cases need opposite fixes and look identical from the output side:
+
+- the input varies but the output does not → the bound is stale, replace it with a
+  rank (this was `valuation_state`, fixed in SP-C.15)
+- the input does not vary → the *measure* is wrong, and a rank will look like a fix
+  while achieving nothing, because a percentile of a point mass is the point mass
+  (this is `structure_state`, registered in SP-C.16)
+
+See `LESSONS_LEARNED.md` sections 1-3, 13 and 15.
 
 ### Non-negotiable invariants
 

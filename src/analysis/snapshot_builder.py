@@ -196,7 +196,8 @@ def build_analysis_snapshot(
         snapshot id, or -1 on failure/duplicate
     """
     if analysis_timestamp is None:
-        analysis_timestamp = datetime.now()
+        # Stored, so UTC like every other timestamp in the schema.
+        analysis_timestamp = datetime.utcnow()
 
     source_run_id = generate_source_run_id(analysis_timestamp)
 

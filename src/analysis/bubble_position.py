@@ -33,6 +33,8 @@ from typing import List, Optional
 from caluclator.valuation import classify_valuation
 from database.models import MarketSnapshot, PlatformPrice
 from timeutil import local_date, to_utc
+# One definition each, at the src root -- see `tolerances.py`.
+from tolerances import COMPARABLE_BAND_FRACTION, UNCHANGED_DEADBAND_PP
 
 DEFAULT_WINDOW_DAYS = 30
 
@@ -216,17 +218,41 @@ def resolve_bubble_position(
 
     `current_bubble` lets a caller position a reading that is not yet persisted.
     When omitted the most recent stored reading is used.
+
+    This function carried three defects that had been fixed elsewhere and never
+    back-ported -- the fix-the-instance pattern of `LESSONS_LEARNED.md` section 13,
+    caught by the SP-C.15 audit:
+
+    - **`datetime.now()`** rather than `utcnow()`. Every stored timestamp is UTC, so
+      on any runner not set to UTC the window was offset by the machine's own zone
+      and silently included or excluded readings. The whole point of `timeutil` is
+      that there is one definition of time; this was reaching past it.
+    - **The window ran to `now`**, so it contained the reading being ranked and grew
+      through the day. That is the SP-C.7 defect: the percentile index advances as
+      the sample grows, so the same reading ranks differently hour to hour against a
+      reference that is supposed to be a fixed yardstick.
+    - **User rows were counted**, so pressing Update moved the distribution the
+      reading was measured against. SP-C.5 removed that everywhere else.
+
+    The reference now ends at the last completed local day and excludes user rows,
+    the same `reference_readings` pool the deep-discount level and the decision leg
+    use. Nothing decides on this function since SP-C.15 -- it feeds
+    `valuation_context_json` -- but an audit record ranked differently from the
+    decision it accompanies is worth less than no audit record at all.
     """
     if session is None:
         return _empty(window_days)
 
     if now is None:
-        now = datetime.now()
-    window_start = now - timedelta(days=window_days)
+        now = datetime.utcnow()
+    reference_end = to_utc(datetime.combine(local_date(now), datetime.min.time()))
+    window_start = reference_end - timedelta(days=window_days)
 
     try:
         rows = (
-            session.query(MarketSnapshot.timestamp, MarketSnapshot.premium_percent)
+            session.query(MarketSnapshot.timestamp,
+                          MarketSnapshot.collection_mode,
+                          MarketSnapshot.premium_percent)
             .filter(
                 MarketSnapshot.premium_percent.isnot(None),
                 MarketSnapshot.timestamp >= window_start,
@@ -239,12 +265,18 @@ def resolve_bubble_position(
         print(f"Bubble position query failed: {e}")
         return _empty(window_days)
 
-    values = [float(premium) for _, premium in rows if premium is not None]
+    pool = reference_readings(
+        [(ts, mode, float(premium)) for ts, mode, premium in rows
+         if premium is not None],
+        reference_end,
+    )
+    values = [item[2] for item in pool]
     if not values:
         return _empty(window_days)
 
-    timestamps = [ts for ts, _ in rows]
-    coverage_days = len({ts.date() for ts in timestamps})
+    # Local days, not UTC dates. Grouping by the stored UTC date cuts each Iranian
+    # day at 03:30 local and miscounts the coverage this window claims.
+    coverage_days = len({local_date(item[0]) for item in pool})
 
     bubble = current_bubble if current_bubble is not None else values[-1]
 
@@ -708,7 +740,7 @@ def resolve_change_magnitude(
     if session is None or change_pp is None:
         return empty
     if now is None:
-        now = datetime.now()
+        now = datetime.utcnow()
 
     try:
         rows = (
@@ -756,7 +788,7 @@ def resolve_change_magnitude(
 
 # A move smaller than this is treated as no change, matching the existing bubble
 # movement dead-band convention used elsewhere in the project.
-UNCHANGED_DEADBAND_PP = 0.05
+
 
 # How far a reading may sit from the target horizon and still count. This is looser
 # than the 15-minute tolerance outcome_evaluations uses, because that strictness is
@@ -765,7 +797,7 @@ DEFAULT_TOLERANCE_HOURS = 2.0
 
 # How close a past reading must be to the current one to count as comparable,
 # expressed as a fraction of the window's spread so it adapts to volatility.
-COMPARABLE_BAND_FRACTION = 0.5
+
 
 
 @dataclass
@@ -826,7 +858,7 @@ def resolve_similar_outcomes(
         return _empty_outcomes(horizon_hours)
 
     if now is None:
-        now = datetime.now()
+        now = datetime.utcnow()
 
     try:
         rows = (
@@ -937,7 +969,7 @@ def resolve_bubble_speed(
     if session is None:
         return empty
     if now is None:
-        now = datetime.now()
+        now = datetime.utcnow()
 
     try:
         rows = (
@@ -1078,7 +1110,7 @@ def resolve_bubble_trend(
     if session is None:
         return empty
     if now is None:
-        now = datetime.now()
+        now = datetime.utcnow()
 
     try:
         rows = (
@@ -1165,7 +1197,7 @@ def resolve_zone_episodes(
     if session is None or cheap_below is None:
         return empty
     if now is None:
-        now = datetime.now()
+        now = datetime.utcnow()
 
     try:
         rows = (

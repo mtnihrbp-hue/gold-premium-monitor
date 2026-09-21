@@ -126,6 +126,30 @@ ACCEPTED = {
                "decision depend on its own audit trail.",
         "doc": ("SP_C_HANDOFF.md", "26.6"),
     },
+    "structure_leg_measures_a_constant": {
+        "what": "market_states.structure_state is DISCOUNT_DOMINANT on 365 of 367 "
+                "rows; the leg asks what share of platforms sit below fair value, "
+                "and in a market that is always at a discount the answer is always "
+                "'almost all'",
+        "why": "Unlike the valuation leg this is not a stale bound -- 345 of 367 "
+               "rows sit at exactly 1.00, so no threshold and no rank over that "
+               "quantity can separate anything. Fixing it means changing what "
+               "'structure' measures, which is a product decision about the "
+               "conflict matrix, not a threshold change. Measured alternative in "
+               "the same rows: platform spread runs 0.73% to 6.86% of fair price, "
+               "median 2.02%, and varies.",
+        "doc": ("SP_C_HANDOFF.md", "27.4"),
+    },
+    "news_llm_path_never_ran": {
+        "what": "news_events.classification_method is KEYWORD on all 1441 rows; "
+                "the LLM classification path has never executed",
+        "why": "The keyword rules were repaired in SP-C.16 and now abstain honestly "
+               "rather than mislabel. Whether an LLM layer is wired at all is a "
+               "product decision with a cost attached, and "
+               "skills/llm-news-intelligence.md forbids it acquiring any "
+               "calculation or decision authority regardless.",
+        "doc": ("SP_C_HANDOFF.md", "27.5"),
+    },
     "displayed_gap_vs_stored_premium": {
         "what": "the discount shown to a reader (mean of the 3 cheapest) against "
                 "market_snapshots.premium_percent (single cheapest)",
@@ -399,6 +423,70 @@ class KPICoherence(unittest.TestCase):
         self.assertIn("stored_premium_series(", source)
         self.assertNotIn("basis_series(", source)
 
+    def test_18_every_ranked_quantity_uses_the_settled_pool(self):
+        """`resolve_bubble_position` ranked against a window that ran to `now`,
+        counted the reader's own clicks, and read the machine clock -- the SP-C.5
+        and SP-C.7 defects, fixed once in a sibling function and never back-ported.
+        Nothing decided on it, but it fed the audit record that accompanies the
+        decision, so the audit was ranked differently from the thing it audited."""
+        for resolver in (bp.resolve_bubble_position, bp.resolve_decision_valuation):
+            source = inspect.getsource(resolver)
+            self.assertIn("reference_readings(", source,
+                          f"{resolver.__name__} builds its own pool")
+            self.assertIn("local_date(now)", source,
+                          f"{resolver.__name__} does not settle its window")
+
+    # -- 3b. one clock, one tolerance -----------------------------------------
+
+    def test_19_nothing_reads_the_machine_clock(self):
+        """Everything stored is UTC. `datetime.now()` returns the runner's local
+        time, so a filter written against it is correct only while the runner
+        happens to be UTC -- which every CI runner is, and this workstation is not.
+        `kpi_pre_sp_c2.test_13` proved it: a two-hour lookback reached back five and
+        a half hours here and passed in CI."""
+        offenders = []
+        for path in _python_files():
+            if "datetime.now()" in _code(path):
+                offenders.append(path.name)
+        self.assertEqual(sorted(offenders), [],
+                         "use datetime.utcnow(); see timeutil for local dates")
+
+    def test_20_shared_tolerances_are_defined_once(self):
+        """0.05 existed as UNCHANGED_DEADBAND_PP, INCONCLUSIVE_DEADBAND_PP and
+        BUBBLE_MOVEMENT_DEADBAND_PP across four modules, and 0.5 as
+        COMPARABLE_BAND_FRACTION in two. Four names for one idea is four
+        definitions that happen to agree."""
+        import ast
+        owners = {}
+        for path in _python_files():
+            try:
+                tree = ast.parse(_read(path))
+            except SyntaxError:
+                continue
+            for node in tree.body:
+                if not isinstance(node, ast.Assign):
+                    continue
+                if not isinstance(node.value, ast.Constant):
+                    continue
+                if not isinstance(node.value.value, (int, float)):
+                    continue
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and (
+                            "DEADBAND" in target.id or "BAND_FRACTION" in target.id):
+                        owners.setdefault(target.id, []).append(path.name)
+        self.assertEqual(
+            {k: sorted(v) for k, v in owners.items()},
+            {"UNCHANGED_DEADBAND_PP": ["tolerances.py"],
+             "COMPARABLE_BAND_FRACTION": ["tolerances.py"]},
+            "a shared tolerance is defined outside tolerances.py")
+        from tolerances import UNCHANGED_DEADBAND_PP, COMPARABLE_BAND_FRACTION
+        import analysis.decision_scorecard as ds
+        import update.baseline_resolver as br
+        self.assertIs(ds.INCONCLUSIVE_DEADBAND_PP, UNCHANGED_DEADBAND_PP)
+        self.assertIs(br.BUBBLE_MOVEMENT_DEADBAND_PP, UNCHANGED_DEADBAND_PP)
+        self.assertIs(ar.COMPARABLE_BAND_FRACTION, COMPARABLE_BAND_FRACTION)
+        self.assertIs(bp.COMPARABLE_BAND_FRACTION, COMPARABLE_BAND_FRACTION)
+
     # -- 4. a direction claim needs a direction -------------------------------
 
     def test_20_a_magnitude_never_carries_a_direction_claim(self):
@@ -453,6 +541,26 @@ class KPICoherence(unittest.TestCase):
                     if "valuation_context_unwired" in ACCEPTED else [])
         self.assertEqual(unwired, expected,
                          "a persisted analysis artifact has no consumer")
+
+    def test_26_the_structure_leg_is_still_measuring_a_constant(self):
+        """Registered, not fixed. If the measure changes, retire the entry.
+
+        The leg classifies on the share of platforms below fair value. Every reading
+        on record is a discount, so that share is 1.00 on 345 of 367 rows and the
+        0.6 boundary has been crossed twice in the life of the system.
+        """
+        if "structure_leg_measures_a_constant" not in ACCEPTED:
+            self.skipTest("entry retired")
+        from caluclator.structure import evaluate_structure
+        fair = 240_000_000
+        states = set()
+        for discount in (0.8, 2.0, 3.5, 5.0, 8.0):
+            markets = {n: {"price": fair * (1 - discount / 100), "status": "OK"}
+                       for n in "ABCDE"}
+            states.add(evaluate_structure(markets, fair)["state"])
+        self.assertEqual(states, {"DISCOUNT_DOMINANT"},
+                         "the structure leg now separates readings -- retire the "
+                         "register entry and delete this test")
 
     # -- 6. the register must stay honest -------------------------------------
 

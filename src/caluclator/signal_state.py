@@ -145,6 +145,6 @@ def build_signal_state(
         candidate_decision=candidate,
         final_decision=final,
         reason=reason,
-        timestamp=datetime.now(),
+        timestamp=datetime.utcnow(),
         snapshot_id=snapshot_id,
     )

@@ -35,19 +35,14 @@ from analysis.bubble_position import (
     signed_gap,
 )
 from timeutil import local_date, to_utc
+# One definition each, at the src root. These existed under four names in four
+# modules until SP-C.16; see `tolerances.py`.
+from tolerances import COMPARABLE_BAND_FRACTION, UNCHANGED_DEADBAND_PP
 
 # Horizon for the "what happened next" section. One day is the only horizon with
 # both a usable sample and a meaning a buyer can act on: a 1h horizon measures noise,
 # and anything longer outruns the deep zone, which typically closes inside five hours.
 OUTCOME_HORIZON_HOURS = 24
-
-# How far a past reading may sit from the current one and still count as the same
-# level, as a fraction of the window's own spread so it adapts to volatility.
-COMPARABLE_BAND_FRACTION = 0.5
-
-# A move smaller than this is treated as no change, matching the bubble movement
-# dead-band used everywhere else in the project.
-UNCHANGED_DEADBAND_PP = 0.05
 
 # How far from the target a later reading may sit and still measure the horizon.
 HORIZON_TOLERANCE_HOURS = 2.0

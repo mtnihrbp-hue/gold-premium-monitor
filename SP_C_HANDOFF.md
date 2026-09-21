@@ -2151,3 +2151,257 @@ first change after it was written.
 - `ANALYZE` prints "clean from 2026-09-27"; the scheduled gate opens on **2026-09-28**
   (first scheduled day 09-14, fourteen settled days ends 09-27, so the first day the
   window contains them is the 28th). Off by one, presentation only.
+
+---
+
+## 27. SP-C.16 - the tidy pass (2026-09-21)
+
+A deliberate sweep rather than a response to one defect: inventory every numeric
+bound in `src/`, audit production, and close what is wrong. Four fixes, two findings
+registered rather than fixed, and one product question answered with a no.
+
+### 27.1 The inventory
+
+Every module-level numeric constant in `src/`, classified by whether it is a rank
+(cannot go stale), structural (a window size, a timeout, a sample-size gate), or a
+market level that the market can walk away from.
+
+```text
+rank         7    percentiles, all recomputed from the window each run
+structural  36    windows, timeouts, minimum samples, display widths
+market       25   of which 6 were duplicates of 2 values, and 2 were dead
+```
+
+The seven ranks are the ones SP-C.2, SP-C.6, SP-C.13 and SP-C.15 put in place. No
+market-facing bound outside them was found to be stale in the way `buy_premium` was;
+what the inventory found instead was duplication and dead code.
+
+### 27.2 `resolve_bubble_position` carried three back-ported defects
+
+The function that ranks the bubble for the audit record had none of the discipline
+its siblings have:
+
+```text
+datetime.now()            the machine clock, against UTC-stored timestamps
+window ran to `now`       contained the reading being ranked, and grew all day
+user rows counted         pressing Update moved the distribution it measured against
+```
+
+Those are the SP-C.5 and SP-C.7 defects, each fixed once in `resolve_relative_valuation`
+and never carried across -- the pattern of `LESSONS_LEARNED.md` section 13. It now
+uses `reference_readings`, the same settled non-user pool as the deep-discount level
+and the decision leg, and counts coverage in local days rather than UTC dates.
+
+Nothing has decided on this function since SP-C.15. It feeds
+`valuation_context_json`, so the consequence was narrower than the decision leg's but
+the same in kind: the audit record was ranked differently from the decision it
+accompanies.
+
+`kpi_coherence.test_18` now asserts that **both** resolvers settle their window, so
+the next one cannot drift alone.
+
+### 27.3 One clock
+
+`datetime.now()` returns the runner's local time while every stored timestamp is UTC.
+On GitHub Actions the two are identical, which is why this survived: it is correct in
+production and wrong everywhere else.
+
+It was not theoretical. `kpi_pre_sp_c2.test_13_hours_filtering` seeds two rows and
+asserts that a two-hour lookback returns one. Moving `get_analysis_snapshots` to
+`utcnow` made it return two on this workstation -- the filter had been reaching back
+five and a half hours, the UTC offset plus the window, and the test passed in CI for
+exactly that reason.
+
+74 calls across 14 modules are now `utcnow`. `kpi_coherence.test_19` asserts there
+are none left anywhere in `src/`, reading code rather than comments.
+
+### 27.4 The structure leg measures something that cannot vary
+
+Registered, **not** fixed.
+
+```text
+market_states.structure_state   DISCOUNT_DOMINANT  365 / 367
+share of platforms below fair   1.00 on 345 of 367 rows
+the 0.6 boundary                crossed twice in the life of the system
+```
+
+`evaluate_structure` classifies on the share of platforms trading below fair value.
+Every reading on record is a discount, so that share is essentially always 1.00.
+
+This is **not** the valuation-leg defect repeated. There the bound was stale and a
+rank fixed it. Here no bound and no rank can help, because the underlying quantity is
+a point mass at 1.00 -- a percentile of it would be just as constant. The measure
+itself is the problem: it asks a question whose answer is fixed by the shape of this
+market.
+
+Something informative sits in the same rows and is ignored. The platform spread runs
+0.73% to 6.86% of fair price, median 2.02%, quartiles 1.62% and 3.00%. Whether
+dispersion across platforms predicts anything is untested and this section claims it
+does not; the point is only that it varies, and the current measure does not.
+
+Changing what "structure" means is a product decision about the conflict matrix, not
+a threshold change, so it waits for one. `kpi_coherence.test_26` asserts the leg is
+still degenerate, so the entry cannot quietly go stale.
+
+### 27.5 The news classifier was matching on image URLs
+
+`IRAN_US_NEGOTIATION` held 879 of 1441 articles. The bucket contained a remote-working
+notice, an advertisement, a tourism piece and a Saudi phone call.
+
+Traced by replaying the rules over the stored corpus: the keyword `"us"` fired on 74%
+of that bucket, matching as a bare substring inside base64 image tokens in the RSS
+summary HTML.
+
+```text
+...jrxp5qg1cmewilhah818sdxwp2hnfnwfxyaiaicmusgadyj8ofnnlsj37wf3nzt_kglo0...
+                                        ^^
+```
+
+Four faults, all fixed:
+
+- **Markup was classified.** Summaries went in raw. `clean_text` now strips tags,
+  entities, URLs and any token of 25 characters or more -- no word in either language
+  is that long, and every such token in this corpus was machine-generated.
+- **Substring matching.** `"us"` is inside "business", "because" and "Russia".
+  Matching is on word boundaries now. The cost is stemming: "rates" is not "rate", so
+  inflections are listed explicitly, which `kpi_sp_b2.kpi_7` caught immediately.
+- **A rule that fired on any one of six common words.** `iran` OR `us` OR `talk` was
+  enough. Specific rules now require a subject **and** an action, and the rules are
+  ordered specific-first because the first match wins.
+- **English-only keywords against a mostly Persian corpus.** Across 1441 articles
+  `طلا` (gold) appeared 6 times and `ریال` (rial) once, so the two highest-volume
+  sources -- the ones closest to this market -- matched nothing.
+
+Also removed: bare `"us"` as a country token anywhere. The text is lowercased, so the
+country and the English pronoun are the same string; it put "Europe at a Crossroads"
+into MILITARY_ESCALATION on the strength of "...tells us...". `washington` and
+`united states` say the same thing without the collision.
+
+Verified in production after the backfill (the corpus grew by a few articles during
+the run, so these are the database's own counts rather than the replay's):
+
+```text
+                          before   after
+IRAN_US_NEGOTIATION          879      27
+GLOBAL_GOLD_EVENT             43     135
+MILITARY_ESCALATION           73     121
+CURRENCY_POLICY               15      47
+CBI_POLICY                     7      43
+SANCTIONS                      1      18
+UNKNOWN                      288     896
+RELEVANT                    1067     467
+```
+
+**UNKNOWN nearly tripling is the improvement, not a regression.** The old 288 was
+achieved by giving 879 articles a label the text did not support. `kpi_sp_b2` gained
+five assertions covering the image token, word boundaries, subject-and-action,
+Persian headlines, and the requirement that an unmatched item abstains.
+
+1070 stored rows were re-classified in place. Only the classification columns were
+rewritten; headline, summary, url, source, timestamp and dedup_key are untouched, so
+the operation is reversible by replaying any classifier over the same rows.
+
+`classification_method` remains KEYWORD on every row -- the LLM path has never run.
+That is registered, not fixed.
+
+### 27.6 Six constants, two ideas
+
+```text
+0.05   UNCHANGED_DEADBAND_PP         analysis/analyze_report.py
+       UNCHANGED_DEADBAND_PP         analysis/bubble_position.py
+       INCONCLUSIVE_DEADBAND_PP      analysis/decision_scorecard.py
+       BUBBLE_MOVEMENT_DEADBAND_PP   update/baseline_resolver.py
+
+0.5    COMPARABLE_BAND_FRACTION      analysis/analyze_report.py
+       COMPARABLE_BAND_FRACTION      analysis/bubble_position.py
+```
+
+Four names for one idea across four modules, none importing another. Nothing had gone
+wrong yet, which is the whole point -- `Deep discount` had not gone wrong either,
+until it did.
+
+`src/tolerances.py` now holds one definition of each, at the `src/` root so every
+layer can import it without inverting the dependency direction, exactly as `timeutil`
+does. `kpi_coherence.test_20` asserts no module defines either value locally and that
+the aliases are the same object.
+
+### 27.7 Should the news go into ANALYZE? No, and here is the test it has to pass
+
+Asked directly by the product owner. The answer is no, on evidence rather than taste.
+
+ANALYZE's contract is counts and ranks over readings that already happened. A news
+section would print a classifier's output as a measured report, and after the repair
+in 27.5 the classifier's honest state is:
+
+```text
+UNKNOWN            896 of 1441   (62%)
+impact UNKNOWN                    94%
+expected direction UNKNOWN        91%
+classification_method KEYWORD     100%  -- the LLM path has never run
+```
+
+And the market relationship is not there yet. Splitting local days by article volume
+and measuring the intraday premium range:
+
+```text
+quiet days   n=22   mean intraday range 1.30 pp
+busy  days   n=23   mean intraday range 1.49 pp
+```
+
+0.19 pp apart on 22 observations a side. That is not a finding, and a line in ANALYZE
+would give it the authority of one.
+
+**The proposal, in three stages, each gated on the previous one.**
+
+1. **Done in this change.** The classifier abstains honestly instead of mislabelling.
+   Nothing is shown to a reader.
+2. **Measure, in the same shape as every other claim this system makes.** Rank the
+   daily article count in its own 30-day window, the way the discount is ranked, and
+   ask whether high-rank days differ from low-rank days in a quantity a buyer cares
+   about -- forward 24h discount movement, or the frequency of a sharp price move. If
+   the separation is comparable to what the valuation leg showed (78.6% against 41.0%
+   on 67 days), there is something to report. If it looks like 1.49 against 1.30,
+   there is not, and that is a finding worth recording rather than repeating.
+3. **Only then, one line in ANALYZE's DATA section**, phrased as a count and a rank
+   and nothing else, for example `News volume  38 articles - top 10% of days`. No
+   direction, no sentiment, no expected impact: those are the columns that are 91%
+   UNKNOWN, and `skills/telegram-product.md` reserves interpretation with
+   consequences to the deterministic path.
+
+Stage 2 needs roughly a month of correctly-classified articles to be worth running,
+since today's corpus was classified by the rules repaired in 27.5 only in hindsight.
+
+### 27.8 Verification
+
+```text
+KPI suite 26 files, all passing.
+  kpi_sp_b2       10 -> 15
+  kpi_sp_c1       59
+  kpi_coherence   20 -> 24
+Register of accepted divergences: 3 -> 5.
+No datetime.now() anywhere in src/.
+No module defines a shared tolerance locally.
+1070 news rows re-classified; row count unchanged at 1441.
+```
+
+### 27.9 Still open
+
+- The structure leg (27.4) and the LLM news path (27.5), both registered.
+- `zone`, `z_score`, `normal_low`, `normal_high` and the `UNUSUAL_Z` / `NOTABLE_Z`
+  bounds in `bubble_position` are computed and consumed by nothing in `src/` -- only
+  by `kpi_sp_c1`. They are descriptive statistics, not classifiers, apart from
+  `_classify_zone`, which is a fixed-threshold classifier on a skewed distribution
+  that nothing reads. Removing it is safe and was left out of this pass to keep the
+  change reviewable.
+- Repeated headlines exist in the corpus across sources: "Rising Oil Prices Are
+  Wildly Bullish For Gold & Silver" appears five times with distinct dedup keys. The
+  dedup is per feed, not per story. It inflates any volume measure, which stage 2 of
+  27.7 would have to handle.
+- `quote_side` is `SINGLE` on all 3600 price observations; bid and ask have never
+  been recorded separately.
+- 74 snapshots from 2026-08-04 to 08-13 have no decision row. All are
+  `collection_mode = unknown`, from before the decision pipeline was wired. Historical,
+  not a live gap.
+- The 6-hour outcome horizon resolves worst of the three: 66 COMPLETE against 111
+  INSUFFICIENT_DATA, because a 6h horizon from an afternoon reading lands in the
+  overnight collection gap. The 1h and 24h horizons resolve at roughly 57%.

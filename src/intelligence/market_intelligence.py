@@ -132,7 +132,7 @@ def build_intelligence_result(
     if not evidence_package or not isinstance(evidence_package, dict):
         return _build_fallback_intelligence(model_provider, prompt_version)
 
-    now = datetime.now().isoformat()
+    now = datetime.utcnow().isoformat()
     evidence_schema = evidence_package.get("schema_version", "UNKNOWN")
     provenance = evidence_package.get("provenance", {})
 
@@ -329,7 +329,7 @@ def _build_fallback_intelligence(
     prompt_version: str = "1",
 ) -> Dict[str, Any]:
     """Return a safe fallback when evidence is completely unavailable."""
-    now = datetime.now().isoformat()
+    now = datetime.utcnow().isoformat()
     return {
         "schema_version": INTELLIGENCE_SCHEMA_VERSION,
         "intelligence_schema_version": INTELLIGENCE_SCHEMA_VERSION,

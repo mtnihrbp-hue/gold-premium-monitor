@@ -52,7 +52,7 @@ def build_read_model(
     Returns:
         structured read model dict
     """
-    now = datetime.now().isoformat()
+    now = datetime.utcnow().isoformat()
 
     # --- PROVENANCE ---
     provenance = {

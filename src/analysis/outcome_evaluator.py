@@ -375,7 +375,7 @@ def backfill_outcome_evaluations(
         return 0
 
     try:
-        since = datetime.now() - timedelta(hours=hours)
+        since = datetime.utcnow() - timedelta(hours=hours)
         snapshots = session.query(AnalysisSnapshot).filter(
             AnalysisSnapshot.analysis_timestamp >= since,
         ).order_by(AnalysisSnapshot.analysis_timestamp.desc()).all()

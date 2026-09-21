@@ -53,7 +53,10 @@ from typing import Dict, List, Optional, Tuple
 from database.models import MarketSnapshot, MarketState
 
 # Matches the bubble movement dead-band used elsewhere in the project.
-INCONCLUSIVE_DEADBAND_PP = 0.05
+# The same idea as UNCHANGED_DEADBAND_PP seen from the other end: a move a
+# reader cannot see is not evidence for or against a decision. One definition,
+# imported rather than restated -- see `tolerances.py`.
+from tolerances import UNCHANGED_DEADBAND_PP as INCONCLUSIVE_DEADBAND_PP
 
 DEFAULT_HORIZON_HOURS = 24
 DEFAULT_TOLERANCE_HOURS = 2.0

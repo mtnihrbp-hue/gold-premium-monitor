@@ -49,7 +49,7 @@ class KPIPreSPC2(unittest.TestCase):
 
     def _seed_market_data(self):
         """Seed a market snapshot and state for testing."""
-        now = datetime.now()
+        now = datetime.utcnow()
         sid = save_market_snapshot(
             timestamp=now,
             fair_price=1900000.0,
@@ -88,7 +88,7 @@ class KPIPreSPC2(unittest.TestCase):
         """AnalysisSnapshot table exists and is queryable."""
         snap = AnalysisSnapshot(
             snapshot_type="analysis",
-            analysis_timestamp=datetime.now(),
+            analysis_timestamp=datetime.utcnow(),
             source_run_id="test_run_001",
             valuation_state="CHEAP",
             momentum_state="IMPROVING",
@@ -102,7 +102,7 @@ class KPIPreSPC2(unittest.TestCase):
 
     # --- KPI-2: Snapshot creation works ---
     def test_02_snapshot_creation(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         oid = save_analysis_snapshot(
             analysis_timestamp=now,
             source_run_id="analysis_20260816_1000",
@@ -120,7 +120,7 @@ class KPIPreSPC2(unittest.TestCase):
 
     # --- KPI-3: Required fields persist ---
     def test_03_required_fields_persist(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         save_analysis_snapshot(
             analysis_timestamp=now,
             source_run_id="analysis_20260816_1030",
@@ -145,7 +145,7 @@ class KPIPreSPC2(unittest.TestCase):
     # --- KPI-4: Historical linkage works ---
     def test_04_historical_linkage(self):
         sid, msid = self._seed_market_data()
-        now = datetime.now()
+        now = datetime.utcnow()
         save_analysis_snapshot(
             analysis_timestamp=now,
             source_run_id="analysis_20260816_1100",
@@ -165,7 +165,7 @@ class KPIPreSPC2(unittest.TestCase):
 
     # --- KPI-5: Duplicate handling works ---
     def test_05_duplicate_handling(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         source_run_id = "analysis_20260816_1130"
         oid1 = save_analysis_snapshot(
             analysis_timestamp=now,
@@ -197,7 +197,7 @@ class KPIPreSPC2(unittest.TestCase):
     # --- KPI-7: Snapshot builder assembles correctly ---
     def test_07_snapshot_builder(self):
         self._seed_market_data()
-        now = datetime.now()
+        now = datetime.utcnow()
         oid = build_analysis_snapshot(analysis_timestamp=now)
         self.assertGreater(oid, 0)
         latest = get_latest_analysis_snapshot()
@@ -208,7 +208,7 @@ class KPIPreSPC2(unittest.TestCase):
     # --- KPI-8: Snapshot builder is idempotent ---
     def test_08_builder_idempotent(self):
         self._seed_market_data()
-        now = datetime.now()
+        now = datetime.utcnow()
         oid1 = build_analysis_snapshot(analysis_timestamp=now)
         self.assertGreater(oid1, 0)
         oid2 = build_analysis_snapshot(analysis_timestamp=now)
@@ -255,7 +255,7 @@ class KPIPreSPC2(unittest.TestCase):
 
     # --- KPI-12: Analysis snapshot type is distinguishable from live ---
     def test_12_snapshot_type_distinguishable(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         save_analysis_snapshot(
             analysis_timestamp=now,
             source_run_id="analysis_20260816_1200",
@@ -268,7 +268,11 @@ class KPIPreSPC2(unittest.TestCase):
 
     # --- KPI-13: Query by hours filter works ---
     def test_13_hours_filtering(self):
-        now = datetime.now()
+        # UTC, because that is what the schema stores and what the repository now
+        # filters against. Seeding in local time passed only on a UTC machine: on a
+        # UTC+3:30 box the two-hour window reached back five and a half hours and
+        # caught both rows. SP-C.16.
+        now = datetime.utcnow()
         save_analysis_snapshot(
             analysis_timestamp=now - timedelta(hours=3),
             source_run_id="analysis_20260816_0900",
@@ -289,7 +293,7 @@ class KPIPreSPC2(unittest.TestCase):
 
     # --- KPI-14: Default UNKNOWN states when market state missing ---
     def test_14_default_unknown_states(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         oid = build_analysis_snapshot(analysis_timestamp=now)
         self.assertGreater(oid, 0)
         latest = get_latest_analysis_snapshot()

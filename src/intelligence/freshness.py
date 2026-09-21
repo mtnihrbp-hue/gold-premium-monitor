@@ -29,7 +29,7 @@ def evaluate_freshness(
         return "UNKNOWN"
 
     if reference_time is None:
-        reference_time = datetime.now()
+        reference_time = datetime.utcnow()
 
     # Ensure both are naive or both are aware
     if observation_timestamp.tzinfo is None and reference_time.tzinfo is not None:

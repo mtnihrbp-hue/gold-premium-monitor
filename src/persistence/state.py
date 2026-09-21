@@ -12,7 +12,7 @@ def _default_state():
         "last_alert": None,
         "alert_history": [],
         "last_recap_date": None,
-        "created_at": datetime.now().isoformat(),
+        "created_at": datetime.utcnow().isoformat(),
     }
 
 
@@ -37,7 +37,7 @@ def load_state():
 
 
 def save_state(state):
-    state["updated_at"] = datetime.now().isoformat()
+    state["updated_at"] = datetime.utcnow().isoformat()
 
     with open(STATE_FILE, "w", encoding="utf-8") as f:
         json.dump(

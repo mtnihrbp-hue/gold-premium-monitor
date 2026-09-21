@@ -525,3 +525,52 @@ that fixed a real, measured, well-documented bug.
 The general shape: the most dangerous change is not the one that looks risky. It is
 the obviously-correct one that removes a constraint nobody realised was load-bearing,
 because the constraint was an accident.
+
+
+---
+
+## 15. A constant that cannot vary is not the same defect as a stale bound
+
+Two classifiers in this system emitted one value for months. They look identical in a
+`GROUP BY` and they need opposite fixes.
+
+**`valuation_state`** was `CHEAP` on 364 of 364 rows because its threshold sat 0.02 pp
+outside the observed range. The underlying quantity — the premium — varied from
+−8.19% to −1.52%. The bound was stale; a rank over that quantity separated the record
+cleanly. Fixed in SP-C.15.
+
+**`structure_state`** is `DISCOUNT_DOMINANT` on 365 of 367 rows because it classifies
+on the share of platforms trading below fair value, and every reading on record is a
+discount. That share is exactly 1.00 on 345 of 367 rows. **A rank over it would be
+just as constant**, because a percentile of a point mass is the point mass. No bound
+and no threshold can fix this: the measure itself asks a question whose answer is
+fixed by the shape of the market.
+
+The distinguishing test takes one query. Do not look at the *output* of the
+classifier, look at the **quantity it classifies**:
+
+```sql
+SELECT <the input quantity>, COUNT(*) FROM ... GROUP BY 1;
+```
+
+- Input varies, output does not → the bound is stale. Replace it with a rank.
+- Input does not vary → the measure is wrong. Changing the bound achieves nothing,
+  and replacing it with a rank achieves nothing while *looking* like a fix, which is
+  worse.
+
+The second case is the dangerous one, because the obvious remedy is the one that has
+worked three times already and it will appear to work here too: a percentile is
+always computable, always produces a number, and gives no sign that the number is
+meaningless.
+
+There is usually something informative nearby that is being ignored. In the same rows
+that made `structure_state` constant, platform spread runs 0.73% to 6.86% of fair
+price with a median of 2.02%. Whether it predicts anything is untested — the point is
+only that it moves, and the thing being measured does not.
+
+**And a third possibility, which is neither.** After SP-C.15 the `EXPENSIVE` branch of
+the valuation leg can never fire, because the market has never traded above fair
+value. That is not a defect at all: the classifier is answering correctly about a case
+the world has not yet produced. Section 13 has the rule — a constant output is only a
+defect when the record contained the other case and the classifier missed it. Check
+the record before reaching for a fix, and check the input before choosing which fix.

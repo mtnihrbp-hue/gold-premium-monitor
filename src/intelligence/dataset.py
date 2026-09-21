@@ -101,7 +101,7 @@ def build_dataset_record(snapshot_id: int) -> Optional[Dict[str, Any]]:
                 "snapshot_source_run_id": snap.source_run_id,
                 "feature_source": "C.8_features_json",
                 "label_source": "C.5_outcome_evaluations",
-                "generated_at": datetime.now().isoformat(),
+                "generated_at": datetime.utcnow().isoformat(),
             },
             "data_quality": {
                 "features_available": features_available,
@@ -130,7 +130,7 @@ def _build_invalid_record(snapshot_id: int, reason: str) -> Dict[str, Any]:
             "snapshot_source_run_id": None,
             "feature_source": "C.8_features_json",
             "label_source": "C.5_outcome_evaluations",
-            "generated_at": datetime.now().isoformat(),
+            "generated_at": datetime.utcnow().isoformat(),
             "error": reason,
         },
         "data_quality": {
@@ -147,7 +147,7 @@ def build_dataset_batch(hours: int = 168, min_status: str = DATASET_DEGRADED) ->
     if session is None:
         return []
     try:
-        since = datetime.now() - timedelta(hours=hours)
+        since = datetime.utcnow() - timedelta(hours=hours)
         snapshots = session.query(AnalysisSnapshot).filter(
             AnalysisSnapshot.analysis_timestamp >= since,
         ).order_by(AnalysisSnapshot.analysis_timestamp.desc()).all()

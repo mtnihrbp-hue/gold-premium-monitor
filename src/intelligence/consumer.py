@@ -53,7 +53,7 @@ def get_analysis(snapshot_id: int) -> Dict[str, Any]:
         "status": "OK",
         "completeness": completeness,
         "data": read_model,
-        "retrieved_at": datetime.now().isoformat(),
+        "retrieved_at": datetime.utcnow().isoformat(),
         "presentation_note": "Structured data only. No UI formatting included.",
     }
 
@@ -130,7 +130,7 @@ def _build_not_found_envelope(snapshot_id: int) -> Dict[str, Any]:
         "status": "NOT_FOUND",
         "completeness": COMPLETENESS_INVALID,
         "data": None,
-        "retrieved_at": datetime.now().isoformat(),
+        "retrieved_at": datetime.utcnow().isoformat(),
         "presentation_note": "Snapshot not found.",
     }
 
@@ -144,7 +144,7 @@ def _build_invalid_envelope(snapshot_id: int, errors: List[str]) -> Dict[str, An
         "completeness": COMPLETENESS_INVALID,
         "data": None,
         "validation_errors": errors,
-        "retrieved_at": datetime.now().isoformat(),
+        "retrieved_at": datetime.utcnow().isoformat(),
         "presentation_note": "Retrieved state failed validation.",
     }
 

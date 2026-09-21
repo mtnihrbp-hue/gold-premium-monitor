@@ -64,10 +64,17 @@ def _reset():
     session.close()
 
 
+# The reference window ends at the last completed local day (SP-C.15 back-ported the
+# settling rule into resolve_bubble_position), so seeded readings must land before
+# today or the window cannot see them. NOW is 15:30 Tehran, hence the offset.
+SETTLE_OFFSET_HOURS = 20
+
+
 def _seed(premiums, start=None, step_hours=1):
-    """Insert readings backwards from NOW so the newest is last."""
+    """Insert readings backwards from the last completed local day."""
     session = _test_get_session()
-    base = start or (NOW - timedelta(hours=step_hours * len(premiums)))
+    base = start or (NOW - timedelta(hours=step_hours * len(premiums)
+                                     + SETTLE_OFFSET_HOURS))
     for index, premium in enumerate(premiums):
         session.add(MarketSnapshot(
             timestamp=base + timedelta(hours=step_hours * index),
@@ -182,7 +189,9 @@ class KPISPC1(unittest.TestCase):
     def test_17_window_excludes_older_readings(self):
         old = NOW - timedelta(days=200)
         _seed([-9.0] * 40, start=old, step_hours=1)
-        _seed([-4.0] * 40, start=NOW - timedelta(hours=40), step_hours=1)
+        _seed([-4.0] * 40,
+              start=NOW - timedelta(hours=40 + SETTLE_OFFSET_HOURS),
+              step_hours=1)
         pos = resolve_bubble_position(_test_get_session(), window_days=30, now=NOW)
         self.assertAlmostEqual(pos.average, -4.0, places=3)
 

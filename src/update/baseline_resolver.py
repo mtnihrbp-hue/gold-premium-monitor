@@ -26,7 +26,8 @@ from database.models import MarketSnapshot, PlatformPrice
 from analysis.trend_resolver import SevenDayTrend, resolve_seven_day_trend
 from timeutil import local_now, to_utc
 
-BUBBLE_MOVEMENT_DEADBAND_PP = 0.05
+# One definition, imported rather than restated -- see `tolerances.py`.
+from tolerances import UNCHANGED_DEADBAND_PP as BUBBLE_MOVEMENT_DEADBAND_PP
 PRICE_DIRECTION_STABLE_THRESHOLD_PCT = 0.0001
 ACCELERATION_STABLE_THRESHOLD_PCT = 0.0001
 
