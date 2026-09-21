@@ -264,6 +264,13 @@ Related: KPI scripts print status emoji, which raise `UnicodeEncodeError` under 
 Windows console codepage **after** assertions pass — a passing suite reporting as
 failed. `kpi/run_all.py` forces UTF-8 for child output. Always use the runner.
 
+The same codepage then bit the runner itself. It forced UTF-8 on the child but printed
+the captured failure report through the parent console, so the first failing suite
+containing an emoji raised `UnicodeEncodeError` **after** the summary line: the run
+named the file that failed and died before saying why. Finding out required stashing
+the change and re-running. Diagnostics written on a failure path have to survive the
+conditions of that failure; the report now goes to `sys.stdout.buffer` as bytes.
+
 ---
 
 ## 10. Process notes that earned their place
@@ -381,3 +388,55 @@ exactly where nobody looks. Compute a cross-check by a second method and print b
 
 **A phase with zero production cases is IMPLEMENTED, not COMPLETE.** Recorded in
 `PROJECT_ORCHESTRATION.md`. Green tests establish that code can work, not that it does.
+
+
+---
+
+## 11. One word, two definitions
+
+SP-C.5 hunted the opposite problem: two words for one quantity (`widening`, `deepening`
+and `growing` all meaning a discount increasing). It did not look for one word over two
+quantities, and that is what shipped.
+
+`Deep discount` meant the 40th percentile of the signed gap in UPDATE and the 85th of
+the size in ANALYZE and the push. On 2026-09-21 that was 3.29% and 3.70%, printed in
+two messages a reader is expected to read together. At 3.40% the system said deep, said
+not deep, and sent nothing.
+
+It survived review because each surface was checked against the market and against its
+own module, and neither was checked against the other. Nothing in the test suite
+compared two surfaces' vocabulary, and nothing does so by accident — you have to decide
+to write that assertion.
+
+**The rule.** The number a reader is shown is the number the system acts on. A second
+surface that needs the same concept calls the same function; it does not declare a
+constant of the same value. Three equal constants in three files is not one definition,
+it is three definitions that currently agree — and `bubble_position`, `analyze_report`
+and `push_trigger` held exactly that for one day.
+
+Two corollaries found while fixing it:
+
+- **A shared rank over unshared samples is still two numbers.** The ranking pool and
+  the threshold pool differed by a gate due to open seven days later, at which point
+  p85 would have read 3.70% and 3.64%. The pool is part of the definition.
+- **A threshold compared against readings must not be rounded.** Gaps land on values
+  like `8.999999999999996`; rounding the level to `9.0` lifted it above the very
+  readings it was drawn from, and a zone containing eight of them measured zero
+  episodes. Round at render, never before a comparison.
+
+---
+
+## 12. A magnitude is not a direction
+
+`evaluate_push` compared `abs(current_gap)` against a threshold, so a premium of the
+same size as a deep discount would have fired a message headed DEEP DISCOUNT on a
+market trading above fair value. UPDATE carried the mirror image through a signed
+threshold whose sign nothing enforced.
+
+Latent, never fired: all 437 readings on record are discounts. Latent is the point.
+The record contained no counterexample, so no test and no production run could expose
+it, and the code read as correct because in this market it was.
+
+**The rule.** Taking an absolute value discards a fact. When the label on the output
+asserts a direction, assert the direction on the input too — and check whether the
+sample simply never contained the other case.

@@ -1674,3 +1674,168 @@ DYNAMICS and MARKET STRUCTURE
 
 The binding rule in that file -- external BUY/SELL alerts driven only by
 `final_decision` -- is unchanged and shaped this work rather than conflicting with it.
+
+---
+
+## 24. SP-C.13 - one label was carrying two numbers (2026-09-21)
+
+Found by the product owner, reading the three production messages side by side the
+day after SP-C.12 shipped.
+
+### 24.1 The defect
+
+```text
+surface   line                                 value    definition
+UPDATE    Deep discount  If 3.29% or more      3.29%    CHEAP_PERCENTILE (40) of the
+                                                        SIGNED gap
+ANALYZE   Deep discount      3.70% or more     3.70%    DEEP_ZONE_PERCENTILE (85) of
+                                                        the SIZE
+push      fires at                             3.70%    FIRE_PERCENTILE (85) of the
+                                                        SIZE
+```
+
+Same two words, same day, two numbers, in two messages a reader is expected to read
+together. The consequence is concrete rather than cosmetic: at a discount of 3.40%
+UPDATE tells the reader they are in deep discount, ANALYZE tells them they are not,
+and no push arrives.
+
+This is the two-vocabulary problem SP-C.5 removed, in a form that surface did not
+cover. SP-C.5 hunted two words for one quantity. This is one word for two
+quantities, and it survived because each surface was reviewed against the market
+rather than against the other surface.
+
+**Provenance.** `CHEAP_PERCENTILE` is a valuation band boundary from SP-C.2. It was
+never an action threshold. The word "deep" was attached to it during an UPDATE
+wording pass in SP-C.5, at a point when nothing else in the system used the word.
+SP-C.12 then introduced the push and gave the same word to the level the push acts
+on, without checking that the word was already taken.
+
+### 24.2 The rule that resolved it
+
+> The number a reader is shown is the number the system acts on.
+
+Anything else is a promise the system does not keep. The product owner chose this
+over renaming UPDATE's line back to `Cheap below`, which would have kept two
+concepts alive under two names.
+
+### 24.3 One definition, not three equal constants
+
+Making the three constants equal would have fixed the number for one day. The level
+is now resolved in one function that all three surfaces call:
+
+```python
+# analysis/bubble_position.py
+DEEP_DISCOUNT_PERCENTILE = 85
+
+def reference_readings(series, reference_end): ...
+def deep_discount_threshold(readings): ...
+```
+
+`analyze_report.DEEP_ZONE_PERCENTILE` and `push_trigger.FIRE_PERCENTILE` are now
+aliases of `DEEP_DISCOUNT_PERCENTILE`, and all three call sites take their value
+from `deep_discount_threshold`. `kpi_sp_c4.test_23c` and `kpi_sp_c6.test_24d` assert
+the equality **and** read the source to assert the shared call, because equal
+constants in three files is precisely the state that produced this defect.
+
+`analyze_report._percentile` was a byte-identical copy of
+`bubble_position._value_at_percentile`. It is now an alias. One concept, two
+definitions, is the shape every disagreement in this system has started as.
+
+### 24.4 The pool had to be shared too, not just the rank
+
+The same rank over two samples is still two numbers.
+
+`resolve_relative_valuation` ranks against a scheduled-only pool once its gate opens
+(`MIN_SCHEDULED_READINGS`, `MIN_SCHEDULED_COVERAGE_DAYS`, SP-C.5). ANALYZE and the
+push use the settled non-user pool. Measured on 2026-09-21:
+
+```text
+pool                    n     p85
+settled, non-user     265   3.70%
+scheduled only         99   3.64%
+gate opens in                7 days
+```
+
+So unifying only the rank would have split the number again on 2026-09-28. The
+threshold is drawn from the settled non-user pool on every surface, through
+`reference_readings`. The **ranking** (`Bigger than N%`) keeps its own gated pool:
+ranking and thresholding answer different questions, and only the threshold has to
+match across surfaces, because the push acts on it.
+
+Residual, accepted and recorded: at a reading exactly on the threshold, `Bigger than`
+can read 13% or 15% rather than exactly 15%, because it is ranked against the other
+pool. Removing that would mean either dropping the scheduled gate the product owner
+agreed in SP-C.5, or narrowing ANALYZE's episode analysis from 265 readings to 99.
+Neither is worth a two-point wobble on a line that is not an action threshold.
+
+### 24.5 A premium is not a deep discount
+
+Found while wiring the above. `evaluate_push` compared `abs(current_gap)` against the
+threshold, so a sustained premium regime would have fired a message headed
+**DEEP DISCOUNT** on a market trading *above* fair value. UPDATE had the mirror of
+the same bug through its signed `deep_at`.
+
+Latent, not live: all 437 readings on record are discounts, maximum -0.83%, so it has
+never fired. Both surfaces now require the discount side. Re-arming is left
+sign-blind, so a flip to premium re-arms the gate rather than holding it closed --
+the fail-open rule from SP-C.12.
+
+The `Cheap zone` branch in UPDATE, which handled a positive `deep_at`, is removed. It
+became unreachable when the threshold became a size, and a premium market needs the
+sell-side mirror, which is deliberately deferred rather than half-implied.
+
+### 24.6 Rounding lifted the level above its own source reading
+
+Found by `kpi_sp_c6.test_17` failing during this change, not by inspection.
+
+Gaps are computed from prices and land on values like `8.999999999999996`. Rounding
+the resolved threshold to 4 decimals produced `9.0`, and `abs(gap) >= threshold` then
+excluded the very readings the threshold was drawn from. A deep zone containing eight
+readings measured **zero** episodes.
+
+`deep_discount_threshold` returns unrounded, and `fire_at` / `rearm_at` are no longer
+rounded either -- they are compared against readings. `band_pp` and `noise_pp` stay
+rounded; they are only displayed. Everything formats to two decimals at render.
+
+Pre-existing and now also removed: `evaluate_push` compared against a rounded
+`fire_at` while `resolve_deep_zone` compared against an unrounded one, so ANALYZE's
+`Right now: inside it` and the push could disagree at the boundary. The magnitude was
+5e-5 pp. The class is the same one this whole section is about.
+
+### 24.7 The KPI runner crashed while reporting a failure
+
+`kpi/run_all.py` forces UTF-8 on the child process but printed the captured failure
+report through the parent console, which is cp1252 on Windows. The first failing
+suite that contained an emoji raised `UnicodeEncodeError` **after** the summary line,
+so the run named the failing file and then died before saying what the failure was.
+
+It now writes the report to `sys.stdout.buffer` as UTF-8 bytes with `errors="replace"`.
+This is why it took a stash-and-rerun to find out what had broken.
+
+### 24.8 Verification
+
+```text
+all three surfaces, live production, 2026-09-21
+  shared resolver    3.70%
+  ANALYZE deep zone  3.70%
+  push fire_at       3.70%   rearm_at 2.93%
+  scheduled-only pool n=99 -> threshold unchanged at 3.70%
+  gap -4.50% -> fire=True  reason=FIRED
+  gap +4.50% -> fire=False reason=NOT_A_DISCOUNT
+
+UPDATE, rendered live
+  Bigger than      19% of the last 30 days
+  Deep discount    If 3.70% or more  (30D)
+
+KPI suite 25/25 files. kpi_sp_c4 50 -> 53, kpi_sp_c6 30 -> 33.
+```
+
+### 24.9 Open, not closed by this change
+
+- `Bigger than N%` and the threshold rank against different pools (24.4). Bounded at
+  roughly two percentile points, accepted deliberately.
+- A sustained premium regime has no surface. The sell-side mirror of the push stays
+  deferred until the buy-side trigger has proved itself.
+- UPDATE renders `If 3.70% or more`, ANALYZE renders `3.70% or more`. Same statement,
+  two renderings. The approved UPDATE wording is kept; the substantive defect was the
+  number, and that is now one number.

@@ -270,7 +270,8 @@
   "kpi_suite": {
     "files": 25,
     "latest": "kpi_sp_c6.py",
-    "assertions_sp_c6": 30,
+    "assertions_sp_c4": 53,
+    "assertions_sp_c6": 33,
     "status": "25/25 files passing"
   },
   "open_decisions": [
@@ -286,6 +287,7 @@
     "ANALYZE message not built. Reasoning chain and TRACK RECORD belong there."
   ],
   "corrections": [
-    "Decision scorecard 'edge 0.0' does NOT mean the strategy failed. final_decision was a constant (WAIT 264/264) because of the hysteresis latch, so the scorecard compared always-WAIT against always-WAIT. The engine is untested, not disproven."
+    "Decision scorecard 'edge 0.0' does NOT mean the strategy failed. final_decision was a constant (WAIT 264/264) because of the hysteresis latch, so the scorecard compared always-WAIT against always-WAIT. The engine is untested, not disproven.",
+    "SP-C.13 (2026-09-21): `Deep discount` named two different numbers at once -- 3.29% in UPDATE (40th percentile of the signed gap) and 3.70% in ANALYZE and the push (85th of the size). One label, two definitions, shown together; a reader at 3.40% was told deep and got no push. The level is now resolved once by bubble_position.deep_discount_threshold over one pool, and UPDATE, ANALYZE and the push all call it. The ranking pool for `Bigger than X%` deliberately stays separate. Two further defects found while fixing it: the push compared abs(gap), so a premium would have alerted as a deep discount (latent -- all 437 readings on record are discounts), and rounding the threshold lifted it above the readings it was drawn from, so a zone with eight readings measured zero episodes. Recorded in SP_C_HANDOFF.md section 24."
   ]
 }

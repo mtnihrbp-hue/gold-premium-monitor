@@ -83,7 +83,14 @@ def main() -> int:
 
     for name, output in failures:
         print(f"\n===== {name} =====")
-        print(output.strip()[-3000:])
+        # Written through a byte stream rather than print(). The child is forced to
+        # UTF-8, but the parent console is cp1252 on Windows, so printing a failure
+        # report containing an emoji raised UnicodeEncodeError -- the suite named the
+        # failing file and then crashed before saying what the failure was.
+        sys.stdout.flush()
+        sys.stdout.buffer.write(
+            output.strip()[-3000:].encode("utf-8", "replace") + b"\n")
+        sys.stdout.flush()
 
     return 0 if not failures else 1
 

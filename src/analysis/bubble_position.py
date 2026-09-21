@@ -63,6 +63,20 @@ DRIFT_FRACTION_OF_STD = 0.5
 CHEAP_PERCENTILE = 40
 EXPENSIVE_PERCENTILE = 80
 
+# The level at which a discount is called deep. One rank, taken on the size of the
+# discount, read by UPDATE, ANALYZE and the push alike.
+#
+# It was not one rank until 2026-09-21. UPDATE printed CHEAP_PERCENTILE of the
+# signed gap under the label "Deep discount" while ANALYZE and the push used the
+# 85th of the size, so the same two words carried 3.29% and 3.70% in two messages a
+# reader sees side by side. At 3.40% UPDATE said deep, ANALYZE said not deep, and no
+# push arrived. CHEAP_PERCENTILE is a valuation band boundary and was never an
+# action threshold; the word "deep" was attached to it in a wording pass.
+#
+# The rule that settled it: the number a reader is shown is the number the system
+# acts on. Anything else is a promise the system does not keep.
+DEEP_DISCOUNT_PERCENTILE = 85
+
 
 @dataclass
 class BubblePosition:
@@ -302,7 +316,7 @@ class RelativeValuation:
     gap: Optional[float]            # signed; negative is a discount
     percentile: Optional[int]
     bigger_than: Optional[int]      # share of the window with a smaller discount
-    deep_at: Optional[float]        # signed threshold at CHEAP_PERCENTILE
+    deep_at: Optional[float]        # deep-discount level, as a positive size
     move_label: str
     move_percentile: Optional[int]
     basis_price: Optional[float]
@@ -343,6 +357,41 @@ def basis_series(session, window_start, now):
     valuation uses, so a reading and the history it is compared against can never be
     on different bases."""
     return _basis_series(session, window_start, now)
+
+
+def reference_readings(series, reference_end):
+    """The one pool every deep-discount number is drawn from.
+
+    Settled, because a reference that contains the reading being measured moves
+    under it. Non-user, because pressing Update must not change the level being
+    read.
+
+    Deliberately not the scheduled-only pool that `resolve_relative_valuation` ranks
+    against once its gate opens. Measured on 2026-09-21 the two pools put the 85th
+    percentile at 3.70% and 3.64%, so had the threshold followed the ranking pool it
+    would have split into two numbers again the moment the gate opened, seven days
+    later. Ranking and thresholding answer different questions; only the threshold
+    has to match across surfaces, because the push acts on it.
+    """
+    return [item for item in series
+            if item[0] < reference_end and item[1] != "user"]
+
+
+def deep_discount_threshold(readings) -> Optional[float]:
+    """The size at or beyond which a discount is called deep. Positive, in percent.
+
+    Takes the pool rather than a session so that every surface can be shown to be
+    reading the same list, and so this stays testable without a database.
+    """
+    sizes = sorted(abs(item[2]) for item in readings)
+    if len(sizes) < MIN_OBSERVATIONS:
+        return None
+    # Deliberately unrounded. The gaps are computed from prices and land on values
+    # like 8.999999999999996, so rounding the threshold to 9.0 lifts it above the
+    # very reading that produced it: `abs(gap) >= threshold` then excludes it, and a
+    # zone with eight readings in it measures zero episodes. Callers format to two
+    # decimals; nothing compares against a rounded copy.
+    return _value_at_percentile(sizes, DEEP_DISCOUNT_PERCENTILE)
 
 
 def _basis_series(session, window_start, now):
@@ -474,7 +523,10 @@ def resolve_relative_valuation(
     percentile = _percentile_of(current, values)
     result.percentile = percentile
     result.bigger_than = 100 - percentile
-    result.deep_at = round(_value_at_percentile(values, CHEAP_PERCENTILE), 4)
+    # Drawn from the shared pool at the shared rank, not from `values` above.
+    # `values` is the ranking pool, which the scheduled gate will narrow; the
+    # threshold must stay identical to the one ANALYZE prints and the push fires on.
+    result.deep_at = deep_discount_threshold(reference_readings(series, reference_end))
     result.status = "OK"
 
     if change_pp is not None:

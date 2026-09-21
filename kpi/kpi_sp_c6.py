@@ -306,6 +306,34 @@ class KPISPC6(unittest.TestCase):
         for word in ("BUY", "SELL", "WAIT", "recommend", "should"):
             self.assertNotIn(word, text)
 
+    def test_24b_a_premium_is_not_a_deep_discount(self):
+        """The level is a size, so without a sign gate a sustained premium regime
+        would fire a message headed DEEP DISCOUNT on a market trading above fair
+        value. Latent rather than live: all 437 readings on record are discounts."""
+        self.assertTrue(evaluate_push(-4.50, _thresholds(), armed=True).should_fire)
+        premium = evaluate_push(+4.50, _thresholds(), armed=True)
+        self.assertFalse(premium.should_fire)
+        self.assertEqual(premium.reason, "NOT_A_DISCOUNT")
+
+    def test_24c_a_flip_to_premium_leaves_the_gate_armed(self):
+        """Re-arming stays sign-blind. A held gate that meets a premium must not stay
+        held once the market returns -- silence is the failure this project has
+        already paid for, and nothing alerts on it."""
+        held = evaluate_push(+4.50, _thresholds(), armed=False)
+        self.assertTrue(held.armed_after)
+        self.assertFalse(held.should_fire)
+
+    def test_24d_the_level_is_shared_with_UPDATE_and_ANALYZE(self):
+        """One label, one number. Until 2026-09-21 the push fired at the 85th
+        percentile of the size while UPDATE printed the 40th of the signed gap under
+        the same words: 3.70% against 3.29% on the same day."""
+        from analysis.bubble_position import DEEP_DISCOUNT_PERCENTILE
+        self.assertEqual(FIRE_PERCENTILE, DEEP_DISCOUNT_PERCENTILE)
+        self.assertEqual(ar.DEEP_ZONE_PERCENTILE, DEEP_DISCOUNT_PERCENTILE)
+        source = inspect.getsource(resolve_push_thresholds)
+        self.assertIn("deep_discount_threshold(series)", source,
+                      "the push must read the shared level, not compute its own")
+
     def test_25_the_decision_record_is_hidden_until_it_has_a_sample(self):
         # Three decisions is an anecdote. market-analyst.md forbids manufacturing
         # confidence from a small sample.

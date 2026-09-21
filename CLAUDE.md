@@ -112,6 +112,28 @@ documented in `SP_C_HANDOFF.md` section 15.1 — do not compare a displayed disc
 against a stored one without accounting for it, and do not "fix" one to match the
 other without the phase and approval that change requires.
 
+### The deep-discount level
+
+`Deep discount` appears in UPDATE, in ANALYZE and in the push, and it is one number.
+It is resolved by `analysis/bubble_position.deep_discount_threshold()` at
+`DEEP_DISCOUNT_PERCENTILE` over the pool returned by `reference_readings()` — settled
+days, user rows excluded. `analyze_report.DEEP_ZONE_PERCENTILE` and
+`push_trigger.FIRE_PERCENTILE` are aliases of that constant, not independent copies.
+
+Until 2026-09-21 each surface chose its own rank and the same words carried 3.29% and
+3.70% on the same day. Do not reintroduce a local rank, a local percentile formula, or
+a second pool for this quantity — `kpi_sp_c4.test_23c` and `kpi_sp_c6.test_24d` read
+the source to stop it. The rule: **the number a reader is shown is the number the
+system acts on.** See `SP_C_HANDOFF.md` section 24.
+
+`Bigger than X%` is a different question — it ranks the current reading and gates
+nothing — so it keeps the scheduled-preference pool of `resolve_relative_valuation`.
+That difference is deliberate and documented; it is not drift to be tidied up.
+
+Thresholds that get compared against readings (`fire_at`, `rearm_at`, the deep-zone
+threshold) are never rounded: gaps land on values like `8.999999999999996`, and
+rounding to `9.0` excludes the readings the threshold was drawn from. Round at render.
+
 ### Degenerate classifiers
 
 This codebase has produced four classifiers that emitted a single value for months

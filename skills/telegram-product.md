@@ -98,6 +98,24 @@ distribution skewing again.
 Wording is graduated rather than three-valued. Describing anything from the 40th to
 the 80th percentile as "middle" overstates the case.
 
+### A level printed to a reader is the level the system acts on
+
+Binding. `Deep discount` named 3.29% in UPDATE and 3.70% in ANALYZE and the push on
+2026-09-21, because each surface chose its own rank. A reader at 3.40% was told they
+were in deep discount and received no push.
+
+The level is resolved once, by `bubble_position.deep_discount_threshold`, over one
+pool, and every surface that prints or acts on it calls that function. A new surface
+needing the same concept calls the same function. It does not declare a constant of
+the same value: three constants that agree are three definitions, not one.
+
+Where a rank is genuinely a different question -- `Bigger than X%` ranks the current
+reading, it does not gate anything -- it may use its own pool, and that difference is
+recorded in `SP_C_HANDOFF.md` section 24.4 rather than left to be rediscovered.
+
+A label that asserts a direction ("discount") is shown only when the reading is on
+that side. The threshold is a size, and a size alone cannot carry the claim.
+
 Confidence is **not** surfaced as a label. Withheld by product decision in SP-C.5
 section 15.6: the window the reading is ranked against is stated directly, and a bare
 "LOW" beside it was noise a reader could not act on. Sample size and sampling quality

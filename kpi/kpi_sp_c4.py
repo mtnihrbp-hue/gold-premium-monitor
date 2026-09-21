@@ -92,7 +92,7 @@ class _Position:
 class _Valuation:
     """Stands in for RelativeValuation with values chosen per test."""
 
-    def __init__(self, gap=-5.68, bigger_than=6, deep_at=-4.0574, basis_price=228_233_333,
+    def __init__(self, gap=-5.68, bigger_than=6, deep_at=4.0574, basis_price=228_233_333,
                  basis_count=3, move_label="a large move", status="OK", window_days=30):
         self.gap = gap
         self.percentile = None if bigger_than is None else 100 - bigger_than
@@ -364,11 +364,65 @@ class KPISPC4(unittest.TestCase):
     def test_23_threshold_is_stated_as_a_rule_without_promising_a_reward(self):
         text = _render_number()
         self.assertIn("If 4.06% or more  (30D)", text)
-        # The threshold is the 40th percentile of the window, not a level measured
-        # against outcomes. The decision scorecard measured an edge of 0.0, so the
-        # message must not present it as a buy trigger.
+        # A rank inside the window, not a level measured against outcomes. The
+        # decision scorecard measured an edge of 0.0, so the message must not present
+        # it as a buy trigger.
         for claim in ("Buy Opportunity", "reward", "profit"):
             self.assertNotIn(claim, text)
+
+    def test_23c_the_deep_level_is_the_one_the_push_acts_on(self):
+        """One label, one number. Until 2026-09-21 UPDATE printed the 40th percentile
+        of the signed gap under the words "Deep discount" while ANALYZE and the push
+        used the 85th of the size -- 3.29% against 3.70% on the same day, in two
+        messages a reader sees together. A reader at 3.40% was told deep and got no
+        push."""
+        import inspect
+        from analysis import bubble_position as bp
+        from analysis.analyze_report import DEEP_ZONE_PERCENTILE
+        from analysis.push_trigger import FIRE_PERCENTILE
+        self.assertEqual(DEEP_ZONE_PERCENTILE, bp.DEEP_DISCOUNT_PERCENTILE)
+        self.assertEqual(FIRE_PERCENTILE, bp.DEEP_DISCOUNT_PERCENTILE)
+        # Not merely equal by coincidence: the value must be resolved in one place.
+        source = inspect.getsource(bp.resolve_relative_valuation)
+        self.assertIn("deep_discount_threshold(reference_readings(", source,
+                      "UPDATE must read the shared level, not compute its own")
+
+    def test_23d_the_level_is_a_positive_size_and_survives_the_ranking_gate(self):
+        """The threshold is drawn from the settled non-user pool, which the scheduled
+        gate does not narrow. Measured on 2026-09-21 the two pools put p85 at 3.70%
+        and 3.64%, so a threshold that followed the ranking pool would have split into
+        two numbers again the day the gate opened."""
+        from analysis.bubble_position import (
+            deep_discount_threshold, reference_readings,
+        )
+        from datetime import datetime as _dt
+        end = _dt(2026, 9, 15)
+        series = ([(end - timedelta(hours=i + 1), "scheduled", -2.0) for i in range(40)]
+                  + [(end - timedelta(hours=i + 1), "user", -9.0) for i in range(40)]
+                  + [(end + timedelta(hours=1), "scheduled", -9.0)])
+        pool = reference_readings(series, end)
+        self.assertTrue(all(mode != "user" for _, mode, _ in pool))
+        self.assertTrue(all(ts < end for ts, _, _ in pool))
+        level = deep_discount_threshold(pool)
+        self.assertGreater(level, 0, "the level is a size, never signed")
+        self.assertAlmostEqual(level, 2.0, places=6)
+        self.assertIsNone(deep_discount_threshold(pool[:5]), "must abstain on a thin pool")
+
+    def test_23e_the_level_never_excludes_the_reading_that_produced_it(self):
+        """Gaps are computed from prices and land on values like 8.999999999999996.
+        Rounding the level to 9.0 lifted it above its own source reading, and a zone
+        with eight readings in it measured zero episodes."""
+        from analysis.bubble_position import deep_discount_threshold
+        from datetime import datetime as _dt
+        base = _dt(2026, 9, 1)
+        quiet = [(base + timedelta(hours=i), "scheduled", -2.0000000000000018)
+                 for i in range(30)]
+        deep = [(base + timedelta(hours=40 + i), "scheduled", -8.999999999999996)
+                for i in range(8)]
+        level = deep_discount_threshold(quiet + deep)
+        qualifying = [g for _, _, g in deep if abs(g) >= level]
+        self.assertEqual(len(qualifying), 8,
+                         "the level excluded the readings it was drawn from")
 
     def test_23b_rank_line_names_the_discount_not_an_undefined_cheapness(self):
         # "Cheaper than 29%" left the reader asking cheaper than what. The subject is
@@ -379,12 +433,17 @@ class KPISPC4(unittest.TestCase):
         self.assertIn("6% of the last 30 days", text)
         self.assertNotIn("Cheaper than", text)
 
-    def test_24_premium_mode_states_the_cheap_rule_as_an_upper_bound(self):
+    def test_24_premium_mode_claims_nothing_about_a_deep_discount(self):
+        """The level is a size drawn from a record that holds no premiums. Printing
+        "Deep discount" beside a reading above fair value is a claim about the other
+        side of the market, which has no design yet -- the sell-side mirror is
+        deliberately absent, not implied."""
         text = _render_number(valuation=_Valuation(gap=2.40, deep_at=1.20, bigger_than=40))
         self.assertIn("2.40%  above fair value", text)
-        self.assertIn("Cheap zone", text)
-        self.assertIn("If 1.20% or less  (30D)", text)
         self.assertNotIn("Deep discount", text)
+        self.assertNotIn("Cheap zone", text)
+        # The rank still applies: it describes where the reading sits either way.
+        self.assertIn("Bigger than", text)
 
     def test_25_unchanged_movement_carries_no_size_label(self):
         from analysis.bubble_position import cheap_basis_price, signed_gap

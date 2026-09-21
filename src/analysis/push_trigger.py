@@ -56,14 +56,23 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from analysis.analyze_report import _percentile, _settled_series
-from analysis.bubble_position import DEFAULT_WINDOW_DAYS, MIN_OBSERVATIONS
+from analysis.bubble_position import (
+    DEEP_DISCOUNT_PERCENTILE,
+    DEFAULT_WINDOW_DAYS,
+    MIN_OBSERVATIONS,
+    deep_discount_threshold,
+)
 
 # Rank at which the discount is deep enough to interrupt someone. Measured: this is
 # also median + 1 standard deviation to within 0.02 pp, the distribution having become
 # near-symmetric once the trimmed basis removed the outlier tail. Expressed as a rank
 # because that is the ruler the rest of the system uses and because it survives the
 # distribution skewing again.
-FIRE_PERCENTILE = 85
+#
+# The same rank the reader is shown in UPDATE and ANALYZE, by construction rather
+# than by coincidence -- it was a coincidence for one day, and on that day the three
+# surfaces disagreed.
+FIRE_PERCENTILE = DEEP_DISCOUNT_PERCENTILE
 
 # Band width as a multiple of the 90th-percentile reading-to-reading change. The
 # elbow in the measured sweep; below it flicker survives, above it separate episodes
@@ -117,8 +126,7 @@ def resolve_push_thresholds(
     if len(series) < MIN_OBSERVATIONS:
         return result
 
-    sizes = sorted(abs(item[2]) for item in series)
-    fire_at = _percentile(sizes, FIRE_PERCENTILE)
+    fire_at = deep_discount_threshold(series)
     if fire_at is None:
         return result
 
@@ -131,10 +139,13 @@ def resolve_push_thresholds(
     band = max(MIN_REARM_BAND_PP,
                (noise or 0) * REARM_NOISE_MULTIPLE)
 
-    result.fire_at = round(fire_at, 4)
+    # fire_at and rearm_at are unrounded: they are compared against readings, and a
+    # rounded copy can sit a hair above the reading that defined it. noise_pp and
+    # band_pp are only ever displayed.
+    result.fire_at = fire_at
     result.noise_pp = round(noise, 4) if noise is not None else None
     result.band_pp = round(band, 4)
-    result.rearm_at = round(max(0.0, fire_at - band), 4)
+    result.rearm_at = max(0.0, fire_at - band)
     result.status = "OK"
     return result
 
@@ -167,6 +178,16 @@ def evaluate_push(
     decision.fire_at = thresholds.fire_at
     decision.rearm_at = thresholds.rearm_at
     is_armed = True if armed is None else bool(armed)
+
+    # A premium is not a deep discount. The threshold is a size, so without this a
+    # sustained premium regime would fire a message headed DEEP DISCOUNT on a market
+    # trading above fair value. Latent rather than live -- all 437 readings on record
+    # are discounts -- but the sell side is a separate design, not this one by
+    # accident. Re-arming is left sign-blind so a flip to premium re-arms the gate.
+    if current_gap > 0:
+        decision.armed_after = True
+        decision.reason = "NOT_A_DISCOUNT"
+        return decision
 
     if is_armed and size >= thresholds.fire_at:
         decision.should_fire = True

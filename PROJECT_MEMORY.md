@@ -29,6 +29,9 @@ before reading any failure narrative below as live.**
 | Regime calibration inert because config pinned the same keys | 2026-09-19 | SP-C.6, section 16.6 |
 | Deep discount threshold moved within a day; reader's own clicks in the window | 2026-09-20 | SP-C.7, section 17 |
 | World gold fallback indistinguishable from a live quote in storage | 2026-09-20 | SP-C.8, section 18 |
+| `Deep discount` labelled two different numbers across UPDATE and ANALYZE | 2026-09-21 | SP-C.13, section 24 |
+| Push fired on `abs(gap)`, so a premium would alert as a deep discount | 2026-09-21 | SP-C.13, section 24.5 |
+| Rounded threshold excluded the readings it was drawn from | 2026-09-21 | SP-C.13, section 24.6 |
 
 
 ## 1. Documentation Authority
@@ -1893,8 +1896,9 @@ consequences any future change must preserve:
 
 - **`Deep discount` is constant within a local day** and steps once at the boundary.
   It moved up to fifteen times in three days before this, because the percentile
-  index `int(0.40 * n)` advances as the window grows and because the reader's own
-  Update calls were inside the window: pressing Update moved the number being read.
+  index advances as the window grows and because the reader's own Update calls were
+  inside the window: pressing Update moved the number being read. (The rank itself
+  became `DEEP_DISCOUNT_PERCENTILE` in SP-C.13; the settling rule is unchanged.)
 - **`Bigger than X%` deliberately stays live.** It ranks the current reading; only
   the distribution behind it is frozen.
 
@@ -2066,3 +2070,49 @@ that external alerts are driven only by `final_decision`.
 **Measurement note:** deep-zone episodes break across gaps over three hours. The
 series has a nightly nine-hour hole, and bridging it reported a two-hour zone as
 fifteen.
+
+
+---
+
+## SP-C.13 - one deep-discount level, shared by every surface (2026-09-21)
+
+Full record in `SP_C_HANDOFF.md` section 24.
+
+**The defect.** `Deep discount` named two different numbers on the same day: 3.29% in
+UPDATE (the 40th percentile of the signed gap) and 3.70% in ANALYZE and the push (the
+85th of the size). A reader at 3.40% was told deep by one surface, not deep by the
+other, and received no push. Found by the product owner reading the three production
+messages together.
+
+**The rule.** *The number a reader is shown is the number the system acts on.* Any
+future surface that prints a level must take it from the level that acts, not from a
+rank of its own.
+
+**One definition.** `bubble_position.DEEP_DISCOUNT_PERCENTILE = 85` and
+`bubble_position.deep_discount_threshold()` are the single source.
+`analyze_report.DEEP_ZONE_PERCENTILE` and `push_trigger.FIRE_PERCENTILE` are aliases.
+`analyze_report._percentile` is now an alias of `bubble_position._value_at_percentile`
+rather than a byte-identical copy. Do not reintroduce a local rank or a local
+percentile formula in any of these modules -- three equal constants in three files is
+the state that produced the defect, and `kpi_sp_c4.test_23c` / `kpi_sp_c6.test_24d`
+read the source to prevent it.
+
+**The pool is shared, the ranking pool is not.** The threshold is drawn from the
+settled non-user pool (`reference_readings`) on every surface. It deliberately does
+**not** follow the scheduled-only gate that `resolve_relative_valuation` applies to
+`Bigger than X%`: measured 2026-09-21, the two pools put p85 at 3.70% and 3.64%, and
+the gate opens 2026-09-28, so a shared rank over unshared pools would have split the
+number again within a week. Ranking and thresholding answer different questions; only
+the threshold must match across surfaces, because the push acts on it.
+
+**The threshold is a size, and only describes discounts.** `deep_at` is now a positive
+number. UPDATE prints the line, and the push fires, only when the current reading is
+below fair value. Re-arming stays sign-blind so a flip to premium re-arms rather than
+holds. Without this a premium regime would have alerted under the heading DEEP
+DISCOUNT. Latent only: all 437 readings on record are discounts.
+
+**Thresholds compared against readings are never rounded.** Gaps land on values like
+`8.999999999999996`; rounding to `9.0` lifted the level above its own source readings
+and a zone containing eight of them measured zero episodes. `fire_at`, `rearm_at` and
+the deep-zone threshold are unrounded. `band_pp` and `noise_pp` are displayed only and
+stay rounded.

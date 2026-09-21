@@ -334,16 +334,19 @@ def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state
         # than 29%" left the reader asking cheaper than what.
         lines.append(_row("Bigger than",
                           f"{valuation.bigger_than}% of the last {window} days"))
-        if valuation.deep_at is not None:
-            # A rank inside the window, not a level measured against outcomes, so it
-            # is named for what it describes and claims nothing about what follows
-            # from reaching it.
-            if valuation.deep_at < 0:
-                lines.append(_row("Deep discount",
-                                  f"If {abs(valuation.deep_at):.2f}% or more  ({window}D)"))
-            else:
-                lines.append(_row("Cheap zone",
-                                  f"If {valuation.deep_at:.2f}% or less  ({window}D)"))
+        # A rank inside the window, not a level measured against outcomes, so it is
+        # named for what it describes and claims nothing about what follows from
+        # reaching it. The number is resolved once, in bubble_position, and is the
+        # same one ANALYZE prints and the push fires on -- it was this surface's own
+        # rank until 2026-09-21, and disagreed with both by 0.41 pp.
+        #
+        # Shown only when the reading is a discount. The threshold is a size, and
+        # "Deep discount" over a market trading above fair value is a claim about the
+        # wrong side. A premium regime needs the sell-side mirror, which is a
+        # separate design and deliberately absent.
+        if valuation.deep_at is not None and gap is not None and gap < 0:
+            lines.append(_row("Deep discount",
+                              f"If {valuation.deep_at:.2f}% or more  ({window}D)"))
 
     below = getattr(signal_state, "platforms_below_fair", None) if signal_state else None
     above = getattr(signal_state, "platforms_above_fair", None) if signal_state else None

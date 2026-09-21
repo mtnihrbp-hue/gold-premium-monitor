@@ -24,10 +24,14 @@ from statistics import median
 from typing import List, Optional, Tuple
 
 from analysis.bubble_position import (
+    DEEP_DISCOUNT_PERCENTILE,
     DEFAULT_WINDOW_DAYS,
     MIN_OBSERVATIONS,
+    _value_at_percentile,
     basis_series,
     cheap_basis_price,
+    deep_discount_threshold,
+    reference_readings,
     signed_gap,
 )
 from timeutil import local_date, to_utc
@@ -48,10 +52,14 @@ UNCHANGED_DEADBAND_PP = 0.05
 # How far from the target a later reading may sit and still measure the horizon.
 HORIZON_TOLERANCE_HOURS = 2.0
 
-# Percentile marking the deep zone, and the one marking a sharp price move. Both are
-# ranks rather than fixed levels: a constant threshold in this market has gone stale
-# four times, most recently when regime stress fired on 250 of 252 readings.
-DEEP_ZONE_PERCENTILE = 85
+# The deep zone is the level defined once in bubble_position and shared with UPDATE
+# and the push, not a rank this module chooses for itself. It was a local constant of
+# the same value until 2026-09-21, which is how it came to disagree with UPDATE.
+DEEP_ZONE_PERCENTILE = DEEP_DISCOUNT_PERCENTILE
+
+# The rank marking a sharp price move. A rank rather than a fixed level: a constant
+# threshold in this market has gone stale four times, most recently when regime
+# stress fired on 250 of 252 readings.
 SHARP_MOVE_PERCENTILE = 95
 
 # Consecutive readings further apart than this are not a price move, they are a gap.
@@ -154,14 +162,13 @@ def _settled_series(session, now, window_days):
     """
     reference_end = to_utc(datetime.combine(local_date(now), datetime.min.time()))
     series = basis_series(session, reference_end - timedelta(days=window_days), now)
-    return [item for item in series if item[0] < reference_end and item[1] != "user"]
+    return reference_readings(series, reference_end)
 
 
 def _percentile(sorted_values, percentile):
-    if not sorted_values:
-        return None
-    index = int(percentile / 100.0 * len(sorted_values))
-    return sorted_values[max(0, min(len(sorted_values) - 1, index))]
+    """Alias. The formula lives in bubble_position; this module held a byte-identical
+    copy, which is the shape every disagreement in this system has started as."""
+    return None if not sorted_values else _value_at_percentile(sorted_values, percentile)
 
 
 def _spread(values):
@@ -319,11 +326,12 @@ def resolve_deep_zone(
     if len(series) < MIN_OBSERVATIONS:
         return result
 
-    sizes = sorted(abs(item[2]) for item in series)
-    threshold = _percentile(sizes, percentile)
+    threshold = (deep_discount_threshold(series)
+                 if percentile == DEEP_DISCOUNT_PERCENTILE
+                 else _percentile(sorted(abs(item[2]) for item in series), percentile))
     if threshold is None:
         return result
-    result.threshold = round(threshold, 4)
+    result.threshold = threshold
 
     runs: List[List[datetime]] = []
     run: List[datetime] = []
