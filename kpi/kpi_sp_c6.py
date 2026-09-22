@@ -352,6 +352,75 @@ class KPISPC6(unittest.TestCase):
             (banked[-1] + timedelta(days=remaining + 1)).isoformat(),
             "the projection must clear the settled window, not land on it")
 
+    def test_17b_a_single_reading_episode_is_counted(self):
+        """It used to be dropped. The old code measured `span[-1] - span[0]` and kept
+        only spans of more than one reading, so an episode seen once was not recorded
+        as short -- it vanished. On 2026-09-22 that removed 16 of 26 episodes from the
+        statistic the push is justified by.
+
+        The fixture needs enough deep readings for the 85th percentile to land above
+        the quiet baseline; with too few, the threshold falls to the baseline and
+        every reading counts as inside.
+        """
+        base = NOW - timedelta(days=6)
+        rows = _hourly([2.0] * 30, start=base)
+        rows.append((base + timedelta(hours=40), "scheduled", 9.0))     # seen once
+        rows.append((base + timedelta(hours=41), "scheduled", 2.0))     # and closed
+        rows += [(base + timedelta(hours=50 + i), "scheduled", 9.0) for i in range(7)]
+        rows.append((base + timedelta(hours=57), "scheduled", 2.0))
+        _seed(rows)
+
+        series = ar._settled_series(_test_get_session(), NOW, 30)
+        threshold = ar.deep_discount_threshold(series)
+        self.assertGreater(threshold, 5.0, "fixture: threshold collapsed to baseline")
+        spells = ar._episode_durations(series, threshold)
+        self.assertEqual(len(spells), 2, "both episodes must be recorded")
+        durations = sorted(d for d, _ in spells)
+        self.assertTrue(all(closed for _, closed in spells))
+        # The one-reading episode is about half a sampling interval, not zero.
+        self.assertGreater(durations[0], 0.0)
+        self.assertLess(durations[0], 1.0)
+
+    def test_17c_an_episode_we_stopped_watching_is_censored(self):
+        """Collection stops overnight. If the next reading arrives after a long gap,
+        the zone closed at some unobserved moment -- crediting it with the full span
+        to that reading hands it hours nobody watched, which is the same error
+        MAX_EPISODE_GAP_HOURS already prevents when joining readings."""
+        base = NOW - timedelta(days=6)
+        rows = _hourly([2.0] * 30, start=base)
+        rows += [(base + timedelta(hours=40 + i), "scheduled", 9.0) for i in range(5)]
+        rows.append((base + timedelta(hours=45), "scheduled", 2.0))     # closed
+        rows += [(base + timedelta(hours=50 + i), "scheduled", 9.0) for i in range(3)]
+        rows.append((base + timedelta(hours=70), "scheduled", 2.0))     # 18h later
+        _seed(rows)
+
+        series = ar._settled_series(_test_get_session(), NOW, 30)
+        threshold = ar.deep_discount_threshold(series)
+        self.assertGreater(threshold, 5.0, "fixture: threshold collapsed to baseline")
+        spells = ar._episode_durations(series, threshold)
+        self.assertEqual(len(spells), 2)
+        first, second = spells
+        self.assertTrue(first[1], "an episode closed by the next reading is observed")
+        self.assertFalse(second[1],
+                         "an episode closed across a long gap must be censored")
+        self.assertLessEqual(second[0], 3.0,
+                             "a censored episode must not be credited with the gap")
+
+    def test_17d_the_typical_duration_accounts_for_censoring(self):
+        """A plain median treats a censored episode as a completed one. With 62% of
+        episodes censored in production that is a different quantity, not a rounding
+        difference."""
+        # Three closes out of four: survival 0.75, 0.50 -> median 2.0.
+        self.assertEqual(
+            ar._median_survival([(1.0, True), (2.0, True), (3.0, True), (4.0, False)]),
+            2.0)
+        # Two closes and three censored never takes survival below 0.6, so there is
+        # no median. Reporting the largest duration instead would be a fabrication.
+        self.assertIsNone(ar._median_survival(
+            [(1.0, True), (2.0, True), (3.0, False), (4.0, False), (5.0, False)]))
+        self.assertIsNone(ar._median_survival([(1.0, False), (2.0, False)]))
+        self.assertIsNone(ar._median_survival([]))
+
     def test_25_the_decision_record_is_hidden_until_it_has_a_sample(self):
         # Three decisions is an anecdote. market-analyst.md forbids manufacturing
         # confidence from a small sample.

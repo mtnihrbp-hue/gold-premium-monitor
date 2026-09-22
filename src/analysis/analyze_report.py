@@ -105,6 +105,7 @@ class DeepZone:
     episodes: int = 0
     typical_hours: Optional[float] = None
     longest_hours: Optional[float] = None
+    censored: int = 0
     inside_now: bool = False
     status: str = "INSUFFICIENT_DATA"
 
@@ -294,6 +295,81 @@ def resolve_distribution(
     return result
 
 
+def _episode_durations(series, threshold):
+    """(duration_hours, closed) per deep-zone episode.
+
+    Two corrections to how this used to be measured, both found on 2026-09-22.
+
+    **Every episode counts.** The old code measured `span[-1] - span[0]` and kept only
+    spans of more than one reading, so an episode seen in a single reading was not
+    recorded as short -- it was dropped. That removed 16 of 26 episodes from the
+    statistic the push is justified by.
+
+    **An episode we stopped watching is censored, not closed.** Collection runs 06:00
+    to 21:00 local. If the next reading arrives after a gap longer than
+    `MAX_EPISODE_GAP_HOURS`, the zone closed at some unobserved moment and all we have
+    is a lower bound. Crediting it with the full span to that reading hands it hours
+    nobody watched -- the same error `MAX_EPISODE_GAP_HOURS` already prevents when
+    *joining* readings into an episode, which is where this rule comes from.
+
+    A closed episode is timed to the **midpoint** between the last reading inside and
+    the reading that showed it closed, because the true close lies between the two. A
+    single-reading episode therefore gets about half a sampling interval rather than
+    zero.
+
+    Measured on 2026-09-22: 26 episodes, 10 observed closes, 16 censored (62%). The
+    two old errors pulled in opposite directions and nearly cancelled -- 1.5h printed
+    against 1.1h correct -- which is luck rather than correctness, and stops being
+    luck as soon as the collection window changes.
+    """
+    spells = []
+    run: List[datetime] = []
+    for timestamp, _, gap in series:
+        if abs(gap) >= threshold:
+            if run and (timestamp - run[-1]).total_seconds() / 3600.0 > MAX_EPISODE_GAP_HOURS:
+                spells.append(((run[-1] - run[0]).total_seconds() / 3600.0, False))
+                run = []
+            run.append(timestamp)
+            continue
+        if not run:
+            continue
+        unobserved = (timestamp - run[-1]).total_seconds() / 3600.0
+        if unobserved > MAX_EPISODE_GAP_HOURS:
+            spells.append(((run[-1] - run[0]).total_seconds() / 3600.0, False))
+        else:
+            midpoint = run[-1] + (timestamp - run[-1]) / 2
+            spells.append(((midpoint - run[0]).total_seconds() / 3600.0, True))
+        run = []
+    if run:
+        spells.append(((run[-1] - run[0]).total_seconds() / 3600.0, False))
+    return spells
+
+
+def _median_survival(spells):
+    """Kaplan-Meier median: the first duration at which half of episodes have closed.
+
+    A plain median over the durations would treat a censored episode as a completed
+    one. With 62% of episodes censored that is not a rounding issue, it is a different
+    quantity.
+
+    Returns None when the curve never reaches half, which is the honest answer: more
+    than half of the episodes were still open when we stopped looking.
+    """
+    if not spells:
+        return None
+    at_risk = len(spells)
+    survival = 1.0
+    for duration in sorted({d for d, _ in spells}):
+        closed = sum(1 for d, c in spells if d == duration and c)
+        censored = sum(1 for d, c in spells if d == duration and not c)
+        if at_risk > 0 and closed:
+            survival *= (1 - closed / at_risk)
+        if survival <= 0.5:
+            return round(duration, 1)
+        at_risk -= (closed + censored)
+    return None
+
+
 def resolve_deep_zone(
     session,
     current_gap: Optional[float] = None,
@@ -328,28 +404,12 @@ def resolve_deep_zone(
         return result
     result.threshold = threshold
 
-    runs: List[List[datetime]] = []
-    run: List[datetime] = []
-    for timestamp, _, gap in series:
-        if abs(gap) >= threshold:
-            # Break the run across an unobserved stretch rather than bridging it.
-            if run and (timestamp - run[-1]).total_seconds() / 3600.0 > MAX_EPISODE_GAP_HOURS:
-                runs.append(run)
-                run = []
-            run.append(timestamp)
-        elif run:
-            runs.append(run)
-            run = []
-    if run:
-        runs.append(run)
-
-    durations = [
-        (span[-1] - span[0]).total_seconds() / 3600.0
-        for span in runs if len(span) > 1
-    ]
-    result.episodes = len(runs)
-    result.typical_hours = round(median(durations), 1) if durations else None
-    result.longest_hours = round(max(durations), 1) if durations else None
+    spells = _episode_durations(series, threshold)
+    result.episodes = len(spells)
+    result.typical_hours = _median_survival(spells)
+    observed = [duration for duration, _ in spells]
+    result.longest_hours = round(max(observed), 1) if observed else None
+    result.censored = sum(1 for _, closed in spells if not closed)
     result.inside_now = current_gap is not None and abs(current_gap) >= threshold
     result.status = "OK"
     return result
