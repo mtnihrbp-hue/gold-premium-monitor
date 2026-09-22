@@ -504,6 +504,33 @@ class KPISPC6(unittest.TestCase):
         self.assertNotEqual(ok.move_label, "UNKNOWN")
         self.assertGreaterEqual(MIN_MOVE_SAMPLE, 10)
 
+    def test_24k_the_window_says_it_holds_completed_days(self):
+        """On 2026-09-22 one message said "Today's discount 0.74%" and "Discount
+        range 0.83% to 5.05%" nine lines apart. The range is of completed days and
+        today is not in it, but the heading said "THE LAST 30 DAYS" and nothing
+        explained why the range excluded the number printed around it."""
+        from analysis.bubble_position import DEFAULT_WINDOW_DAYS
+        text = build_analyze_message(self._report())
+        self.assertIn(f"THE LAST {DEFAULT_WINDOW_DAYS} COMPLETED DAYS", text)
+        self.assertNotIn("THE LAST 30 DAYS", text)
+
+    def test_24l_a_record_reading_is_not_called_below_typical(self):
+        """"Below typical" is true of a record low and says almost nothing about it."""
+        from alerts.telegram_analyze import _today_against
+        window = ar.Distribution(low=0.83, high=5.05, typical=3.09, status="OK")
+        self.assertEqual(
+            _today_against(ar.Distribution(**{**window.__dict__, "today": 0.74})),
+            "below the whole range")
+        self.assertEqual(
+            _today_against(ar.Distribution(**{**window.__dict__, "today": 5.40})),
+            "above the whole range")
+        self.assertEqual(
+            _today_against(ar.Distribution(**{**window.__dict__, "today": 2.29})),
+            "below typical")
+        self.assertEqual(
+            _today_against(ar.Distribution(**{**window.__dict__, "today": 4.10})),
+            "above typical")
+
     def test_25_the_decision_record_is_hidden_until_it_has_a_sample(self):
         # Three decisions is an anecdote. market-analyst.md forbids manufacturing
         # confidence from a small sample.

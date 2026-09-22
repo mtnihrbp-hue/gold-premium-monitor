@@ -14,6 +14,7 @@ from typing import Optional
 
 from alerts.telegram import _send
 from alerts.helpers import format_m_tomans_short, format_timestamp, to_tehran
+from analysis.bubble_position import DEFAULT_WINDOW_DAYS
 
 LABEL_WIDTH = 20
 
@@ -38,6 +39,21 @@ def _pp(value):
 
 def _pct(value):
     return "—" if value is None else f"{abs(value):.2f}%"
+
+
+def _today_against(distribution):
+    """Where today sits: against the range first, against the typical otherwise.
+
+    "Below typical" is true of a record low and says almost nothing about it. On
+    2026-09-22 the discount reached 0.74% against a window of 0.83% to 5.05% -- the
+    smallest in the whole record -- and the message called it below average.
+    """
+    today = distribution.today
+    if distribution.low is not None and today < distribution.low:
+        return "below the whole range"
+    if distribution.high is not None and today > distribution.high:
+        return "above the whole range"
+    return "below typical" if today < distribution.typical else "above typical"
 
 
 def _times(count):
@@ -123,7 +139,18 @@ def _build_level(level):
 
 
 def _build_distribution(distribution, deep_zone):
-    lines = [_sep(), "<b>THE LAST 30 DAYS</b>", _sep()]
+    """The window, and where today sits against it.
+
+    The heading says **completed** days because that is what the window holds. The
+    reference ends at the last finished local day, so today's own reading is not in
+    it -- which on 2026-09-22 produced a message stating "Today's discount 0.74%" and
+    "Discount range 0.83% to 5.05%" nine lines apart. The range appeared to exclude
+    the number printed above and below it, and nothing said why.
+
+    The day count comes from the constant rather than the text, so the heading cannot
+    drift from the window it describes.
+    """
+    lines = [_sep(), f"<b>THE LAST {DEFAULT_WINDOW_DAYS} COMPLETED DAYS</b>", _sep()]
     if distribution.status != "OK":
         lines.append(_row("Not enough history", "yet"))
         return "\n".join(lines)
@@ -131,8 +158,8 @@ def _build_distribution(distribution, deep_zone):
     lines.append(_row("Discount range", f"{_pct(distribution.low)} to {_pct(distribution.high)}"))
     lines.append(_row("Typical", _pct(distribution.typical)))
     if distribution.today is not None and distribution.typical is not None:
-        side = "below" if distribution.today < distribution.typical else "above"
-        lines.append(_row("Today", f"{_pct(distribution.today)} — {side} typical"))
+        lines.append(_row("Today", f"{_pct(distribution.today)} — "
+                                   f"{_today_against(distribution)}"))
 
     if deep_zone.status == "OK":
         lines.append("")
