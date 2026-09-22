@@ -2657,3 +2657,140 @@ valuation_context now ranked on the settled pool, so the audit record and the de
 news              abstains far more often. No reader-visible surface, so watch only
                   for collection errors.
 ```
+
+---
+
+## 30. SP-C.18 - measuring the deep zone, and what a comparison covers (2026-09-22)
+
+Six changes found by reading two production messages. Four are wording, two are the
+same defect seen twice.
+
+### 30.1 The deep zone was measured over a quarter of its episodes
+
+The push is justified by "the zone typically stays open two hours". That number was
+computed over **7 of 26 episodes**.
+
+`span[-1] - span[0]` with a `len(span) > 1` filter drops every episode seen in a
+single reading. Such an episode is not recorded as short, it is **dropped** -- 16 of
+26 on the day this was found. And an episode still open when collection stops for
+the night was recorded as having ended, when all that exists is a lower bound.
+
+Both now handled. `_episode_durations` records every episode with whether it was
+observed to close; an episode whose next reading arrives after more than
+`MAX_EPISODE_GAP_HOURS` is censored, the same rule the module already applied when
+*joining* readings, now applied to leaving. A closed episode is timed to the midpoint
+between the last reading inside and the reading that showed it closed, so a
+one-reading episode gets about half a sampling interval rather than zero.
+`_median_survival` is Kaplan-Meier, and returns None when the curve never reaches
+half -- the honest statement then is "more than half were still open when we stopped
+looking", not the largest duration seen.
+
+```text
+                    before   after
+typical duration      1.5h    1.1h
+episodes measured     7/26    26/26
+censored                 -    16 (62%)
+```
+
+**The number barely moved, and that is the point.** The two errors pulled in opposite
+directions and nearly cancelled. That is luck, and it stops being luck the moment the
+collection window changes.
+
+### 30.2 A correction made while diagnosing it
+
+The first measurement put the median at 3.4h and was reported as the shipped number
+being understated more than twofold. That measurement closed each episode at the next
+reading below the threshold **whatever the gap**, so episodes were credited with the
+overnight hours nobody watched -- the exact error being diagnosed, committed while
+diagnosing it. Caught by re-measuring before writing code. Both KPI fixtures were
+wrong on the first pass too: one expected a Kaplan-Meier median where the curve never
+crosses half, the other seeded too few deep readings so the 85th percentile collapsed
+onto the quiet baseline and every reading counted as inside.
+
+### 30.3 Two readings reported as a record
+
+At a discount of 0.74%, below anything in the 30-day window, the comparable band held
+two readings. ANALYZE printed:
+
+```text
+Similar past        2 readings between 0.32% and 1.15%
+Discount increased  2 times — average 1.62 pp
+Average change      increased 1.62 pp
+```
+
+Same layout, same authority, as the hundred readings it had the day before. The
+section gated on the *window* holding `MIN_OBSERVATIONS`, never on the band.
+
+`MIN_COMPARABLE_READINGS = 15`: measured across the 273 readings in the window, a
+band narrower than that occurs for 6% of levels, and those are the genuine extremes.
+Ten would suppress 4%, twenty 8%.
+
+An empty band and a thin one now give the same answer. The empty case returned
+`INSUFFICIENT_DATA`, which made the surface print "not enough history yet" about a
+273-reading window -- blaming the history for a gap in the neighbourhood.
+
+### 30.4 A change ranked against stretches of time it has nothing to do with
+
+The size label -- "a normal move", "a large move", "unusually large" -- ranked the
+current change against **every** consecutive-reading change in the window, with no
+regard for how much time each covered:
+
+```text
+spacing in that pool   median 60m   p90 469m   max 987m
+                       65 of 272 intervals over 3h (the overnight gap)
+```
+
+The change being ranked is measured against the last scheduled run, which on a user
+request is 4 to 57 minutes old. So a twenty-minute move was ranked against a
+distribution a quarter made of overnight gaps, which understates it.
+
+`comparable_moves` keeps only intervals within `MOVE_INTERVAL_FACTOR` of the current
+one, and below `MIN_MOVE_SAMPLE` the label abstains rather than ranking against
+whatever is left.
+
+### 30.5 The window the reader could not see
+
+```text
+minutes between a user request and the preceding scheduled run, 30 requests
+  min 4   p25 10   median 29   p75 42   max 57
+  under 20 minutes: 11 of 30  (37%)
+```
+
+"Discount decreased 0.65 pp" means something very different at 4 minutes and at 57,
+and nothing said which. The footnote now reads
+`Run = 13:01 (11m ago, last scheduled)`.
+
+**A cooldown was proposed for this and rejected.** Skipping a run younger than twenty
+minutes moves the window from 0-60 minutes to 20-80 -- still invisible, still varying
+fourfold -- and introduces a reference that changes between two requests two minutes
+apart **with no new data having arrived**. That is the defect SP-C.7 and the
+deep-discount unification both removed, and re-introducing it to fix a display
+problem would be a poor trade.
+
+### 30.6 Smaller things in the same pass
+
+- `0 times — average —` is two pieces of punctuation standing in for nothing. A zero
+  count now carries no average.
+- `1 hours` shipped for a day after 30.1, because the format string never considered
+  that the number could round to one.
+- `_elapsed_label` takes an injectable clock. A label that reads `utcnow` directly
+  cannot be asserted, and the first version of it could not be.
+
+### 30.7 Deliberately not built
+
+**The hazard line.** `Open 2h already — 35% of past episodes were still open` rests
+on **10 observed closes**; past two hours it is 4 to 8 episodes at risk. The number
+would move substantially with each new episode. Revisit at roughly 25-30 observed
+closes.
+
+### 30.8 Verification
+
+```text
+KPI suite 26 files. kpi_sp_c4 53 -> 54, kpi_sp_c6 34 -> 42.
+Live: Typical duration 1 hour; Run = 13:01 (11m ago, last scheduled).
+```
+
+One process note: the commit for 30.1 went out while `kpi_pre_sp_c4` was red, because
+the command piped the runner into `tail` and `&&` read `tail`'s exit status. Recorded
+in 28.6. Every commit since gates on `$?` from the runner directly, and this change
+was blocked once by that gate before going out.
