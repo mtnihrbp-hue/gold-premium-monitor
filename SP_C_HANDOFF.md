@@ -2794,3 +2794,55 @@ One process note: the commit for 30.1 went out while `kpi_pre_sp_c4` was red, be
 the command piped the runner into `tail` and `&&` read `tail`'s exit status. Recorded
 in 28.6. Every commit since gates on `$?` from the runner directly, and this change
 was blocked once by that gate before going out.
+
+### 30.9 The window that looked like it contradicted itself
+
+One ANALYZE message on 2026-09-22 carried both of these, nine lines apart:
+
+```text
+Today's discount    0.74%
+Discount range      0.83% to 5.05%
+Today               0.74% — below typical
+```
+
+The range excluded the number printed above and below it. Nothing was wrong with any
+figure: the reference ends at the last finished local day (SP-C.7), so today's own
+reading is not in the window, and that is the rule that keeps the yardstick still
+while the reading moves against it. But the heading read `THE LAST 30 DAYS`, which a
+reader has every reason to take as including today, and on the one day the two
+disagreed there was no way to tell a deliberate rule from a contradiction.
+
+The heading now reads `THE LAST 30 COMPLETED DAYS` and takes its number from
+`DEFAULT_WINDOW_DAYS` rather than from the text, so it cannot drift from the window
+it describes.
+
+The second half was worse and the first half hid it. **"Below typical" is true of a
+record low.** 0.74% against a window of 0.83% to 5.05% was the smallest discount in
+the entire record, and the message called it below average. Today is now placed
+against the range first and against the typical only when it falls inside:
+
+```text
+Today               0.74% — below the whole range
+Today               2.29% — below typical
+```
+
+This is the same class as everything else in this section: a number that is correct,
+next to a label that does not describe it.
+
+### 30.10 Observation window
+
+Three code changes shipped on 2026-09-22, so the two to three days of stable
+behaviour the product owner wants before merging start from the 23rd, not the 22nd.
+Every change resets that clock. The next scheduled event that moves numbers without
+anyone touching code is the **D gate on 2026-09-28**, which is the natural checkpoint
+to merge against.
+
+Recorded because the argument was had and settled: waiting was the right call, and
+the evidence is this section. Four reader-visible defects were found on 2026-09-22 by
+reading output rather than code, and every one would otherwise have been a patch on
+`main`.
+
+The counter-cost is real but bounded. `main` is 56 commits and three days behind, so
+it carries the constant valuation leg, the news classifier matching image URLs and
+the machine clock. It is a rollback point that is becoming a regression. That is not
+an argument against two or three days; it is an argument against three weeks.
