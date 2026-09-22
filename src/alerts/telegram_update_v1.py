@@ -59,6 +59,25 @@ def _cont(value):
     return f"{' ' * LABEL_WIDTH}{value}"
 
 
+def _elapsed_label(timestamp, now=None):
+    """How long ago, in the coarsest unit that still says something.
+
+    The Run comparison covers anywhere from about four minutes to an hour depending
+    on when the reader asks, and "decreased 0.65 pp" means very different things
+    across that range. The window was invisible until now; 37% of user requests
+    arrive within twenty minutes of a scheduled run.
+    """
+    if timestamp is None:
+        return None
+    minutes = int(((now or datetime.utcnow()) - timestamp).total_seconds() // 60)
+    if minutes < 0:
+        return None
+    if minutes < 60:
+        return f"{minutes}m ago"
+    hours, rest = divmod(minutes, 60)
+    return f"{hours}h ago" if rest == 0 else f"{hours}h {rest}m ago"
+
+
 def _gap_naming(premium):
     """Discount and premium are one measure with opposite signs.
 
@@ -234,7 +253,15 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
     run_clock = format_clock(run.timestamp) if run and run.timestamp else None
     day_clock = format_clock(day.timestamp) if day and day.timestamp else None
     if run_clock and day_clock:
-        lines.append(f"<i>Run = {run_clock} (last scheduled), "
+        # How much time the Run comparison covers, because it varies from about four
+        # minutes to an hour depending on when the reader asks, and a change of
+        # "0.65 pp since Run" means very different things across that range. The
+        # window used to be invisible; 37% of user requests arrive within twenty
+        # minutes of a scheduled run.
+        elapsed = _elapsed_label(run.timestamp) if run and run.timestamp else None
+        run_note = f"{run_clock} ({elapsed}, last scheduled)" if elapsed \
+            else f"{run_clock} (last scheduled)"
+        lines.append(f"<i>Run = {run_note}, "
                      f"Today = {day_clock} (first today).</i>")
     else:
         lines.append("<i>Run = the last scheduled reading, "

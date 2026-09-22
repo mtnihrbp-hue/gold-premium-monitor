@@ -350,8 +350,25 @@ class KPISPC4(unittest.TestCase):
         table = _build_market(4285.0, 230_700.0, FAIR, PLATFORM_AVG, LOWEST,
                               233_900_000, 9_100_000, -5.68, _baselines(),
                               markets=MARKETS, valuation=_Valuation())
-        self.assertIn("Run = 17:01 (last scheduled), Today = 06:01 (first today).", table)
+        # The elapsed time is now printed with it, because the Run comparison covers
+        # anywhere from four minutes to an hour and "decreased 0.65 pp" means very
+        # different things across that range. Its exact value moves with the clock,
+        # so the shape is asserted here and the formatting in test_22c.
+        self.assertIn("Run = 17:01 (", table)
+        self.assertIn(", last scheduled), Today = 06:01 (first today).", table)
         self.assertNotIn("All changes are vs", _render_number())
+
+    def test_22c_the_elapsed_label_reads_in_the_coarsest_useful_unit(self):
+        from alerts.telegram_update_v1 import _elapsed_label
+        now = datetime(2026, 9, 22, 12, 0, 0)
+        self.assertEqual(_elapsed_label(now - timedelta(minutes=1), now), "1m ago")
+        self.assertEqual(_elapsed_label(now - timedelta(minutes=20), now), "20m ago")
+        self.assertEqual(_elapsed_label(now - timedelta(minutes=59), now), "59m ago")
+        self.assertEqual(_elapsed_label(now - timedelta(hours=1), now), "1h ago")
+        self.assertEqual(_elapsed_label(now - timedelta(minutes=95), now), "1h 35m ago")
+        self.assertIsNone(_elapsed_label(None, now))
+        # A baseline from the future is a clock problem, not something to print.
+        self.assertIsNone(_elapsed_label(now + timedelta(minutes=5), now))
 
     def test_22b_local_conversion_is_a_fixed_iran_offset(self):
         from alerts.helpers import format_clock

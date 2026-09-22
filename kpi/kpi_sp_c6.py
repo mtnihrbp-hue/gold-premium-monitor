@@ -103,6 +103,12 @@ def _hourly(sizes, start=None, mode="scheduled"):
     return [(base + timedelta(hours=i), mode, v) for i, v in enumerate(sizes)]
 
 
+def ar_message_for(level):
+    """Render only the level block, for assertions about what it says."""
+    from alerts.telegram_analyze import _build_level
+    return _build_level(level)
+
+
 class KPISPC6(unittest.TestCase):
 
     # -- 1. the gate, exhaustively --------------------------------------------
@@ -420,6 +426,83 @@ class KPISPC6(unittest.TestCase):
             [(1.0, True), (2.0, True), (3.0, False), (4.0, False), (5.0, False)]))
         self.assertIsNone(ar._median_survival([(1.0, False), (2.0, False)]))
         self.assertIsNone(ar._median_survival([]))
+
+    def test_24f_a_nearly_empty_band_reports_nothing(self):
+        """On 2026-09-22 the discount reached 0.74%, below anything in the window,
+        so the comparable band held two readings -- and the message printed
+        "increased 2 times, average 1.62 pp" in the layout it uses for a hundred.
+        The section gated on the window, never on the band."""
+        _seed(_hourly([3.0 + (i % 5) * 0.05 for i in range(60)]))
+        # Nothing at all near this level: the band is empty, not the history.
+        empty = ar.resolve_level_outcomes(_test_get_session(), current_gap=-0.20,
+                                          now=NOW)
+        self.assertEqual(empty.status, "TOO_FEW")
+        self.assertEqual(empty.cases, 0)
+        text = ar_message_for(empty)
+        self.assertIn("none at this level", text)
+        self.assertNotIn("not enough history", text.lower(),
+                         "an empty band must not blame the window")
+        self.assertNotIn("In the 24 hours after", text)
+        self.assertNotIn("Average change", text)
+
+        # A band with something in it, but not enough to count over.
+        thin = ar.LevelOutcomes(gap=-0.20, cases=3, status="TOO_FEW")
+        thin_text = ar_message_for(thin)
+        self.assertIn("3 readings — too few to report", thin_text)
+        self.assertNotIn("In the 24 hours after", thin_text)
+        self.assertGreaterEqual(ar.MIN_COMPARABLE_READINGS, 10)
+
+    def test_24g_a_zero_count_carries_no_empty_average(self):
+        """"0 times - average -" is two pieces of punctuation standing in for
+        nothing."""
+        from alerts.telegram_analyze import _counted
+        self.assertEqual(_counted(0, None), "0 times")
+        self.assertEqual(_counted(0, 1.2), "0 times")
+        self.assertEqual(_counted(1, 1.2), "1 time — average 1.20 pp")
+        self.assertEqual(_counted(4, 0.5), "4 times — average 0.50 pp")
+
+    def test_24h_one_hour_is_not_one_hours(self):
+        from alerts.telegram_analyze import _hours
+        self.assertEqual(_hours(1.1), "1 hour")
+        self.assertEqual(_hours(2.0), "2 hours")
+        self.assertEqual(_hours(1 / 60), "1 minute")
+        self.assertEqual(_hours(0.5), "30 minutes")
+
+    def test_24i_a_move_is_ranked_against_comparable_stretches_of_time(self):
+        """The size label ranked the current change against every consecutive-reading
+        change in the window, whatever each one covered. Measured 2026-09-22 that
+        pool ran from 0 minutes to 16 hours with a quarter of it overnight gaps, so a
+        twenty-minute move was judged against mostly multi-hour ones."""
+        from analysis.bubble_position import comparable_moves, MOVE_INTERVAL_FACTOR
+        base = NOW - timedelta(days=3)
+        readings = [(base + timedelta(hours=i), "scheduled", -3.0 - i * 0.1)
+                    for i in range(6)]
+        # ...then a gap nobody observed, and two more readings after it.
+        readings += [(base + timedelta(hours=20), "scheduled", -4.0),
+                     (base + timedelta(hours=21), "scheduled", -4.4)]
+        hourly = comparable_moves(readings, 1.0)
+        self.assertEqual(len(hourly), 6, "only the hourly steps are comparable")
+        overnight = comparable_moves(readings, 14.0)
+        self.assertEqual(len(overnight), 1, "only the long gap is comparable to 14h")
+        # The factor band is symmetric around the elapsed time.
+        self.assertEqual(comparable_moves(readings, 1.0 / MOVE_INTERVAL_FACTOR / 2),
+                         [])
+
+    def test_24j_the_size_label_abstains_on_a_thin_pool(self):
+        """Ranking against whatever few intervals happen to match is worse than not
+        ranking. Below MIN_MOVE_SAMPLE the label says nothing."""
+        from analysis.bubble_position import MIN_MOVE_SAMPLE, resolve_relative_valuation
+        _seed(_hourly([3.0 + (i % 7) * 0.1 for i in range(60)]))
+        markets = {n: {"price": FAIR * 0.97, "status": "OK"} for n in "ABC"}
+        thin = resolve_relative_valuation(
+            _test_get_session(), markets=markets, fair_price=FAIR,
+            change_pp=0.4, change_hours=11.0, now=NOW)
+        self.assertEqual(thin.move_label, "UNKNOWN")
+        ok = resolve_relative_valuation(
+            _test_get_session(), markets=markets, fair_price=FAIR,
+            change_pp=0.4, change_hours=1.0, now=NOW)
+        self.assertNotEqual(ok.move_label, "UNKNOWN")
+        self.assertGreaterEqual(MIN_MOVE_SAMPLE, 10)
 
     def test_25_the_decision_record_is_hidden_until_it_has_a_sample(self):
         # Three decisions is an anecdote. market-analyst.md forbids manufacturing

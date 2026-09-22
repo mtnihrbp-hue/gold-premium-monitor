@@ -291,7 +291,7 @@ def _basis_change(markets, fair, baselines):
 
 
 def _resolve_presentation_context(premium, run_premium=None, markets=None, fair=None,
-                                  run_basis_gap=None):
+                                  run_basis_gap=None, run_elapsed_hours=None):
     """Relative valuation, bubble trend and move size for the UPDATE message.
 
     These are reads against persisted observations, not an Analyze pipeline run, so
@@ -312,8 +312,13 @@ def _resolve_presentation_context(premium, run_premium=None, markets=None, fair=
         )
         # The valuation is measured on the trimmed basis, so its own change has to
         # be measured on that basis too rather than on the minimum-based premium.
+        # The move size is ranked against intervals of comparable length, so the
+        # resolver has to know how much time this change actually covers. The RUN
+        # baseline is the last scheduled reading, which on a user request is
+        # anywhere from a few minutes to an hour old.
         valuation = resolve_relative_valuation(
             session, markets=markets, fair_price=fair, change_pp=run_basis_gap,
+            change_hours=run_elapsed_hours,
         )
         return (
             resolve_bubble_position(session, current_bubble=premium),
@@ -606,9 +611,14 @@ def main():
             highest_price = markets[high_name]["price"] if high_name in markets else None
             run_premium = baselines.run.premium_percent if baselines and baselines.run else None
             run_basis_gap = _basis_change(markets, fair, baselines)
+            run_elapsed_hours = None
+            if baselines and baselines.run and baselines.run.timestamp:
+                run_elapsed_hours = (
+                    datetime.utcnow() - baselines.run.timestamp
+                ).total_seconds() / 3600.0
             position, trend, magnitude, valuation = _resolve_presentation_context(
                 premium, run_premium, markets=markets, fair=fair,
-                run_basis_gap=run_basis_gap,
+                run_basis_gap=run_basis_gap, run_elapsed_hours=run_elapsed_hours,
             )
             send_update_v1(
                 world=world,

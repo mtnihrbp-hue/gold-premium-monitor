@@ -44,12 +44,26 @@ def _times(count):
     return f"{count} time" if count == 1 else f"{count} times"
 
 
+def _counted(count, average):
+    """A count, and its average only when there is something to average."""
+    if not count or average is None:
+        return _times(count)
+    return f"{_times(count)} — average {_pp(average)}"
+
+
 def _hours(value):
+    """Duration in the reader's units, singular when it is one.
+
+    `1 hours` shipped for a day after the episode measurement was corrected, because
+    the format string never considered that the number could round to one.
+    """
     if value is None:
         return "—"
     if value < 1:
-        return f"{int(round(value * 60))} minutes"
-    return f"{value:.0f} hours"
+        minutes = int(round(value * 60))
+        return f"{minutes} minute" if minutes == 1 else f"{minutes} minutes"
+    hours = round(value)
+    return f"{hours} hour" if hours == 1 else f"{hours} hours"
 
 
 # ---------------------------------------------------------------------------
@@ -65,6 +79,18 @@ def _build_level(level):
     involved. The band is printed so "this level" is a number rather than a claim.
     """
     lines = [_sep(), "<b>WHEN THE DISCOUNT WAS AT THIS LEVEL</b>", _sep()]
+    if level.status == "TOO_FEW":
+        # The window is fine; it is this *level* the record has nothing near. Saying
+        # "not enough history" would blame the wrong thing, and printing the two or
+        # three readings it did find would lend them the authority of a hundred.
+        lines.append(_row("Today's discount", _pct(level.gap)))
+        lines.append(_row("Similar past",
+                          "none at this level" if not level.cases
+                          else f"{level.cases} readings — too few to report"))
+        lines.append("")
+        lines.append("<i>The last 30 days hold almost no readings at this level,</i>")
+        lines.append("<i>so there is nothing to count.</i>")
+        return "\n".join(lines)
     if level.status != "OK":
         lines.append(_row("Not enough history", "yet"))
         return "\n".join(lines)
@@ -78,10 +104,11 @@ def _build_level(level):
 
     lines.append("")
     lines.append("<i>In the 24 hours after:</i>")
-    lines.append(_row("Discount increased",
-                      f"{_times(level.increased)} — average {_pp(level.average_increase_pp)}"))
-    lines.append(_row("Discount decreased",
-                      f"{_times(level.decreased)} — average {_pp(level.average_decrease_pp)}"))
+    # "0 times — average —" is two pieces of punctuation standing in for nothing.
+    lines.append(_row("Discount increased", _counted(
+        level.increased, level.average_increase_pp)))
+    lines.append(_row("Discount decreased", _counted(
+        level.decreased, level.average_decrease_pp)))
     lines.append(_row("Unchanged", _times(level.unchanged)))
 
     if level.average_change_pp is not None:
@@ -111,7 +138,15 @@ def _build_distribution(distribution, deep_zone):
         lines.append("")
         lines.append(_row("Deep discount", f"{_pct(deep_zone.threshold)} or more"))
         lines.append(_row("Appeared", _times(deep_zone.episodes)))
-        lines.append(_row("Typical duration", _hours(deep_zone.typical_hours)))
+        if deep_zone.typical_hours is None and deep_zone.longest_hours:
+            # Kaplan-Meier never reached half, so there is no median. The largest
+            # duration observed is not a substitute for one, and saying so is the
+            # only honest thing available.
+            lines.append(_row("Typical duration", "not reached"))
+            lines.append(_cont(f"over half were still open at "
+                               f"{_hours(deep_zone.longest_hours)}"))
+        else:
+            lines.append(_row("Typical duration", _hours(deep_zone.typical_hours)))
         lines.append(_row("Longest spell", _hours(deep_zone.longest_hours)))
         lines.append(_row("Right now", "inside it" if deep_zone.inside_now else "outside it"))
     return "\n".join(lines)

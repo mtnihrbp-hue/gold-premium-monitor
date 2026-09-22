@@ -47,6 +47,21 @@ OUTCOME_HORIZON_HOURS = 24
 # How far from the target a later reading may sit and still measure the horizon.
 HORIZON_TOLERANCE_HOURS = 2.0
 
+# Fewest comparable readings worth reporting counts over.
+#
+# The section gated only on the *window* holding 30 readings, never on how many
+# readings the comparable band actually caught. On 2026-09-22 the discount reached
+# 0.74%, below anything in the window, and the band held two readings -- which the
+# message printed as "increased 2 times, average 1.62 pp" in the same layout it uses
+# for a hundred. `skills/market-analyst.md` forbids manufacturing confidence from a
+# small sample, and this was the file quoting it.
+#
+# Fifteen: measured across the 273 readings in the window, a band narrower than this
+# occurs for 6% of levels, and those are the genuine extremes -- exactly where a
+# reader is most curious and the record has least to say. Ten would suppress 4%,
+# twenty 8%.
+MIN_COMPARABLE_READINGS = 15
+
 # The deep zone is the level defined once in bubble_position and shared with UPDATE
 # and the push, not a rank this module chooses for itself. It was a local constant of
 # the same value until 2026-09-21, which is how it came to disagree with UPDATE.
@@ -239,12 +254,18 @@ def resolve_level_outcomes(
             # the difference of their magnitudes.
             moves.append(abs(best) - abs(gap))
 
-    if not moves:
+    # An empty band and a thin one are the same answer: the window is fine, it is
+    # this *level* the record has nothing near. Returning INSUFFICIENT_DATA for the
+    # empty case would blame the history for a gap in the neighbourhood, and the
+    # surface would print "not enough history yet" about a 273-reading window.
+    result.cases = len(moves)
+    if len(moves) < MIN_COMPARABLE_READINGS:
+        # The count is still carried so the surface can say how few there were.
+        result.status = "TOO_FEW"
         return result
 
     increased = [m for m in moves if m > UNCHANGED_DEADBAND_PP]
     decreased = [m for m in moves if m < -UNCHANGED_DEADBAND_PP]
-    result.cases = len(moves)
     result.increased = len(increased)
     result.decreased = len(decreased)
     result.unchanged = len(moves) - len(increased) - len(decreased)

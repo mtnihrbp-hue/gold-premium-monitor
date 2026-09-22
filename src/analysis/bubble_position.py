@@ -66,6 +66,25 @@ DRIFT_FRACTION_OF_STD = 0.5
 CHEAP_PERCENTILE = 40
 EXPENSIVE_PERCENTILE = 80
 
+# A past interval counts as comparable to the current one if it is within this
+# factor of it, either way.
+#
+# The move-size label ("a normal move" / "a large move" / "unusually large") ranked
+# the current change against *every* consecutive-reading change in the window, with
+# no regard for how much time each covered. Measured 2026-09-22, that pool spanned 0
+# minutes to 16 hours, and a quarter of its members were the overnight collection
+# gap. The current change is measured against the last scheduled run, which is
+# anywhere from 4 to 57 minutes old -- so a twenty-minute move was being ranked
+# against a distribution largely made of multi-hour ones, which understates it.
+#
+# A factor of two either side keeps the hourly cadence together while excluding the
+# overnight gap, which is the contamination that mattered.
+MOVE_INTERVAL_FACTOR = 2.0
+
+# Below this many comparable intervals the rank is not worth stating, and the label
+# abstains rather than ranking against whatever happens to be left.
+MIN_MOVE_SAMPLE = 20
+
 # The level at which a discount is called deep. One rank, taken on the size of the
 # discount, read by UPDATE, ANALYZE and the push alike.
 #
@@ -589,11 +608,34 @@ def _basis_series(session, window_start, now):
     return series
 
 
+def comparable_moves(readings, elapsed_hours: Optional[float]):
+    """Sizes of past changes measured over roughly the same stretch of time.
+
+    Ranking a change against changes that covered a different amount of time
+    compares two different quantities. The window's own spacing runs from minutes to
+    the full overnight gap, so without this the pool is mostly not comparable to
+    anything a reader triggers.
+
+    `elapsed_hours` of None falls back to the collection cadence, one hour, which is
+    what a scheduled run's own change covers.
+    """
+    target = elapsed_hours if elapsed_hours and elapsed_hours > 0 else 1.0
+    low, high = target / MOVE_INTERVAL_FACTOR, target * MOVE_INTERVAL_FACTOR
+    ordered = sorted(readings, key=lambda item: item[0])
+    sizes = []
+    for index in range(len(ordered) - 1):
+        hours = (ordered[index + 1][0] - ordered[index][0]).total_seconds() / 3600.0
+        if low <= hours <= high:
+            sizes.append(abs(abs(ordered[index + 1][2]) - abs(ordered[index][2])))
+    return sorted(sizes)
+
+
 def resolve_relative_valuation(
     session,
     markets=None,
     fair_price: Optional[float] = None,
     change_pp: Optional[float] = None,
+    change_hours: Optional[float] = None,
     window_days: int = DEFAULT_WINDOW_DAYS,
     now: Optional[datetime] = None,
 ) -> RelativeValuation:
@@ -682,12 +724,10 @@ def resolve_relative_valuation(
     result.status = "OK"
 
     if change_pp is not None:
-        # Ranked against the same settled sample, in time order.
-        ordered = [item[2] for item in sorted(chosen, key=lambda item: item[0])]
-        moves = sorted(
-            abs(abs(ordered[i + 1]) - abs(ordered[i])) for i in range(len(ordered) - 1)
-        )
-        if moves:
+        # Ranked against the same settled sample, in time order, and against
+        # intervals of comparable length -- see MOVE_INTERVAL_FACTOR.
+        moves = comparable_moves(chosen, change_hours)
+        if len(moves) >= MIN_MOVE_SAMPLE:
             move_percentile = _percentile_of(abs(change_pp), moves)
             result.move_percentile = move_percentile
             if move_percentile < LARGE_MOVE_PERCENTILE:
