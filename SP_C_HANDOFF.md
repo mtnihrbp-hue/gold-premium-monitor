@@ -2846,3 +2846,72 @@ The counter-cost is real but bounded. `main` is 56 commits and three days behind
 it carries the constant valuation leg, the news classifier matching image URLs and
 the machine clock. It is a rollback point that is becoming a regression. That is not
 an argument against two or three days; it is an argument against three weeks.
+
+---
+
+## 31. Bucket: percentages in the ANALYZE level section (added 2026-09-23)
+
+Requested by the product owner after reading a live ANALYZE. Recorded during the
+observation window and **deliberately not built** — the stable stretch before merging
+started 2026-09-23 and every code change resets it.
+
+### 31.1 What was asked, and what to build instead
+
+```text
+asked for                       measured
+Discount increased  65, 47.4%   145 readings across only 25 local days
+Discount decreased  59, 43%     SE on the 47% share: 4.3 pp by readings,
+Unchanged           13,  9.4%                        10.0 pp by distinct days
+```
+
+The gap between 47% and 43% is four points, **0.4 standard errors**. `65 times` and
+`59 times` read as "about the same". `47.4%` and `43.0%` read as "increasing is more
+likely". The percentage does not clarify the counts, it **manufactures a lean the
+data does not contain**.
+
+The same format would have been right the day before:
+
+```text
+at 2.29%   78 readings across 20 days
+           increased 42 (70%)  decreased 15 (25%)  unchanged 3 (5%)
+```
+
+A 45-point gap, 4.5 standard errors, and that call came true — the discount rose
+1.68 pp over the following day. One format, real signal one day and noise the next,
+identical on the page.
+
+So three parts, not one:
+
+1. **Whole numbers.** One reading is 0.7% of the sample; a decimal implies finer
+   resolution than exists.
+2. **Print the distinct-day count** beside the reading count. The readings are hourly
+   and overlapping, and one clause — "145 readings across 25 days" — tells the reader
+   that without requiring any statistics.
+3. **A "close to even" line** when the increased/decreased gap falls under roughly two
+   standard errors on the day count. Present at 3.13%, absent at 2.29%.
+
+Part 3 is the one that earns its place. Parts 1 and 2 are hygiene; part 3 is the same
+discipline as the rest of the system — abstain when the data does not carry the claim.
+
+### 31.2 The second half: calibration conditioned on news
+
+The product owner also wants to count how often the section was right, and to look at
+what the news was at the time, to sharpen the next-24-hours read.
+
+That is calibration, already measured on 2026-09-21 at z = +2.23 day level, needing
+roughly 171 independent days against the 42 available. News conditioning sits two
+gates beyond it:
+
+```text
+gate 1   does the level statistic calibrate?      ~171 independent days
+gate 2   does news relate to anything at all?     currently reads negative;
+                                                  feed changed 2026-09-21, so
+                                                  volume is not comparable until
+                                                  about 2026-10-21
+gate 3   does conditioning on news improve it?    the request
+```
+
+Gate 2 measured **negative** on 2026-09-22: all six event types showed *less*
+next-day movement on the days they appeared, six for six, which is more likely a
+calendar artifact than a finding. Conditioning on a variable that moves nothing adds
+noise, so gate 3 waits on gate 2 turning positive rather than on anyone's patience.
