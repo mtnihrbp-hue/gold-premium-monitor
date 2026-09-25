@@ -2915,3 +2915,86 @@ Gate 2 measured **negative** on 2026-09-22: all six event types showed *less*
 next-day movement on the days they appeared, six for six, which is more likely a
 calendar artifact than a finding. Conditioning on a variable that moves nothing adds
 noise, so gate 3 waits on gate 2 turning positive rather than on anyone's patience.
+
+---
+
+## 32. The record's first premium, and three gates exercised for real (2026-09-24)
+
+Every reading ever stored had been a discount. On 2026-09-24 at 08:31Z the market
+traded **above** fair value for the first time.
+
+```text
+stored premium_percent    +0.155%    (previous maximum -1.39%, on 2026-09-22)
+trimmed basis             +0.448%    and +0.018% on a user reading at 07:53Z
+platforms below fair      0 of 11
+full record now           -8.19% to +0.155%   across 517 readings
+```
+
+`LESSONS_LEARNED.md` section 13 draws the distinction between a classifier that is
+constant because it is broken and one that is constant because the world has not
+supplied the other case. The sell side of this system had only ever been exercised by
+tests. The world has now supplied the case.
+
+### 32.1 The near-miss, three days later
+
+SP-C.15 section 26.2 recorded a design that was considered and rejected: feeding the
+percentile band straight into the conflict matrix, which looked like a two-line
+change. The argument against it was that a percentile-EXPENSIVE reading means "less
+discounted than usual" and not "above fair value", and that the matrix turns
+`EXPENSIVE + WEAKENING` into `SELL`.
+
+That reading arrived on 2026-09-24, and the momentum leg was `WEAKENING`.
+
+```text
+the reading           rank 100, momentum WEAKENING, structure PREMIUM_DOMINANT
+
+what shipped          valuation FAIR       -> (NEUTRAL, WAIT)
+the rejected design   valuation EXPENSIVE  -> (SUPPORTIVE_FOR_SELL, SELL)
+```
+
+On rank alone the system would have issued a **SELL** on a market trading 0.155%
+above fair value — not expensive by any measure, merely the least discounted reading
+in its own window. The direction gate is what stopped it, and it stopped it three
+days after the argument for having it was written down.
+
+### 32.2 All three gates held
+
+```text
+valuation leg   rank 100, but EXPENSIVE requires rank >= 80 AND premium >= 3.0%
+                -> FAIR. Gate held.
+the push        evaluate_push(+0.155%) -> fire=False, reason=NOT_A_DISCOUNT
+                -> no message headed DEEP DISCOUNT on a market above fair value.
+UPDATE wording  _gap_naming(+0.15) -> "Premium 0.15% above fair value"
+                -> the label follows the side the market is actually on.
+```
+
+Each of these was written against a record containing no premiums, asserted only by
+KPI fixtures, and each behaved correctly on first contact with the real case.
+
+### 32.3 The structure leg fired
+
+Section 28 registered `structure_state` as a rare-event detector rather than a dead
+leg, against three candidate replacements that all sat within one standard error of
+chance. The rare event happened:
+
+```text
+                       before 09-24    now
+DISCOUNT_DOMINANT              365     436
+PREMIUM_DOMINANT                 2       6
+MIXED                            0       1
+```
+
+Four PREMIUM_DOMINANT readings in the last two days. The review trigger in the
+register is 30 non-DISCOUNT_DOMINANT rows; the count is now 7. Still registered, and
+now moving for the first time.
+
+### 32.4 What it does not prove
+
+One reading, 0.155% above fair value, lasting a single scheduled snapshot. It
+exercises the gates; it does not validate the sell side as a whole, which remains
+deliberately unbuilt — there is still no SELL surface, no sell-side push, and no
+EXPENSIVE reading has ever occurred under the shipped definition (which needs
++3.0%, twenty times further than the market reached).
+
+The honest summary is narrow: three direction gates written for a case the record did
+not contain met that case and behaved as specified.
