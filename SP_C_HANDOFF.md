@@ -3066,24 +3066,43 @@ main.py:433  get_usd_sell_rate()        bounded at 60 s (SP-C.6)
 main.py:439  get_market_prices()        bounded by one shared deadline (SP-C.9)
 ```
 
-**Leading hypothesis, unconfirmed.** `collector/kitco.py:22` requests an SSE endpoint
-(`api.kitco.com/sse/full`) without `stream=True`, then reads `response.text`. requests
-reads the whole body before it returns, and an event stream has no end. `timeout=10`
-limits the wait for each read, not the total. A stream that sends anything at least
-every ten seconds therefore holds the call open until the job is killed. Kitco is second
-in the chain and is reached only when gold-api.com fails, which fits three stalls in
-roughly a hundred runs. Separately, requests' timeout does not bound DNS resolution
-(section 20), and that applies to all four world-gold sources. The world-gold leg never
-received the treatment SP-C.9 gave the platforms.
+**Diagnosed on 2026-09-27: the Kitco fallback can only hang.** The job logs, fetched
+through the Psiphon proxy, end the same way in all three runs:
 
-**Why it is unconfirmed.** Actions log storage (`results-receiver.actions.githubusercontent.com`)
-timed out at the TLS handshake from the workstation, and `api.kitco.com` did not answer
-from there either. Retrieve the logs through the Psiphon proxy. `get_world_gold_price`
-prints one line per source only *after* that source returns, so a log that ends at
-`gold-api.com FAILED`, with no line after it, convicts Kitco.
+```text
+COLLECT
+  World Gold   gold-api.com   FAILED (... NameResolutionError ...)     within 0.2 s
+  <nothing for 19.8 minutes>
+##[error]The operation was canceled.
+```
 
-A fix is a code change. It is not built, and whether it lands before or after the merge
-is the owner's call.
+`get_world_gold_price` prints a source's line only after that source returns. Kitco is
+next in the chain, so each run hung inside `_try_kitco_sse`. The mechanism, confirmed
+through the same proxy:
+
+```text
+api.kitco.com/sse/full   HTTP 200, text/event-stream
+                         25 events in 30 s, first byte at 7 s, never closes
+```
+
+`collector/kitco.py:22` requests that endpoint without `stream=True`, then reads
+`response.text`. requests reads the whole body before it returns, and an event stream
+has no end. `timeout=10` limits the wait between reads, not the total, and an event
+arrives about every second, so the call never returns and never times out.
+**Every time gold-api.com fails, the run hangs.** goldprice.org, Yahoo and
+`_fallback_world_from_db` behind Kitco are never reached in that case. The world-gold
+chain is, in effect, gold-api.com or a killed job.
+
+This is the log signature `LESSONS_LEARNED.md` section 5 already describes: a DNS failure
+on the collector before it, then twenty minutes of silence. It is the third instance,
+after bonbast (SP-C.6) and the platform pool (SP-C.9). The world-gold leg never received
+the treatment SP-C.9 gave the platforms. Separately, requests' timeout does not bound
+DNS resolution (section 20), and that applies to all four world-gold sources.
+
+The fix is not built. The owner decided on 2026-09-27 that it leads the reliability
+phase after the merge (33.5). The candidate: read the SSE with `stream=True`, stop at
+the first `PreciousMetals` payload under a total deadline and close the response, and
+give `get_world_gold_price` one shared deadline in the SP-C.9 pattern.
 
 ### 33.3 News pipeline audit
 
@@ -3184,21 +3203,37 @@ top-level status document. One correction to it: it gave a normal ANALYZE run as
 1. **2026-09-28, D gate** (read-only): Sampling line, deep-discount level, and the
    valuation and decision `GROUP BY` again. **The standing CHEAP trigger fires here**
    (33.6): no CHEAP since 2026-09-21 means investigate, not shrug.
-2. **Stall logs through Psiphon**: confirm or rule out 33.2's hypothesis.
-3. **Owner decides** whether 33.2, N1 and N2 are fixed before or after the merge. Each
-   is a code change and each gets its own KPI assertion. N2 belongs in
-   `kpi_coherence`, because it spans two modules.
-4. **Merge, on owner review**: due since 2026-09-26 by the agreed plan, with 09-27 as
-   the slack day (33.6). Tag `main` as `v1.3safe` **before** merging. The merge is not a
-   fast-forward, and exactly one file conflicts, `.github/workflows/gold-monitor.yml`;
-   resolve it by taking SP-C's version (33.6).
+2. ~~Stall logs through Psiphon~~: done on 2026-09-27; diagnosed in 33.2.
+3. **Decided by the owner on 2026-09-27:** 33.2, N1 and N2 are fixed **after** the
+   merge, as one small reliability phase. Each is a code change with its own KPI
+   assertion; N2's belongs in `kpi_coherence`, because it spans two modules.
+4. **Merge, on owner review, 2026-09-28** (moved by the owner on 2026-09-27). The plan
+   agreed on 09-23 was 09-26 with 09-27 as slack (33.6). Recovering the lost session
+   used that slack, and the CHEAP trigger now makes tomorrow's check one that could
+   produce a fix, which belongs on SP-C before the merge rather than on `main` after
+   it. So the order is: health check, D gate and CHEAP replay, then the merge if clean,
+   or fix on SP-C first if not. Tag `main` as `v1.3safe` **before** merging. The merge
+   is not a fast-forward, and exactly one file conflicts,
+   `.github/workflows/gold-monitor.yml`; resolve it by taking SP-C's version (33.6).
 5. **Repoint**: cron-job.org 8179679 and `src/worker/telegram-trigger.js:135`
    (`ref: "SP-C"`, twice) in one sitting. Verify **immediately** with a manual
    `/Status` and `/Update` rather than waiting up to an hour for the scheduled run, then
    confirm one scheduled run lands on `main`.
-6. **After the merge**: the bucket list (33.6), headed by the basis divergence, and
-   rollout step 4, broadcast (29.3). How those two are ordered against each other has
-   not been decided; it is the owner's call.
+6. **After the merge, in the order the owner agreed on 2026-09-27:**
+
+   ```text
+   1  reliability phase     world-gold deadline (33.2), high_impact_count (N2),
+                            dedup window (N1) -- small, low-risk; N1 before the news
+                            measurement is re-run around 2026-10-22
+   2  broadcast             rollout step 4 (29.3) -- depends on nothing else and is
+                            the product goal
+   3  basis divergence      the 09-23 list's first item, moved down: it changes a
+                            decision input and needs a full backfill, its own phase and
+                            approval, but nothing a reader sees, and broadcast does not
+                            need it
+   4  ANALYZE percentages   section 31
+   5  research              the 6h horizon in the overnight gap; quote_side
+   ```
 
 ### 33.6 Recovered from the session transcript (2026-09-12 to 2026-09-25)
 

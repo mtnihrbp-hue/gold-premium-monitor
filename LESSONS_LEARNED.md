@@ -182,6 +182,19 @@ And a specific trap: `requests`' `timeout=` bounds connect and read, **not DNS
 resolution**. A degraded network produces an unbounded thread despite a correct-looking
 timeout argument. That is what made this one fire in production.
 
+**A third instance, and a second trap in the same argument (2026-09-27).** The read
+timeout bounds the gap *between* bytes, not the total. `collector/kitco._try_kitco_sse`
+called a server-sent-events endpoint with `timeout=10` and without `stream=True`, then
+read `response.text`. An event stream never ends and sends an event about every second,
+so the call could neither finish nor time out. It sat second in the world-gold chain.
+Every time the first source failed, the run hung until the job was killed: three runs
+on 09-24 and 09-25, each with the signature above. `SP_C_HANDOFF.md` section 33.2.
+
+So the audit's "confirm a timeout on each" is necessary, not sufficient. Also ask
+**does the response end?** A streaming endpoint (`text/event-stream`, websockets, long
+polls) needs `stream=True`, a total deadline and an explicit close. A fallback that
+production rarely reaches is, in effect, untested, and this one could only hang.
+
 ---
 
 ## 6. A unit that is right in storage and wrong in display

@@ -459,8 +459,9 @@ the state the hysteresis cooldown reads. Pointing both at the same ref unifies t
 `gold-monitor.yml` kills a run at 20 minutes. A normal scheduled Execute step takes
 268-440 s. Three runs have hit the limit since the last code change (2026-09-24
 13:51Z, 2026-09-25 08:30Z and 15:30Z). All three stopped before the first database
-write, so there were no partial rows to clean up. Cause unconfirmed, see
-`SP_C_HANDOFF.md` section 33.2.
+write, so there were no partial rows to clean up. Diagnosed on 2026-09-27: when
+gold-api.com fails, the Kitco fallback reads an event stream that never ends, and the
+run hangs until it is killed. The fix is queued (`SP_C_HANDOFF.md` section 33.2).
 
 When a run is cancelled:
 
@@ -468,7 +469,19 @@ When a run is cancelled:
    `C:\Program Files\GitHub CLI`, not on the Bash PATH).
 2. Check the window for partial rows in `price_observations`, `market_snapshots`,
    `market_states` and `analysis_snapshots`.
-3. The job log (`gh run view <id> --log`) is **not reachable from the workstation**.
-   Log storage times out at the TLS handshake, so fetch it through the Psiphon local
-   proxy (`HTTPS_PROXY`, whose port changes on every restart). The last `World Gold`
-   or platform line printed names the call that was still running.
+3. The job log (`gh run view <id> --log`) is **not reachable from the workstation**
+   directly. Log storage times out at the TLS handshake, so fetch it through the
+   Psiphon local proxy. Its ports change on every restart, so find them rather than
+   looking for a saved value:
+
+   ```powershell
+   Get-NetTCPConnection -State Listen | Where-Object { $_.LocalAddress -eq '127.0.0.1' } |
+     ForEach-Object { '{0} {1}' -f $_.LocalPort, (Get-Process -Id $_.OwningProcess).ProcessName } |
+     Select-String psiphon
+   ```
+
+   `psiphon-tunnel-core` listens on a pair. On 2026-09-27 the higher one was the HTTP
+   proxy (52692) and the lower one answered with EOF. Then run
+   `HTTPS_PROXY=http://127.0.0.1:<port> gh run view <id> -R mtnihrbp-hue/gold-premium-monitor --log`
+   (`-R` is needed when not inside the repo). The last `World Gold` or platform line
+   printed names the call that was still running.

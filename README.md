@@ -68,7 +68,8 @@ valuation_state            varies since SP-C.15; FAIR on all 109 rows since 09-2
 final_decision             WAIT on those 109 rows -- BUY untested, not failed
 deep-discount push         never fired; deepest trimmed discount 3.18%
 news classification        KEYWORD on 3,795/3,795 rows; the LLM path has never run
-job timeouts               3 runs stalled before their first write (SP_C_HANDOFF 33.2)
+job timeouts               3 runs stalled before their first write; diagnosed as
+                           the Kitco SSE read, fix queued (SP_C_HANDOFF 33.2)
 ```
 
 The earlier gaps (constant CHEAP valuation, WAIT latch, unresolved outcome

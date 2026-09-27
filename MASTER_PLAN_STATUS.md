@@ -443,16 +443,23 @@ Rollout (`SP_C_HANDOFF.md` section 29), state on 2026-09-27:
 
 ```text
 1 observe     CLOSED 2026-09-27 by the product owner (section 33.1)
-2 merge       DUE -- agreed for 2026-09-26, 09-27 slack; owner reviews the diff;
-              tag main v1.3safe, then merge SP-C; one conflict (gold-monitor.yml,
-              take SP-C's version), section 33.6
+2 merge       2026-09-28, after the health check and D gate (moved by the owner
+              2026-09-27); owner reviews the diff; tag main v1.3safe, then merge
+              SP-C; one conflict (gold-monitor.yml, take SP-C's version), 33.5-33.6
 3 repoint     cron-job.org 8179679 and src/worker/telegram-trigger.js line 135
 4 broadcast   TELEGRAM_BROADCAST_IDS + audience per message type (section 29.3)
 ```
 
-Open before or after the merge, the owner's call (section 33): three job-timeout
-stalls, the news dedup window, and the constant `high_impact_count`. Each fix is a
-code change.
+After the merge, in the order agreed on 2026-09-27 (section 33.5):
+
+```text
+1 reliability phase   world-gold deadline (the diagnosed stalls), high_impact_count,
+                      news dedup window
+2 broadcast           rollout step 4
+3 basis divergence    premium_percent at source; own phase and approval
+4 ANALYZE percentages section 31
+5 research            6h horizon, quote_side
+```
 
 ## 16. Continuity protocol
 
