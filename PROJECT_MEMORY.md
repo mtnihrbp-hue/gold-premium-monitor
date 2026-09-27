@@ -2295,13 +2295,15 @@ lives there and in `.project_state.json` → `corrections`.
 ```text
 branch        SP-C, 59 commits ahead of main; last code change 2026-09-22 (2857ba5)
 rollout       step 1 (observe) CLOSED 2026-09-27 by the product owner
-              step 2 (merge) NEXT -- owner review, tag main v1.3safe first
+              step 2 (merge) DUE -- agreed for 2026-09-26 with 09-27 slack; owner
+              review, tag main v1.3safe first; one conflict, gold-monitor.yml
 KPI           26/26 files, exit 0; compileall PASS
 production    hourly ANALYZE continuous since 2026-09-14; all runs green since
               2026-09-25 16:30Z; 555 market_snapshots, -8.19% to +0.155%
 decision      FAIR / WAIT / WAIT on all 109 rows since 09-22 -- the market sat above
               its own 30-day history; BUY and the push are untested, not failed
-D gate        2026-09-28, read-only check
+D gate        2026-09-28, read-only check; the CHEAP trigger fires there -- the
+              shipped valuation leg has never produced CHEAP in production
 ```
 
 **Open, found in the window.** Three runs stalled before their first write. News

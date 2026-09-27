@@ -2916,6 +2916,9 @@ next-day movement on the days they appeared, six for six, which is more likely a
 calendar artifact than a finding. Conditioning on a variable that moves nothing adds
 noise, so gate 3 waits on gate 2 turning positive rather than on anyone's patience.
 
+Re-measured on 2026-09-25: the 3.13% lean reversed within two days, and the 2.29% lean
+decayed from about 4.5 SE to 1.9 SE. See section 33.6.
+
 ---
 
 ## 32. The record's first premium, and three gates exercised for real (2026-09-24)
@@ -3179,15 +3182,128 @@ top-level status document. One correction to it: it gave a normal ANALYZE run as
 ### 33.5 Next
 
 1. **2026-09-28, D gate** (read-only): Sampling line, deep-discount level, and the
-   valuation and decision `GROUP BY` again.
+   valuation and decision `GROUP BY` again. **The standing CHEAP trigger fires here**
+   (33.6): no CHEAP since 2026-09-21 means investigate, not shrug.
 2. **Stall logs through Psiphon**: confirm or rule out 33.2's hypothesis.
 3. **Owner decides** whether 33.2, N1 and N2 are fixed before or after the merge. Each
    is a code change and each gets its own KPI assertion. N2 belongs in
    `kpi_coherence`, because it spans two modules.
-4. **Merge, on owner review**: correct nothing further in the docs unless state has
-   moved, tag `main` as `v1.3safe`, then merge SP-C. `main`'s one commit (c1799fe) is
-   mirrored in 08e6397.
+4. **Merge, on owner review**: due since 2026-09-26 by the agreed plan, with 09-27 as
+   the slack day (33.6). Tag `main` as `v1.3safe` **before** merging. The merge is not a
+   fast-forward, and exactly one file conflicts, `.github/workflows/gold-monitor.yml`;
+   resolve it by taking SP-C's version (33.6).
 5. **Repoint**: cron-job.org 8179679 and `src/worker/telegram-trigger.js:135`
-   (`ref: "SP-C"`, twice) in one sitting, then one scheduled run and one `/Update`
-   verified on `main`.
-6. **Broadcast** (29.3), then the ANALYZE percentages (section 31) as their own change.
+   (`ref: "SP-C"`, twice) in one sitting. Verify **immediately** with a manual
+   `/Status` and `/Update` rather than waiting up to an hour for the scheduled run, then
+   confirm one scheduled run lands on `main`.
+6. **After the merge**: the bucket list (33.6), headed by the basis divergence, and
+   rollout step 4, broadcast (29.3). How those two are ordered against each other has
+   not been decided; it is the owner's call.
+
+### 33.6 Recovered from the session transcript (2026-09-12 to 2026-09-25)
+
+On 2026-09-27 the product owner supplied the previous session's transcript. Sections 1-32
+were written from that session as it ran. What follows was agreed or found in
+conversation between 09-22 and 09-25 and never reached the repo.
+
+**The merge date.** Agreed on 2026-09-23: merge on **Saturday 2026-09-26**, and slip to
+Sunday 09-27 if anything looked wrong when the market reopened. The alternative was
+09-29, after the gate. The reasoning:
+
+- 09-24 and 09-25 are the Iranian weekend, so "conclude by the 25th" would have given
+  one working day of observation.
+- A Friday merge risks going silent into a weekend.
+- Merging two days before the D gate cannot confuse the two, because they fail in
+  different ways:
+
+```text
+bad repoint  ->  dispatches fail  ->  NO messages
+the D gate   ->  sampling flips   ->  messages with DIFFERENT numbers
+```
+
+The merge changes no behaviour, because the same commits run the same code. The only
+real change is the `ref` in two places. The merge did not happen on 09-26, which makes
+09-27 the slack day.
+
+**The one conflict.** The 09-25 health check found it. On that day the owner called it
+"that mismatch ... a minor thing" to handle on merge day. Re-verified on 2026-09-27 with
+`git merge-tree --write-tree main SP-C`: it is exactly one file,
+`.github/workflows/gold-monitor.yml`. Both branches removed the native schedule.
+`main`'s only unique lines are three things SP-C replaced on purpose:
+
+- an older wording of the same warning comment;
+- `timeout-minutes: 10` (SP-C has 20);
+- the `SCHEDULED_RUN` expression from before `mode` existed.
+
+Resolution:
+
+```bash
+git tag v1.3safe main                                  # before the merge
+git checkout main
+git merge SP-C                                         # conflicts on the workflow only
+git checkout SP-C -- .github/workflows/gold-monitor.yml
+git add .github/workflows/gold-monitor.yml
+git commit
+git push origin main v1.3safe
+```
+
+Rollback for the repoint: point cron-job.org and the worker back at `SP-C`, which stays
+in place. Rollback for the merge: `main` returns to `v1.3safe`. That rewrites a
+published branch, so it needs the owner's explicit approval.
+
+**The CHEAP trigger.** Set on 2026-09-23: if the valuation leg has still produced no
+CHEAP by the D gate on 09-28, investigate rather than shrug. As of 2026-09-27 the
+trigger will fire. It is sharper than it looked at the time, because **every CHEAP on
+record predates SP-C.15**:
+
+- The last CHEAP, at 2026-09-21 13:31Z, came from the old fixed threshold, at rank 83.
+- The new leg went live with c29819a at 14:08Z the same day.
+- Since then it has returned FAIR on all 116 rows, with no BUY candidate.
+
+So the shipped leg has never produced CHEAP in production. That is consistent with the
+market. The rank ran 53-100, and the gap to the CHEAP threshold narrowed from 0.27 pp on
+09-23 to about 0.03 pp on 09-27 (the morning brief's `cheap_below` of -3.60% against a
+lowest reading of -3.57%), as late-August readings aged out of the window, which
+is exactly what the 09-23 check predicted. But consistent is not proven. On 09-28,
+confirm the leg *can* reach CHEAP on the current window by replaying the threshold
+against it rather than by waiting.
+
+**The bucket list, as it stood on 2026-09-23.** All of it comes after the merge:
+
+```text
+1  basis divergence      premium_percent at source is the single cheapest platform; the
+                         display uses the mean of the three cheapest (15.1). The gap was
+                         0.41 pp on 09-23 and 1.78 pp on 09-21, and spikes when one vendor
+                         goes outlying, which is when the cheapest price looks best. Own
+                         phase: it touches decision inputs and needs a backfill of every
+                         stored row. The previous session's first item after the merge.
+2  merge + repoint       steps 2-3
+3  D gate                2026-09-28
+4  ANALYZE percentages   section 31
+5  6h outcome horizon    lands in the overnight gap
+6  quote_side            SINGLE on every observation
+```
+
+Section 33 adds the stalls (33.2), N1 and N2.
+
+**Section 31, re-measured on 2026-09-25.** The level statistic moved in two days, and the
+only thing that had changed was the window:
+
+```text
+at 3.13%   09-23   increased 65 (47%)   decreased 59 (43%)
+           09-25   increased 63 (43%)   decreased 71 (48%)    the lean reversed
+at 2.29%   09-23   increased 42 (70%)   decreased 15 (25%)    ~4.5 SE, called real
+           09-25   increased 47 (57%)   decreased 31 (38%)    ~1.9 SE
+```
+
+This makes part 3 of section 31 (the "close to even" line) stronger. It also lowers
+confidence in the level section as a forecast: the 2.29% lean that section 31 calls real
+had decayed to about 1.9 SE two days later.
+
+**Two news readings that 33.3 corrects:**
+
+- On 09-23 goldbroker was flagged as quiet, and on 09-25 re-read as "bursty". Its bursts
+  are old items being re-inserted: 105 of its 105 rows sit in duplicate groups.
+- The same checks counted duplicate headlines at about 7% and judged the rate
+  unchanged. Counted by dedup key, 14% of rows since 09-22 are excess, and the cause is
+  the 24-hour window (N1).

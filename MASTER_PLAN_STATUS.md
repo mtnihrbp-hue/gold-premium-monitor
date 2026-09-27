@@ -443,7 +443,9 @@ Rollout (`SP_C_HANDOFF.md` section 29), state on 2026-09-27:
 
 ```text
 1 observe     CLOSED 2026-09-27 by the product owner (section 33.1)
-2 merge       NEXT -- owner reviews the diff; tag main v1.3safe, then merge SP-C
+2 merge       DUE -- agreed for 2026-09-26, 09-27 slack; owner reviews the diff;
+              tag main v1.3safe, then merge SP-C; one conflict (gold-monitor.yml,
+              take SP-C's version), section 33.6
 3 repoint     cron-job.org 8179679 and src/worker/telegram-trigger.js line 135
 4 broadcast   TELEGRAM_BROADCAST_IDS + audience per message type (section 29.3)
 ```
