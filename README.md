@@ -31,15 +31,19 @@ PRE-SP-C.14B               COMPLETE — Forecast Features / Engine / Evaluation
 PRE-SP-C.14C               COMPLETE — Adaptive Intelligence Foundation
 
 SP-C
-└── OPEN — current development branch
+├── OPEN — current development branch, 59 commits ahead of main
+├── SP-C.1 … SP-C.18       COMPLETE (last code change 2026-09-22)
+└── rollout step 1 (observe) closed 2026-09-27; merge awaits owner review
 ```
+
+Sprint detail: `SP_C_HANDOFF.md`, latest section 33.
 
 ### Verified KPI baseline
 
-Executed on the `SP-C` branch, isolated in-memory database:
+Executed on the `SP-C` branch, isolated in-memory database, 2026-09-27:
 
 ```text
-19/19 KPI files pass   (392 assertions)
+26/26 KPI files pass   (runner exit status 0)
 compileall             PASS
 ```
 
@@ -54,17 +58,22 @@ pushes, pull requests, and manual dispatch.
 
 ### Known gaps under SP-C
 
-These are verified against production state, not assumed:
+These are verified against production state, not assumed (read-only queries,
+2026-09-27):
 
 ```text
-outcome_evaluations        162 rows, 100% INSUFFICIENT_DATA
-forecast horizons          INSUFFICIENT_DATA at 1h / 6h / 24h
-final_decision             WAIT on 204/204 recorded states
-valuation_state            CHEAP on 204/204 recorded states
-buy_premium_percent        -1.5 never crossed in 278/278 observations
+market_snapshots           555 readings, -8.19% to +0.155% (first premium 2026-09-24)
+valuation_state            varies since SP-C.15; FAIR on all 109 rows since 09-22,
+                           because the market sat above its 30-day history all week
+final_decision             WAIT on those 109 rows -- BUY untested, not failed
+deep-discount push         never fired; deepest trimmed discount 3.18%
+news classification        KEYWORD on 3,795/3,795 rows; the LLM path has never run
+job timeouts               3 runs stalled before their first write (SP_C_HANDOFF 33.2)
 ```
 
-The collection cadence, not the analytical code, is the current bottleneck.
+The earlier gaps (constant CHEAP valuation, WAIT latch, unresolved outcome
+evaluations, daily-only cadence) were closed in SP-C.1 through SP-C.15. See the
+resolved-defects index at the top of `PROJECT_MEMORY.md`.
 
 ## Architecture
 

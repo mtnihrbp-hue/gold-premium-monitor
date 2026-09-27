@@ -42,6 +42,10 @@ before reading any failure narrative below as live.**
 | News classifier matched "us" inside base64 image tokens; 879 of 1441 mislabelled | 2026-09-21 | SP-C.16, section 27.5 |
 | structure_state is DISCOUNT_DOMINANT on 365 of 367 rows | **MEASURED, LEFT ALONE** | SP-C.17, section 28 -- a rare-event detector, not a dead leg; all three candidate replacements are within one standard error of chance |
 | News LLM classification path has never run | **OPEN** | SP-C.16, section 27.5 |
+| Three runs stalled at the 20-minute job timeout before their first write (09-24, 09-25 x2) | **OPEN** | section 33.2 -- no partial rows; leading hypothesis the unbounded Kitco SSE read, unconfirmed until the logs are retrieved |
+| News dedup looks back 24 h while feeds keep items for days; 330 of 2,294 rows re-inserted | **OPEN** | section 33.3 N1 -- live consumers unaffected, measurements must count distinct keys |
+| `high_impact_count` 0 on 268/268 snapshots; reads `relevance` for values only `impact` holds | **OPEN** | section 33.3 N2 -- interpretation layer only |
+| donya-e-eqtesad.com and tejaratnews.com unproven from a GitHub runner | 2026-09-27 | section 33.3 -- the two largest and freshest sources |
 
 
 ## 1. Documentation Authority
@@ -2279,3 +2283,28 @@ no direction or sentiment.
 
 **Also fixed:** ANALYZE's projected `clean from` date was a day early; it reads
 2026-09-28 now, which is correct.
+
+
+---
+
+## Current state (2026-09-27)
+
+Full record in `SP_C_HANDOFF.md` sections 29-33. Chronology for SP-C.17 and SP-C.18
+lives there and in `.project_state.json` → `corrections`.
+
+```text
+branch        SP-C, 59 commits ahead of main; last code change 2026-09-22 (2857ba5)
+rollout       step 1 (observe) CLOSED 2026-09-27 by the product owner
+              step 2 (merge) NEXT -- owner review, tag main v1.3safe first
+KPI           26/26 files, exit 0; compileall PASS
+production    hourly ANALYZE continuous since 2026-09-14; all runs green since
+              2026-09-25 16:30Z; 555 market_snapshots, -8.19% to +0.155%
+decision      FAIR / WAIT / WAIT on all 109 rows since 09-22 -- the market sat above
+              its own 30-day history; BUY and the push are untested, not failed
+D gate        2026-09-28, read-only check
+```
+
+**Open, found in the window.** Three runs stalled before their first write. News
+dedup re-inserts items from slow feeds, and `high_impact_count` is a constant. The
+index at the top of this file lists all three. Each fix is a code change, and whether
+it lands before or after the merge is the owner's decision.

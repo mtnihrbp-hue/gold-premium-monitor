@@ -405,9 +405,9 @@ three different places. They must be changed together.
 
 | trigger | where configured | carries | current |
 |---|---|---|---|
-| Telegram `/Update` | Cloudflare worker, `TARGET_REF` | `{"ref": "..."}` | `SP-C` |
-| hourly Analyze | cron-job.org request body | `{"ref": "...", "inputs": {"mode": "analyze"}}` | `SP-C` |
-| legacy daily schedule | `gold-monitor.yml` `on.schedule` | **default branch only** | `main`, see below |
+| Telegram `/Update`, `/Analyze` | Cloudflare worker, hard-coded at `src/worker/telegram-trigger.js:135` (twice) | `{"ref": "..."}`, plus `inputs.mode` for `/Analyze` | `SP-C` |
+| hourly Analyze | cron-job.org job 8179679 request body | `{"ref": "...", "inputs": {"mode": "analyze"}}` | `SP-C` |
+| legacy daily schedule | `gold-monitor.yml` `on.schedule` | **default branch only** | **removed 2026-09-20**, see below |
 
 `workflow_dispatch` runs the workflow file **and the application code** from `ref`.
 A mismatch does not fail — it silently answers with a different version of the system.
@@ -453,3 +453,22 @@ the Analyze wing rather than silently running UPDATE.
 branch, with the default branch readable as a fallback. While `/Update` ran on `main`
 and the schedule on `SP-C`, the two kept **separate** `last_alert` histories, which is
 the state the hysteresis cooldown reads. Pointing both at the same ref unifies them.
+
+### Job timeouts and log access (2026-09-27)
+
+`gold-monitor.yml` kills a run at 20 minutes. A normal scheduled Execute step takes
+268-440 s. Three runs have hit the limit since the last code change (2026-09-24
+13:51Z, 2026-09-25 08:30Z and 15:30Z). All three stopped before the first database
+write, so there were no partial rows to clean up. Cause unconfirmed, see
+`SP_C_HANDOFF.md` section 33.2.
+
+When a run is cancelled:
+
+1. `gh run view <id> --json jobs` shows which step died (`gh` lives in
+   `C:\Program Files\GitHub CLI`, not on the Bash PATH).
+2. Check the window for partial rows in `price_observations`, `market_snapshots`,
+   `market_states` and `analysis_snapshots`.
+3. The job log (`gh run view <id> --log`) is **not reachable from the workstation**.
+   Log storage times out at the TLS handshake, so fetch it through the Psiphon local
+   proxy (`HTTPS_PROXY`, whose port changes on every restart). The last `World Gold`
+   or platform line printed names the call that was still running.

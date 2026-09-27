@@ -2998,3 +2998,196 @@ EXPENSIVE reading has ever occurred under the shipped definition (which needs
 
 The honest summary is narrow: three direction gates written for a case the record did
 not contain met that case and behaved as specified.
+
+---
+
+## 33. Step 1 closed, three stalled runs, and a news audit (2026-09-27)
+
+The product owner closed rollout step 1 (section 29) on 2026-09-27, after five days
+without a code change (last code commit 2857ba5, 2026-09-22). This section records what
+the window showed, one operational defect it surfaced, and a read-only audit of the
+news pipeline. **No code changed. NEON MIGRATION REQUIRED = NO.** All figures below
+come from read-only production queries, GitHub Actions run metadata and a local suite
+run on 2026-09-27.
+
+### 33.1 What the observation window showed
+
+Against the watch list in section 29.4:
+
+```text
+valuation_state    FAIR on all 109 market_states rows, 2026-09-22 -> 2026-09-27 10:31Z.
+                   Not a latch: the rank ran 53-100, none below 40. The market sat
+                   above its own 30-day history all week. BUY is untested, not failed,
+                   and waiting cannot test it unless the market moves.
+decision           candidate WAIT, final WAIT on the same 109 rows.
+valuation_context  agrees with the decision on every row (FAIR on both).
+the push           never fired. Deepest trimmed discount 3.18% scheduled (3.16% on a
+                   user reading) against a level of 3.51-3.65% over the week.
+D gate             2026-09-28, still ahead. A read-only check after that day's 02:30Z
+                   run: Sampling should flip to scheduled-only, and the level may step.
+runs               every scheduled run from 2026-09-25 16:30Z to 2026-09-27 10:30Z
+                   succeeded. Three earlier runs stalled (33.2).
+KPI                26/26 files, runner exit 0; compileall PASS.
+record             555 market_snapshots, -8.19% to +0.155%.
+```
+
+The owner judged the window sufficient. The parts that can be observed without the
+market's cooperation are stable, and the two that cannot (BUY and the push) would not be
+exercised by waiting longer. Step 2 is next, and it stays the owner's review. Nothing
+merges automatically.
+
+### 33.2 Three runs stalled at the job timeout
+
+```text
+run          created (UTC)      trigger         Execute step
+36008598678  2026-09-24 13:51   off-schedule    13:52:03 -> 14:11:57  cancelled
+36113307872  2026-09-25 08:30   scheduled       08:31:09 -> 08:50:53  cancelled
+36154645990  2026-09-25 15:30   scheduled       15:31:06 -> 15:50:53  cancelled
+```
+
+A normal scheduled Execute step takes 268-440 s (sampled at 06:30Z daily, 09-16 to
+09-27). The times vary with no steady climb, so these are hangs, not a run time slowly
+growing toward the limit. The step took 87 s on 09-15 and stepped up to about 4.5 min
+from 09-16 onward. That step was not investigated. It leaves a margin of about
+2.7 times the longest normal run.
+
+**No partial rows.** None of the three windows has rows in `price_observations`,
+`market_snapshots`, `market_states` or `analysis_snapshots`. The 13:56Z rows on 09-24
+belong to the retry, run 36009111148. So all three stopped before the first write, at
+`main.py:450`. The candidates are the calls that come before it:
+
+```text
+main.py:411  get_world_gold_price()     four sources, each requests.get(timeout=10|15)
+             _fallback_world_from_db()  a Neon connection, create_engine has no connect_timeout
+main.py:433  get_usd_sell_rate()        bounded at 60 s (SP-C.6)
+main.py:439  get_market_prices()        bounded by one shared deadline (SP-C.9)
+```
+
+**Leading hypothesis, unconfirmed.** `collector/kitco.py:22` requests an SSE endpoint
+(`api.kitco.com/sse/full`) without `stream=True`, then reads `response.text`. requests
+reads the whole body before it returns, and an event stream has no end. `timeout=10`
+limits the wait for each read, not the total. A stream that sends anything at least
+every ten seconds therefore holds the call open until the job is killed. Kitco is second
+in the chain and is reached only when gold-api.com fails, which fits three stalls in
+roughly a hundred runs. Separately, requests' timeout does not bound DNS resolution
+(section 20), and that applies to all four world-gold sources. The world-gold leg never
+received the treatment SP-C.9 gave the platforms.
+
+**Why it is unconfirmed.** Actions log storage (`results-receiver.actions.githubusercontent.com`)
+timed out at the TLS handshake from the workstation, and `api.kitco.com` did not answer
+from there either. Retrieve the logs through the Psiphon proxy. `get_world_gold_price`
+prints one line per source only *after* that source returns, so a log that ends at
+`gold-api.com FAILED`, with no line after it, convicts Kitco.
+
+A fix is a code change. It is not built, and whether it lands before or after the merge
+is the owner's call.
+
+### 33.3 News pipeline audit
+
+**Collection is healthy.** All nine configured sources produced rows on every local day
+since 2026-09-22, at 386-440 rows per day. The open question from SP-C.10, whether
+donya-e-eqtesad.com and tejaratnews.com parse from a GitHub runner, is closed: they are
+the two largest and freshest sources.
+
+```text
+source (rows since 09-22)             rows   RELEVANT    median age      rows > 24 h
+                                                        at collection   old at collection
+tejaratnews.com                        642   153 (24%)      0.6 h              0
+donya-e-eqtesad.com                    544   150 (28%)      0.8 h              0
+google:gold price                      269   210 (78%)      4.0 h             24
+google:middle east strike OR attack    213    85 (40%)     15.7 h             81
+tehrantimes.com                        205    39 (19%)      0.6 h             16
+google:iran rial currency              173    61 (35%)     89.0 h            150
+goldbroker.com                         105    42 (40%)    624 h (26 d)       102
+investing.com                           84    16 (19%)      0.0 h              0
+kingworldnews.com                       59     5  (8%)     51.4 h             46
+```
+
+**The classifier is no longer constant.** Over all 3,795 rows, relevance is RELEVANT
+on 1,248, NOT_RELEVANT on 102 and UNKNOWN on 2,445. `IRAN_US_NEGOTIATION` is 99, down
+from the 879 before SP-C.16. `classification_method` is KEYWORD on 3,795 of 3,795, which
+is the registered LLM-path entry, unchanged.
+
+**N1 - the dedup window is shorter than the feeds' retention.** Since 09-22 there are
+2,294 rows but only 1,964 distinct dedup keys, so 330 rows (14%) re-insert an item that
+was already stored. Every repeat comes from the same source as its original, with up to
+six copies spread over 26-91 hours. The cause is `ingest.py:41`, which loads only the
+keys created in the last 24 hours. A feed that keeps an item listed for longer offers it
+again after that window has closed, and it is stored again. Nothing in the database
+stops it: `idx_news_events_dedup_key` is not unique. `repository.news_event_exists`
+looks back 7 days, but ingestion does not call it.
+
+```text
+rows in a duplicate group / rows    goldbroker 105/105, google:iran rial 151/173,
+                                    kingworldnews 56/59, the two Iranian papers 2 each
+```
+
+The live consumers are unaffected. The evidence package and the snapshot builder
+select by published `timestamp` within 6 hours, and a copy is stored only 24 or more
+hours after its original, when the item is already outside any window of 24 hours or
+less. **The damage is to measurement.** Any count of rows per day or per source counts
+the slow feeds several times over. The stage-2 news measurement (sections 27.7 and 28.5)
+must therefore count distinct dedup keys by first appearance. Fixing the window also
+drops row volume by about 14%, which is itself a break in any row-count series. Counting
+distinct keys is the robust choice whether or not the fix lands.
+
+**N2 - `high_impact_count` is 0 on 268 of 268 analysis snapshots.**
+`evidence_package.py:206-208` counts events whose `relevance` is HIGH or CRITICAL.
+`relevance` only ever holds RELEVANT, NOT_RELEVANT or UNKNOWN. HIGH lives in `impact`,
+on 326 rows (MILITARY_ESCALATION and SANCTIONS). The input varies and the output does
+not, but no stale bound is involved: the counter reads the wrong field. Its consumer is
+`intelligence/market_intelligence.py:94` and `:185` ("High-impact news detected"), which
+has never produced that line. It sits in the interpretation layer only, so no surface
+and no decision is affected. It is the sixth constant output this codebase has produced
+(`LESSONS_LEARNED.md` section 16).
+
+**Also noted, not defects:**
+
+- `recent_event_count` reads 15-20 on all 255 AVAILABLE snapshots. It is capped by the
+  query's `limit=20`, so it measures the cap, not the flow. Do not use it as a volume
+  measure.
+- goldbroker items are on average 26 days old when collected, kingworldnews items about
+  2 days and google:iran rial items about 4 days (`when:7d`). Windows by published
+  timestamp exclude them, but they carry little current information. Whether to keep
+  goldbroker is a product call and was not changed.
+
+**Re-run date for the news measurement.** The feed has been stable since 2026-09-22.
+09-21 was the transition day: 26 rows under the legacy label `rss`, then the new
+sources. Thirty days of a stable feed means **from about 2026-10-22**.
+
+### 33.4 Documentation reconciled
+
+Drift corrected in this pass:
+
+- `CLAUDE.md` named `main` as the active branch.
+- `.project_state.json`:
+  - `in_progress` still listed ANALYZE as unbuilt and the bubble outcome as awaiting a
+    decision (built in SP-C.12 and 33ae96a);
+  - `open_decisions` still carried the `kpi_pre_sp_c4` network flake (fixed in
+    6eea5d2);
+  - `verified_production_state` dated from 2026-09-13.
+- `MASTER_PLAN_STATUS.md` named `main` as the branch, described the Analyze trigger as
+  broken, and listed SP-C only through C.2.
+- `README.md` and `DOCUMENTATION_INDEX.md` reported 19/19 KPI files.
+
+`HANDOFF.md`, a session brief written on 2026-09-27 outside the authority hierarchy, is
+folded into this section and `.project_state.json` rather than committed as another
+top-level status document. One correction to it: it gave a normal ANALYZE run as about
+2 minutes. That was true on 09-15, but since 09-16 the Execute step has taken
+4.5-7.3 minutes.
+
+### 33.5 Next
+
+1. **2026-09-28, D gate** (read-only): Sampling line, deep-discount level, and the
+   valuation and decision `GROUP BY` again.
+2. **Stall logs through Psiphon**: confirm or rule out 33.2's hypothesis.
+3. **Owner decides** whether 33.2, N1 and N2 are fixed before or after the merge. Each
+   is a code change and each gets its own KPI assertion. N2 belongs in
+   `kpi_coherence`, because it spans two modules.
+4. **Merge, on owner review**: correct nothing further in the docs unless state has
+   moved, tag `main` as `v1.3safe`, then merge SP-C. `main`'s one commit (c1799fe) is
+   mirrored in 08e6397.
+5. **Repoint**: cron-job.org 8179679 and `src/worker/telegram-trigger.js:135`
+   (`ref: "SP-C"`, twice) in one sitting, then one scheduled run and one `/Update`
+   verified on `main`.
+6. **Broadcast** (29.3), then the ANALYZE percentages (section 31) as their own change.

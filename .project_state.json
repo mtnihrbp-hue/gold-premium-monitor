@@ -2,8 +2,8 @@
   "schema_version": "1",
   "project": "Gold Premium Monitor",
   "active_branch": "SP-C",
-  "current_phase": "PRE-SP-C (stabilization) on branch SP-C",
-  "current_phase_status": "SP-B CLOSED — C.14C COMPLETE — SP-C branch open for stabilization before the SP-C leap",
+  "current_phase": "SP-C rollout, step 2 (merge) pending owner review",
+  "current_phase_status": "SP-C.1 through SP-C.18 COMPLETE on SP-C (last code change 2026-09-22, 2857ba5); rollout step 1 (observe) CLOSED 2026-09-27 by the product owner; merge into main awaiting owner review",
   "completed_phases": [
     "SP-B.1",
     "SP-B.2",
@@ -47,12 +47,19 @@
       "SP-C.9: collector global ceiling now binds. get_market_prices documented a 20s cap that did nothing -- future.cancel() cannot cancel a started future and the executor context manager then joined every thread, so a DNS hang (which requests' timeout does not bound) killed the whole run. Now daemon threads with one shared deadline. Also de-networked kpi_pre_sp_c4.test_15, which called all eleven live sites and failed intermittently. Recorded in SP_C_HANDOFF.md 20.",
       "SP-C.10: news source list replaced. mehrnews (1,987 items/7d, 0 relevant) and three geoblocked feeds removed; targeted Google News queries plus investing.com and two Iranian economic papers added. news_events.source now records feed identity instead of the constant 'rss', with the dedup namespace deliberately pinned. 2,861 mehrnews rows deleted, all other tables verified unchanged. Recorded in SP_C_HANDOFF.md section 21.",
       "SP-C.11: _get_nearest_recorded_premium applied its scheduled-preference before proximity and bounded its window on one side only, so a distant scheduled row shadowed a near unscheduled one and the lookup returned None despite usable data. 26 of 249 COMPLETE evaluations had no premium leg. Proximity now decides and scheduled breaks ties; all 26 backfilled, row counts unchanged. Recorded in SP_C_HANDOFF.md section 22.",
-      "SP-C.12: ANALYZE built (what followed past readings at this level, the 30-day distribution and deep zone, local price movement, and the sample it rests on) plus a deep-discount push with a thermostat re-arm band. /Analyze is a read-only third workflow mode that returns before any collection. The gate fails open on unknown state. Neither surface carries a decision. skills/telegram-product.md reconciled in five places. Recorded in SP_C_HANDOFF.md section 23."
+      "SP-C.12: ANALYZE built (what followed past readings at this level, the 30-day distribution and deep zone, local price movement, and the sample it rests on) plus a deep-discount push with a thermostat re-arm band. /Analyze is a read-only third workflow mode that returns before any collection. The gate fails open on unknown state. Neither surface carries a decision. skills/telegram-product.md reconciled in five places. Recorded in SP_C_HANDOFF.md section 23.",
+      "SP-C.13: one deep-discount level, resolved once by bubble_position.deep_discount_threshold and shared by UPDATE, ANALYZE and the push. SP_C_HANDOFF.md section 24.",
+      "SP-C.14: kpi/kpi_coherence.py, the first KPI that checks modules against each other, with the ACCEPTED register of deliberate divergences (5 entries). Section 25.",
+      "SP-C.15: the valuation leg is a rank with a direction gate and no fixed-threshold fallback. Section 26.",
+      "SP-C.16: tidy pass -- one clock (no datetime.now() in src/), shared tolerances, news classifier repaired. Section 27.",
+      "SP-C.17: structure leg measured against three candidate replacements and deliberately left alone. Section 28.",
+      "SP-C.18: deep-zone survival measured; comparison windows state how much time they cover; ANALYZE wording. Section 30.",
+      "Rollout step 1 (observe) closed 2026-09-27 by the product owner: 109 rows FAIR/WAIT/WAIT since 09-22 with the rank ranging 53-100 (not a latch), valuation_context agreeing on every row, all runs green since 2026-09-25 16:30Z. Section 33.1."
     ],
     "in_progress": [
-      "UPDATE message awaiting user confirmation on a real device",
-      "ANALYZE message not yet built; TRACK RECORD parked as admin-only",
-      "Bubble outcome measurement: contract change awaiting decision"
+      "Rollout step 2: merge SP-C into main -- awaiting the owner's review of the diff; tag main v1.3safe first; main's one commit c1799fe is mirrored on SP-C in 08e6397.",
+      "D gate 2026-09-28: read-only check after the 02:30Z run -- ANALYZE Sampling should flip to scheduled-only and the deep-discount level may step.",
+      "Three job-timeout stalls (2026-09-24 13:51Z, 2026-09-25 08:30Z, 15:30Z): logs to be fetched through the Psiphon proxy; fix before or after the merge is the owner's call. Section 33.2."
     ],
     "not_wired": "decision_scorecard is computed but unwired. It is admin-facing and has nothing to report while every recorded decision is WAIT.",
     "decision_trigger_finding": "Forward 24h return changes sign near the 40th percentile in 41 days of data. Never hardcoded; the reference recomputes every run.",
@@ -66,11 +73,12 @@
   },
   "latest_verified_kpi": {
     "phase": "FULL SUITE",
-    "files_passed": 22,
-    "files_total": 22,
-    "assertions": 516,
+    "verified_on": "2026-09-27",
+    "files_passed": 26,
+    "files_total": 26,
+    "assertions": "661 across 25 files; kpi_update_telegram_v1.py reports no count",
     "status": "PASS",
-    "evidence_source": "executed on SP-C against an isolated in-memory database; also green in CI (.github/workflows/kpi-suite.yml)",
+    "evidence_source": "python kpi/run_all.py on SP-C against an isolated in-memory database, runner exit status 0; compileall PASS; also green in CI (.github/workflows/kpi-suite.yml)",
     "notes": [
       "C.2 had been failing since commit ff4496d (C.13 idempotency fix) while documentation recorded 14/14 PASS; the stale assertion was corrected on SP-C.",
       "KPI scripts print status emoji and crash with UnicodeEncodeError under the Windows console codepage after assertions pass. kpi/run_all.py forces UTF-8 for child processes.",
@@ -214,16 +222,16 @@
     "rule": "All development, documentation, SQL records, and commits target SP-C. Per skills/sprint-execution.md the user reviews the sprint branch before merge; never merge automatically."
   },
   "verified_production_state": {
-    "verified_on": "2026-09-13",
-    "method": "direct read-only queries against production Neon",
-    "analysis_snapshots": 56,
-    "market_snapshots": 278,
-    "outcome_evaluations": "162 rows, 100% INSUFFICIENT_DATA at every horizon",
-    "valuation_state": "CHEAP on 204/204 recorded market_states",
-    "candidate_vs_final": "81 BUY candidates, 0 BUY finals; hysteresis has suppressed every one",
-    "premium_percent_range": "-8.19% to -1.82% across 278 observations; buy_premium_percent -1.5 never crossed",
-    "analyze_trigger_defect": "cron-job.org posts to the workflow dispatches endpoint, so github.event_name is workflow_dispatch and SCHEDULED_RUN resolves false. The Analyze path in src/main.py is skipped. Analysis snapshots are produced only by the legacy GitHub native schedule.",
-    "canonical_series_contamination": "market_snapshots has no column distinguishing scheduled runs from user-triggered /Update calls, so the two are mixed and cannot be separated retroactively."
+    "verified_on": "2026-09-27",
+    "method": "direct read-only queries against production Neon, and GitHub Actions run metadata",
+    "market_snapshots": "555 rows, premium_percent -8.19% to +0.155% (first premium 2026-09-24 08:31Z)",
+    "market_states_since_2026_09_22": "109 rows, valuation FAIR / candidate WAIT / final WAIT on all; valuation percentile 53-100, none below 40",
+    "deepest_trimmed_discount_since_2026_09_22": "3.18% scheduled, 3.16% user; the push has never fired",
+    "analysis_snapshots_news_context": "268 with an evidence package; high_impact_count 0 on 268/268 (section 33.3 N2)",
+    "news_events": "3,795 rows, KEYWORD on all; 9 of 9 sources producing daily since 2026-09-22 at 386-440 rows/day; 330 of 2,294 rows since 09-22 are re-inserted duplicates (section 33.3 N1)",
+    "workflow_runs": "hourly ANALYZE continuous since 2026-09-14; every run from 2026-09-25 16:30Z to 2026-09-27 10:30Z succeeded; three runs cancelled at the 20-minute timeout with no rows written (section 33.2)",
+    "execute_step_duration": "268-440 s per scheduled run 2026-09-16 to 2026-09-27, no steady climb; 87 s on 2026-09-15",
+    "canonical_series_contamination": "History before 2026-09-14 mixes scheduled and user readings and cannot be separated; collection_mode separates them from 2026-09-14."
   },
   "continuity_protocol": {
     "orchestration_flow": [
@@ -253,7 +261,7 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "Observe SP-C for 2-3 days from 2026-09-21, then merge SP-C into main (tag main v1.3safe first), then repoint cron-job.org and the Cloudflare worker from SP-C to main, then broadcast to readers. Sequence agreed 2026-09-21, recorded in SP_C_HANDOFF.md section 29.",
+  "next_gate": "Rollout step 2: the owner reviews the SP-C diff; on approval tag main v1.3safe and merge SP-C. Before or with it: the D gate read-only check on 2026-09-28, and the owner's call on whether the section 33 defects are fixed before or after the merge. Then repoint cron-job.org 8179679 and src/worker/telegram-trigger.js:135 to main in one sitting, then broadcast (section 29.3).",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
@@ -264,7 +272,7 @@
     "cron_first_fire": "2026-09-14 18:00 Tehran; hourly thereafter",
     "outcome_horizons_status": "FIXED 2026-09-15. backfill_outcome_evaluations() wired into the scheduled path; first run resolved 72 evaluations, COMPLETE count zero to 19 (9 at 1h, 2 at 6h, 8 at 24h). Remaining INSUFFICIENT_DATA rows belong to the sparse era and have no reachable partner.",
     "cadence_verified": "2026-09-15: six consecutive one-hour gaps between scheduled snapshots plus one nine-hour overnight pause, matching 0 6-21 Asia/Tehran. Runs appear at :30 UTC because minute 0 Tehran is minute 30 UTC.",
-    "open_finding_bubble_outcome": "outcome_evaluations never measures the bubble: outcome_evaluator.py sets act_premium = None by design and C.5 test_21 asserts it. The stated reason, that historical fair value cannot be reconstructed, no longer holds since market_snapshots stores premium_percent and fair_price on every row. decision_scorecard is unaffected; C.14B and C.14C are. Awaiting a decision."
+    "open_finding_bubble_outcome": "RESOLVED 2026-09-15 in 33ae96a: outcome evaluation now measures the bubble in percentage points."
   },
   "process_rule": "Do not change an agreed design, template or framework without explicit permission, including changes that appear obvious while working on a different task. Raise them as a question instead. Recorded after unrequested edits to an approved message template forced re-review and removed a column that was broken for a fixable reason.",
   "kpi_suite": {
@@ -272,27 +280,28 @@
     "latest": "kpi_coherence.py",
     "assertions_sp_b2": 15,
     "assertions_sp_c1": 59,
-    "assertions_sp_c4": 53,
-    "assertions_sp_c6": 34,
-    "assertions_coherence": 24,
-    "status": "26/26 files passing",
+    "assertions_sp_c4": 54,
+    "assertions_sp_c6": 44,
+    "assertions_coherence": 25,
+    "status": "26/26 files passing (2026-09-27, runner exit 0)",
     "note": "kpi_coherence.py checks modules against each other and carries the register of accepted divergences, now 5 entries. An entry whose divergence is fixed fails the suite, so the register cannot go stale."
   },
   "open_decisions": [
     "The push is buy-side only. A shallow discount is the sell-side mirror and is the same measurement with the comparison flipped; deferred until the first trigger has proven itself.",
-    "donya-e-eqtesad.com and tejaratnews.com parse from inside Iran but are unproven from a GitHub runner. Check per-source yield after a day of scheduled runs.",
     "ANALYZE: outcome evaluation horizons are session-dependent. A 24h horizon spanning a world-market closure measures Iranian-side movement alone. Testable once ~500 outcomes are resolved; the feedback loop depends on it.",
     "The repaired decision engine has not yet issued a decision. ANALYZE, track record and expectancy all need a decision history that varies. Observation period first.",
     "premium_percent at source is still minimum-based; changing it requires a 332-row backfill and touches decision authority. Own phase, own approval.",
     "The decision engine reads a single-vendor price move as a market valuation move (conflict.py matrix). Structural, belongs in the Analyze wing.",
     "quote_side is SINGLE on all observations; bid vs ask is never recorded.",
-    "kpi_pre_sp_c4.py makes a real network call and fails intermittently on timeout.",
     "regime volatility and usd_change thresholds remain unverified constants.",
-    "ANALYZE message not built. Reasoning chain and TRACK RECORD belong there.",
     "The valuation bounds (-1.5, 3.0) are now direction gates rather than triggers, and the ranks (40/80) are still the SP-C.2 starting values from 41 days of observation. Neither has been re-derived from data.",
     "Structure leg: measured in SP-C.17 and deliberately left alone. It is a rare-event detector (z = -2.04 on 7 days) and all three candidate replacements are indistinguishable from chance. Review when the non-DISCOUNT_DOMINANT count reaches 30. SP_C_HANDOFF.md section 28.",
-    "News in ANALYZE: the stage-2 measurement was run on 2026-09-21 and says nothing -- all six event types show slightly LESS next-day movement, likely a calendar artifact. The blocker is a structural break, not sample size: four sources began 2026-09-21 and daily volume stepped 67 -> 219, so any volume rank compares two feeds. Re-run from roughly 2026-10-21, thirty days of a stable feed. This is NOT the D gate's 2026-09-28. SP_C_HANDOFF.md section 28.5.",
-    "BUCKET (added 2026-09-23 by the product owner): percentages beside the ANALYZE level counts. Agreed design after measurement, not the raw version: whole numbers (one reading is 0.7% of the sample, so a decimal implies resolution the data lacks); the distinct-day count printed beside the reading count (145 readings spanned only 25 local days, so the standard error on the 47% share is 10.0 pp by days against 4.3 pp by readings); and a 'close to even' line when the increased/decreased gap is under about two standard errors on the day count. At 3.13% the split was 47/43 -- 0.4 SE, a coin flip that a bare percentage would make look like a lean. At 2.29% it was 70/25 on 20 days, 4.5 SE, and that call came true at +1.68 pp. The later half of the idea -- how often the section was right, conditioned on the news at the time -- is calibration (z = +2.23 day level, needs about 171 independent days, we have 42) and news conditioning is two gates beyond that. SP_C_HANDOFF.md section 31."
+    "News in ANALYZE: the stage-2 measurement was run on 2026-09-21 and says nothing -- all six event types show slightly LESS next-day movement, likely a calendar artifact. The blocker is a structural break, not sample size: four sources began 2026-09-21 and daily volume stepped 67 -> 219, so any volume rank compares two feeds. Re-run from about 2026-10-22, thirty days of a stable feed (stable from 2026-09-22, section 33.3), counting distinct dedup keys rather than rows. This is NOT the D gate's 2026-09-28. SP_C_HANDOFF.md section 28.5.",
+    "BUCKET (added 2026-09-23 by the product owner): percentages beside the ANALYZE level counts. Agreed design after measurement, not the raw version: whole numbers (one reading is 0.7% of the sample, so a decimal implies resolution the data lacks); the distinct-day count printed beside the reading count (145 readings spanned only 25 local days, so the standard error on the 47% share is 10.0 pp by days against 4.3 pp by readings); and a 'close to even' line when the increased/decreased gap is under about two standard errors on the day count. At 3.13% the split was 47/43 -- 0.4 SE, a coin flip that a bare percentage would make look like a lean. At 2.29% it was 70/25 on 20 days, 4.5 SE, and that call came true at +1.68 pp. The later half of the idea -- how often the section was right, conditioned on the news at the time -- is calibration (z = +2.23 day level, needs about 171 independent days, we have 42) and news conditioning is two gates beyond that. SP_C_HANDOFF.md section 31.",
+    "Job-timeout stalls (section 33.2): three runs killed at 20 minutes before their first write. Leading hypothesis, unconfirmed: collector/kitco.py _try_kitco_sse reads an unending SSE body without stream=True, and requests' timeout bounds each read, not the total; reached only when gold-api.com fails first. The world-gold leg has no shared deadline, unlike the platforms (SP-C.9). Needs the job logs via Psiphon. Code change; before or after the merge is the owner's call.",
+    "News dedup window (section 33.3 N1): ingest.py loads only the last 24 h of dedup keys while slow feeds keep items for days, so 330 of 2,294 rows since 09-22 are re-inserts (goldbroker 105/105). Live consumers unaffected (6 h window by published time). Fix, or at least count distinct keys in any news measurement. idx_news_events_dedup_key is not unique.",
+    "high_impact_count (section 33.3 N2): evidence_package counts relevance in (HIGH, CRITICAL), values only impact holds, so it is 0 on 268/268 snapshots and market_intelligence never reports high-impact news. One-field fix; its assertion belongs in kpi_coherence.",
+    "goldbroker.com items are a median 26 days old when collected and kingworldnews about 2 days. Whether to keep them is a product call (section 33.3)."
   ],
   "corrections": [
     "Decision scorecard 'edge 0.0' does NOT mean the strategy failed. final_decision was a constant (WAIT 264/264) because of the hysteresis latch, so the scorecard compared always-WAIT against always-WAIT. The engine is untested, not disproven.",
@@ -301,11 +310,12 @@
     "SP-C.15 (2026-09-21): replaced the decision engine's valuation leg. valuation_state had been CHEAP on 364/364 rows because its fixed -1.5 threshold sat 0.02 pp outside the observed range of 438 readings, so the first input to the conflict matrix carried no information. It is now a rank over the settled non-user window, with a direction gate: CHEAP also requires the reading to be below fair value and EXPENSIVE requires it above, because a percentile-EXPENSIVE reading means 'less discounted than usual' and the matrix turns EXPENSIVE + WEAKENING into SELL -- on rank alone the engine would have sold a market trading 1.6% below fair value. Below MIN_OBSERVATIONS the answer is UNKNOWN and the matrix abstains; there is deliberately no fixed-threshold fallback. Replayed over 366 decisions: CHEAP 366 -> CHEAP 111/FAIR 222/UNKNOWN 33, BUY 131 -> 63. Also fixed the config keys valuation.py had been reading that do not exist (the configured sell threshold of 3.0 had never been in effect) and ANALYZE's projected clean-from date, which was a day early. Recorded in SP_C_HANDOFF.md section 26.",
     "SP-C.16 (2026-09-21): a deliberate tidy pass over every numeric bound in src/ and the production database. Fixed: resolve_bubble_position used the machine clock, an unsettled window and user rows (SP-C.5/C.7 defects never back-ported); 74 datetime.now() calls across 14 modules moved to utcnow, with no datetime.now() now permitted anywhere in src/; six constants for two tolerances collapsed into src/tolerances.py; the news classifier, which matched 'us' as a bare substring inside base64 image tokens in RSS summaries and so put 879 of 1441 articles into IRAN_US_NEGOTIATION including an advertisement and a tourism piece -- markup is stripped, matching is on word boundaries, specific rules need a subject and an action, and Persian keywords were added; 1070 news rows re-classified in place. Registered but not fixed: structure_state is DISCOUNT_DOMINANT on 365 of 367 rows and no rank can fix it because the quantity it classifies is a point mass, and the news LLM path has never run. Answered no to wiring news into ANALYZE, with a three-stage proposal in section 27.7. Recorded in SP_C_HANDOFF.md section 27.",
     "SP-C.17 (2026-09-21): corrected SP-C.16's characterisation of the structure leg. Section 27.4 called it a measure that cannot vary and proposed replacing it; measuring the three candidate replacements first reversed that. The incumbent separates at z = -2.04 on the seven days it fires, while platform spread, cheapest-to-median gap and breadth sit at z = -0.98, 0.07 and 1.40 against a standard error of about 13 pp on the difference. Conflating 'the output is nearly constant' with 'the measure carries no information' is the error; only the first had been measured. The leg stays and PREMIUM_DOMINANT must remain reachable. Also corrected: the news stage-2 measurement does not need a month of new articles -- the backfill made it runnable today, and it was run. It says nothing. The actual blocker is that four news sources began 2026-09-21, so volume is not comparable across the window until about 2026-10-21.",
-    "2026-09-24: the record's first premium. The market traded above fair value at 08:31Z, +0.155% stored and +0.448% on the trimmed basis, with 0 of 11 platforms below fair. Every reading before it had been a discount, so the sell-side direction gates had only ever been exercised by KPI fixtures. All three held: the valuation leg returned FAIR despite rank 100, because EXPENSIVE requires rank >= 80 AND premium >= 3.0%; the push returned NOT_A_DISCOUNT; and _gap_naming printed 'Premium ... above fair value'. Momentum was WEAKENING at that moment, so the design rejected in SP-C.15 section 26.2 -- feeding the percentile band straight into the matrix -- would have issued a SELL on a market 0.155% above fair value. structure_state also fired PREMIUM_DOMINANT four times in two days, the first movement in the rare-event leg registered in section 28. Recorded in SP_C_HANDOFF.md section 32."
+    "2026-09-24: the record's first premium. The market traded above fair value at 08:31Z, +0.155% stored and +0.448% on the trimmed basis, with 0 of 11 platforms below fair. Every reading before it had been a discount, so the sell-side direction gates had only ever been exercised by KPI fixtures. All three held: the valuation leg returned FAIR despite rank 100, because EXPENSIVE requires rank >= 80 AND premium >= 3.0%; the push returned NOT_A_DISCOUNT; and _gap_naming printed 'Premium ... above fair value'. Momentum was WEAKENING at that moment, so the design rejected in SP-C.15 section 26.2 -- feeding the percentile band straight into the matrix -- would have issued a SELL on a market 0.155% above fair value. structure_state also fired PREMIUM_DOMINANT four times in two days, the first movement in the rare-event leg registered in section 28. Recorded in SP_C_HANDOFF.md section 32.",
+    "2026-09-27: rollout step 1 closed by the product owner. A read-only audit (SP_C_HANDOFF.md section 33) found no partial rows from the three job-timeout stalls, which all stopped before the first write; closed the SP-C.10 question on the Iranian news sources, which are the two largest and freshest; and found two open news defects, the 24 h dedup window (330 re-inserted rows) and high_impact_count reading the wrong field (0 on 268/268). Corrected a session brief's claim that a normal ANALYZE takes about 2 minutes: that held on 2026-09-15, and the Execute step has taken 4.5-7.3 minutes since 2026-09-16. Documentation drift reconciled in CLAUDE.md, MASTER_PLAN_STATUS.md, README.md, DOCUMENTATION_INDEX.md and this file."
   ],
   "rollout": {
-    "step_1_observe": "2-3 days on SP-C from 2026-09-21. Watching: that BUY still occurs now the valuation leg varies, the D gate on 2026-09-28, the first firing of the push, and that valuation_context agrees with the decision on every new row.",
-    "step_2_merge": "Tag main as v1.3safe, then merge SP-C. 51 commits ahead as of 2026-09-21.",
+    "step_1_observe": "CLOSED 2026-09-27 by the product owner, after five days without a code change. BUY and the push remain untested because the market did not reach them; the D gate falls on 2026-09-28. Section 33.1.",
+    "step_2_merge": "NEXT. Tag main as v1.3safe, then merge SP-C after owner review. 59 commits ahead as of 2026-09-27.",
     "step_3_repoint": "cron-job.org job 8179679 and the Cloudflare worker both send ref SP-C; both return to main.",
     "step_4_broadcast": "Readers receive, only the owner triggers. Needs TELEGRAM_BROADCAST_IDS, _send iterating the list, and an audience per message type with a KPI asserting operator messages never reach readers. Section 29.3.",
     "not_yet": "Routing a requester's identity through the workflow, which /Update for other readers would require. Section 29.1."

@@ -194,7 +194,11 @@ on the settled non-user pool. See `SP_C_HANDOFF.md` §26 and `LESSONS_LEARNED.md
 
 This codebase has produced five classifiers that emitted a single value for months
 without error: `valuation_state=CHEAP`, `regime_state=PANIC`, `final_decision=WAIT`,
-news `relevance=UNKNOWN`, and `structure_state=DISCOUNT_DOMINANT` (still open). Before
+news `relevance=UNKNOWN`, and `structure_state=DISCOUNT_DOMINANT` (measured in SP-C.17
+and deliberately left alone — a rare-event detector). A sixth constant of the same
+shape, found 2026-09-27 and still open: evidence `news_context.high_impact_count` is 0 on
+every analysis snapshot because it reads `relevance` for values only `impact` holds
+(`SP_C_HANDOFF.md` §33.3). Before
 trusting or reporting any categorical output, run
 `SELECT <column>, COUNT(*) ... GROUP BY 1` against production. One row means the column
 is a constant and any metric computed over it is meaningless.
@@ -207,8 +211,10 @@ cases need opposite fixes and look identical from the output side:
 - the input does not vary → the *measure* is wrong, and a rank will look like a fix
   while achieving nothing, because a percentile of a point mass is the point mass
   (this is `structure_state`, registered in SP-C.16)
+- the input varies, the output does not, and no bound is involved → the code reads the
+  wrong field; the fix is the field, not a rank (this is `high_impact_count`)
 
-See `LESSONS_LEARNED.md` sections 1-3, 13 and 15.
+See `LESSONS_LEARNED.md` sections 1-3, 13, 15 and 16.
 
 ### Non-negotiable invariants
 
@@ -251,4 +257,4 @@ Neon Postgres is the long-term historical store (`market_snapshots`, `platform_p
 
 ### Phase completion discipline
 
-A phase/task is not "done" on green tests alone. The full loop this repo expects: inspect → define change surface → implement minimally (surgical diffs only, no drive-by refactors) → targeted test → regression (prior KPIs + compileall) → KPI → Neon verification when applicable → diff review → update `PROJECT_MEMORY.md`/`MASTER_PLAN_STATUS.md`/`.project_state.json` as relevant → commit. Current branch policy: `main` is the active development branch (SP-B has been closed/merged); do not create a parallel long-lived branch without explicit direction.
+A phase/task is not "done" on green tests alone. The full loop this repo expects: inspect → define change surface → implement minimally (surgical diffs only, no drive-by refactors) → targeted test → regression (prior KPIs + compileall) → KPI → Neon verification when applicable → diff review → update `PROJECT_MEMORY.md`/`MASTER_PLAN_STATUS.md`/`.project_state.json` as relevant → commit. Current branch policy: `SP-C` is the active development branch (SP-B has been closed/merged into `main`). All commits target `SP-C`; never commit to or merge into `main` without the product owner's review — the planned merge is tag `main` as `v1.3safe`, then merge SP-C (`.project_state.json` → `branch_policy`, `SP_C_HANDOFF.md` §29). Do not create a parallel long-lived branch without explicit direction.

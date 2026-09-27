@@ -1,6 +1,8 @@
 # Gold Premium Monitor — Master Plan Status
 
-Branch: `main`
+Branch: `SP-C` (active development; `main` receives it only by the owner-reviewed merge in section 15)
+
+Last reconciled: 2026-09-27.
 
 This document is the compact continuity map of the completed architecture, verified implementation, and remaining work. It is designed for onboarding a new conversation without relying on chat history.
 
@@ -18,7 +20,13 @@ scheduled trigger
 
 ### Intended versus actual Analyze trigger
 
-The intended design is that cron-job.org drives the Analyze wing. **It does not.**
+> **RESOLVED 2026-09-13, kept as history.** cron-job.org job 8179679 now dispatches
+> `ref=SP-C, mode=analyze` hourly 06:00–21:00 Tehran, `mode` resolves
+> `SCHEDULED_RUN=true`, and the GitHub native schedule was removed on 2026-09-20.
+> Hourly Analyze runs have been continuous since 2026-09-14. The text below describes
+> the state before the fix.
+
+The intended design is that cron-job.org drives the Analyze wing. **It did not.**
 Verified against run history and source on 2026-09-13:
 
 ```text
@@ -409,13 +417,40 @@ SP-C scope is recorded in `SP_C_HANDOFF.md`. Completed so far:
 Pre-SP-C stabilization        KPI suite into CI, five UPDATE defects, doc reconciliation
 Analyze trigger               fixed, mode input declared by the caller
 Candle build performance      11m19s → 1m53s, no longer grows with history
-SP-C.1 relative valuation     bubble_position.py, KPI 27/27
-SP-C.2 decision scorecard     decision_scorecard.py, KPI 19/19
+SP-C.1 relative valuation     bubble_position.py, collection_mode migration 2026-09-14
+SP-C.2 decision scorecard     decision_scorecard.py (computed, not wired to a surface)
+SP-C.3 outcome backfill       wired into the scheduled path
+SP-C.5 one vocabulary         trimmed (3-cheapest) display basis, Iran local time
+SP-C.6 three latches          hysteresis timer, regime calibration, bonbast 60 s bound
+SP-C.7 settled reference      completed local days, user rows excluded
+SP-C.8 world-gold provenance  kitco vs kitco_cached reaches storage
+SP-C.9 collector deadline     one shared deadline over the eleven platforms
+SP-C.10 news sources          replaced; source records feed identity
+SP-C.11 outcome premium leg   proximity decides, scheduled breaks ties
+SP-C.12 ANALYZE and the push  read-only REPORT mode; buy-side thermostat push
+SP-C.13 one deep-discount     one level for UPDATE, ANALYZE and the push
+SP-C.14 coherence KPI         kpi_coherence.py and the ACCEPTED register (5 entries)
+SP-C.15 valuation leg         rank + direction gate, no fixed fallback
+SP-C.16 tidy pass             one clock, shared tolerances, news classifier repaired
+SP-C.17 structure leg         measured, deliberately left alone
+SP-C.18 deep-zone survival    comparison windows, ANALYZE wording
 ```
 
-In progress: UPDATE and ANALYZE message templates, to be agreed before implementation.
+Last code change 2026-09-22. Full suite: **26/26 files**, green locally
+(2026-09-27, exit 0) and in CI.
 
-Full suite: **21/21 files, 438 assertions**, green locally and in CI.
+Rollout (`SP_C_HANDOFF.md` section 29), state on 2026-09-27:
+
+```text
+1 observe     CLOSED 2026-09-27 by the product owner (section 33.1)
+2 merge       NEXT -- owner reviews the diff; tag main v1.3safe, then merge SP-C
+3 repoint     cron-job.org 8179679 and src/worker/telegram-trigger.js line 135
+4 broadcast   TELEGRAM_BROADCAST_IDS + audience per message type (section 29.3)
+```
+
+Open before or after the merge, the owner's call (section 33): three job-timeout
+stalls, the news dedup window, and the constant `high_impact_count`. Each fix is a
+code change.
 
 ## 16. Continuity protocol
 

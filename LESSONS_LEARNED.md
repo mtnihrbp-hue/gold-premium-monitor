@@ -592,3 +592,67 @@ value. That is not a defect at all: the classifier is answering correctly about 
 the world has not yet produced. Section 13 has the rule — a constant output is only a
 defect when the record contained the other case and the classifier missed it. Check
 the record before reaching for a fix, and check the input before choosing which fix.
+
+---
+
+## 16. The right quantity, read from the wrong field
+
+**The pattern.** A counter or classifier tests a field for values that field never
+holds, because the values exist on a neighbouring field with a similar name. The
+output is constant. Unlike section 15, both the input and the classification rule
+are fine, and the only thing wrong is which column is read.
+
+**Where it happened.** `evidence_package` counts news events whose `relevance` is
+`HIGH` or `CRITICAL`. `relevance` holds RELEVANT, NOT_RELEVANT or UNKNOWN. `HIGH`
+lives in `impact`, on 326 rows. `high_impact_count` was therefore 0 on 268 of 268
+analysis snapshots, and `market_intelligence` never produced its "High-impact news
+detected" line. Found 2026-09-27, `SP_C_HANDOFF.md` section 33.3.
+
+**The measurement that exposes it.** Section 15's two queries, plus a third: take the
+literal values the code compares against and count them in the column it reads.
+
+```sql
+SELECT relevance, COUNT(*) FROM news_events GROUP BY 1;   -- no HIGH, no CRITICAL
+```
+
+A comparison against a value that is absent from the column's vocabulary is dead
+code that still compiles.
+
+**The fix that works.** Correct the field, and do **not** reach for a rank or a new
+bound. Assert the vocabulary across the two modules, which is `kpi_coherence`'s job,
+since the writer and the reader disagree.
+
+---
+
+## 17. A guard whose window is shorter than what it guards
+
+**The pattern.** A deduplication check (or a cooldown, or a latch) looks back over a
+fixed window. The thing it guards stays around for longer than that window. Once the
+window closes, the guard forgets, and the same item passes a second time. Nothing
+fails, because every individual insert is valid.
+
+**Where it happened.** News ingestion loads only the dedup keys created in the last
+24 hours. Some feeds keep items listed for days, and goldbroker's median item is 26
+days old when collected. Those items were re-inserted roughly daily, up to six copies
+each: 330 of 2,294 rows since 2026-09-22 (14%), and every goldbroker row in the window.
+The database index on `dedup_key` is not unique, so nothing below the application
+caught it. `SP_C_HANDOFF.md` section 33.3.
+
+**Why it stayed invisible.** Every live consumer selected by published time within
+6 hours, and a copy can only arrive 24 or more hours after its original. The guard was
+broken, but the one path that exercised it could not see the damage. The damage lands
+on the first measurement that counts rows.
+
+**The measurement that exposes it.**
+
+```sql
+SELECT COUNT(*), COUNT(DISTINCT dedup_key) FROM news_events WHERE created_at >= ...;
+```
+
+The two numbers should be equal. Then compare the guard's window with the input's age
+at arrival, for example `created_at - timestamp` per source. If the window is shorter
+than the oldest age a source delivers, that source will repeat.
+
+**The fix that works.** Size the window from the input's retention rather than from
+intuition, or make the store enforce uniqueness, which needs no window at all. Until
+the fix lands, any measurement must count distinct keys, not rows.
