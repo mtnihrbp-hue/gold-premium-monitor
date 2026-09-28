@@ -40,7 +40,7 @@ before reading any failure narrative below as live.**
 | datetime.now() against UTC-stored timestamps, 74 calls in 14 modules | 2026-09-21 | SP-C.16, section 27.3 |
 | Six constants for two tolerances, under four names | 2026-09-21 | SP-C.16, section 27.6 |
 | News classifier matched "us" inside base64 image tokens; 879 of 1441 mislabelled | 2026-09-21 | SP-C.16, section 27.5 |
-| structure_state is DISCOUNT_DOMINANT on 365 of 367 rows | **MEASURED, LEFT ALONE** | SP-C.17, section 28 -- a rare-event detector, not a dead leg; all three candidate replacements are within one standard error of chance |
+| structure_state is DISCOUNT_DOMINANT on 365 of 367 rows | **MEASURED, LEFT ALONE -- REOPENED AS A QUESTION 2026-09-28** | SP-C.17, section 28 -- a rare-event detector, not a dead leg; all three candidate replacements are within one standard error of chance. But all 14 firings sit before 13:00 Tehran, in the stale-dollar window, so the separation may be mechanical (section 34.6) |
 | News LLM classification path has never run | **OPEN** | SP-C.16, section 27.5 |
 | Three runs stalled at the 20-minute job timeout before their first write (09-24, 09-25 x2) | **DIAGNOSED, fix queued** | section 33.2 -- no partial rows; the Kitco SSE body never ends and is read without `stream=True`, so every gold-api.com failure hangs the run; fix leads the post-merge reliability phase |
 | News dedup looks back 24 h while feeds keep items for days; 330 of 2,294 rows re-inserted | **OPEN** | section 33.3 N1 -- live consumers unaffected, measurements must count distinct keys |

@@ -3483,3 +3483,21 @@ Two quality notes, neither with a reader-visible surface today:
   **This matters for N2.** Correcting `high_impact_count` to read `impact` will make it
   count these, so it would swap a constant zero for a noisy count. Pair the field fix
   with a precision check on the HIGH rules.
+
+### 34.6 The structure leg's firings sit inside the stale-dollar window
+
+All 14 non-DISCOUNT_DOMINANT rows on record fall before 13:00 Tehran:
+
+- PREMIUM_DOMINANT, 13 rows, on 08-29, 09-24 and 09-28;
+- MIXED, 1 row, on 09-22, a day with a 1.52% dollar step.
+
+A reading priced on the previous day's dollar understates fair value, so it pushes
+platforms "above fair", which is exactly what this leg counts.
+
+This reopens section 28 as a question, not a conclusion. SP-C.17 kept the leg because
+it separated at z = -2.04 on the days it fired. But a stale-dollar morning is followed,
+mechanically, by a deeper discount once the dollar updates, and that would produce the
+same separation with no information about the market. Section 28's review trigger (30
+non-DISCOUNT_DOMINANT rows, 14 so far) should count only readings taken on a current
+dollar. Re-run the SP-C.17 measurement with morning readings excluded as part of the
+34.3 research.
