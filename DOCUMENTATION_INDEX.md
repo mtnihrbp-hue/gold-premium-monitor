@@ -37,8 +37,8 @@ C14A  COMPLETE — 26/26 KPI
 C14B  COMPLETE — 36/36 KPI
 C14C  COMPLETE — 21/21 KPI
 UPDATE v1  SURGICAL IMPLEMENTATION / VALIDATION
-SP-C.1 … SP-C.18  COMPLETE on SP-C, not yet merged to main
-ROLLOUT    step 1 (observe) closed 2026-09-27; step 2 (merge) awaits owner review
+SP-C.1 … SP-C.18  COMPLETE; SP-C merged into main 2026-09-28 (tag v1.3safe = main before)
+ROLLOUT    steps 1-3 done (observe, merge, repoint to main); SP-D in planning
 FULL SUITE  26/26 files — executed on SP-C 2026-09-27, exit 0; also green in CI
 ```
 

@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "project": "Gold Premium Monitor",
-  "active_branch": "SP-C",
-  "current_phase": "SP-C rollout, step 2 (merge) pending owner review",
-  "current_phase_status": "SP-C.1 through SP-C.18 COMPLETE on SP-C (last code change 2026-09-22, 2857ba5); rollout step 1 (observe) CLOSED 2026-09-27 by the product owner; merge into main awaiting owner review",
+  "active_branch": "main",
+  "current_phase": "SP-C merged into main 2026-09-28; SP-D planning (settle period and R&D)",
+  "current_phase_status": "SP-C.1 through SP-C.18 COMPLETE and MERGED into main 2026-09-28 (2b7c5f8; v1.3safe tags main before the merge; merged tree identical to SP-C). Production (cron-job.org and the Telegram worker) dispatches ref main. SP-D in planning: settle period on main, then SP-D branches from main. SP_C_HANDOFF.md section 35.",
   "completed_phases": [
     "SP-B.1",
     "SP-B.2",
@@ -54,12 +54,11 @@
       "SP-C.16: tidy pass -- one clock (no datetime.now() in src/), shared tolerances, news classifier repaired. Section 27.",
       "SP-C.17: structure leg measured against three candidate replacements and deliberately left alone. Section 28.",
       "SP-C.18: deep-zone survival measured; comparison windows state how much time they cover; ANALYZE wording. Section 30.",
-      "Rollout step 1 (observe) closed 2026-09-27 by the product owner: 109 rows FAIR/WAIT/WAIT since 09-22 with the rank ranging 53-100 (not a latch), valuation_context agreeing on every row, all runs green since 2026-09-25 16:30Z. Section 33.1."
+      "Rollout step 1 (observe) closed 2026-09-27 by the product owner: 109 rows FAIR/WAIT/WAIT since 09-22 with the rank ranging 53-100 (not a latch), valuation_context agreeing on every row, all runs green since 2026-09-25 16:30Z. Section 33.1.",
+      "Rollout steps 2 and 3 done 2026-09-28: SP-C merged into main (2b7c5f8, one conflict resolved by taking SP-C's gold-monitor.yml, merged tree identical to SP-C, KPI 26/26 on main) and both triggers repointed to main; first /Analyze and /Update on main succeeded. Section 35."
     ],
     "in_progress": [
-      "Rollout step 2: merge SP-C into main on the afternoon of 2026-09-28 (owner's timing), after the health check, D gate and CHEAP replay -- moved by the owner on 2026-09-27 (the 09-23 plan was 09-26 with 09-27 slack; recovering the lost session used the slack, and a check that may produce a fix belongs on SP-C before the merge). Owner reviews the diff; tag main v1.3safe first; one conflict, .github/workflows/gold-monitor.yml, take SP-C's version. Sections 33.5-33.6.",
-      "D gate OPENED 2026-09-28: 207 scheduled readings over 14 settled local days, Sampling scheduled-only; deep-discount level 3.5015% vs 3.5068% the day before (no step, by design). CHEAP trigger investigated: the leg is correct and reachable, the market never went there (closest 0.22 pp on 09-23); no fix needed. Section 34.1-34.2.",
-      "Job-timeout stalls DIAGNOSED 2026-09-27 from the job logs (via Psiphon): in all three runs gold-api.com failed on DNS, then the run hung in collector/kitco._try_kitco_sse -- api.kitco.com/sse/full is an unending text/event-stream read without stream=True, so the 10 s read timeout never trips. Fix queued as the first item after the merge. Section 33.2."
+      "SP-D planning: settle period on main (owner's direction 2026-09-28) and R&D on scope, following the order in rollout.post_merge_order. SP-D branches from main when code work begins; add SP-D to kpi-suite.yml push branches then."
     ],
     "not_wired": "decision_scorecard is computed but unwired. It is admin-facing and has nothing to report while every recorded decision is WAIT.",
     "decision_trigger_finding": "Forward 24h return changes sign near the 40th percentile in 41 days of data. Never hardcoded; the reference recomputes every run.",
@@ -213,13 +212,14 @@
     "causal_explanation_requires_evidence": true
   },
   "branch_policy": {
-    "active_development_branch": "SP-C",
-    "main_write_allowed": false,
-    "main_merge_allowed": false,
+    "active_development_branch": "main (production); SP-D to be created from main when its code work begins",
+    "main_write_allowed": "only with the product owner's review",
+    "main_merge_allowed": "only with the product owner's review",
     "sp_b_status": "CLOSED — merged into main",
     "sp_b_remote_deleted": false,
-    "planned_merge": "tag main as v1.3safe, then merge SP-C into main after user review",
-    "rule": "All development, documentation, SQL records, and commits target SP-C. Per skills/sprint-execution.md the user reviews the sprint branch before merge; never merge automatically."
+    "planned_merge": "DONE 2026-09-28",
+    "rule": "main is production and receives work only by owner-reviewed merge. The next sprint branch is SP-D, created from main when code work begins; per skills/sprint-execution.md the user reviews the sprint branch before merge; never merge automatically.",
+    "sp_c_status": "CLOSED -- merged into main 2026-09-28 (2b7c5f8); tag v1.3safe = main before the merge"
   },
   "verified_production_state": {
     "verified_on": "2026-09-28",
@@ -264,18 +264,19 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "2026-09-28: after the 02:30Z run, health check, D gate and a read-only CHEAP replay. If clean, the owner reviews the SP-C diff; tag main v1.3safe, merge SP-C (take SP-C's gold-monitor.yml in the one conflict), repoint cron-job.org 8179679 and src/worker/telegram-trigger.js:135 to main in one sitting, and verify with /Status and /Update. If not clean, fix on SP-C first. Then rollout.post_merge_order (revised 2026-09-28).",
+  "next_gate": "SP-D planning. Let the system settle on main (daily health checks), run the morning-dollar and other R&D meanwhile, then open SP-D from main with the reliability phase first. Order in rollout.post_merge_order.",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
-    "cron_body": "{\"ref\":\"SP-C\",\"inputs\":{\"mode\":\"analyze\"}}",
-    "cron_ref_must_change_to_main_after_merge": true,
+    "cron_body": "{\"ref\":\"main\",\"inputs\":{\"mode\":\"analyze\"}}",
+    "cron_ref_must_change_to_main_after_merge": "DONE 2026-09-28",
     "horizons_supported": "hourly runs put +1h, +6h and +24h targets on exact later runs, inside the C.5 tolerance of 15 minutes",
     "daily_recap": "fires on the first scheduled run of a calendar day only; state.last_recap_date guards it",
     "cron_first_fire": "2026-09-14 18:00 Tehran; hourly thereafter",
     "outcome_horizons_status": "FIXED 2026-09-15. backfill_outcome_evaluations() wired into the scheduled path; first run resolved 72 evaluations, COMPLETE count zero to 19 (9 at 1h, 2 at 6h, 8 at 24h). Remaining INSUFFICIENT_DATA rows belong to the sparse era and have no reachable partner.",
     "cadence_verified": "2026-09-15: six consecutive one-hour gaps between scheduled snapshots plus one nine-hour overnight pause, matching 0 6-21 Asia/Tehran. Runs appear at :30 UTC because minute 0 Tehran is minute 30 UTC.",
-    "open_finding_bubble_outcome": "RESOLVED 2026-09-15 in 33ae96a: outcome evaluation now measures the bubble in percentage points."
+    "open_finding_bubble_outcome": "RESOLVED 2026-09-15 in 33ae96a: outcome evaluation now measures the bubble in percentage points.",
+    "worker_ref": "main since 2026-09-28 (src/worker/telegram-trigger.js line 135 mirrors the deployed worker)"
   },
   "process_rule": "Do not change an agreed design, template or framework without explicit permission, including changes that appear obvious while working on a different task. Raise them as a question instead. Recorded after unrequested edits to an approved message template forced re-review and removed a column that was broken for a fixable reason.",
   "kpi_suite": {
@@ -325,8 +326,8 @@
   ],
   "rollout": {
     "step_1_observe": "CLOSED 2026-09-27 by the product owner, after five days without a code change. BUY and the push remain untested because the market did not reach them; the D gate falls on 2026-09-28. Section 33.1.",
-    "step_2_merge": "2026-09-28, after the health check, D gate and CHEAP replay (moved by the owner 2026-09-27). Tag main as v1.3safe, then merge SP-C after owner review. One conflict, .github/workflows/gold-monitor.yml; take SP-C's version. 59 commits ahead as of 2026-09-27. Sections 33.5-33.6.",
-    "step_3_repoint": "cron-job.org job 8179679 and the Cloudflare worker both send ref SP-C; both return to main. Verify immediately with a manual /Status and /Update, not the next hourly run; rollback is pointing both back at SP-C.",
+    "step_2_merge": "DONE 2026-09-28 -- 2b7c5f8, tag v1.3safe on the pre-merge main. Section 35.1.",
+    "step_3_repoint": "DONE 2026-09-28 -- cron-job.org 8179679 and the worker send ref main; the 14:00 Tehran scheduled run was lost while the cron job was edited. Section 35.2.",
     "step_4_broadcast": "Readers receive, only the owner triggers. Needs TELEGRAM_BROADCAST_IDS, _send iterating the list, and an audience per message type with a KPI asserting operator messages never reach readers. Section 29.3.",
     "not_yet": "Routing a requester's identity through the workflow, which /Update for other readers would require. Section 29.1.",
     "post_merge_order": "Agreed by the owner 2026-09-28 (supersedes 09-27): 1 reliability phase (world-gold deadline; high_impact_count with a precision check; news dedup window and Google suffix; Daric if still down); 2 morning-dollar research, no code (second dollar source, pool/rank bias, SP-C.17 structure re-measure) ending in a fix decision; 3 broadcast (step 4); 4 basis divergence (own phase and approval); 5 ANALYZE percentages; 6 research (6h horizon, quote_side). Section 34.7."

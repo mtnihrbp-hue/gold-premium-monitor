@@ -405,8 +405,8 @@ three different places. They must be changed together.
 
 | trigger | where configured | carries | current |
 |---|---|---|---|
-| Telegram `/Update`, `/Analyze` | Cloudflare worker, hard-coded at `src/worker/telegram-trigger.js:135` (twice) | `{"ref": "..."}`, plus `inputs.mode` for `/Analyze` | `SP-C` |
-| hourly Analyze | cron-job.org job 8179679 request body | `{"ref": "...", "inputs": {"mode": "analyze"}}` | `SP-C` |
+| Telegram `/Update`, `/Analyze` | Cloudflare worker, hard-coded at `src/worker/telegram-trigger.js:135` (twice) | `{"ref": "..."}`, plus `inputs.mode` for `/Analyze` | `main` (since 2026-09-28) |
+| hourly Analyze | cron-job.org job 8179679 request body | `{"ref": "...", "inputs": {"mode": "analyze"}}` | `main` (since 2026-09-28) |
 | legacy daily schedule | `gold-monitor.yml` `on.schedule` | **default branch only** | **removed 2026-09-20**, see below |
 
 `workflow_dispatch` runs the workflow file **and the application code** from `ref`.
@@ -453,6 +453,12 @@ the Analyze wing rather than silently running UPDATE.
 branch, with the default branch readable as a fallback. While `/Update` ran on `main`
 and the schedule on `SP-C`, the two kept **separate** `last_alert` histories, which is
 the state the hysteresis cooldown reads. Pointing both at the same ref unifies them.
+
+Since the repoint of 2026-09-28 both triggers use `main`. `main` had no state cache
+left, because caches unused for 7 days are evicted, so its first runs started from a
+fresh `state.json`. The expected visible effect is one extra daily recap on the first
+scheduled run on `main`, at 15:00 Tehran on 2026-09-28. SP-C's caches remain, but `main` cannot read another branch's caches,
+by GitHub's design.
 
 ### Job timeouts and log access (2026-09-27)
 

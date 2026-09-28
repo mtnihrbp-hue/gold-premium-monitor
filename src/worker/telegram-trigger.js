@@ -112,8 +112,8 @@ ${errBody.slice(0, 400)}`);
 // Trigger GitHub Actions
 //
 // ref decides which branch's workflow file AND application code answer the user.
-// It must match the ref cron-job.org sends, and both return to "main" when SP-C
-// merges -- see the merge checklist in SP_C_HANDOFF.md.
+// It must match the ref cron-job.org sends. Both were repointed from "SP-C" to
+// "main" on 2026-09-28, after the merge (SP_C_HANDOFF.md section 35).
 async function triggerGitHub(env, mode) {
   // NOTE: GITHUB_REPO must be FULL path: "owner/repo-name"
   const url = `https://api.github.com/repos/${env.GITHUB_REPO}/actions/workflows/gold-monitor.yml/dispatches`;
@@ -132,7 +132,7 @@ async function triggerGitHub(env, mode) {
       "User-Agent": "GoldMonitorBot/1.0",
     },
     body: JSON.stringify(
-      mode ? { ref: "SP-C", inputs: { mode } } : { ref: "SP-C" }
+      mode ? { ref: "main", inputs: { mode } } : { ref: "main" }
     ),
   });
 }

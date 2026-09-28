@@ -3530,3 +3530,69 @@ Why the morning dollar moved ahead of broadcast:
 - Two recorded conclusions now depend on it: section 32's premium, and section 28's
   reason for keeping the structure leg.
 - The research changes no code, so it costs no stability.
+
+---
+
+## 35. The merge and the repoint (2026-09-28)
+
+Times are Tehran local. This closes rollout steps 2 and 3 (section 29) and closes SP-C.
+
+### 35.1 The merge
+
+```text
+preflight   SP-C and main matched origin; all runs since noon green; no v1.3safe tag yet
+tag         v1.3safe -> c1799fe, main as it was before the merge (annotated)
+merge       2b7c5f8 "Merge SP-C into main", --no-ff
+conflict    .github/workflows/gold-monitor.yml only, resolved by taking SP-C's version (33.6)
+proof       merged main's tree == SP-C's tree (c32aa41...), `git diff SP-C main` empty
+gates       compileall PASS and KPI 26/26 (exit 0), both run on the merged main
+push        13:49, after the owner's explicit "push"; main and the tag verified on origin
+triggered   nothing -- gold-monitor.yml is workflow_dispatch only
+```
+
+So `main` is byte-identical to the code that has run production since 2026-09-14.
+Afterwards SP-C was fast-forwarded to the merge commit, so both branches carry the same
+history.
+
+### 35.2 The repoint
+
+- The owner changed cron-job.org job 8179679 to
+  `{"ref":"main","inputs":{"mode":"analyze"}}`, and changed the Cloudflare worker's two
+  refs to `"main"`.
+- The repo copy, `src/worker/telegram-trigger.js`, was updated to match in the same
+  commit that records this section.
+
+```text
+13:34   /Analyze   SP-C   success    before the worker changed
+14:00   scheduled  --     NO RUN     fired while the cron job was being edited; one
+                                     hourly reading lost, no data affected
+14:11   /Analyze   main   success    the first production run on main
+14:12   /Update    main   success    the collecting path on main
+15:00   scheduled  main   -> see 35.4
+```
+
+`main` had no state cache left: caches unused for 7 days are evicted, and `main`
+cannot read SP-C's. Its first runs therefore start from a fresh `state.json`:
+
+- **Expected:** one extra daily recap on the first scheduled run on `main`.
+- **No effect** on the push arm state (armed on both), on BUY alert history (none
+  since the new valuation leg), or on RUN and DAY baselines (resolved from Neon since
+  SP-C.1).
+
+Rollback, never needed: point both refs back to `SP-C`, and `main` returns to
+`v1.3safe` only with the owner's approval.
+
+### 35.3 What SP-C leaves open
+
+Everything in the order of 34.7 is carried into SP-D:
+
+- the reliability phase;
+- the morning-dollar research;
+- broadcast;
+- the basis divergence;
+- the ANALYZE percentages;
+- the research items.
+
+The owner's direction on 2026-09-28: let the system settle on `main` first, and use the
+time for R&D on SP-D's scope. SP-D branches from `main` when its code work begins, and
+`kpi-suite.yml` must gain SP-D in its push branches at that point.

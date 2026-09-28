@@ -1,6 +1,6 @@
 # Gold Premium Monitor — Master Plan Status
 
-Branch: `SP-C` (active development; `main` receives it only by the owner-reviewed merge in section 15)
+Branch: `main` (production since 2026-09-28; SP-C merged and closed; the next sprint, SP-D, branches from `main`)
 
 Last reconciled: 2026-09-27.
 
@@ -443,10 +443,10 @@ Rollout (`SP_C_HANDOFF.md` section 29), state on 2026-09-27:
 
 ```text
 1 observe     CLOSED 2026-09-27 by the product owner (section 33.1)
-2 merge       2026-09-28, after the health check and D gate (moved by the owner
-              2026-09-27); owner reviews the diff; tag main v1.3safe, then merge
-              SP-C; one conflict (gold-monitor.yml, take SP-C's version), 33.5-33.6
-3 repoint     cron-job.org 8179679 and src/worker/telegram-trigger.js line 135
+2 merge       DONE 2026-09-28 -- 2b7c5f8; main tagged v1.3safe before it; merged
+              tree identical to SP-C; KPI 26/26 on main (section 35)
+3 repoint     DONE 2026-09-28 -- cron-job.org 8179679 and the worker send ref main;
+              first /Analyze and /Update on main succeeded
 4 broadcast   TELEGRAM_BROADCAST_IDS + audience per message type (section 29.3)
 ```
 

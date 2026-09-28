@@ -2290,17 +2290,20 @@ no direction or sentiment.
 
 ---
 
-## Current state (2026-09-27)
+## Current state (2026-09-28)
 
-Full record in `SP_C_HANDOFF.md` sections 29-33. Chronology for SP-C.17 and SP-C.18
+Full record in `SP_C_HANDOFF.md` sections 29-35. Chronology for SP-C.17 and SP-C.18
 lives there and in `.project_state.json` → `corrections`.
 
 ```text
-branch        SP-C, 59 commits ahead of main; last code change 2026-09-22 (2857ba5)
-rollout       step 1 (observe) CLOSED 2026-09-27 by the product owner
-              step 2 (merge) 2026-09-28, after the health check and D gate (moved
-              by the owner 09-27); tag main v1.3safe first; one conflict,
-              gold-monitor.yml
+branch        main is production. SP-C merged 2026-09-28 (2b7c5f8) and closed;
+              v1.3safe tags main as it was before the merge. SP-D is in planning
+              and will branch from main
+rollout       step 1 (observe) CLOSED 2026-09-27
+              step 2 (merge) DONE 2026-09-28; merged tree identical to SP-C
+              step 3 (repoint) DONE 2026-09-28; cron-job.org and the worker send
+              ref main; first /Analyze and /Update on main succeeded
+              step 4 (broadcast) in the SP-D order (SP_C_HANDOFF 34.7)
 KPI           26/26 files, exit 0; compileall PASS
 production    hourly ANALYZE continuous since 2026-09-14; all runs green since
               2026-09-25 16:30Z; stored range -8.19% to +0.36%, but both positive
