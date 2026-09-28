@@ -2923,6 +2923,12 @@ decayed from about 4.5 SE to 1.9 SE. See section 33.6.
 
 ## 32. The record's first premium, and three gates exercised for real (2026-09-24)
 
+> **Corrected 2026-09-28 (section 34.3).** The "premium" was most likely not the market
+> above fair value. The USD/IRR input still carried the previous rate until 13:00
+> Tehran, and the platforms had already repriced. At 13:00 the input stepped +1.29% and
+> the premium vanished. The gates behaving correctly stands; the premium itself does
+> not.
+
 Every reading ever stored had been a discount. On 2026-09-24 at 08:31Z the market
 traded **above** fair value for the first time.
 
@@ -3296,10 +3302,11 @@ record predates SP-C.15**:
 - Since then it has returned FAIR on all 116 rows, with no BUY candidate.
 
 So the shipped leg has never produced CHEAP in production. That is consistent with the
-market. The rank ran 53-100, and the gap to the CHEAP threshold narrowed from 0.27 pp on
-09-23 to about 0.03 pp on 09-27 (the morning brief's `cheap_below` of -3.60% against a
-lowest reading of -3.57%), as late-August readings aged out of the window, which
-is exactly what the 09-23 check predicted. But consistent is not proven. On 09-28,
+market. The rank ran 53-100. The CHEAP threshold itself eased as late-August readings
+aged out of the window, which is exactly what the 09-23 check predicted. (Corrected on
+2026-09-28 in 34.2: an earlier "0.03 pp away on 09-27" compared that day's threshold
+with a 09-23 reading. The real gap on 09-27 was 0.38 pp, and the closest approach was
+0.22 pp on 09-23.) But consistent is not proven. On 09-28,
 confirm the leg *can* reach CHEAP on the current window by replaying the threshold
 against it rather than by waiting.
 
@@ -3342,3 +3349,137 @@ had decayed to about 1.9 SE two days later.
 - The same checks counted duplicate headlines at about 7% and judged the rate
   unchanged. Counted by dedup key, 14% of rows since 09-22 are excess, and the cause is
   the 24-hour window (N1).
+
+---
+
+## 34. The D gate, the CHEAP check, and mornings priced on yesterday's dollar (2026-09-28)
+
+Times in this section are **Tehran local**. No code changed. NEON MIGRATION REQUIRED =
+NO. The product owner moved the merge to the afternoon of 2026-09-28.
+
+### 34.1 Health and the D gate
+
+- **Runs:** 18 of 18 succeeded since the 09-27 check, including the 06:01 run, the
+  first of the gate day.
+- **The D gate opened on schedule.** The settled window holds 207 scheduled readings
+  across 14 local days (13 the day before), so ANALYZE's Sampling line reads "scheduled
+  only". The REPORT run logged `readings=328`, which matches the non-user pool rebuilt
+  independently in SQL.
+- **The deep-discount level held at 3.5015%**, against 3.5068% the day before. There
+  was no step, by design: the level draws on the shared non-user pool, not the ranking
+  pool the gate narrows. The push log's `fire_at=3.5015441467` equals the independent
+  SQL value.
+
+### 34.2 The CHEAP trigger: investigated, no fix needed
+
+The decision leg's threshold was rebuilt independently from stored `premium_percent`
+for each day since SP-C.15 went live. It uses the settled non-user 30-day pool,
+`cheap_below = min(value at rank 40, -1.5)`:
+
+```text
+local day   cheap_below   day's deepest   short by   rank of deepest
+09-22         -3.808         -3.046        0.76 pp        81
+09-23         -3.794         -3.574        0.22 pp        53
+09-24         -3.761         -1.856        1.91 pp        98
+09-25         -3.745         -2.949        0.80 pp        77
+09-26         -3.660         -3.013        0.65 pp        70
+09-27         -3.596         -3.220        0.38 pp        59
+09-28         -3.560         -1.100        2.46 pp        98
+```
+
+The rebuild reproduces what the system recorded (−3.60% on 09-27, lowest rank 53).
+Rank runs in the right direction, and by construction 40% of the window always sits
+below the threshold. So the leg is correct and reachable, and the market simply
+never went there. The threshold eased by 0.25 pp in a week as late-August readings
+aged out. This also corrects the "0.03 pp" in 33.6.
+
+### 34.3 Two "premiums" that were a stale dollar
+
+The owner saw a discount at 11:02 where the 10:01 reading had stored +0.35%. The two
+readings differ because the USD/IRR input moved, not the gold prices:
+
+```text
+Tehran      XAU/USD   USD/IRR used   cheapest platform   stored premium
+Sun 21:01   4,286.2      235,700        236.96 M            -2.73%
+Mon 06:01   4,216.2      235,800        237.09 M            -1.10%
+Mon 10:01   4,171.0      235,900        238.08 M            +0.35%
+Mon 11:01   4,159.2      240,100        238.09 M            -1.12%
+Mon 12:00   4,145.5      240,100        238.69 M            -0.55%
+```
+
+09-24's "first premium" (section 32) has the same shape. USD was held at 232,100 from
+07:40 to 12:01 while the cheapest platform rose 1.1%, the reading at 12:01 stored
++0.15%, and at 13:00 USD stepped +1.29% and the premium vanished.
+
+**The input does not move in the morning.** Across scheduled readings since 09-14:
+
+- 07:00, 09:00 and 10:00: one change in 39 readings;
+- 08:00: 9 small changes, the largest 0.22%;
+- 11:00 onward: a change on most readings, and every large step lands at 11:00-13:00
+  (1.78%, 1.34%, 1.29%).
+
+**An independent source agrees.** tgju.org's free-market dollar gives the previous day
+at 2,350,000 rial and the open on 09-28 at 2,405,000. The day's range was only
+2,404,600-2,410,200, so the dollar gapped overnight rather than drifting up through the
+morning. Our input picked up the new level at 11:01.
+
+**The reading.** Until about 11:00 the fair price is computed on the previous day's
+dollar, while the platforms, which trade from early morning, already price the new
+one. Whether bonbast lags or Tehran's currency market has simply not opened, the
+effect on the stored premium is the same. A morning reading mixes two days, and the
+error is one-for-one with the overnight dollar move.
+
+```text
+USD step, 10:00 -> 13:00 reading: >= 0.9% on 5 of 14 days
+  09-19 +0.92   09-20 +0.95   09-22 +1.52   09-24 +1.29   09-28 +2.88
+pre-11:00 scheduled runs: 5 of 16 per day, about 31% of the scheduled pool
+```
+
+**What this corrects.** Both "premiums" on record (09-24 and 09-28) were most likely
+artefacts of the input, not the market trading above fair value. The three direction
+gates behaved correctly both times, and that stands; the events themselves do not.
+The record's true maximum is therefore uncertain.
+
+It is also invisible in storage. `main.py` evaluates the USD observation's freshness
+as `(now, now)`, so it is always "fresh". That is the same blind spot SP-C.8 closed for
+world gold.
+
+**Not fixed.** Research comes first:
+
+- confirm against a second dollar source across more days;
+- measure the bias the morning readings put into the pool and the ranks.
+
+Only then choose a remedy, for example a provenance flag on readings taken before the
+dollar has updated, or excluding them from the reference windows. Its place in the
+post-merge order is the owner's call.
+
+### 34.4 Daric has been down since 09-25
+
+Daric has returned one price in about 59 snapshots over four days. The 10:01 run's log
+shows `apisc.daric.gold` hitting the 15 s read timeout. The other collectors are
+unaffected, as designed. Before 09-25, Daric was among the three cheapest platforms in
+46 of 240 readings (19%, average rank 5.8), so its absence raises the display basis
+slightly in about one reading in five. The message already prints "of 10". Watch it;
+if it does not return within a few days, it joins the reliability phase.
+
+### 34.5 News
+
+All nine sources produced in the last 24 hours: 101-104 rows each for the two Iranian
+papers, and about 420 rows in all. The day's relevant headlines match the market data:
+
+- world gold fell below $4,200 on Fed-hike bets and rising yields;
+- the Iranian papers reported the dollar, the coin and 18K gold all rising;
+- one reported the free-market dollar at 40% above the official rate.
+
+Two quality notes, neither with a reader-visible surface today:
+
+- **A second dedup gap, beside N1.** Google News appends " - Publisher" to titles, so
+  the same story from two outlets hashes differently. Two pairs appeared on 09-28 alone
+  ("Gold Falls Below $4,200..." from TradingKey and tradingkey.com; one Hormuz item from
+  two Media Line titles).
+- **Classifier precision.** Mentions of war inside economic analysis are labelled
+  MILITARY_ESCALATION with impact HIGH: "Middle East oil exports rose", a steel-industry
+  piece and a renewable-energy piece. Daily price reports are labelled CURRENCY_POLICY.
+  **This matters for N2.** Correcting `high_impact_count` to read `impact` will make it
+  count these, so it would swap a constant zero for a noisy count. Pair the field fix
+  with a precision check on the HIGH rules.

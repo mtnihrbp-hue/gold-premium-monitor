@@ -62,7 +62,9 @@ These are verified against production state, not assumed (read-only queries,
 2026-09-27):
 
 ```text
-market_snapshots           555 readings, -8.19% to +0.155% (first premium 2026-09-24)
+market_snapshots           stored range -8.19% to +0.36%; both positive readings
+                           (09-24, 09-28) most likely a stale-dollar artefact
+                           (SP_C_HANDOFF 34.3)
 valuation_state            varies since SP-C.15; FAIR on all 109 rows since 09-22,
                            because the market sat above its 30-day history all week
 final_decision             WAIT on those 109 rows -- BUY untested, not failed

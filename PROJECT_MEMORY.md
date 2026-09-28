@@ -46,6 +46,9 @@ before reading any failure narrative below as live.**
 | News dedup looks back 24 h while feeds keep items for days; 330 of 2,294 rows re-inserted | **OPEN** | section 33.3 N1 -- live consumers unaffected, measurements must count distinct keys |
 | `high_impact_count` 0 on 268/268 snapshots; reads `relevance` for values only `impact` holds | **OPEN** | section 33.3 N2 -- interpretation layer only |
 | donya-e-eqtesad.com and tejaratnews.com unproven from a GitHub runner | 2026-09-27 | section 33.3 -- the two largest and freshest sources |
+| Morning readings priced on the previous day's dollar; both "premiums" on record (09-24, 09-28) most likely this | **OPEN, research first** | section 34.3 -- USD/IRR input barely moves before 11:00 Tehran while platforms reprice; USD freshness stored as always fresh |
+| Daric collector timing out since 09-25 | **WATCH** | section 34.4 -- isolated as designed; was in the cheapest three 19% of the time |
+| Google News " - Publisher" title suffix defeats title-hash dedup | **OPEN** | section 34.5 -- beside N1 |
 
 
 ## 1. Documentation Authority
@@ -2300,11 +2303,14 @@ rollout       step 1 (observe) CLOSED 2026-09-27 by the product owner
               gold-monitor.yml
 KPI           26/26 files, exit 0; compileall PASS
 production    hourly ANALYZE continuous since 2026-09-14; all runs green since
-              2026-09-25 16:30Z; 555 market_snapshots, -8.19% to +0.155%
+              2026-09-25 16:30Z; stored range -8.19% to +0.36%, but both positive
+              readings are most likely a stale-dollar artefact (SP_C_HANDOFF 34.3)
 decision      FAIR / WAIT / WAIT on all 109 rows since 09-22 -- the market sat above
               its own 30-day history; BUY and the push are untested, not failed
-D gate        2026-09-28, read-only check; the CHEAP trigger fires there -- the
-              shipped valuation leg has never produced CHEAP in production
+D gate        OPENED 2026-09-28: 207 scheduled readings over 14 settled days;
+              deep-discount level 3.50% unchanged, by design (SP_C_HANDOFF 34.1)
+CHEAP check   leg correct and reachable; the market never went there, closest
+              0.22 pp on 09-23 (34.2) -- no fix needed
 ```
 
 **Open, found in the window.** Three runs stalled before their first write (now
