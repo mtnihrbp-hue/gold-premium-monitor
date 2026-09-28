@@ -77,31 +77,70 @@ def evaluate_signal(
 # SP-A ADDITION: apply_hysteresis
 # ---------------------------------------------------------------------------
 
+# How long the same decision is suppressed after it has been alerted.
+#
+# This is a starting value, not a measured one. Collection runs hourly from 06:00 to
+# 21:00 local, and DAY baselines are anchored to the first scheduled reading of the
+# day, so one day is the natural unit: at most one alert of a given kind per trading
+# day. It should be re-derived from measured zone-episode durations once enough
+# history exists to measure them, which resolve_zone_episodes will provide.
+DEFAULT_COOLDOWN_HOURS = 24
+
+
 def apply_hysteresis(
     candidate: str,
     last_alert: Optional[str],
     thresholds: dict,
+    last_alert_at: Optional[datetime] = None,
+    now: Optional[datetime] = None,
 ) -> str:
-    """Apply simple hysteresis gate to candidate decision.
+    """Suppress a repeat of the same decision until its cooldown has elapsed.
 
-    If candidate == last_alert, suppress to WAIT (cooldown).
-    Otherwise pass through unchanged.
+    This gate used to compare the candidate against the last alert and suppress a
+    match unconditionally, with `cooldown_hours` noted as reserved for future use.
+    The time dimension was never built, so what was designed as "do not repeat the
+    same alert within N hours" behaved as "never repeat the same alert". Because
+    state.json persists across runs through the Actions cache, and because the latch
+    only clears when a *different* alert fires — a SELL, which requires an EXPENSIVE
+    valuation that has never once occurred in this market — the suppression was
+    permanent. 100 of 100 BUY candidates were held, and final_decision read WAIT on
+    every one of 264 stored decisions.
+
+    The consequence reached further than the missing alerts: the decision scorecard
+    was scoring a constant against a constant and correctly returning an edge of
+    zero. The engine had not been disproven, it had never run.
+
+    Failure here is deliberately open rather than closed. If the last alert's time is
+    unknown the cooldown is treated as elapsed, because the alternative reinstates
+    exactly the latch above: one missing timestamp would disable alerting forever. A
+    duplicate alert is noise; silence is the failure that already cost this project
+    a hundred signals.
 
     Args:
         candidate: BUY | WAIT | SELL | UNKNOWN from conflict matrix
         last_alert: last alert that was actually sent (BUY | SELL | None)
-        thresholds: config dict (cooldown_hours reserved for future use)
+        thresholds: config dict; `cooldown_hours` overrides the default
+        last_alert_at: when that alert was sent; None means unknown
+        now: injectable clock, so the boundary can be tested without waiting
 
     Returns:
-        final decision after hysteresis gate
+        final decision after the hysteresis gate
     """
     if candidate not in ("BUY", "SELL"):
         return candidate if candidate else "WAIT"
 
-    if last_alert == candidate:
-        return "WAIT"
+    if last_alert != candidate:
+        return candidate
 
-    return candidate
+    if last_alert_at is None:
+        return candidate
+
+    cooldown_hours = thresholds.get("cooldown_hours", DEFAULT_COOLDOWN_HOURS)
+    elapsed = (now or datetime.utcnow()) - last_alert_at
+    if elapsed >= timedelta(hours=cooldown_hours):
+        return candidate
+
+    return "WAIT"
 
 
 # ---------------------------------------------------------------------------

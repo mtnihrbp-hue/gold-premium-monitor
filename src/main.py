@@ -29,6 +29,15 @@ from database.connection import get_session
 from database.repository import save_market_snapshot, save_market_state, save_price_observation, get_input_directions
 from intelligence.freshness import evaluate_freshness
 from update.baseline_resolver import resolve_update_baselines
+from analysis.bubble_position import (
+    resolve_bubble_position,
+    resolve_decision_valuation,
+    resolve_bubble_trend,
+    resolve_change_magnitude,
+    resolve_relative_valuation,
+    cheap_basis_price,
+    signed_gap,
+)
 
 
 def load_config():
@@ -37,48 +46,296 @@ def load_config():
 
 
 def _fallback_world_from_history(history):
+    """Cached world gold price and the time it was actually observed.
+
+    The observation time is returned, not discarded, so the caller can record the
+    value's real age. Without it the row is persisted as though it were collected
+    now, and nothing downstream can tell a cached quote from a live one.
+    """
     if not history:
-        return None
+        return None, None
     last = history[-1]
     ts_str = last.get("timestamp")
     if not ts_str:
-        return None
+        return None, None
     try:
         ts = datetime.fromisoformat(ts_str)
     except ValueError:
-        return None
-    now = datetime.now()
-    if ts.date() != now.date() or (now - ts).total_seconds() / 3600 > 6:
-        return None
-    return last.get("world_gold")
+        return None, None
+    now = datetime.utcnow()
+    if (now - ts).total_seconds() / 3600 > 6:
+        return None, None
+    return last.get("world_gold"), ts
 
 
 def _fallback_world_from_db(max_age_hours=6):
+    """As above, from the persisted observation stream. Returns (price, observed_at)."""
     from database.models import PriceObservation
     from sqlalchemy import desc
     session = get_session()
     if session is None:
-        return None
+        return None, None
     try:
         obs = session.query(PriceObservation).filter(PriceObservation.instrument == "XAUUSD").order_by(desc(PriceObservation.timestamp)).first()
         if obs is None or obs.price is None:
-            return None
-        age_hours = (datetime.now() - obs.timestamp).total_seconds() / 3600
+            return None, None
+        age_hours = (datetime.utcnow() - obs.timestamp).total_seconds() / 3600
         if age_hours > max_age_hours:
-            return None
-        return float(obs.price)
+            return None, None
+        return float(obs.price), obs.timestamp
     except Exception as e:
         print(f" World Gold DB fallback failed: {e}")
-        return None
+        return None, None
     finally:
         session.close()
 
 
 def _generate_collection_run_id():
-    return f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    return f"run_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
 
 
-def _save_price_observations(markets, world, usd, now, stale_threshold, collection_run_id):
+def _resolve_decision_valuation(premium, thresholds):
+    """The valuation leg, or an abstention.
+
+    Non-blocking in the same way `_build_valuation_context` is: a database failure
+    must degrade the decision to UNKNOWN, never prevent the run. UNKNOWN reaches the
+    conflict matrix as an abstention, which is the fail-safe law -- on missing data,
+    abstain rather than extrapolate.
+    """
+    from analysis.bubble_position import DecisionValuation
+    try:
+        session = get_session()
+        if session is None:
+            return DecisionValuation(premium=premium)
+        return resolve_decision_valuation(session, premium, thresholds)
+    except Exception as e:
+        print(f"Decision valuation failed, abstaining: {e}")
+        return DecisionValuation(premium=premium)
+
+
+def _build_valuation_context(premium, markets=None, fair=None, thresholds=None):
+    """Capture the relative valuation that accompanied this decision.
+
+    Stored alongside the decision so the scorecard can later attribute an outcome
+    to what the system knew at the time, rather than to whatever the logic would
+    compute when the scoring runs.
+
+    Non-blocking: returns None on any failure, since a missing context must never
+    prevent a decision from being persisted.
+    """
+    session = get_session()
+    if session is None:
+        return None
+    try:
+        position = resolve_bubble_position(session, current_bubble=premium,
+                                           thresholds=thresholds)
+        # Which sample the reader's valuation was drawn from. The message does not
+        # say, because the line it qualifies claims only "the last 30 days" and that
+        # is true on either path, but an audit needs to know whether a reading was
+        # ranked against verified scheduled history or a mixed-provenance window.
+        valuation = resolve_relative_valuation(session, markets=markets, fair_price=fair)
+        sampling = {
+            "basis": "cheap_3",
+            "basis_gap": valuation.gap,
+            "basis_price": valuation.basis_price,
+            "bigger_than": valuation.bigger_than,
+            "deep_at": valuation.deep_at,
+            "sampling": valuation.sampling,
+            "sample_size": valuation.sample_size,
+            "coverage_days": valuation.coverage_days,
+            "status": valuation.status,
+        }
+        if position.band == "INSUFFICIENT_DATA":
+            return {"band": "INSUFFICIENT_DATA", "sample_size": position.sample_size,
+                    "valuation": sampling}
+        return {
+            "valuation": sampling,
+            "bubble": position.bubble,
+            "percentile": position.percentile,
+            "band": position.band,
+            "cheap_below": position.cheap_below,
+            "expensive_above": position.expensive_above,
+            "window_days": position.window_days,
+            "sample_size": position.sample_size,
+            "coverage_days": position.coverage_days,
+            "confidence": position.confidence,
+            "drift": position.drift,
+        }
+    except Exception as e:
+        print(f" Valuation context unavailable: {e}")
+        return None
+    finally:
+        session.close()
+
+
+def _last_alert_time(state):
+    """When the last alert was actually sent, from the persisted alert history.
+
+    The hysteresis gate needs this to tell a live cooldown from an expired one.
+    Returns None when nothing has been alerted or the record cannot be parsed, which
+    the gate treats as an expired cooldown rather than an indefinite suppression.
+    """
+    history = (state or {}).get("alert_history") or []
+    for entry in reversed(history):
+        stamp = entry.get("timestamp")
+        if not stamp:
+            continue
+        try:
+            return datetime.fromisoformat(stamp)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _send_analyze_report():
+    """Answer the Telegram Analyze command from persisted state.
+
+    Reads only. Non-blocking in the same sense as the rest of the presentation layer:
+    a failure here degrades to a message saying so rather than a silent absence.
+    """
+    from analysis.analyze_report import build_analyze_report
+    from alerts.telegram_analyze import send_analyze
+
+    session = get_session()
+    if session is None:
+        print("REPORT: no database session")
+        return
+    try:
+        report = build_analyze_report(session)
+        send_analyze(report)
+        print(f"REPORT sent. status={report.status} "
+              f"readings={report.health.readings} cases={report.level.cases}")
+    except Exception as e:
+        print(f"REPORT failed: {e}")
+    finally:
+        session.close()
+
+
+def _evaluate_deep_discount_push(markets, fair, state):
+    """Fire the deep-discount push if the level is reached and the trigger is armed.
+
+    Scheduled runs only. The push exists because the deep zone typically closes
+    inside five hours, which is shorter than the interval between a reader
+    remembering to look.
+    """
+    from analysis.analyze_report import resolve_deep_zone
+    from analysis.push_trigger import resolve_push_thresholds, evaluate_push
+    from alerts.telegram_analyze import send_push
+    from caluclator.gold import find_lowest_market_price
+
+    session = get_session()
+    if session is None:
+        return
+    try:
+        prices = [
+            float(info["price"]) for info in (markets or {}).values()
+            if info.get("status") == "OK" and info.get("price") is not None
+        ]
+        gap = signed_gap(cheap_basis_price(prices), fair)
+        thresholds = resolve_push_thresholds(session)
+        # None, not False: an absent key means the state was never written or the
+        # cache was lost, and the gate treats unknown as armed.
+        armed = state.get("deep_discount_armed") if state else None
+        decision = evaluate_push(gap, thresholds, armed)
+        print(f"PUSH: gap={gap if gap is None else round(gap, 2)} "
+              f"fire_at={thresholds.fire_at} rearm_at={thresholds.rearm_at} "
+              f"armed={armed} -> {decision.reason}")
+
+        if state is not None:
+            state["deep_discount_armed"] = decision.armed_after
+
+        if not decision.should_fire:
+            return
+
+        lowest = find_lowest_market_price(markets)
+        low_name = None
+        if lowest is not None:
+            for name, info in (markets or {}).items():
+                if info.get("status") == "OK" and info.get("price") == lowest:
+                    low_name = name
+                    break
+        send_push(
+            decision,
+            resolve_deep_zone(session, current_gap=gap),
+            lowest=lowest,
+            low_name=low_name,
+            basis_count=min(3, len(prices)),
+            platform_count=len(prices),
+        )
+        print("PUSH sent: deep discount")
+    except Exception as e:
+        print(f"PUSH evaluation failed: {e}")
+    finally:
+        session.close()
+
+
+def _basis_change(markets, fair, baselines):
+    """Change in the trimmed gap against the last scheduled reading, in points.
+
+    Both sides are rebuilt from platform prices. The baseline's stored premium is
+    minimum-based, so subtracting it from a trimmed reading would report a change
+    that is partly a change of definition.
+    """
+    run = baselines.run if baselines else None
+    if run is None or not run.platform_prices or not run.fair_price or not fair:
+        return None
+    prices = [
+        float(info["price"]) for info in (markets or {}).values()
+        if info.get("status") == "OK" and info.get("price") is not None
+    ]
+    now_gap = signed_gap(cheap_basis_price(prices), fair)
+    run_gap = signed_gap(cheap_basis_price(run.platform_prices.values()), run.fair_price)
+    if now_gap is None or run_gap is None:
+        return None
+    return abs(now_gap) - abs(run_gap)
+
+
+def _resolve_presentation_context(premium, run_premium=None, markets=None, fair=None,
+                                  run_basis_gap=None, run_elapsed_hours=None):
+    """Relative valuation, bubble trend and move size for the UPDATE message.
+
+    These are reads against persisted observations, not an Analyze pipeline run, so
+    they stay inside the Live Wing boundary. Non-blocking: a failure here degrades
+    the message rather than preventing it.
+    """
+    session = get_session()
+    if session is None:
+        return None, None, None, None
+    try:
+        # Percentage points of gap movement, which is what the magnitude resolver
+        # ranks. A percent change of the premium would invert the sign, since the
+        # premium is itself a percentage and negative throughout this market.
+        change = (
+            abs(premium) - abs(run_premium)
+            if premium is not None and run_premium is not None
+            else None
+        )
+        # The valuation is measured on the trimmed basis, so its own change has to
+        # be measured on that basis too rather than on the minimum-based premium.
+        # The move size is ranked against intervals of comparable length, so the
+        # resolver has to know how much time this change actually covers. The RUN
+        # baseline is the last scheduled reading, which on a user request is
+        # anywhere from a few minutes to an hour old.
+        valuation = resolve_relative_valuation(
+            session, markets=markets, fair_price=fair, change_pp=run_basis_gap,
+            change_hours=run_elapsed_hours,
+        )
+        return (
+            resolve_bubble_position(session, current_bubble=premium),
+            resolve_bubble_trend(session, current_bubble=premium),
+            resolve_change_magnitude(session, change_pp=change),
+            valuation,
+        )
+    except Exception as e:
+        print(f" Presentation context unavailable: {e}")
+        return None, None, None, None
+    finally:
+        session.close()
+
+
+def _save_price_observations(markets, world, usd, now, stale_threshold, collection_run_id,
+                             collection_mode="unknown", world_observed_at=None,
+                             world_from_fallback=False):
     for name, info in markets.items():
         if info.get("status") != "OK":
             continue
@@ -87,18 +344,33 @@ def _save_price_observations(markets, world, usd, now, stale_threshold, collecti
             source = name.lower()
             if name == "Goldika" and "buy" in info and "sell" in info:
                 for side in ("buy", "sell"):
-                    save_price_observation(instrument="REP_IRAN_GOLD", source=source, timestamp=now, price=info[side], freshness=freshness, collection_run_id=collection_run_id, quote_side=side.upper())
+                    save_price_observation(instrument="REP_IRAN_GOLD", source=source, timestamp=now, price=info[side], freshness=freshness, collection_run_id=collection_run_id, quote_side=side.upper(), collection_mode=collection_mode)
             elif info.get("price") is not None:
-                save_price_observation(instrument="REP_IRAN_GOLD", source=source, timestamp=now, price=info["price"], freshness=freshness, collection_run_id=collection_run_id, quote_side="SINGLE")
+                save_price_observation(instrument="REP_IRAN_GOLD", source=source, timestamp=now, price=info["price"], freshness=freshness, collection_run_id=collection_run_id, quote_side="SINGLE", collection_mode=collection_mode)
         except Exception as e:
             print(f" Price observation {name} failed: {e}")
 
-    for instrument, source, price in (("XAUUSD", "kitco_fallback", world), ("USD/IRR", "bonbast", usd)):
+    # World gold is the one input that can be served from cache, and both of its
+    # provenance channels used to be inert: `source` was the literal "kitco_fallback"
+    # whether the value was live or cached, and freshness was
+    # evaluate_freshness(now, now, ...), which is FRESH by construction -- 3,316 of
+    # 3,316 stored rows read FRESH. The reader got a warning in the message; nothing
+    # downstream could tell the difference, and no stored row could be audited after
+    # the fact. That is the fail-safe law satisfied for a human and not for the system.
+    #
+    # Platform observations keep (now, now) deliberately. They are fetched live at
+    # `now`, and a platform does not disclose the age of its own quote, so anything
+    # other than FRESH there would be invented precision.
+    world_source = "kitco_cached" if world_from_fallback else "kitco"
+    world_freshness = evaluate_freshness(world_observed_at or now, now, stale_threshold)
+    for instrument, source, price, fresh in (
+        ("XAUUSD", world_source, world, world_freshness),
+        ("USD/IRR", "bonbast", usd, evaluate_freshness(now, now, stale_threshold)),
+    ):
         if price is None:
             continue
         try:
-            freshness = evaluate_freshness(now, now, stale_threshold)
-            save_price_observation(instrument=instrument, source=source, timestamp=now, price=price, freshness=freshness, collection_run_id=collection_run_id, quote_side="SINGLE")
+            save_price_observation(instrument=instrument, source=source, timestamp=now, price=price, freshness=fresh, collection_run_id=collection_run_id, quote_side="SINGLE", collection_mode=collection_mode)
         except Exception as e:
             print(f" Price observation {instrument} failed: {e}")
 
@@ -111,8 +383,17 @@ def main():
     history = state["history"]
     last_alert = state["last_alert"]
     is_scheduled = os.environ.get("SCHEDULED_RUN", "false").lower() == "true"
+    report_only = os.environ.get("REPORT_ONLY", "false").lower() == "true"
+    print(f"MODE: {'REPORT' if report_only else ('ANALYZE' if is_scheduled else 'UPDATE')}")
+
+    if report_only:
+        # The Live Wing boundary in its strictest form. A reader asking what the
+        # record shows must not collect prices, create a snapshot or produce an
+        # outcome, so this returns before any collection happens at all.
+        _send_analyze_report()
+        return
     collection_run_id = _generate_collection_run_id()
-    now = datetime.now()
+    now = datetime.utcnow()
     stale_threshold = config.get("freshness", {}).get("stale_threshold_minutes", 15)
 
     previous_markets = {}
@@ -134,8 +415,19 @@ def main():
         except Exception as e:
             print(f" World Gold validation failed: {e}")
             world = None
+    world_from_fallback = False
+    world_observed_at = now
     if world is None:
-        world = _fallback_world_from_history(history) or _fallback_world_from_db(max_age_hours=6)
+        # Not `a or b`: both fallbacks return a (price, observed_at) pair, and a
+        # (None, None) tuple is truthy.
+        world, world_observed_at = _fallback_world_from_history(history)
+        if world is None:
+            world, world_observed_at = _fallback_world_from_db(max_age_hours=6)
+        world_from_fallback = world is not None
+        if world_from_fallback:
+            age = (now - world_observed_at).total_seconds() / 3600 if world_observed_at else None
+            suffix = f", {age:.1f}h old" if age is not None else ""
+            print(f" World Gold: using cached fallback value (degraded provenance){suffix}")
 
     try:
         usd = get_usd_sell_rate()
@@ -154,12 +446,18 @@ def main():
         print(f"\nERROR: Market data invalid: {e}. Skipping.")
         return
 
-    _save_price_observations(markets, world, usd, now, stale_threshold, collection_run_id)
+    collection_mode = "scheduled" if is_scheduled else "user"
+    _save_price_observations(markets, world, usd, now, stale_threshold, collection_run_id, collection_mode,
+                             world_observed_at=world_observed_at, world_from_fallback=world_from_fallback)
 
     if world is None:
         send_telegram_unavailable(usd=usd, markets=markets, reason="World gold price unavailable. All APIs failed and no recent cached data.")
         return
 
+    # calculate_fair_price inherits its unit from usd_irr, which bonbast reports in
+    # Tomans. The x10 converts to Rials, the unit every persisted price uses. This
+    # conversion belongs in the collector per CLAUDE.md, not here; it is left in place
+    # because relocating it changes where a stored-value semantic is applied.
     fair = calculate_fair_price(world, usd) * 10
     try:
         validate_fair_price(fair)
@@ -179,7 +477,16 @@ def main():
     if previous_premium is None:
         previous_premium = premium
 
-    signal_state = build_signal_state(premium=premium, fair_price=fair, lowest_price=lowest, markets=markets, previous_premium=previous_premium, thresholds=thresholds, last_alert=last_alert, snapshot_id=0)
+    # The valuation leg is ranked against the reading's own settled window rather
+    # than compared with a fixed line. Resolved here because it needs a session, and
+    # a calculator must not open one. A failure returns UNKNOWN, which makes the
+    # conflict matrix abstain -- never a guess, and never the old constant.
+    decision_valuation = _resolve_decision_valuation(premium, thresholds)
+
+    signal_state = build_signal_state(premium=premium, fair_price=fair, lowest_price=lowest, markets=markets, previous_premium=previous_premium, thresholds=thresholds, last_alert=last_alert, snapshot_id=0, last_alert_at=_last_alert_time(state), valuation=decision_valuation.state)
+    print(f"Valuation: {decision_valuation.state} "
+          f"(rank {decision_valuation.percentile}, n={decision_valuation.sample_size}, "
+          f"status={decision_valuation.status})")
     signal = None
     if signal_state.final_decision in ("BUY", "SELL"):
         signal = {"signal": signal_state.final_decision, "new_alert_type": signal_state.final_decision, "reason": signal_state.reason or f"Final decision: {signal_state.final_decision}."}
@@ -225,7 +532,7 @@ def main():
     snapshot_id = None
     try:
         platform_prices = [{"platform_name": name, "price_irr": info["price"], "change_irr": None} for name, info in markets.items() if info.get("status") == "OK"]
-        snapshot_id = save_market_snapshot(timestamp=now, fair_price=fair, premium_percent=premium, world_gold_usd=world, usd_irr=usd, signal=signal_state.final_decision, confidence=None, platform_prices=platform_prices)
+        snapshot_id = save_market_snapshot(timestamp=now, fair_price=fair, premium_percent=premium, world_gold_usd=world, usd_irr=usd, signal=signal_state.final_decision, confidence=None, platform_prices=platform_prices, collection_mode=collection_mode)
         print("\nDB: Snapshot saved")
     except Exception as e:
         print(f"\nDB ERROR (snapshot): {e}")
@@ -233,7 +540,8 @@ def main():
     if snapshot_id is not None:
         try:
             signal_state = replace(signal_state, snapshot_id=snapshot_id)
-            save_market_state(signal_state)
+            save_market_state(signal_state, valuation_context=_build_valuation_context(
+                premium, markets=markets, fair=fair, thresholds=thresholds))
             print("DB: Market state saved")
         except Exception as e:
             print(f"DB ERROR (market state): {e}")
@@ -252,6 +560,13 @@ def main():
                     print(f"DB: Analysis snapshot {analysis_snapshot_id} created")
             except Exception as e:
                 print(f"DB ERROR (analysis snapshot): {e}")
+        _evaluate_deep_discount_push(markets, fair, state)
+        # state is saved above, before the analysis snapshot is built, so the armed
+        # flag the push just set would be discarded without this. Left unsaved it
+        # would read as unknown on every run, the gate would fail open every time,
+        # and the push would fire on every reading above the level -- which is the
+        # flicker the re-arm band exists to prevent.
+        save_state(state)
 
     should_send_alert = bool(signal and signal["signal"] in ("BUY", "SELL") and email_cfg.get("send_alerts", True))
     if should_send_alert:
@@ -265,19 +580,46 @@ def main():
             print(f"ERROR: Telegram alert failed: {e}")
 
     if is_scheduled:
-        if email_cfg.get("send_daily_recap", True):
+        # The recap is a daily summary, not a per-run notification. Once the Analyze
+        # wing runs on a real cadence there are dozens of scheduled runs a day, and
+        # sending it from each one would bury the user in duplicates.
+        today_key = now.date().isoformat()
+        recap_already_sent = state.get("last_recap_date") == today_key
+        if email_cfg.get("send_daily_recap", True) and not recap_already_sent:
+            recap_delivered = False
             try:
                 send_email_recap(world, usd, fair, lowest, premium, markets, trends=trends, momentum=momentum, previous_markets=previous_markets)
+                recap_delivered = True
             except Exception as e:
                 print(f"ERROR: Email daily recap failed: {e}")
             try:
                 send_telegram_recap(world, usd, fair, lowest, premium, markets, trends=trends, momentum=momentum, previous_markets=previous_markets, input_directions=input_directions, signal_state=signal_state)
+                recap_delivered = True
             except Exception as e:
                 print(f"ERROR: Telegram daily recap failed: {e}")
+            # Only mark the day done once something actually reached the user. If every
+            # channel failed the next run retries, which costs nothing and self-heals,
+            # whereas marking it sent would silently drop that day's recap.
+            if recap_delivered:
+                state["last_recap_date"] = today_key
+                save_state(state)
+        elif recap_already_sent:
+            print("Daily recap already sent today — skipping.")
     else:
         try:
             # Resolve highest price for UPDATE v1 MARKET section
             highest_price = markets[high_name]["price"] if high_name in markets else None
+            run_premium = baselines.run.premium_percent if baselines and baselines.run else None
+            run_basis_gap = _basis_change(markets, fair, baselines)
+            run_elapsed_hours = None
+            if baselines and baselines.run and baselines.run.timestamp:
+                run_elapsed_hours = (
+                    datetime.utcnow() - baselines.run.timestamp
+                ).total_seconds() / 3600.0
+            position, trend, magnitude, valuation = _resolve_presentation_context(
+                premium, run_premium, markets=markets, fair=fair,
+                run_basis_gap=run_basis_gap, run_elapsed_hours=run_elapsed_hours,
+            )
             send_update_v1(
                 world=world,
                 usd=usd,
@@ -291,6 +633,11 @@ def main():
                 signal_state=signal_state,
                 baselines=baselines,
                 momentum=momentum,
+                world_from_fallback=world_from_fallback,
+                position=position,
+                trend=trend,
+                magnitude=magnitude,
+                valuation=valuation,
             )
             print("UPDATE v1 sent.")
         except Exception as e:

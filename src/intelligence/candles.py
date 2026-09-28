@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from database.repository import (
     get_price_observations_by_instrument,
     save_platform_candle,
-    platform_candle_exists,
+    get_existing_candle_bucket_starts,
 )
 
 DEFAULT_TIMEFRAME = "30m"
@@ -50,13 +50,20 @@ def build_candles_from_observations(
     min_observations: int = 1,
     collection_run_id: str = None,
     candle_type: str = "DERIVED_FROM_POINT_OBSERVATIONS",
+    observations: Optional[List[Any]] = None,
 ) -> List[Dict[str, Any]]:
     """Build deterministic candles from price observations.
 
     Explicit historical bounds disable the normal 720-hour runtime lookback.
+
+    Pass `observations` to reuse an already-fetched set for this instrument. A
+    caller building several platforms from the same instrument would otherwise
+    re-read the identical rows once per platform and discard most of them.
     """
     delta = _timeframe_delta(timeframe)
-    if start is not None:
+    if observations is not None:
+        obs = observations
+    elif start is not None:
         obs = get_price_observations_by_instrument(instrument, limit=50000)
     else:
         obs = get_price_observations_by_instrument(instrument, limit=5000, hours=720)
@@ -129,17 +136,34 @@ def persist_candles(candles: List[Dict[str, Any]]) -> Tuple[int, int]:
     existing candle ID for a duplicate. Check identity before saving so the
     returned statistics distinguish a new insert from a skipped duplicate.
     """
+    if not candles:
+        return 0, 0
+
+    # Resolve existing identities in one query per group rather than one per candle.
+    # The per-candle form made run time grow with total stored candles, which is why
+    # the build drifted past the job timeout as history accumulated.
+    groups: Dict[Tuple[str, str, str, str], List[datetime]] = {}
+    for c in candles:
+        key = (c["platform"], c["instrument"], c["timeframe"], c["quote_side"])
+        groups.setdefault(key, []).append(c["bucket_start"])
+
+    existing: Dict[Tuple[str, str, str, str], set] = {}
+    for key, bucket_starts in groups.items():
+        platform, instrument, timeframe, quote_side = key
+        existing[key] = get_existing_candle_bucket_starts(
+            platform=platform,
+            instrument=instrument,
+            timeframe=timeframe,
+            quote_side=quote_side,
+            bucket_start_min=min(bucket_starts),
+            bucket_start_max=max(bucket_starts),
+        )
+
     saved = 0
     skipped = 0
     for c in candles:
-        identity_exists = platform_candle_exists(
-            platform=c["platform"],
-            instrument=c["instrument"],
-            timeframe=c["timeframe"],
-            bucket_start=c["bucket_start"],
-            quote_side=c["quote_side"],
-        )
-        if identity_exists:
+        key = (c["platform"], c["instrument"], c["timeframe"], c["quote_side"])
+        if c["bucket_start"] in existing[key]:
             skipped += 1
             continue
 
@@ -161,6 +185,8 @@ def persist_candles(candles: List[Dict[str, Any]]) -> Tuple[int, int]:
         )
         if result > 0:
             saved += 1
+            # Guard the case where one batch contains the same identity twice.
+            existing[key].add(c["bucket_start"])
         else:
             skipped += 1
     return saved, skipped
@@ -209,6 +235,13 @@ def run_candle_build_for_snapshot(
     results = []
     total_saved = 0
 
+    # Read each instrument once. Twelve of the fourteen configurations below read
+    # REP_IRAN_GOLD, so fetching per configuration re-read the same rows repeatedly.
+    observations_by_instrument = {
+        instrument: get_price_observations_by_instrument(instrument, limit=5000, hours=720)
+        for instrument in ("REP_IRAN_GOLD", "XAUUSD", "USD/IRR")
+    }
+
     for platform in single_platforms:
         try:
             candles = build_candles_from_observations(
@@ -218,6 +251,7 @@ def run_candle_build_for_snapshot(
                 quote_side="SINGLE",
                 min_observations=1,
                 collection_run_id=collection_run_id,
+                observations=observations_by_instrument["REP_IRAN_GOLD"],
             )
             saved, _ = persist_candles(candles)
             total_saved += saved
@@ -234,6 +268,7 @@ def run_candle_build_for_snapshot(
                 quote_side=side,
                 min_observations=1,
                 collection_run_id=collection_run_id,
+                observations=observations_by_instrument["REP_IRAN_GOLD"],
             )
             saved, _ = persist_candles(candles)
             total_saved += saved
@@ -250,6 +285,7 @@ def run_candle_build_for_snapshot(
                 quote_side="SINGLE",
                 min_observations=1,
                 collection_run_id=collection_run_id,
+                observations=observations_by_instrument[instrument],
             )
             saved, _ = persist_candles(candles)
             total_saved += saved

@@ -53,6 +53,25 @@ For a positive premium:
 
 Do not use ambiguous phrases such as `Premium Expanding` or `Discount Deepening` in new analytical output.
 
+### Internal versus user-facing
+
+The labels above are **internal analytical vocabulary**. They are correct in calculation
+code, state values, evidence packages, and persisted fields.
+
+They must **not** be surfaced raw in Telegram output. `C14_HANDOFF.md`,
+`C14C_HANDOFF.md`, `RESEARCH_ADOPTION.md` and `.project_state.json` all require
+user-facing text to prefer observable relationships:
+
+```text
+Iranian gold is increasing more slowly than its external drivers.
+Iranian gold is catching up faster than its external drivers.
+Local prices are lagging the global/FX move.
+```
+
+Earlier revisions of this skill did not draw that distinction, which produced UPDATE
+messages carrying a compliant label and a non-compliant sentence describing the same
+movement. Analytical layers use the labels; presentation translates them.
+
 ## SP-A baseline
 
 The deterministic baseline is:

@@ -28,14 +28,21 @@ def save_market_snapshot(
     signal=None,
     confidence=None,
     platform_prices=None,
+    collection_mode="unknown",
 ):
-    """Save a market snapshot and associated platform prices."""
+    """Save a market snapshot and associated platform prices.
+
+    collection_mode records whether the reading came from a scheduled run or a
+    user-triggered update. Irregular user-triggered calls must not be treated as the
+    canonical technical time series, and without this the two are indistinguishable.
+    """
     session = get_session()
     if session is None:
         raise RuntimeError("Database not configured (DATABASE_URL missing)")
 
     try:
         snapshot = MarketSnapshot(
+            collection_mode=collection_mode,
             timestamp=timestamp,
             fair_price=fair_price,
             premium_percent=premium_percent,
@@ -89,7 +96,7 @@ def get_snapshots(days=30):
     if session is None:
         return []
     try:
-        since = datetime.now() - timedelta(days=days)
+        since = datetime.utcnow() - timedelta(days=days)
         return (
             session.query(MarketSnapshot)
             .filter(MarketSnapshot.timestamp >= since)
@@ -125,7 +132,7 @@ def get_daily_premium_stats(target_date, session):
 
 def get_premium_momentum_context(current_premium, session):
     """Return full momentum context comparing current premium to daily averages."""
-    today = datetime.now().date()
+    today = datetime.utcnow().date()
     yesterday = today - timedelta(days=1)
     today_stats = get_daily_premium_stats(today, session)
     yesterday_stats = get_daily_premium_stats(yesterday, session)
@@ -285,7 +292,7 @@ def save_hypothesis(
         expected_outcome=expected_outcome,
         horizon_hours=horizon_hours,
         basis_json=basis_json,
-        predicted_at=datetime.now(),
+        predicted_at=datetime.utcnow(),
         model_version=model_version,
         source=source,
     )
@@ -304,7 +311,7 @@ def resolve_hypothesis(session, hypothesis_id, actual_outcome, result, failure_r
     )
     if not hypothesis:
         return False
-    hypothesis.resolved_at = datetime.now()
+    hypothesis.resolved_at = datetime.utcnow()
     hypothesis.actual_outcome = actual_outcome
     hypothesis.result = result
     hypothesis.failure_reason = failure_reason
@@ -314,7 +321,7 @@ def resolve_hypothesis(session, hypothesis_id, actual_outcome, result, failure_r
 
 def get_hypothesis_accuracy(session, hypothesis_type=None, days=30):
     """Return accuracy stats for hypotheses."""
-    since = datetime.now() - timedelta(days=days)
+    since = datetime.utcnow() - timedelta(days=days)
     query = session.query(MarketHypothesis).filter(
         MarketHypothesis.resolved_at >= since,
         MarketHypothesis.result.isnot(None),
@@ -343,11 +350,14 @@ def get_hypothesis_accuracy(session, hypothesis_type=None, days=30):
 
 # --- SP-A: Market State Persistence ---
 
-def save_market_state(state: "SignalState") -> int:
+def save_market_state(state: "SignalState", valuation_context: dict = None) -> int:
     """Persist a SignalState to the market_states table.
 
     Args:
         state: populated SignalState dataclass
+        valuation_context: relative valuation as it stood when this decision was
+            made. Stored so the scorecard can attribute an outcome to what the
+            system actually knew, rather than to whatever the logic computes later.
 
     Returns:
         id of persisted MarketState record
@@ -374,6 +384,7 @@ def save_market_state(state: "SignalState") -> int:
             final_decision=state.final_decision,
             reason=state.reason,
             timestamp=state.timestamp,
+            valuation_context_json=valuation_context,
         )
         session.add(db_state)
         session.commit()
@@ -457,7 +468,7 @@ def get_market_states_by_criteria(
         if premium_max is not None:
             query = query.filter(MarketSnapshot.premium_percent <= premium_max)
         if days is not None:
-            since = datetime.now() - timedelta(days=days)
+            since = datetime.utcnow() - timedelta(days=days)
             query = query.filter(MarketState.timestamp >= since)
 
         return query.limit(limit).all()
@@ -554,7 +565,7 @@ def save_news_event(news_event: dict) -> int:
 
     try:
         event = NewsEvent(
-            timestamp=news_event.get("published_at", datetime.now()),
+            timestamp=news_event.get("published_at", datetime.utcnow()),
             source=news_event.get("source", "unknown"),
             url=news_event.get("url") or None,
             dedup_key=news_event.get("dedup_key") or None,
@@ -570,7 +581,7 @@ def save_news_event(news_event: dict) -> int:
             confidence=news_event.get("confidence") or None,
             uncertainty_notes=news_event.get("uncertainty_notes") or None,
             classification_method=news_event.get("classification_method", "KEYWORD"),
-            processed_at=datetime.now(),
+            processed_at=datetime.utcnow(),
         )
         session.add(event)
         session.commit()
@@ -596,7 +607,7 @@ def news_event_exists(dedup_key: str) -> bool:
 
     try:
         if dedup_key:
-            since = datetime.now() - timedelta(days=7)
+            since = datetime.utcnow() - timedelta(days=7)
             count = (
                 session.query(NewsEvent)
                 .filter(NewsEvent.created_at >= since)
@@ -649,7 +660,7 @@ def get_recent_news_events(hours: int = 24, limit: int = 100) -> list:
         return []
 
     try:
-        since = datetime.now() - timedelta(hours=hours)
+        since = datetime.utcnow() - timedelta(hours=hours)
         return (
             session.query(NewsEvent)
             .filter(NewsEvent.timestamp >= since)
@@ -676,7 +687,7 @@ def get_news_events_by_type(event_type: str, hours: int = 24, limit: int = 100) 
         return []
 
     try:
-        since = datetime.now() - timedelta(hours=hours)
+        since = datetime.utcnow() - timedelta(hours=hours)
         return (
             session.query(NewsEvent)
             .filter(NewsEvent.event_type == event_type)
@@ -702,6 +713,7 @@ def save_price_observation(
     freshness: str = "UNKNOWN",
     collection_run_id: str = None,
     quote_side: str = "SINGLE",
+    collection_mode: str = "unknown",
 ) -> int:
     """Save a price observation to the canonical time-series layer.
 
@@ -735,6 +747,7 @@ def save_price_observation(
             freshness=freshness,
             collection_run_id=collection_run_id,
             quote_side=quote_side,
+            collection_mode=collection_mode,
         )
         session.add(obs)
         session.commit()
@@ -782,7 +795,7 @@ def get_price_observations(
         if source is not None:
             query = query.filter(PriceObservation.source == source)
         if hours is not None:
-            since = datetime.now() - timedelta(hours=hours)
+            since = datetime.utcnow() - timedelta(hours=hours)
             query = query.filter(PriceObservation.timestamp >= since)
 
         return query.limit(limit).all()
@@ -978,7 +991,7 @@ def get_analysis_snapshots(limit: int = 100, hours: int = None):
             AnalysisSnapshot.analysis_timestamp.desc()
         )
         if hours is not None:
-            since = datetime.now() - timedelta(hours=hours)
+            since = datetime.utcnow() - timedelta(hours=hours)
             query = query.filter(AnalysisSnapshot.analysis_timestamp >= since)
         return query.limit(limit).all()
     except Exception as e:
@@ -1074,7 +1087,7 @@ def save_outcome_evaluation(
             existing.usd_irr_direction = usd_irr_direction
             existing.premium_movement_percent = premium_movement_percent
             existing.premium_direction = premium_direction
-            existing.updated_at = datetime.now()
+            existing.updated_at = datetime.utcnow()
             session.commit()
             return existing.id
 
@@ -1250,7 +1263,7 @@ def get_platform_candles(
         if quote_side is not None:
             query = query.filter(PlatformCandle.quote_side == quote_side)
         if hours is not None:
-            since = datetime.now() - timedelta(hours=hours)
+            since = datetime.utcnow() - timedelta(hours=hours)
             query = query.filter(PlatformCandle.bucket_start >= since)
 
         return query.limit(limit).all()
@@ -1323,5 +1336,46 @@ def platform_candle_exists(
     except Exception as e:
         print(f"DB query failed (platform_candle_exists): {e}")
         return False
+    finally:
+        session.close()
+
+
+def get_existing_candle_bucket_starts(
+    platform: str,
+    instrument: str,
+    timeframe: str,
+    quote_side: str,
+    bucket_start_min: datetime,
+    bucket_start_max: datetime,
+) -> set:
+    """Return bucket_start values already stored for one candle identity group.
+
+    Batched counterpart to platform_candle_exists. Persisting a build issued one
+    existence query per candidate candle, so the cost grew with total stored
+    history rather than with the amount of new data.
+
+    Non-blocking: returns an empty set if the database is unavailable. The caller
+    then attempts the insert, which matches the behaviour of platform_candle_exists
+    returning False on failure.
+    """
+    from database.models import PlatformCandle
+
+    session = get_session()
+    if session is None:
+        return set()
+
+    try:
+        rows = session.query(PlatformCandle.bucket_start).filter(
+            PlatformCandle.platform == platform,
+            PlatformCandle.instrument == instrument,
+            PlatformCandle.timeframe == timeframe,
+            PlatformCandle.quote_side == quote_side,
+            PlatformCandle.bucket_start >= bucket_start_min,
+            PlatformCandle.bucket_start <= bucket_start_max,
+        ).all()
+        return {row[0] for row in rows}
+    except Exception as e:
+        print(f"DB query failed (get_existing_candle_bucket_starts): {e}")
+        return set()
     finally:
         session.close()

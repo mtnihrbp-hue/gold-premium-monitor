@@ -22,28 +22,61 @@ Project-state changes belong in `PROJECT_MEMORY.md` first. `.project_state.json`
 
 ```text
 main
-└── SP-A COMPLETE / FROZEN
+├── SP-A COMPLETE / FROZEN
+└── SP-B CLOSED — merged into main
 
-SP-B
-├── SP-B.1 COMPLETE — Historical Intelligence
-├── SP-B.2 COMPLETE — News Intelligence
-├── PRE-SP-C.1 COMPLETE — Canonical Time Series
-├── PRE-SP-C.2 COMPLETE — Analysis Snapshot + Scheduler Foundation
-├── PRE-SP-C.3 COMPLETE — Price Structure + Regime
-├── PRE-SP-C.4 COMPLETE — Analysis Snapshot Integration
-├── PRE-SP-C.5 COMPLETE — Outcome Evaluation Foundation
-├── PRE-SP-C.6 COMPLETE — Evidence Package Foundation
-├── PRE-SP-C.7 COMPLETE — Interpretation Intelligence Layer
-├── PRE-SP-C.8 COMPLETE — Feature Intelligence Layer
-├── PRE-SP-C.9 COMPLETE — Analytical Read Model
-└── PRE-SP-C.10 COMPLETE — Read Model Integration & Audit Layer
-
-NEXT
-└── PRE-SP-C.11 PLANNING — Analytical Consumer Interface / Read-Model API
+PRE-SP-C.1 … PRE-SP-C.13   COMPLETE
+PRE-SP-C.14A               COMPLETE — Candle & Market-Structure Infrastructure
+PRE-SP-C.14B               COMPLETE — Forecast Features / Engine / Evaluation
+PRE-SP-C.14C               COMPLETE — Adaptive Intelligence Foundation
 
 SP-C
-└── FUTURE — Prediction + Learning
+├── OPEN — current development branch, 59 commits ahead of main
+├── SP-C.1 … SP-C.18       COMPLETE (last code change 2026-09-22)
+└── rollout step 1 (observe) closed 2026-09-27; merge awaits owner review
 ```
+
+Sprint detail: `SP_C_HANDOFF.md`, latest section 33.
+
+### Verified KPI baseline
+
+Executed on the `SP-C` branch, isolated in-memory database, 2026-09-27:
+
+```text
+26/26 KPI files pass   (runner exit status 0)
+compileall             PASS
+```
+
+Run the whole suite with:
+
+```text
+python kpi/run_all.py
+```
+
+The suite also runs in CI (`.github/workflows/kpi-suite.yml`) on `SP-C`
+pushes, pull requests, and manual dispatch.
+
+### Known gaps under SP-C
+
+These are verified against production state, not assumed (read-only queries,
+2026-09-27):
+
+```text
+market_snapshots           stored range -8.19% to +0.36%; both positive readings
+                           (09-24, 09-28) most likely a stale-dollar artefact
+                           (SP_C_HANDOFF 34.3)
+valuation_state            varies since SP-C.15; FAIR on all 109 rows since 09-22,
+                           because the market sat above its 30-day history all week
+final_decision             WAIT on those 109 rows -- BUY untested, not failed
+deep-discount push         never fired; deepest trimmed discount 3.18%
+news classification        KEYWORD on 3,795/3,795 rows; the LLM path has never run
+job timeouts               3 runs stalled before their first write; diagnosed as
+                           the Kitco SSE read, fix queued (SP_C_HANDOFF 33.2)
+```
+
+The earlier gaps (constant CHEAP valuation, WAIT latch, unresolved outcome
+evaluations, daily-only cadence) were closed in SP-C.1 through SP-C.15. See the
+resolved-defects index at the top of `PROJECT_MEMORY.md`.
 
 ## Architecture
 

@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
     usd_irr NUMERIC(20, 2),
     signal VARCHAR(10),
     confidence NUMERIC(5, 4),
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    collection_mode VARCHAR(20) NOT NULL DEFAULT 'unknown'
 );
 
 -- ============================================================
@@ -57,7 +58,8 @@ CREATE TABLE IF NOT EXISTS market_states (
     final_decision VARCHAR(10) NOT NULL,
     reason TEXT,
     timestamp TIMESTAMP NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    valuation_context_json JSONB
 );
 
 -- ============================================================
@@ -136,7 +138,8 @@ CREATE TABLE IF NOT EXISTS price_observations (
     quote_side VARCHAR(10) DEFAULT 'SINGLE',
     freshness VARCHAR(30),
     collection_run_id VARCHAR(100),
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    collection_mode VARCHAR(20) NOT NULL DEFAULT 'unknown'
 );
 
 CREATE INDEX IF NOT EXISTS idx_price_observations_instrument_timestamp
@@ -352,3 +355,19 @@ WHERE table_schema = 'public'
       'outcome_evaluations'
   )
 ORDER BY table_name;
+
+-- SP-C.1: collection provenance and decision context.
+-- collection_mode distinguishes scheduled runs from user-triggered updates, so the
+-- canonical series is not polluted by irregular user activity. Rows written before
+-- the SP-C.1 migration carry 'unknown' because the distinction was never recorded.
+-- valuation_context_json records the relative valuation behind each decision so the
+-- scorecard can attribute an outcome to what the system actually knew.
+
+CREATE INDEX IF NOT EXISTS idx_market_snapshots_mode_time
+    ON market_snapshots(collection_mode, timestamp);
+
+CREATE INDEX IF NOT EXISTS idx_price_observations_mode_time
+    ON price_observations(collection_mode, timestamp);
+
+CREATE INDEX IF NOT EXISTS idx_market_states_valuation_context
+    ON market_states USING GIN (valuation_context_json);

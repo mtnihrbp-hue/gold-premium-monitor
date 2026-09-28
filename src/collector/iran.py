@@ -1,10 +1,26 @@
-"""Iranian market price collector with parallel execution and global timeout.
+"""Iranian market price collector with parallel execution and a real global timeout.
 
-Collectors run concurrently via ThreadPoolExecutor.
-Any collector still running after 25 seconds is cancelled.
+Collectors run concurrently on daemon threads. Any collector still running after
+GLOBAL_COLLECTOR_TIMEOUT seconds is abandoned and reported as timed out.
+
+This previously used a ThreadPoolExecutor whose timeout did not bind. wait() was
+capped correctly, but future.cancel() only cancels a future that has not started --
+and with max_workers equal to the collector count, every future starts at once, so
+nothing was ever cancellable. Leaving the `with` block then called shutdown(wait=True),
+which blocks until the slowest thread finishes. The documented 20-second ceiling was
+therefore followed immediately by an unbounded wait.
+
+That is not theoretical: requests' timeout= does not bound DNS resolution, so a
+degraded network leaves a collector thread hung indefinitely. Scheduled runs died
+at the 20-minute job timeout having written nothing at all -- 2026-09-21 05:30 UTC
+is one, and the hourly reading for that slot does not exist.
+
+Daemon threads fix both halves: join() takes a real timeout, and the interpreter
+does not wait for them at exit. A hung collector now costs one platform, not the run.
 """
 
-from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
+import threading
+import time
 
 from collector.milli import get_milli_price
 from collector.goldika import get_goldika_price
@@ -60,34 +76,34 @@ def get_market_prices():
     is cancelled and reported as timed out.
     """
     prices = {}
-    pending = {}
+    lock = threading.Lock()
 
-    with ThreadPoolExecutor(max_workers=len(COLLECTORS)) as executor:
-        # Submit all
-        for c in COLLECTORS:
-            future = executor.submit(_run_collector, c)
-            pending[future] = c
-
-        # Wait for all to finish, but cap total wall-clock time
-        done, not_done = wait(
-            pending.keys(),
-            timeout=GLOBAL_COLLECTOR_TIMEOUT,
-            return_when="ALL_COMPLETED",
-        )
-
-        # Collect completed results
-        for future in done:
-            name, info = future.result()
+    def runner(collector):
+        name, info = _run_collector(collector)
+        with lock:
             prices[name] = info
 
-        # Cancel anything still hanging
-        for future in not_done:
-            future.cancel()
-            collector = pending[future]
+    threads = []
+    for collector in COLLECTORS:
+        thread = threading.Thread(target=runner, args=(collector,), daemon=True)
+        thread.start()
+        threads.append((thread, collector))
+
+    # One shared deadline, not one timeout per join: eleven sequential joins of
+    # GLOBAL_COLLECTOR_TIMEOUT each would allow eleven times the intended ceiling.
+    deadline = time.monotonic() + GLOBAL_COLLECTOR_TIMEOUT
+    for thread, _ in threads:
+        thread.join(timeout=max(0.0, deadline - time.monotonic()))
+
+    # A thread still alive is abandoned, not awaited. It is a daemon, so it cannot
+    # hold the interpreter open, and its result would arrive too late to use.
+    for thread, collector in threads:
+        if thread.is_alive():
             name = collector.__name__.replace("get_", "").replace("_price", "").title()
-            prices[name] = {
-                "price": None,
-                "status": f"ERROR: collector timed out after {GLOBAL_COLLECTOR_TIMEOUT}s"
-            }
+            with lock:
+                prices.setdefault(name, {
+                    "price": None,
+                    "status": f"ERROR: collector timed out after {GLOBAL_COLLECTOR_TIMEOUT}s",
+                })
 
     return prices

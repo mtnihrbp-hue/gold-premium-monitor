@@ -9,6 +9,7 @@ import sys
 sys.path.insert(0, "src")
 
 import os
+import json
 import unittest
 from datetime import datetime, timedelta
 
@@ -203,12 +204,42 @@ class KPIPreSPC4(unittest.TestCase):
 
     # --- KPI-13: Invi collector contract ---
     def test_13_invi_contract(self):
-        from collector.invi import get_invi_price
-        result = get_invi_price()
-        self.assertIn("platform", result)
-        self.assertIn("price", result)
+        """The parsing contract, without the network.
+
+        This called the live site and asserted status == "OK", so the suite went red
+        whenever invi.ir was slow, unreachable or behind a geoblock -- a network test
+        wearing a unit test's name, which is the same fault test_15 below already
+        documents having been fixed once. Instance two, in the same file.
+
+        Substituting the HTTP layer keeps what the test is actually for: that the
+        __NEXT_DATA__ payload is found, that the 1/1000 source unit is normalised to
+        the IRR/gram contract, and that the shape is right. Whether the site is up is
+        an operational question and does not belong in a KPI.
+        """
+        import collector.invi as invi
+
+        payload = json.dumps({"props": {"pageProps": {"success": {"result": {
+            "summary": {"current_price": 23_456_789}}}}}})
+
+        class _Response:
+            text = (f'<script id="__NEXT_DATA__" type="application/json">'
+                    f'{payload}</script>')
+
+            def raise_for_status(self):
+                return None
+
+        original = invi.requests.get
+        invi.requests.get = lambda *a, **k: _Response()
+        try:
+            result = invi.get_invi_price()
+        finally:
+            invi.requests.get = original
+
         self.assertEqual(result["platform"], "Invi")
         self.assertEqual(result["status"], "OK")
+        self.assertIn("price", result)
+        # 1/1000 of the canonical IRR/gram value, per the collector's own contract.
+        self.assertAlmostEqual(result["price"], 23_456_789_000.0, places=2)
 
     # --- KPI-14: Invi in COLLECTORS ---
     def test_14_invi_registered(self):
@@ -218,12 +249,34 @@ class KPIPreSPC4(unittest.TestCase):
 
     # --- KPI-15: Invi failure isolated ---
     def test_15_invi_failure_isolated(self):
-        from collector.iran import get_market_prices
+        """One collector raising must not take the others down.
+
+        This used to call get_market_prices() against all eleven live sites: a
+        network test wearing a unit test's name. It failed intermittently on a
+        socket timeout, and it could not fail for the reason it was written to
+        catch, because a healthy network makes the isolation path unreachable.
+        The property is substituted in instead.
+        """
+        import collector.iran as iran
+
+        def healthy():
+            return {"platform": "Healthy", "price": 230_000_000}
+
+        def broken():
+            raise RuntimeError("simulated source failure")
+        broken.__name__ = "get_invi_price"
+
+        original = iran.COLLECTORS
+        iran.COLLECTORS = [healthy, broken]
         try:
-            markets = get_market_prices()
-            self.assertIsInstance(markets, dict)
-        except Exception as e:
-            self.fail(f"get_market_prices crashed: {e}")
+            markets = iran.get_market_prices()
+        finally:
+            iran.COLLECTORS = original
+
+        self.assertIsInstance(markets, dict)
+        self.assertEqual(markets["Healthy"]["status"], "OK")
+        self.assertEqual(markets["Healthy"]["price"], 230_000_000)
+        self.assertTrue(markets["Invi"]["status"].startswith("ERROR"))
 
     # --- KPI-16: Invi does not alter fallback ---
     def test_16_fallback_unchanged(self):

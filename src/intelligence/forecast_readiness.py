@@ -82,7 +82,7 @@ def audit_forecast_readiness(
         session = get_session()
         if session is None:
             return {
-                "audit_timestamp": datetime.now().isoformat(),
+                "audit_timestamp": datetime.utcnow().isoformat(),
                 "status": "DB_UNAVAILABLE",
                 "error": "Database session unavailable",
                 "aggregate": {},
@@ -92,7 +92,7 @@ def audit_forecast_readiness(
         should_close = True
 
     try:
-        since = datetime.now() - timedelta(hours=hours_lookback)
+        since = datetime.utcnow() - timedelta(hours=hours_lookback)
 
         # Aggregate snapshot counts
         all_snaps = (
@@ -216,7 +216,7 @@ def audit_forecast_readiness(
             }
 
         return {
-            "audit_timestamp": datetime.now().isoformat(),
+            "audit_timestamp": datetime.utcnow().isoformat(),
             "status": "OK",
             "error": None,
             "aggregate": aggregate,
@@ -233,7 +233,7 @@ def audit_forecast_readiness(
 
     except Exception as e:
         return {
-            "audit_timestamp": datetime.now().isoformat(),
+            "audit_timestamp": datetime.utcnow().isoformat(),
             "status": "ERROR",
             "error": str(e),
             "aggregate": {},

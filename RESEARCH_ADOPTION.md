@@ -9,6 +9,35 @@ These repositories are research references, not architectural authorities.
 | `michael-chow-arch/goldfxgraph` | Historical relationship visualization and analytical graph ideas | UI architecture copied into core analytical engine |
 | `vctb12/GoldTickerLive` | Live gold-data/visualization and source-integration ideas where compatible with existing collectors and provenance rules | Copying application architecture or replacing project data contracts |
 
+## SP-C research — relative valuation
+
+The four repositories above address XAU/USD, a deep and heavily arbitraged global
+market. This project's edge is the opposite: a shallow, local, non-arbitraged spread
+between Iranian platform prices and fair value. Their model architectures should not
+be imported, because they solve a different problem.
+
+The closer analogue is a security trading at a persistent discount to its own fair
+value where that discount mean-reverts, which is closed-end fund discount behaviour.
+
+| Source | Concept adopted | Deferred / not adopted |
+|---|---|---|
+| [Fidelity — CEF relative discounts & premiums](https://www.fidelity.com/learning-center/investment-products/closed-end-funds/relative-discounts-premiums) | Measuring a discount against its own rolling history rather than a fixed level | Fund-selection mechanics |
+| [Destra Capital — Premiums, Discounts & Z-Scores](https://www.destracapital.com/about/insights/premiums-discounts-z-scores) | Z-score against rolling mean and standard deviation; ±2 as conventional levels | Quintile long/short construction |
+| [CUNY — Exploiting Closed-End Fund Discounts](https://www.gc.cuny.edu/sites/default/files/2021-07/Exploiting-Closed-End-Fund-Discounts_CUNY-talk.pdf) | Expected-return framing and the need for a baseline comparison | Arbitrage portfolio, short leg, leverage |
+| [Stanford — Risk control of mean-reversion time](http://math.stanford.edu/~papanico/pubftp/RDA_manuscript.pdf) | Half-life as the data-driven way to choose a window instead of picking one | Statistical-arbitrage execution |
+| [World Gold Price — capital controls](https://world-gold-price.com/gold-price-and-capital-controls/) | Local premium under capital controls is structural, so the reference mean drifts | Macro forecasting |
+
+Constraints taken from this research and enforced in `src/analysis/bubble_position.py`:
+
+- The ±2 levels are used as published. Tuning them to 41 days of local history would
+  be overfitting, which the literature identifies as the primary failure mode here.
+- Signals of this class use 120 to 180 days. Confidence is reported from actual
+  calendar coverage and stays LOW below 60 days.
+- Because the mean drifts, drift of the reference itself is reported alongside the
+  distance from it.
+- Window selection by measured half-life is deferred until roughly 120 days exist.
+  Until then a 30-day window is used and declared.
+
 ## Project-side implementations influenced by this research
 
 Already implemented or established in SP-B include:

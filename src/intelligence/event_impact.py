@@ -145,7 +145,7 @@ def audit_event_impact(
         session = get_session()
         if session is None:
             return {
-                "audit_timestamp": datetime.now().isoformat(),
+                "audit_timestamp": datetime.utcnow().isoformat(),
                 "status": "DB_UNAVAILABLE",
                 "error": "Database session unavailable",
                 "disclaimer": "This audit measures TEMPORAL_ASSOCIATION, not causation.",
@@ -158,7 +158,7 @@ def audit_event_impact(
         should_close = True
 
     try:
-        since = datetime.now() - timedelta(hours=hours_lookback)
+        since = datetime.utcnow() - timedelta(hours=hours_lookback)
 
         # Fetch all candidate news events
         events_query = session.query(NewsEvent).filter(
@@ -174,7 +174,7 @@ def audit_event_impact(
 
         # Pre-fetch snapshots in window for matching (optimization)
         window_start = since - timedelta(minutes=snapshot_window)
-        window_end = datetime.now() + timedelta(minutes=snapshot_window)
+        window_end = datetime.utcnow() + timedelta(minutes=snapshot_window)
         all_snapshots = (
             session.query(AnalysisSnapshot)
             .filter(
@@ -290,7 +290,7 @@ def audit_event_impact(
                 bucket[key]["insufficient"] += r["summary"]["insufficient_count"]
 
         return {
-            "audit_timestamp": datetime.now().isoformat(),
+            "audit_timestamp": datetime.utcnow().isoformat(),
             "status": "OK",
             "error": None,
             "disclaimer": "This audit measures TEMPORAL_ASSOCIATION, not causation. "
@@ -318,7 +318,7 @@ def audit_event_impact(
 
     except Exception as e:
         return {
-            "audit_timestamp": datetime.now().isoformat(),
+            "audit_timestamp": datetime.utcnow().isoformat(),
             "status": "ERROR",
             "error": str(e),
             "disclaimer": "This audit measures TEMPORAL_ASSOCIATION, not causation.",

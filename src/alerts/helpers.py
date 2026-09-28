@@ -3,7 +3,9 @@
 Channel-agnostic text formatting used by both Email and Telegram.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
+
+from timeutil import local_now, to_tehran
 
 
 def format_platform_bullets(markets, previous_markets=None):
@@ -314,8 +316,14 @@ def format_arrow(value: float, threshold: float = 0.0) -> str:
     return "↑" if value > 0 else "↓"
 
 def format_timestamp():
-    """Return current timestamp string."""
-    return datetime.now().strftime("%Y-%m-%d %H:%M")
+    """Current time as the reader's clock shows it."""
+    return local_now().strftime("%Y-%m-%d %H:%M")
+
+
+def format_clock(value):
+    """Hour and minute of a stored timestamp, in the reader's local time."""
+    local = to_tehran(value)
+    return None if local is None else local.strftime("%H:%M")
 
 
 

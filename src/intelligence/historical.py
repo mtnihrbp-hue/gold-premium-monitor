@@ -181,7 +181,7 @@ def calculate_similarity(
         return None
 
     # Build result
-    now = datetime.now()
+    now = datetime.utcnow()
     ts = getattr(candidate, "timestamp", now)
     days_ago = (now - ts).days if isinstance(ts, datetime) else 0
 

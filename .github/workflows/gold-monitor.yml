@@ -1,21 +1,50 @@
 name: Gold Premium Monitor
 
+# The Analyze path requires SCHEDULED_RUN=true. A plain workflow_dispatch is not a
+# schedule event, so an external scheduler posting to the dispatches endpoint would
+# otherwise silently run the UPDATE path and produce no analytical history.
+# The caller therefore declares intent, which keeps the Live and Analyze wings separate:
+# a user /Update stays UPDATE, and only an explicit mode=analyze runs the pipeline.
+#
+# mode=report is the third wing and writes nothing at all. It answers the Telegram
+# /Analyze command by reading persisted state. skills/telegram-product.md requires
+# that "a user request must not silently become an Analysis Wing execution or
+# historical learning observation", so a reader asking what the record shows must not
+# collect prices, must not create a snapshot, and must not produce an outcome.
+
+run-name: >-
+  ${{ github.event.inputs.mode == 'report' && 'REPORT'
+      || ((github.event_name == 'schedule' || github.event.inputs.mode == 'analyze')
+          && 'ANALYZE' || 'UPDATE') }}
+
 on:
 
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "Which wing to run"
+        type: choice
+        required: false
+        default: update
+        options:
+          - update
+          - analyze
+          - report
 
 # The GitHub native schedule was removed on 2026-09-20. Do not re-add it.
 #
-# GitHub only runs `schedule` events on the default branch, so it fired this branch's
-# workflow with this branch's code against production Neon once a day, regardless of
-# where development was happening. On 2026-09-19 that run was cancelled by the job
-# timeout, because this branch does not carry the collector timeout fix.
+# GitHub only runs `schedule` events on the default branch, so it fired main's
+# workflow with main's code against production Neon once a day, regardless of where
+# development was happening. main carries none of this sprint's fixes, so the
+# 2026-09-19 run was cancelled by the job timeout after the unbounded collector
+# subprocess stalled.
 #
 # The Analysis Wing is driven by cron-job.org, which posts to the dispatches endpoint
-# hourly with {"ref": "...", "inputs": {"mode": "analyze"}} and therefore runs the
-# branch that is actually current. The native schedule duplicated it at 14:30 UTC with
-# stale code, and collided with the cron-job.org run at the same minute.
+# hourly with an explicit ref and inputs.mode=analyze, so it runs the branch that is
+# actually current. The native schedule duplicated that at 14:30 UTC, in the same
+# minute, with stale code.
 #
+# Removed from main in c1799fe and mirrored here so the merge does not reintroduce it.
 # See PROJECT_OPERATIONS.md, "Branch ref control plane".
 
 jobs:
@@ -23,7 +52,9 @@ jobs:
   run:
 
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # The Analyze path has been exceeding 10 minutes and being cancelled, which is why
+    # roughly half of recent scheduled runs produced no analysis snapshot.
+    timeout-minutes: 20
 
     steps:
 
@@ -65,7 +96,16 @@ jobs:
 
         env:
 
-          SCHEDULED_RUN: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
+          SCHEDULED_RUN: ${{ (github.event_name == 'schedule' || github.event.inputs.mode == 'analyze') && 'true' || 'false' }}
+
+          # Without this Python block-buffers stdout into a pipe, so a run killed by the
+          # job timeout discards its entire log. The runs that fail are exactly the ones
+          # whose output is lost, leaving no way to see where they stalled.
+          # Read-only report wing. Set independently of SCHEDULED_RUN so a report can
+          # never be mistaken for an Analyze run and start writing history.
+          REPORT_ONLY: ${{ github.event.inputs.mode == 'report' && 'true' || 'false' }}
+
+          PYTHONUNBUFFERED: "1"
 
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 

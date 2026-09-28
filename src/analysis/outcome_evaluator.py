@@ -65,6 +65,77 @@ def _get_nearest_observation(
             session.close()
 
 
+def _get_nearest_recorded_premium(
+    target_time: datetime,
+    after_time: datetime,
+    tolerance_minutes: int,
+    session=None,
+) -> Optional[float]:
+    """Premium as it was recorded nearest the target time.
+
+    The bubble was previously left unmeasured on the grounds that it could not be
+    reconstructed without historical fair value. That is no longer true:
+    market_snapshots stores premium_percent on every row, so the value the system
+    actually computed and acted on at that moment can simply be read back. Reading the
+    recorded figure is preferred over recomputing it, because a recomputation could
+    disagree with the number the decision was made against.
+
+    Scheduled readings are preferred so an irregular user-triggered request cannot
+    become an outcome, with a fallback to any reading for history predating the
+    collection_mode migration.
+
+    Applies the same rules as the price series: strictly after after_time so no
+    look-ahead is possible, nearest to target, and only within tolerance.
+    """
+    from database.models import MarketSnapshot
+
+    if session is None:
+        session = get_session()
+        if session is None:
+            return None
+        should_close = True
+    else:
+        should_close = False
+
+    try:
+        tolerance = timedelta(minutes=tolerance_minutes)
+        # Bound both sides around the target. The upper bound alone left the window
+        # open all the way back to after_time, which is a whole horizon earlier, so
+        # rows hours away from the target were still candidates.
+        candidates = session.query(MarketSnapshot).filter(
+            MarketSnapshot.premium_percent.isnot(None),
+            MarketSnapshot.timestamp > after_time,
+            MarketSnapshot.timestamp >= target_time - tolerance,
+            MarketSnapshot.timestamp <= target_time + tolerance,
+        ).all()
+        if not candidates:
+            return None
+
+        # Proximity decides; scheduled only breaks a tie.
+        #
+        # The preference used to be applied to the whole window before the nearest
+        # row was chosen, so a scheduled reading an hour away shadowed an unscheduled
+        # one four minutes away and the fallback never ran. The function then returned
+        # None despite a perfectly usable row existing, and the evaluation was written
+        # with outcome_status COMPLETE and no premium leg at all: 26 of 249 rows, and
+        # 11 of them after the fallback was supposedly in place.
+        #
+        # The preference exists so an irregular user-triggered request cannot *become*
+        # an outcome. It was never meant to discard a good reading in favour of
+        # nothing, which is what ordering it ahead of proximity did.
+        def _rank(snapshot):
+            return (
+                abs(snapshot.timestamp - target_time),
+                0 if snapshot.collection_mode == "scheduled" else 1,
+            )
+
+        nearest = min(candidates, key=_rank)
+        return float(nearest.premium_percent)
+    finally:
+        if should_close:
+            session.close()
+
+
 def _get_historical_representative_price(
     target_time: datetime,
     after_time: datetime,
@@ -104,6 +175,40 @@ def _calculate_movement(
         return None, "INSUFFICIENT_DATA"
 
     movement = ((actual - reference) / reference) * 100
+
+    if abs(movement) <= flat_tolerance:
+        direction = "FLAT"
+    elif movement > 0:
+        direction = "UP"
+    else:
+        direction = "DOWN"
+
+    return round(movement, 4), direction
+
+
+def _calculate_premium_movement(
+    reference: Optional[float],
+    actual: Optional[float],
+    flat_tolerance: float,
+) -> Tuple[Optional[float], str]:
+    """Premium movement in percentage points.
+
+    The premium is itself a percentage, and in this market it is always negative.
+    Passing it through the ordinary percent-change calculation divides by a negative
+    base and inverts the sign: a discount shrinking from -5.0 to -4.0 is a move toward
+    zero, but ((-4.0 - -5.0) / -5.0) * 100 yields -20 and would be recorded as DOWN.
+    Every bubble outcome would carry the wrong direction, and anything training on
+    those labels would learn the market backwards.
+
+    The meaningful measure is the simple difference in percentage points, which is
+    what the rest of the project already uses for bubble movement.
+
+    UP means the discount shrank. DOWN means it deepened.
+    """
+    if reference is None or actual is None:
+        return None, "INSUFFICIENT_DATA"
+
+    movement = actual - reference
 
     if abs(movement) <= flat_tolerance:
         direction = "FLAT"
@@ -189,7 +294,9 @@ def evaluate_snapshot(
             act_xau = float(xau_obs.price) if xau_obs else None
             act_usd = float(usd_obs.price) if usd_obs else None
             act_rep = float(rep_obs.price) if rep_obs else None
-            act_premium = None  # Cannot reconstruct without historical fair value
+            act_premium = _get_nearest_recorded_premium(
+                target_time, reference_time, tolerance_minutes, session=session
+            )
 
             # Actual observation time: earliest valid observation timestamp
             valid_obs = [o for o in (xau_obs, usd_obs, rep_obs) if o is not None]
@@ -199,7 +306,7 @@ def evaluate_snapshot(
             xau_move, xau_dir = _calculate_movement(ref_xau, act_xau, flat_tolerance)
             usd_move, usd_dir = _calculate_movement(ref_usd, act_usd, flat_tolerance)
             rep_move, rep_dir = _calculate_movement(ref_rep, act_rep, flat_tolerance)
-            prem_move, prem_dir = _calculate_movement(ref_premium, act_premium, flat_tolerance)
+            prem_move, prem_dir = _calculate_premium_movement(ref_premium, act_premium, flat_tolerance)
 
             # Determine overall status
             has_any_data = any(v is not None for v in (act_xau, act_usd, act_rep))
@@ -268,7 +375,7 @@ def backfill_outcome_evaluations(
         return 0
 
     try:
-        since = datetime.now() - timedelta(hours=hours)
+        since = datetime.utcnow() - timedelta(hours=hours)
         snapshots = session.query(AnalysisSnapshot).filter(
             AnalysisSnapshot.analysis_timestamp >= since,
         ).order_by(AnalysisSnapshot.analysis_timestamp.desc()).all()

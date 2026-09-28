@@ -394,3 +394,94 @@ Telegram command behavior
 ```
 
 Document every resulting operational state change.
+
+
+---
+
+## Branch ref control plane
+
+Three things decide which version of the system runs, and they are configured in
+three different places. They must be changed together.
+
+| trigger | where configured | carries | current |
+|---|---|---|---|
+| Telegram `/Update`, `/Analyze` | Cloudflare worker, hard-coded at `src/worker/telegram-trigger.js:135` (twice) | `{"ref": "..."}`, plus `inputs.mode` for `/Analyze` | `SP-C` |
+| hourly Analyze | cron-job.org job 8179679 request body | `{"ref": "...", "inputs": {"mode": "analyze"}}` | `SP-C` |
+| legacy daily schedule | `gold-monitor.yml` `on.schedule` | **default branch only** | **removed 2026-09-20**, see below |
+
+`workflow_dispatch` runs the workflow file **and the application code** from `ref`.
+A mismatch does not fail — it silently answers with a different version of the system.
+That is exactly what happened between 2026-09-15 and 2026-09-20: cron-job.org pointed
+at `SP-C` and the worker at `main`, so scheduled runs produced the current message
+format while `/Update` produced the previous one, from the same bot.
+
+The repository copy of the worker is `src/worker/telegram-trigger.js`. It is not
+executed from here. Edit it there first and paste into Cloudflare, so the two do not
+drift — they had drifted a full generation before 2026-09-20.
+
+### Wings across one workflow file
+
+The worker sends no inputs. `gold-monitor.yml` declares `mode` with a default of
+`update`, so a user command runs with `SCHEDULED_RUN=false` on the Live Wing. Only
+cron-job.org sends `inputs.mode = "analyze"`, which sets `SCHEDULED_RUN=true` and runs
+the Analysis Wing. This is the mechanism that keeps the two wings separate.
+
+### Legacy GitHub native schedule — REMOVED 2026-09-20
+
+`on.schedule: cron "30 14 * * *"` was removed from `main` in `c1799fe` and mirrored
+on `SP-C` so the merge cannot reintroduce it. A comment stands in its place in the
+workflow file explaining why.
+
+GitHub only runs `schedule` events on the **default branch**, so it fired `main`'s
+workflow with `main`'s code against production Neon once a day, regardless of where
+development was happening. `main` carries none of this sprint's fixes, so the
+2026-09-19 run was cancelled by the job timeout after the unbounded collector
+subprocess stalled — writing partial data before it died. It also collided with the
+cron-job.org run at the same minute.
+
+`workflow_dispatch` is the only trigger now. The Telegram worker and cron-job.org
+both use it and were unaffected.
+
+The `SCHEDULED_RUN` and `run-name` expressions still test
+`github.event_name == 'schedule'`. That arm is now unreachable and is kept as a
+defensive condition rather than deleted, so re-adding a schedule would still route to
+the Analyze wing rather than silently running UPDATE.
+
+### Cache scope
+
+`state.json` is persisted through `actions/cache@v4`. GitHub scopes caches per
+branch, with the default branch readable as a fallback. While `/Update` ran on `main`
+and the schedule on `SP-C`, the two kept **separate** `last_alert` histories, which is
+the state the hysteresis cooldown reads. Pointing both at the same ref unifies them.
+
+### Job timeouts and log access (2026-09-27)
+
+`gold-monitor.yml` kills a run at 20 minutes. A normal scheduled Execute step takes
+268-440 s. Three runs have hit the limit since the last code change (2026-09-24
+13:51Z, 2026-09-25 08:30Z and 15:30Z). All three stopped before the first database
+write, so there were no partial rows to clean up. Diagnosed on 2026-09-27: when
+gold-api.com fails, the Kitco fallback reads an event stream that never ends, and the
+run hangs until it is killed. The fix is queued (`SP_C_HANDOFF.md` section 33.2).
+
+When a run is cancelled:
+
+1. `gh run view <id> --json jobs` shows which step died (`gh` lives in
+   `C:\Program Files\GitHub CLI`, not on the Bash PATH).
+2. Check the window for partial rows in `price_observations`, `market_snapshots`,
+   `market_states` and `analysis_snapshots`.
+3. The job log (`gh run view <id> --log`) is **not reachable from the workstation**
+   directly. Log storage times out at the TLS handshake, so fetch it through the
+   Psiphon local proxy. Its ports change on every restart, so find them rather than
+   looking for a saved value:
+
+   ```powershell
+   Get-NetTCPConnection -State Listen | Where-Object { $_.LocalAddress -eq '127.0.0.1' } |
+     ForEach-Object { '{0} {1}' -f $_.LocalPort, (Get-Process -Id $_.OwningProcess).ProcessName } |
+     Select-String psiphon
+   ```
+
+   `psiphon-tunnel-core` listens on a pair. On 2026-09-27 the higher one was the HTTP
+   proxy (52692) and the lower one answered with EOF. Then run
+   `HTTPS_PROXY=http://127.0.0.1:<port> gh run view <id> -R mtnihrbp-hue/gold-premium-monitor --log`
+   (`-R` is needed when not inside the repo). The last `World Gold` or platform line
+   printed names the call that was still running.

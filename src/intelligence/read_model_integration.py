@@ -125,7 +125,7 @@ def get_analysis_read_model(snapshot_id: int) -> Optional[Dict]:
                 "provenance": {
                     "source_run_id": snap.source_run_id,
                     "analysis_timestamp": snap.analysis_timestamp.isoformat() if snap.analysis_timestamp else None,
-                    "retrieved_at": datetime.now().isoformat(),
+                    "retrieved_at": datetime.utcnow().isoformat(),
                     "note": "Reconstructed from snapshot fields — read model was not persisted",
                 },
                 "facts": {
@@ -155,7 +155,7 @@ def get_analysis_read_model(snapshot_id: int) -> Optional[Dict]:
 
         result = dict(read_model)
         result["retrieval_metadata"] = {
-            "retrieved_at": datetime.now().isoformat(),
+            "retrieved_at": datetime.utcnow().isoformat(),
             "snapshot_id": snapshot_id,
             "completeness_status": completeness_status,
             "completeness_reasons": completeness_reasons,
@@ -237,7 +237,7 @@ def reconstruct_historical_state(snapshot_id: int) -> Optional[Dict]:
                 "reasons": read_model.get("retrieval_metadata", {}).get("completeness_reasons"),
             },
             "provenance": {
-                "retrieved_at": datetime.now().isoformat(),
+                "retrieved_at": datetime.utcnow().isoformat(),
                 "evidence_persisted": read_model.get("retrieval_metadata", {}).get("evidence_persisted"),
                 "interpretation_persisted": read_model.get("retrieval_metadata", {}).get("interpretation_persisted"),
                 "features_persisted": read_model.get("retrieval_metadata", {}).get("features_persisted"),

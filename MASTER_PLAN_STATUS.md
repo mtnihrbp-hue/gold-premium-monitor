@@ -1,6 +1,8 @@
 # Gold Premium Monitor — Master Plan Status
 
-Branch: `main`
+Branch: `SP-C` (active development; `main` receives it only by the owner-reviewed merge in section 15)
+
+Last reconciled: 2026-09-27.
 
 This document is the compact continuity map of the completed architecture, verified implementation, and remaining work. It is designed for onboarding a new conversation without relying on chat history.
 
@@ -12,9 +14,36 @@ User-triggered Telegram /Update
 → collect → validate → calculate → current deterministic state → baseline resolution → Telegram
 
 ANALYZE WING
-cron-job.org scheduled trigger
+scheduled trigger
 → observations → snapshots → outcomes → evidence → interpretation → features → read model → dataset → candles → forecast → forecast resolution / audit
 ```
+
+### Intended versus actual Analyze trigger
+
+> **RESOLVED 2026-09-13, kept as history.** cron-job.org job 8179679 now dispatches
+> `ref=SP-C, mode=analyze` hourly 06:00–21:00 Tehran, `mode` resolves
+> `SCHEDULED_RUN=true`, and the GitHub native schedule was removed on 2026-09-20.
+> Hourly Analyze runs have been continuous since 2026-09-14. The text below describes
+> the state before the fix.
+
+The intended design is that cron-job.org drives the Analyze wing. **It did not.**
+Verified against run history and source on 2026-09-13:
+
+```text
+cron-job.org  → POST .../workflows/gold-monitor.yml/dispatches
+              → github.event_name = workflow_dispatch
+              → SCHEDULED_RUN = false
+              → src/main.py takes the UPDATE path
+              → no news ingestion, no build_analysis_snapshot()
+```
+
+The daily 20:00 Tehran job therefore sends an extra UPDATE message and produces no
+analytical history. Analysis snapshots come only from the GitHub native `schedule`
+event this document elsewhere calls legacy, which fires roughly three hours late and
+was cancelled on about half of recent days.
+
+Correcting this trigger is an SP-C item. Until then, treat the Analyze wing as running
+irregularly rather than on the documented cadence.
 
 There are **two frontend wings**: UPDATE and ANALYZE. The Analyze wing is scheduled; the Update wing is user-triggered and intentionally lightweight.
 
@@ -294,7 +323,12 @@ The Analyze wing is the accumulating evidence/history engine that will eventuall
 
 ## 11. Neon production position
 
-Current work requires **no Neon migration**.
+SP-C.1 applied the first migration since C.14A, on 2026-09-14 with explicit
+authorisation: `collection_mode` on `market_snapshots` and `price_observations`,
+and `valuation_context_json` on `market_states`. Additive only, all seven table
+counts identical before and after. Details in `SP_C_HANDOFF.md` section 10.
+
+Prior C.14B, C.14C and UPDATE v1 work required no migration.
 
 Relevant existing structures include:
 
@@ -367,11 +401,68 @@ no unnecessary Neon schema mutation
 ## 15. Branch safety
 
 ```text
-CURRENT WORK = main surgical stabilization / documentation
-NEXT MAJOR PHASE = SP-C on a new branch after scope approval
+CURRENT WORK = SP-C branch
+MAIN MERGE = after user review, tagged v1.3safe first
 ```
 
-No major C15/SP-C implementation should begin until the architecture/research review identifies the actual bottleneck and scope is explicitly locked.
+The gate on this section has been satisfied. The bottleneck was identified with
+evidence rather than assumed: collection cadence, not analytical capability. The
+Analyze wing was not running at all because an external scheduler posting to the
+dispatches endpoint produced `workflow_dispatch` rather than `schedule`, and the
+candle build scaled with total stored history until it exceeded the job timeout.
+
+SP-C scope is recorded in `SP_C_HANDOFF.md`. Completed so far:
+
+```text
+Pre-SP-C stabilization        KPI suite into CI, five UPDATE defects, doc reconciliation
+Analyze trigger               fixed, mode input declared by the caller
+Candle build performance      11m19s → 1m53s, no longer grows with history
+SP-C.1 relative valuation     bubble_position.py, collection_mode migration 2026-09-14
+SP-C.2 decision scorecard     decision_scorecard.py (computed, not wired to a surface)
+SP-C.3 outcome backfill       wired into the scheduled path
+SP-C.5 one vocabulary         trimmed (3-cheapest) display basis, Iran local time
+SP-C.6 three latches          hysteresis timer, regime calibration, bonbast 60 s bound
+SP-C.7 settled reference      completed local days, user rows excluded
+SP-C.8 world-gold provenance  kitco vs kitco_cached reaches storage
+SP-C.9 collector deadline     one shared deadline over the eleven platforms
+SP-C.10 news sources          replaced; source records feed identity
+SP-C.11 outcome premium leg   proximity decides, scheduled breaks ties
+SP-C.12 ANALYZE and the push  read-only REPORT mode; buy-side thermostat push
+SP-C.13 one deep-discount     one level for UPDATE, ANALYZE and the push
+SP-C.14 coherence KPI         kpi_coherence.py and the ACCEPTED register (5 entries)
+SP-C.15 valuation leg         rank + direction gate, no fixed fallback
+SP-C.16 tidy pass             one clock, shared tolerances, news classifier repaired
+SP-C.17 structure leg         measured, deliberately left alone
+SP-C.18 deep-zone survival    comparison windows, ANALYZE wording
+```
+
+Last code change 2026-09-22. Full suite: **26/26 files**, green locally
+(2026-09-27, exit 0) and in CI.
+
+Rollout (`SP_C_HANDOFF.md` section 29), state on 2026-09-27:
+
+```text
+1 observe     CLOSED 2026-09-27 by the product owner (section 33.1)
+2 merge       2026-09-28, after the health check and D gate (moved by the owner
+              2026-09-27); owner reviews the diff; tag main v1.3safe, then merge
+              SP-C; one conflict (gold-monitor.yml, take SP-C's version), 33.5-33.6
+3 repoint     cron-job.org 8179679 and src/worker/telegram-trigger.js line 135
+4 broadcast   TELEGRAM_BROADCAST_IDS + audience per message type (section 29.3)
+```
+
+After the merge, in the order agreed on 2026-09-28 (section 34.7):
+
+```text
+1 reliability phase   world-gold deadline (the diagnosed stalls), high_impact_count
+                      with a precision check, news dedup (window and Google suffix);
+                      Daric if still down
+2 morning dollar      research only, no code: second dollar source, bias on the pool
+                      and ranks, structure-leg re-measure; then a fix decision
+3 broadcast           rollout step 4
+4 basis divergence    premium_percent at source; own phase and approval
+5 ANALYZE percentages section 31
+6 research            6h horizon, quote_side
+```
 
 ## 16. Continuity protocol
 

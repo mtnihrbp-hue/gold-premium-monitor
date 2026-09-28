@@ -28,33 +28,78 @@ Scheduled ANALYZE continues to own news ingestion and analysis-snapshot construc
 
 ## Baselines
 
+Updated 2026-09-14. The transitional definitions below were replaced once the Analyze
+wing began running on a real cadence, exactly as this document anticipated.
+
 ### RUN
 
-Latest canonical `market_snapshots` record available before the current UPDATE snapshot is persisted.
+Latest **scheduled** `market_snapshots` record available before the current UPDATE
+snapshot is persisted.
+
+Previously this was the latest record of any kind. On the UPDATE path that is the
+user's own previous request, so RUN measured the interval between two clicks rather
+than market movement, which is why it routinely displayed `+0.00%`.
+`PROJECT_MEMORY.md` already required that accumulated user-triggered calls not serve
+as a baseline, but no column existed to enforce it until the SP-C.1 migration added
+`collection_mode`.
 
 ### DAY
 
-Transitional definition: earliest canonical `market_snapshots` record of the current calendar day.
+First **scheduled** `market_snapshots` record of the current calendar day.
 
-When the Analyze wing becomes the controlled daily collection source, DAY can be switched to the first controlled Analyze snapshot without changing the Telegram contract.
+### Fallback
+
+Both fall back to a record of any collection mode when no scheduled record exists, so
+history predating the migration still resolves a baseline rather than none.
 
 ## UPDATE data model
 
-The Telegram message exposes:
+Restructured 2026-09-14. The decision now leads the message; it previously sat at the
+foot, below several hundred characters of detail, so a reader deciding whether to act
+had to reach the end to find the answer.
 
-- XAU/USD
-- USD/IRR
-- Fair Price
-- Platform Average
-- Bubble (signed premium/discount state)
-- RUN and DAY changes
-- Local price direction
-- Price acceleration
-- Bubble movement
-- Premium candle classification
-- Market structure
-- Platform-level RUN and DAY changes
-- Current SP-A decision state
+Section order:
+
+```text
+verdict          final decision, where the reading sits in its own range,
+                 and the candidate only when it differs from final
+THE NUMBER       bubble, position out of 100, the favourable boundary,
+                 confidence when LOW, momentum, structure, bubble moving averages,
+                 market low, fair value
+MARKET           XAU/USD, USD/IRR, Fair, Platform, Bubble
+                 against Now / Run / Day / 7D, plus lowest, highest and spread
+DYNAMICS         local price direction and change, gap direction and size,
+                 bubble candle, plain-language interpretation
+PLATFORMS        per-platform price, Run delta, change against Day
+timestamp
+```
+
+Two sections were removed rather than shortened. `CURRENT DECISION` repeated
+valuation, momentum, structure, conflict, candidate and final, all of which the
+message now states earlier; valuation in particular read CHEAP on 204 of 204 recorded
+states because the fixed threshold sat outside the entire distribution.
+`MARKET STRUCTURE` repeated the spread and the consensus count, and its only unique
+content — which platform is highest and lowest — moved beside those values in the
+market section.
+
+### Width constraint
+
+Telegram renders `<pre>` blocks in a monospace font that fits roughly 32 characters on
+a phone. Both tables are fixed at **33 characters on every row**, header and separator
+included. Cell content that overflows its column shears the whole table, which is what
+made the earlier 48-character layout unreadable.
+
+To hold four comparison columns inside that budget the delta cells carry no unit
+suffix; a six-character cell cannot hold `+0.04%` and still leave a gutter, and columns
+that touch cannot be read. Units are stated once in the footnote beneath the table.
+
+### Relative position
+
+The message reports where the bubble sits in its own recent distribution as a rank out
+of 100, sourced from `src/analysis/bubble_position.py`. Rank is used rather than a
+z-score because the distribution is left-skewed: the long tail of deep discounts
+inflates the standard deviation, so a z-score describes a reading at 84 of 100 as
+normal. Confidence is always shown when LOW.
 
 Price pace and bubble pace remain `N/A` until sufficient empirical history exists to calibrate defensible thresholds.
 

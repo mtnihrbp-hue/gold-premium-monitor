@@ -5,6 +5,52 @@ This file is the **canonical project-specific architecture, implementation state
 
 ---
 
+
+---
+
+## Resolved defects index
+
+This document narrates defects in detail. A third-party audit in 2026-09 filed a
+finding that had been fixed seven days earlier, because the narrative reads as a
+description of current state until the sentence that says otherwise. **Check here
+before reading any failure narrative below as live.**
+
+| defect | fixed | reference |
+|---|---|---|
+| Analyze trigger misrouted; scheduled runs took the UPDATE path | 2026-09-13 | this file, "The Analyze trigger was misrouted" |
+| RUN baseline compared against the user's own previous request | 2026-09-14 | SP-C.1 |
+| valuation_state read CHEAP on every reading (fixed threshold) | 2026-09-15 **and** 2026-09-21 | SP-C.2 fixed the reader's valuation; the decision engine's column stayed constant on 364/364 rows until SP-C.15 replaced it with a rank. Both instances now closed, section 26 |
+| Outcome evaluations never resolved after their horizons matured | 2026-09-15 | SP-C.3 |
+| Message times and day boundaries were UTC, not Iran local | 2026-09-16 | SP-C.5, section 15.3 |
+| Valuation computed from a single cheapest platform (tail point) | 2026-09-16 | SP-C.5, section 15.1 |
+| final_decision latched to WAIT; 100 of 100 BUY candidates suppressed | 2026-09-18 | SP-C.6, section 16.1 |
+| regime_state read PANIC on every snapshot (fixed thresholds) | 2026-09-18 | SP-C.6, section 16.2 |
+| Unbounded collector subprocess killing scheduled runs | 2026-09-18 | SP-C.6, section 16.3 |
+| Regime calibration inert because config pinned the same keys | 2026-09-19 | SP-C.6, section 16.6 |
+| Deep discount threshold moved within a day; reader's own clicks in the window | 2026-09-20 | SP-C.7, section 17 |
+| World gold fallback indistinguishable from a live quote in storage | 2026-09-20 | SP-C.8, section 18 |
+| `Deep discount` labelled two different numbers across UPDATE and ANALYZE | 2026-09-21 | SP-C.13, section 24 |
+| Push fired on `abs(gap)`, so a premium would alert as a deep discount | 2026-09-21 | SP-C.13, section 24.5 |
+| Rounded threshold excluded the readings it was drawn from | 2026-09-21 | SP-C.13, section 24.6 |
+| A third copy of the percentile formula, in regime.py | 2026-09-21 | SP-C.14, section 25.4 |
+| valuation.py reads config keys that do not exist; configured sell threshold never in effect | 2026-09-21 | SP-C.15, section 26.5 |
+| valuation_context_json persisted every run, read by nothing | **BY DESIGN** | reclassified as an audit record in SP-C.15, section 26.6 |
+| ANALYZE projected the scheduled gate one day early | 2026-09-21 | SP-C.15, section 26.9 |
+| resolve_bubble_position used the machine clock, an unsettled window and user rows | 2026-09-21 | SP-C.16, section 27.2 |
+| datetime.now() against UTC-stored timestamps, 74 calls in 14 modules | 2026-09-21 | SP-C.16, section 27.3 |
+| Six constants for two tolerances, under four names | 2026-09-21 | SP-C.16, section 27.6 |
+| News classifier matched "us" inside base64 image tokens; 879 of 1441 mislabelled | 2026-09-21 | SP-C.16, section 27.5 |
+| structure_state is DISCOUNT_DOMINANT on 365 of 367 rows | **MEASURED, LEFT ALONE -- REOPENED AS A QUESTION 2026-09-28** | SP-C.17, section 28 -- a rare-event detector, not a dead leg; all three candidate replacements are within one standard error of chance. But all 14 firings sit before 13:00 Tehran, in the stale-dollar window, so the separation may be mechanical (section 34.6) |
+| News LLM classification path has never run | **OPEN** | SP-C.16, section 27.5 |
+| Three runs stalled at the 20-minute job timeout before their first write (09-24, 09-25 x2) | **DIAGNOSED, fix queued** | section 33.2 -- no partial rows; the Kitco SSE body never ends and is read without `stream=True`, so every gold-api.com failure hangs the run; fix leads the post-merge reliability phase |
+| News dedup looks back 24 h while feeds keep items for days; 330 of 2,294 rows re-inserted | **OPEN** | section 33.3 N1 -- live consumers unaffected, measurements must count distinct keys |
+| `high_impact_count` 0 on 268/268 snapshots; reads `relevance` for values only `impact` holds | **OPEN** | section 33.3 N2 -- interpretation layer only |
+| donya-e-eqtesad.com and tejaratnews.com unproven from a GitHub runner | 2026-09-27 | section 33.3 -- the two largest and freshest sources |
+| Morning readings priced on the previous day's dollar; both "premiums" on record (09-24, 09-28) most likely this | **OPEN, research first** | section 34.3 -- USD/IRR input barely moves before 11:00 Tehran while platforms reprice; USD freshness stored as always fresh |
+| Daric collector timing out since 09-25 | **WATCH** | section 34.4 -- isolated as designed; was in the cheapest three 19% of the time |
+| Google News " - Publisher" title suffix defeats title-hash dedup | **OPEN** | section 34.5 -- beside N1 |
+
+
 ## 1. Documentation Authority
 
 | Source | Responsibility |
@@ -183,16 +229,70 @@ UPDATE v1
 └── OPERATIONAL — lightweight user-triggered live update
 
 ANALYSIS WING
-└── Scheduled collection / analysis foundation established;
-    full analytical consumer evolution continues separately.
+└── RUNNING. cron-job.org dispatches hourly with mode=analyze,
+    verified 2026-09-15 at exact one-hour spacing inside a
+    06:00-21:00 Asia/Tehran window.
+
+SP-C
+└── OPEN — stabilization first, then the analytical leap
 
 CURRENT DIRECTION
-└── Post-C14 research, calibration, empirical evidence accumulation,
-    and architecture planning before the next major implementation sprint.
+└── Make the data engine actually run, then derive valuation and base rates
+    from the system's own accumulated history.
 
 FUTURE
 └── Expert Judgment / Prediction capability
 ```
+
+## 4.1 Verified production state
+
+Read directly from production Neon on 2026-09-13. These supersede any narrative
+claim elsewhere in the documentation set.
+
+```text
+analysis_snapshots      56 rows      2026-08-21 → 2026-09-12, 20 distinct days
+market_snapshots       278 rows      2026-08-04 → 2026-09-13, 41 distinct days
+outcome_evaluations    162 rows      100% INSUFFICIENT_DATA at 1h, 6h and 24h
+```
+
+Three findings follow from this.
+
+**The Analyze trigger was misrouted. Fixed 2026-09-13.** cron-job.org posts to the
+workflow dispatches endpoint, so `github.event_name` was `workflow_dispatch`,
+`SCHEDULED_RUN` resolved false, and `src/main.py` took the UPDATE path: the daily job
+produced a Telegram message and no analytical history. The workflow now accepts a
+`mode` input and the scheduler declares `mode=analyze`. Verified on 2026-09-15 with
+six consecutive one-hour gaps between scheduled snapshots.
+
+**Outcome evaluation never revisits a snapshot. Open defect.** Cadence was assumed to
+be the cause, but hourly collection has been running since 2026-09-14 and all 213
+evaluations remain `INSUFFICIENT_DATA`.
+
+`snapshot_builder.py` calls `run_outcome_evaluation_for_snapshot()` on the snapshot it
+has just created, whose +1h, +6h and +24h targets are all still in the future. The
+result can only ever be `INSUFFICIENT_DATA`. `backfill_outcome_evaluations()` exists,
+is documented as safe to run repeatedly and evaluates only snapshots lacking a
+complete evaluation, and is never invoked by the runtime.
+
+This is the same failure mode as the C14C news collector and the Analyze trigger:
+capability built, runtime path never reaching it. C.14B and C.14C sit downstream and
+have processed zero real cases as a consequence.
+
+**Static valuation thresholds carry no information.** Across all 278 observations the
+bubble ranged from -8.19% to -1.82%, so `buy_premium_percent: -1.5` was never crossed
+and `valuation_state` is CHEAP on 204/204 recorded states. The decision layers beneath
+do discriminate — 81 BUY candidates, coherent with 81 IMPROVING momentum and 81
+SUPPORTIVE conflict states — but hysteresis has suppressed every one, giving
+`final_decision` WAIT on 204/204.
+
+Valuation must therefore become relative to the bubble's own recent distribution rather
+than a fixed threshold. That is the SP-C leap.
+
+**Canonical series contamination.** `market_snapshots` records no distinction between
+scheduled runs and user-triggered `/Update` calls, so the two are mixed and cannot be
+separated retroactively. This violates the rule in `skills/data-and-neon.md` that
+irregular user-triggered calls must not become the canonical technical time series, and
+it will bias any percentile or base-rate calculation once the user base grows.
 
 ### C14C status
 
@@ -325,10 +425,15 @@ The current decision section may remain in UPDATE while the downstream analytica
 ```text
 current observation
 vs
-latest previous canonical market snapshot
+latest previous SCHEDULED canonical market snapshot
 ```
 
-RUN is not a comparison against arbitrary previous user calls.
+RUN is not a comparison against arbitrary previous user calls. From 2026-09-14 this
+is enforced rather than merely stated: `collection_mode` distinguishes scheduled runs
+from user-triggered updates, and the baseline resolver selects only scheduled
+readings. Before that column existed the resolver took the latest record of any kind,
+so on the UPDATE path the baseline was the user's own previous request and RUN
+measured the interval between two clicks.
 
 **DAY**
 
@@ -338,9 +443,10 @@ vs
 first controlled canonical market snapshot of today
 ```
 
-During the transition period, DAY uses the first canonical `market_snapshots` record of the day.
-
-When the Analysis Wing is fully operational, DAY may migrate to the first controlled Analysis-Wing collection of the day.
+DAY uses the first **scheduled** `market_snapshots` record of the day. The migration
+anticipated here was completed on 2026-09-14, once the Analysis Wing began running on
+an hourly cadence. Both baselines fall back to a record of any collection mode when no
+scheduled record exists, so history predating the change still resolves.
 
 Do not use accumulated user-triggered UPDATE calls as the DAY baseline.
 
@@ -1124,6 +1230,26 @@ Neon PostgreSQL is the long-term historical store.
 | `analysis_snapshots` | Scheduled analytical history and analytical packages |
 | `outcome_evaluations` | Retrospective +1h / +6h / +24h measurements |
 
+### SP-C.1 additions, applied 2026-09-14
+
+```text
+market_snapshots.collection_mode      scheduled | user | unknown
+price_observations.collection_mode    scheduled | user | unknown
+market_states.valuation_context_json  relative valuation behind each decision
+```
+
+Rows written before this migration carry `unknown` because the distinction was never
+recorded and cannot be reconstructed. Any statistic computed over that history is
+drawn from a sample biased toward the moments a user happened to look, and should be
+read with that in mind. Data written from 2026-09-14 onward separates the two.
+
+`valuation_context_json` exists so the decision scorecard can attribute an outcome to
+what the system actually knew at decision time, rather than to whatever the logic
+would compute when the scoring runs. It is JSONB so the context can evolve without a
+migration for each field.
+
+Verified additive: all seven table counts identical before and after.
+
 `analysis_snapshots` currently carries:
 
 ```text
@@ -1519,32 +1645,53 @@ inspect
 → commit
 ```
 
-Current verified / supplied KPI evidence:
+Current verified KPI evidence, executed on SP-C and green in CI:
 
 ```text
-PRE-SP-C.2   14/14 PASS
-PRE-SP-C.3   20/20 PASS
-PRE-SP-C.4   19/19 PASS
-PRE-SP-C.5   25/25 PASS
-PRE-SP-C.6   25/25 PASS
-PRE-SP-C.7   25/25 PASS
-PRE-SP-C.8   25/25 PASS
-PRE-SP-C.9   23/23 PASS
-PRE-SP-C.10  22/22 PASS
-C14C         21/21 PASS
+FULL SUITE   19/19 files, 392 assertions PASS
 compileall   PASS
-live smoke   PASS
-Neon reconciliation through C.9 PASS
 ```
 
-For local KPI execution on Windows CMD:
+Two defects were found the first time the suite was executed as a whole rather than
+file by file:
+
+**C.2 had been failing since C.13.** Commit `ff4496d` made snapshot persistence
+idempotent by returning the existing id for a duplicate `source_run_id`, but the C.2
+KPI still asserted the pre-C.13 `-1` sentinel. Because prior-phase KPIs were not re-run,
+this documentation continued to record 14/14 PASS throughout. The implementation was
+correct and the stale assertion was corrected.
+
+**C.14B breaks on modern scikit-learn.** `requirements.txt` permits
+`scikit-learn>=1.3.0,<2.0.0`; versions from 1.7 removed the `multi_class` argument,
+raising `TypeError` in the logistic regression factory and failing 14 of 36 C.14B
+assertions. This was latent rather than harmless — the forecast path returns
+`INSUFFICIENT_DATA` before reaching the factory, so data starvation was masking it. It
+would have surfaced as a provenance error the moment cadence was fixed.
+
+Both were invisible to file-by-file local runs. This is the evidence behind the
+production liveness rule in `PROJECT_ORCHESTRATION.md`.
+
+For local KPI execution:
 
 ```cmd
-git pull origin <branch>
-python kpi\kpi_<specific_test>.py
+git pull origin SP-C
+python kpi\run_all.py
 ```
 
-Run KPI files explicitly rather than relying on shell wildcard behavior.
+`kpi/run_all.py` runs every suite in an isolated subprocess against an in-memory
+database and prints a consolidated result. Individual files may still be run directly,
+but on Windows they require `PYTHONIOENCODING=utf-8`: the scripts print status emoji,
+which raise `UnicodeEncodeError` under the console codepage *after* the assertions have
+already passed, reporting a passing suite as a failure. The runner sets this for its
+children, so prefer it.
+
+The same suite runs in CI via `.github/workflows/kpi-suite.yml` on SP-C pushes, pull
+requests, and manual dispatch. CI never receives `DATABASE_URL` and cannot reach
+production Neon.
+
+Note that the `Gold Premium Monitor` workflow is **not** sandboxed on any branch. It
+uses repository secrets, so running it from a feature branch still writes to production
+Neon and sends real Telegram messages.
 
 ---
 
@@ -1672,3 +1819,503 @@ COLLECT
 ```
 
 while preserving the deterministic and auditable architecture underneath.
+
+
+---
+
+## SP-C.5 — UPDATE presentation and the valuation basis (2026-09-16)
+
+Recorded in full in `SP_C_HANDOFF.md` section 15, including the measurements behind
+each decision. Summary of what is now authoritative:
+
+**Valuation basis.** The discount shown to a reader is the mean of the three cheapest
+platforms, not the single cheapest. The minimum sits more than 3 median absolute
+deviations below the median of the rest in 62% of 332 snapshots — a tail point, not a
+market level — and carried eight times as many >1 pp artefact jumps. The minimum is
+still resolved and displayed as the market low, the execution price.
+
+This is a **display-path change only**. `market_snapshots.premium_percent` is still
+computed from the single cheapest platform and remains what the decision engine,
+`outcome_evaluations` and `analysis_snapshots` consume. The two are deliberately split
+until a phase with its own approval recomputes the stored column. Any code comparing a
+displayed discount against a stored one must account for this.
+
+**Distribution sample.** The 30-day window prefers `collection_mode == "scheduled"`
+rows once there are at least 30 of them spanning at least 14 distinct local days.
+Both conditions are required: 30 readings at hourly cadence is under two days, and the
+Iranian Thursday-Friday weekend runs 0.28 and 0.40 pp deeper than the weekday median,
+so a seven-day span either contains a weekend or does not. The window is rebuilt from
+`platform_prices` on the trimmed basis so that reading and window never mix bases.
+
+**Time.** `src/timeutil.py` is the single definition of local time: a fixed UTC+3:30
+offset. Everything that stores a timestamp stores UTC; everything that displays one or
+groups by day converts first. This covers the message footer, the reference times,
+`trend_resolver` day grouping and its completed-days window, and the `vs Today`
+baseline. Grouping by the stored UTC date cut each day at 03:30 local.
+
+**Decision display.** UPDATE no longer prints BUY/WAIT/SELL. `final_decision` is
+unchanged as the sole alert authority and is still computed and stored every run; only
+its display moved, pending the ANALYZE message where the reasoning chain can accompany
+it.
+
+**Invariant unchanged and re-verified:** the 7D average is an average of daily
+averages, each day weighted equally regardless of reading count, and abstains rather
+than averaging a partial week.
+
+
+---
+
+## SP-C.6 — three latches (2026-09-18)
+
+Full record in `SP_C_HANDOFF.md` section 16; failure patterns generalised in
+`LESSONS_LEARNED.md`. What is now authoritative:
+
+**The decision engine had never run.** `apply_hysteresis` suppressed a repeat of the
+same decision with no time bound, and `state.json` persists across runs, so the first
+BUY ever sent disabled every BUY after it. 100 of 100 BUY candidates held;
+`final_decision` was WAIT on all 264 stored decisions. The gate now honours
+`cooldown_hours` (default 24) against a persisted `last_alert_at`, and fails open on
+an unknown timestamp rather than reinstating the latch.
+
+**Correction to a previously recorded finding.** The decision scorecard's "edge 0.0"
+was recorded as evidence the strategy does not work. It is not. The scorecard scored
+`final_decision`, which was a constant, so it compared always-WAIT against always-WAIT.
+The conflict matrix, valuation bands and momentum logic are **untested in production**,
+not failed. Any future reading of that scorecard number must account for this.
+
+**Regime thresholds are now calibrated, not fixed.** `premium_magnitude > 2.0` fired on
+250 of 252 snapshots and `platform_spread > 500000` on 252 of 252, so `regime_state`
+read PANIC on all 96 analysis snapshots. `resolve_stress_thresholds` recalculates
+those two plus `premium_change` at the 80th percentile of the 30-day window; both now
+fire on 50 of 252. `volatility` and `usd_change` remain unverified constants and were
+deliberately not touched.
+
+**Collection had an unbounded subprocess.** `get_usd_sell_rate` ran a third-party CLI
+with no timeout, and 8 of 70 workflow runs were killed by the 20-minute job timeout
+after a network stall. That is the cause of the 2-3 hour gaps in hourly collection.
+Bounded at 60 seconds; the caller's existing fallback degrades USD/IRR to None.
+
+**Sequencing.** The repaired engine has not yet issued a decision. Track record,
+expectancy and the ANALYZE feedback loop all require a decision history that varies,
+so there is an observation period before anything is built on top.
+
+
+---
+
+## SP-C.7 - reference distribution is settled, not live (2026-09-20)
+
+Full record in `SP_C_HANDOFF.md` section 17.
+
+`resolve_relative_valuation` draws its reference distribution from **completed local
+days only**, with the 30-day window measured back from that boundary, and excludes
+collection_mode 'user' rows from the fallback sample as well as the clean one. Two
+consequences any future change must preserve:
+
+- **`Deep discount` is constant within a local day** and steps once at the boundary.
+  It moved up to fifteen times in three days before this, because the percentile
+  index advances as the window grows and because the reader's own Update calls were
+  inside the window: pressing Update moved the number being read. (The rank itself
+  became `DEEP_DISCOUNT_PERCENTILE` in SP-C.13; the settling rule is unchanged.)
+- **`Bigger than X%` deliberately stays live.** It ranks the current reading; only
+  the distribution behind it is frozen.
+
+The reference therefore ignores the current partial day, matching the rule
+`trend_resolver` already applies to the 7D average.
+
+
+---
+
+## SP-C.8 — world gold provenance, and a correction (2026-09-20)
+
+Full record in `SP_C_HANDOFF.md` section 18.
+
+**A cached world gold price is now distinguishable in storage.** `source` reads
+`kitco` when live and `kitco_cached` when served from a fallback, and `freshness` is
+evaluated against the value's real observation time instead of
+`evaluate_freshness(now, now, ...)`, which was FRESH by construction on all 3,316
+stored rows. Both fallbacks return `(price, observed_at)` rather than discarding the
+age. Platform observations deliberately keep collection-time freshness: a platform
+does not disclose the age of its own quote.
+
+**Correction to an alarm raised in this session.** 36 of 39 consecutive identical
+XAU/USD readings were reported as probable fallback abuse. They are market closure.
+XAU/USD repeats on 100% of weekend readings and 0-3% of weekdays; USD/IRR repeats on
+61-69% of Thursday and Friday readings. The severity of the provenance finding drops
+from High to Medium accordingly: the defect is real, but there is no evidence the
+fallback fires often.
+
+**Open, and larger than the above.** Closed-market readings are structurally
+different from open-market ones -- median gap 3.06% against 3.44% -- and nothing
+marks them. They sit in the same 30-day distribution, so a weekend reading is ranked
+against a pool that is 70% weekday. Measured distortion: the threshold is biased
+0.09 pp, and a weekend reading's rank moves 13.8 points on average when ranked within
+its own session instead. Session marking is approved in principle; the design is open.
+
+
+---
+
+## Market sessions (2026-09-20)
+
+Full record in SP_C_HANDOFF.md section 19. Three things a future session must not get
+wrong:
+
+**Iran and the world keep opposite calendars.** Saturday is the first day of the
+Iranian working week. XAU/USD does not move at all on Sat/Sun; USD/IRR moves on 60-74%
+of those readings. On Thu/Fri -- the Iranian weekend -- it inverts: XAU moves on
+98-100% of readings and USD on 28-29%. The two drivers take turns.
+
+**Fair value is NOT frozen when world gold is closed.** Fair value is XAU x USD, and
+USD is live on Sat/Sun. Observed closures moved fair value by up to +4.02% and -3.41%
+with the world market shut throughout. Any statement that weekend fair value is stale
+is wrong.
+
+**Closed-market readings are deliberately pooled with open-market ones.** Investigated
+and rejected: the buyer's decision spans sessions, the systematic difference (0.28 pp)
+is smaller than the reopen uncertainty (0.52 pp), and Sat/Sun are Iran's most active
+days rather than degraded observations. No session column, no split ranking, no
+user-facing driver line. Re-test when a dozen reopen transitions exist; the current
+conclusion rests on six.
+
+**Open for ANALYZE:** outcome evaluation horizons are session-dependent. A 24h horizon
+spanning a closure measures Iranian-side movement alone. The feedback loop rests on
+those evaluations, so this needs testing before it is trusted.
+
+
+---
+
+## SP-C.9 - collector ceiling (2026-09-21)
+
+Full record in `SP_C_HANDOFF.md` section 20.
+
+`collector/iran.get_market_prices` documented a 20-second global ceiling that did not
+bind: `future.cancel()` cannot cancel a started future, and the ThreadPoolExecutor
+context manager then called `shutdown(wait=True)`. Since `requests`' `timeout=` does
+not bound DNS resolution, a degraded network hung a collector thread and the whole run
+died at the job timeout with nothing written. Now daemon threads with one shared
+deadline; a hung collector costs one platform, not the run.
+
+**Fourth instance of a documented bound that did not bind** -- after the decision
+hysteresis, the regime hysteresis and the bonbast subprocess. When reviewing any
+timeout in this codebase, check that the mechanism can actually interrupt the thing it
+claims to cap.
+
+
+---
+
+## SP-C.10 - news sources (2026-09-21)
+
+Full record in `SP_C_HANDOFF.md` section 21.
+
+**The news feed was collecting general Iranian news, not market news.** mehrnews.com
+supplied 1,987 of 2,278 items over seven days with zero relevant among them -- opium
+seizures, weather, basketball. Three further feeds (Tasnim, Eghtesad Online, CBI) were
+geoblocked from the GitHub runner and returned nothing. `EVENT_STRESS` had never fired
+because the sources could not produce a market event, not because the classifier was
+weak.
+
+Replaced with targeted Google News queries (gold price, iran rial currency, middle
+east strike OR attack) plus investing.com commodities and two Iranian economic papers.
+**A topic query sets signal-to-noise at the source** rather than ingesting a nation's
+news and filtering afterwards.
+
+**`news_events.source` now records feed identity** instead of the constant `rss`. The
+dedup key deliberately still hashes the historical `rss` namespace: it was always
+effectively a title hash, and changing it would re-key the corpus and break
+cross-feed deduplication.
+
+**2,861 mehrnews rows deleted** with before/after verification; all other table counts
+unchanged.
+
+**Unresolved:** donya-e-eqtesad.com and tejaratnews.com parse from inside Iran but are
+unproven from a GitHub runner. Check their per-source yield after a day of scheduled
+runs; silent geoblocking is what killed the previous three.
+
+
+---
+
+## SP-C.11 - outcome premium leg (2026-09-21)
+
+Full record in `SP_C_HANDOFF.md` section 22.
+
+`_get_nearest_recorded_premium` applied its scheduled-preference to the whole window
+before choosing the nearest row, and bounded that window on one side only. A scheduled
+reading an hour from the target therefore shadowed an unscheduled one four minutes
+away, the fallback never ran, and the lookup returned `None` despite a usable row
+existing. 26 of 249 `COMPLETE` evaluations were written with no premium leg at all.
+
+**Proximity now decides; `scheduled` only breaks a tie**, and the window is bounded on
+both sides of the target. The preference still does the job it was written for --
+stopping a user's click from becoming an outcome -- without discarding good data.
+
+All 26 rows were repairable and have been backfilled. `COMPLETE` rows with a missing
+premium leg: 0. Row counts on every table unchanged.
+
+**Note for anyone consuming outcome_evaluations:** nothing in `src/` reads the premium
+leg yet -- `dataset.py` labels on `rep_gold_direction`. The ANALYZE feedback loop will
+be its first consumer.
+
+
+---
+
+## SP-C.12 - ANALYZE and the push (2026-09-21)
+
+Full record in `SP_C_HANDOFF.md` section 23.
+
+**ANALYZE** reports what the record shows: what followed past readings at the current
+level, the 30-day distribution and deep zone, how fast the local price moves, and the
+sample everything rests on. No decision, no forecast. The decision record is built and
+hidden until it has a sample.
+
+**`/Analyze` is a read-only wing.** A third workflow mode, `report`, carried by its
+own `REPORT_ONLY` variable and returning before any collection. Required by
+`skills/telegram-product.md`: a user request must not silently become an Analysis Wing
+execution. Asserted by row counts, not by comment.
+
+**The push** fires when the discount reaches the 85th percentile of its own 30-day
+window and re-arms only below `fire - 1.5 x (p90 step size)`, floored at 0.25 pp. Both
+levels recomputed from completed days. The band is a width rather than a second
+percentile because a percentile pair's width drifted 0.24 to 0.84 pp against noise of
+0.46 pp, and at the narrow end would not have filtered anything.
+
+**The gate fails open.** Unknown armed state means armed. The flag lives in the same
+Actions cache whose loss latched `last_alert` into permanent WAIT. A lost cache must
+cost a duplicate message, never silence.
+
+**Neither surface recommends.** No BUY, SELL or WAIT in either, per the standing rule
+that external alerts are driven only by `final_decision`.
+
+**Measurement note:** deep-zone episodes break across gaps over three hours. The
+series has a nightly nine-hour hole, and bridging it reported a two-hour zone as
+fifteen.
+
+
+---
+
+## SP-C.13 - one deep-discount level, shared by every surface (2026-09-21)
+
+Full record in `SP_C_HANDOFF.md` section 24.
+
+**The defect.** `Deep discount` named two different numbers on the same day: 3.29% in
+UPDATE (the 40th percentile of the signed gap) and 3.70% in ANALYZE and the push (the
+85th of the size). A reader at 3.40% was told deep by one surface, not deep by the
+other, and received no push. Found by the product owner reading the three production
+messages together.
+
+**The rule.** *The number a reader is shown is the number the system acts on.* Any
+future surface that prints a level must take it from the level that acts, not from a
+rank of its own.
+
+**One definition.** `bubble_position.DEEP_DISCOUNT_PERCENTILE = 85` and
+`bubble_position.deep_discount_threshold()` are the single source.
+`analyze_report.DEEP_ZONE_PERCENTILE` and `push_trigger.FIRE_PERCENTILE` are aliases.
+`analyze_report._percentile` is now an alias of `bubble_position._value_at_percentile`
+rather than a byte-identical copy. Do not reintroduce a local rank or a local
+percentile formula in any of these modules -- three equal constants in three files is
+the state that produced the defect, and `kpi_sp_c4.test_23c` / `kpi_sp_c6.test_24d`
+read the source to prevent it.
+
+**The pool is shared, the ranking pool is not.** The threshold is drawn from the
+settled non-user pool (`reference_readings`) on every surface. It deliberately does
+**not** follow the scheduled-only gate that `resolve_relative_valuation` applies to
+`Bigger than X%`: measured 2026-09-21, the two pools put p85 at 3.70% and 3.64%, and
+the gate opens 2026-09-28, so a shared rank over unshared pools would have split the
+number again within a week. Ranking and thresholding answer different questions; only
+the threshold must match across surfaces, because the push acts on it.
+
+**The threshold is a size, and only describes discounts.** `deep_at` is now a positive
+number. UPDATE prints the line, and the push fires, only when the current reading is
+below fair value. Re-arming stays sign-blind so a flip to premium re-arms rather than
+holds. Without this a premium regime would have alerted under the heading DEEP
+DISCOUNT. Latent only: all 437 readings on record are discounts.
+
+**Thresholds compared against readings are never rounded.** Gaps land on values like
+`8.999999999999996`; rounding to `9.0` lifted the level above its own source readings
+and a zone containing eight of them measured zero episodes. `fire_at`, `rearm_at` and
+the deep-zone threshold are unrounded. `band_pp` and `noise_pp` are displayed only and
+stay rounded.
+
+
+---
+
+## SP-C.14 - cross-cutting coherence is now a test (2026-09-21)
+
+Full record in `SP_C_HANDOFF.md` section 25.
+
+**`kpi/kpi_coherence.py` checks modules against each other**, which no other KPI file
+does. Every file before it checks one module or one surface against the market, which
+is why 25 passing files coexisted with `Deep discount` meaning two numbers. Suite is
+now **26 files**.
+
+**Accepted divergences live in a register**, `ACCEPTED`, at the top of that file. Each
+entry must name what diverges, why it is tolerated and a document that records it, and
+the tests enforce all three. **An entry whose divergence has been fixed fails the
+suite**, so the register cannot go stale the way the defect index did.
+
+**Found on its first run:** a third byte-identical copy of the percentile formula in
+`regime.py` (now delegating); `caluclator/valuation.py` reading config keys that do not
+exist, so the configured sell threshold of 3.0 has never been in effect and editing
+config does nothing; `valuation_context_json` persisted on every run and read by
+nothing.
+
+**The valuation leg is a constant and this is open.** `valuation_state` is CHEAP on
+364 of 364 rows. On the 134 rows that also carry the percentile band, the two labels
+disagree 114 times -- CHEAP beside EXPENSIVE in the same row. Stored `premium_percent`
+spans -8.19% to -1.52% and the `-1.5` threshold has never been crossed in 438
+readings. One of the conflict matrix's three inputs carries no information. Replacing
+it is a foundation change to the SP-A pipeline and needs its own phase.
+
+**A correction to this file.** The defect index recorded `valuation_state read CHEAP on
+every reading` as resolved in SP-C.2. It was not: SP-C.2 fixed the reader's valuation
+and left the column the decision engine reads untouched. The row is corrected above.
+Future index entries name the class and list its open instances, not just the instance
+that was fixed.
+
+
+---
+
+## SP-C.15 - the valuation leg carries information (2026-09-21)
+
+Full record in `SP_C_HANDOFF.md` section 26.
+
+**What was wrong.** `valuation_state` was CHEAP on 364 of 364 rows. Its fixed
+threshold of `-1.5` sat 0.02 pp outside the entire observed range of 438 readings, so
+it had never been crossed. It is the first input to the conflict matrix, so every
+decision the engine has made rested on two legs while reporting three.
+
+**The leg is now a rank with a direction gate.**
+`caluclator.valuation.classify_valuation` is the only place a valuation label is
+produced:
+
+```text
+CHEAP       rank < CHEAP_PERCENTILE       AND  premium <= buy_premium_percent
+EXPENSIVE   rank >= EXPENSIVE_PERCENTILE  AND  premium >= sell_premium_percent
+FAIR        anything else
+UNKNOWN     no rank -- too little history
+```
+
+**The direction gate is load-bearing, do not remove it.** A percentile-EXPENSIVE
+reading means "less discounted than usual", not "above fair value", and the matrix
+turns EXPENSIVE + WEAKENING into SELL. On rank alone this engine would issue SELL on a
+market trading 1.6% *below* fair value. On the record the sell gate never opens
+because the highest premium ever stored is -1.52%. That is correct, not degenerate:
+the world has not supplied the other case. See `LESSONS_LEARNED.md` section 13.
+
+**No fallback.** Below `MIN_OBSERVATIONS` the answer is UNKNOWN and the matrix
+abstains. A fallback that always answers is how this leg became a constant.
+
+**The reference is settled and excludes user rows**, on the SP-C.13 pool discipline,
+and ranks the **stored** `premium_percent` against a window of stored
+`premium_percent` (`stored_premium_series`). Ranking it against the trimmed basis
+would move it 0.55 pp on median with no market movement.
+
+**`build_signal_state` no longer classifies**, it receives. Ranking needs a window, a
+window needs a session, and a calculator must not open one. Omitting the argument
+yields UNKNOWN.
+
+**One classifier.** `bubble_position._classify_band` delegates to the same function,
+so `valuation_context_json` and `valuation_state` cannot contradict each other again;
+they disagreed on 114 of 134 rows. `TYPICAL` became `FAIR`.
+
+**Config keys that were never read.** `valuation.py` asked for `buy_premium` /
+`sell_premium`; config defines `buy_premium_percent` / `sell_premium_percent`. Both
+missed and fell through to hardcoded defaults, so the configured sell threshold of 3.0
+had never been in effect. Fixed. `cooldown_hours` is now defined at 24, the value
+already in force.
+
+**Measured over the record.** `CHEAP 366` becomes `CHEAP 111, FAIR 222, UNKNOWN 33`;
+candidates `BUY 131` becomes `BUY 63`; 91 of 366 candidates change. Collapsed to one
+observation per local day, CHEAP readings were followed by the discount narrowing
+78.6% of the time against 41.0% for FAIR. Descriptive, in-sample, not a validated
+edge.
+
+**Also fixed:** ANALYZE's projected `clean from` date was a day early. The window is
+settled, so the gate opens the day after the last missing scheduled day is banked.
+
+
+---
+
+## SP-C.16 - the tidy pass (2026-09-21)
+
+Full record in `SP_C_HANDOFF.md` section 27.
+
+**`resolve_bubble_position` now settles its window.** It used `datetime.now()`, ranked
+against a window that ran to `now`, and counted user rows -- the SP-C.5 and SP-C.7
+defects, fixed once in a sibling and never back-ported. It uses `reference_readings`
+now, so the audit record in `valuation_context_json` is ranked the same way as the
+decision it accompanies. `kpi_coherence.test_18` asserts both resolvers settle.
+
+**One clock.** 74 calls to `datetime.now()` across 14 modules are now `utcnow`.
+Everything stored is UTC; the machine clock was correct only because CI runners are
+UTC. `kpi_pre_sp_c2.test_13` proved it -- a two-hour lookback reached back five and a
+half hours on a UTC+3:30 workstation and passed in CI. **No `datetime.now()` may
+appear anywhere in `src/`**; `kpi_coherence.test_19` enforces it.
+
+**One definition per tolerance.** `src/tolerances.py` holds `UNCHANGED_DEADBAND_PP`
+and `COMPARABLE_BAND_FRACTION`. They existed as six constants under four names across
+four modules. `kpi_coherence.test_20` forbids a local redefinition.
+
+**The news classifier was matching on image URLs.** `IRAN_US_NEGOTIATION` held 879 of
+1441 articles -- including an advertisement and a tourism piece -- because `"us"`
+matched as a bare substring inside base64 image tokens in RSS summary HTML. Fixed on
+four fronts: markup and long tokens are stripped before classification; matching is on
+word boundaries; specific rules need a subject **and** an action; Persian keywords
+added, since the two highest-volume sources publish in Persian and `طلا` appeared 6
+times in 1441 rows. Bare `"us"` is gone as a country token -- lowercased, it is also
+the English pronoun. 1070 rows re-classified in place; only classification columns
+were touched. `IRAN_US_NEGOTIATION` 879 -> 27, `UNKNOWN` 288 -> 904. **The rise in
+UNKNOWN is the improvement**; the old figure was bought by mislabelling.
+
+**Registered, not fixed -- both need a product decision:**
+
+- **The structure leg fires rarely.** `structure_state` is `DISCOUNT_DOMINANT` on
+  365 of 367 rows. **Corrected in SP-C.17:** that is not the same as carrying no
+  information. Measured, the leg separates at z = -2.04 on the seven days it fires
+  the other way, while platform spread, cheapest-to-median gap and breadth sit at
+  z = -0.98, 0.07 and 1.40 -- all within one standard error of chance. It stays, and
+  `PREMIUM_DOMINANT` must remain reachable. Section 28.
+- **The news LLM path has never run.** `classification_method` is KEYWORD on all rows.
+
+**News in ANALYZE: no, not yet.** Asked directly; answered with evidence. After the
+repair the classifier is 62% UNKNOWN, impact is UNKNOWN on 94% and direction on 91%,
+and busy news days differ from quiet days by 0.19 pp of intraday premium range on 22
+observations a side. A line in ANALYZE would lend a measured report's authority to
+that. Three-stage proposal in section 27.7: the repair (done), then measure daily
+article count as a rank against forward discount movement, then -- only if the
+separation is real -- one line in the DATA section phrased as a count and a rank, with
+no direction or sentiment.
+
+**Also fixed:** ANALYZE's projected `clean from` date was a day early; it reads
+2026-09-28 now, which is correct.
+
+
+---
+
+## Current state (2026-09-27)
+
+Full record in `SP_C_HANDOFF.md` sections 29-33. Chronology for SP-C.17 and SP-C.18
+lives there and in `.project_state.json` → `corrections`.
+
+```text
+branch        SP-C, 59 commits ahead of main; last code change 2026-09-22 (2857ba5)
+rollout       step 1 (observe) CLOSED 2026-09-27 by the product owner
+              step 2 (merge) 2026-09-28, after the health check and D gate (moved
+              by the owner 09-27); tag main v1.3safe first; one conflict,
+              gold-monitor.yml
+KPI           26/26 files, exit 0; compileall PASS
+production    hourly ANALYZE continuous since 2026-09-14; all runs green since
+              2026-09-25 16:30Z; stored range -8.19% to +0.36%, but both positive
+              readings are most likely a stale-dollar artefact (SP_C_HANDOFF 34.3)
+decision      FAIR / WAIT / WAIT on all 109 rows since 09-22 -- the market sat above
+              its own 30-day history; BUY and the push are untested, not failed
+D gate        OPENED 2026-09-28: 207 scheduled readings over 14 settled days;
+              deep-discount level 3.50% unchanged, by design (SP_C_HANDOFF 34.1)
+CHEAP check   leg correct and reachable; the market never went there, closest
+              0.22 pp on 09-23 (34.2) -- no fix needed
+```
+
+**Open, found in the window.** Three runs stalled before their first write (now
+diagnosed as the Kitco SSE read). News dedup re-inserts items from slow feeds, and
+`high_impact_count` is a constant. The index at the top of this file lists all three.
+The owner decided on 2026-09-27 to fix them after the merge, as one reliability
+phase. On 2026-09-28 the order became: reliability, then morning-dollar research,
+then broadcast, then the basis divergence (`SP_C_HANDOFF.md` 34.7).

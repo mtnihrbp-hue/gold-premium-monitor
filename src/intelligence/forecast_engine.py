@@ -63,7 +63,7 @@ def measure_data_readiness(
         return {"status": "DB_UNAVAILABLE", "sufficient": False}
 
     try:
-        since = datetime.now() - timedelta(hours=hours_lookback)
+        since = datetime.utcnow() - timedelta(hours=hours_lookback)
         snaps = (
             session.query(AnalysisSnapshot)
             .filter(AnalysisSnapshot.analysis_timestamp >= since)
@@ -171,8 +171,9 @@ def _c8_deterministic_predict(features_json: Optional[dict]) -> Optional[str]:
 # Model factories
 # -----------------------------------------------------------------------------
 def _logistic_regression_factory():
+    # multi_class was removed in scikit-learn 1.7. lbfgs on a multiclass target
+    # already fits multinomial, so omitting it preserves behaviour on all versions.
     return LogisticRegression(
-        multi_class="multinomial",
         solver="lbfgs",
         max_iter=1000,
         random_state=42,
@@ -283,7 +284,7 @@ def _load_records(
         return []
 
     try:
-        since = datetime.now() - timedelta(hours=hours_lookback)
+        since = datetime.utcnow() - timedelta(hours=hours_lookback)
         snaps = (
             session.query(AnalysisSnapshot)
             .filter(AnalysisSnapshot.analysis_timestamp >= since)
@@ -497,7 +498,7 @@ def run_forecast_evaluation(
             "model_results": {},
             "comparison": {},
             "provenance": {
-                "evaluated_at": datetime.now().isoformat(),
+                "evaluated_at": datetime.utcnow().isoformat(),
                 "feature_schema_version": "1",
                 "label_schema_version": "1",
             },
@@ -512,7 +513,7 @@ def run_forecast_evaluation(
             "model_results": {},
             "comparison": {},
             "provenance": {
-                "evaluated_at": datetime.now().isoformat(),
+                "evaluated_at": datetime.utcnow().isoformat(),
                 "feature_schema_version": "1",
                 "label_schema_version": "1",
             },
@@ -562,7 +563,7 @@ def run_forecast_evaluation(
             "beats_baseline": beats,
         },
         "provenance": {
-            "evaluated_at": datetime.now().isoformat(),
+            "evaluated_at": datetime.utcnow().isoformat(),
             "feature_schema_version": "1",
             "label_schema_version": "1",
             "feature_config": feature_config or {"include_c8": True},
