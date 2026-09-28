@@ -2317,4 +2317,5 @@ CHEAP check   leg correct and reachable; the market never went there, closest
 diagnosed as the Kitco SSE read). News dedup re-inserts items from slow feeds, and
 `high_impact_count` is a constant. The index at the top of this file lists all three.
 The owner decided on 2026-09-27 to fix them after the merge, as one reliability
-phase. After that come broadcast, then the basis divergence (`SP_C_HANDOFF.md` 33.5).
+phase. On 2026-09-28 the order became: reliability, then morning-dollar research,
+then broadcast, then the basis divergence (`SP_C_HANDOFF.md` 34.7).

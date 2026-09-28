@@ -3501,3 +3501,32 @@ same separation with no information about the market. Section 28's review trigge
 non-DISCOUNT_DOMINANT rows, 14 so far) should count only readings taken on a current
 dollar. Re-run the SP-C.17 measurement with morning readings excluded as part of the
 34.3 research.
+
+### 34.7 Post-merge order, revised
+
+Agreed by the owner on 2026-09-28. It supersedes 33.5 item 6 by moving the
+morning-dollar research ahead of broadcast.
+
+```text
+1  reliability phase     world-gold deadline (33.2); high_impact_count (N2) with a
+                         precision check on the HIGH rules (34.5); news dedup, both the
+                         24 h window (N1) and the Google News suffix (34.5); Daric if it
+                         has not returned (34.4)
+2  morning dollar        research only, no code: a second dollar source over more days,
+                         the bias the pre-11:00 readings put into the pool and the
+                         ranks, and the SP-C.17 structure measurement re-run without
+                         them (34.3, 34.6). Ends in a fix decision for the owner
+3  broadcast             rollout step 4 (29.3)
+4  basis divergence      premium_percent at source; own phase and approval
+5  ANALYZE percentages   section 31
+6  research              the 6h horizon in the overnight gap; quote_side
+```
+
+Why the morning dollar moved ahead of broadcast:
+
+- It affects the core number on about a third of daily readings, by up to about 2 pp.
+  Once readers receive messages, they would see those numbers, including a premium
+  that was not there.
+- Two recorded conclusions now depend on it: section 32's premium, and section 28's
+  reason for keeping the structure leg.
+- The research changes no code, so it costs no stability.

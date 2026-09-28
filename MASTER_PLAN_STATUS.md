@@ -450,15 +450,18 @@ Rollout (`SP_C_HANDOFF.md` section 29), state on 2026-09-27:
 4 broadcast   TELEGRAM_BROADCAST_IDS + audience per message type (section 29.3)
 ```
 
-After the merge, in the order agreed on 2026-09-27 (section 33.5):
+After the merge, in the order agreed on 2026-09-28 (section 34.7):
 
 ```text
-1 reliability phase   world-gold deadline (the diagnosed stalls), high_impact_count,
-                      news dedup window
-2 broadcast           rollout step 4
-3 basis divergence    premium_percent at source; own phase and approval
-4 ANALYZE percentages section 31
-5 research            6h horizon, quote_side
+1 reliability phase   world-gold deadline (the diagnosed stalls), high_impact_count
+                      with a precision check, news dedup (window and Google suffix);
+                      Daric if still down
+2 morning dollar      research only, no code: second dollar source, bias on the pool
+                      and ranks, structure-leg re-measure; then a fix decision
+3 broadcast           rollout step 4
+4 basis divergence    premium_percent at source; own phase and approval
+5 ANALYZE percentages section 31
+6 research            6h horizon, quote_side
 ```
 
 ## 16. Continuity protocol

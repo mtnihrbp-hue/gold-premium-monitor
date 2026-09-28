@@ -264,7 +264,7 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "2026-09-28: after the 02:30Z run, health check, D gate and a read-only CHEAP replay. If clean, the owner reviews the SP-C diff; tag main v1.3safe, merge SP-C (take SP-C's gold-monitor.yml in the one conflict), repoint cron-job.org 8179679 and src/worker/telegram-trigger.js:135 to main in one sitting, and verify with /Status and /Update. If not clean, fix on SP-C first. Then the post-merge order in rollout.post_merge_order.",
+  "next_gate": "2026-09-28: after the 02:30Z run, health check, D gate and a read-only CHEAP replay. If clean, the owner reviews the SP-C diff; tag main v1.3safe, merge SP-C (take SP-C's gold-monitor.yml in the one conflict), repoint cron-job.org 8179679 and src/worker/telegram-trigger.js:135 to main in one sitting, and verify with /Status and /Update. If not clean, fix on SP-C first. Then rollout.post_merge_order (revised 2026-09-28).",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
@@ -329,6 +329,6 @@
     "step_3_repoint": "cron-job.org job 8179679 and the Cloudflare worker both send ref SP-C; both return to main. Verify immediately with a manual /Status and /Update, not the next hourly run; rollback is pointing both back at SP-C.",
     "step_4_broadcast": "Readers receive, only the owner triggers. Needs TELEGRAM_BROADCAST_IDS, _send iterating the list, and an audience per message type with a KPI asserting operator messages never reach readers. Section 29.3.",
     "not_yet": "Routing a requester's identity through the workflow, which /Update for other readers would require. Section 29.1.",
-    "post_merge_order": "Agreed by the owner 2026-09-27: 1 reliability phase (world-gold deadline, high_impact_count, news dedup window); 2 broadcast (step 4); 3 basis divergence (own phase and approval); 4 ANALYZE percentages; 5 research (6h horizon, quote_side). Section 33.5."
+    "post_merge_order": "Agreed by the owner 2026-09-28 (supersedes 09-27): 1 reliability phase (world-gold deadline; high_impact_count with a precision check; news dedup window and Google suffix; Daric if still down); 2 morning-dollar research, no code (second dollar source, pool/rank bias, SP-C.17 structure re-measure) ending in a fix decision; 3 broadcast (step 4); 4 basis divergence (own phase and approval); 5 ANALYZE percentages; 6 research (6h horizon, quote_side). Section 34.7."
   }
 }
