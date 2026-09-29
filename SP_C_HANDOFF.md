@@ -3690,3 +3690,132 @@ Next R&D steps:
   USD value equals the previous evening's last value, before a set hour);
 - then put remedy options to the owner.
 
+---
+
+## 37. The first live BUY, and why it was wrong (2026-09-29)
+
+Times are Tehran local. No code has changed yet: this section records the event, the
+diagnosis and the owner's decision. The design is awaiting approval (37.5, 37.6).
+
+### 37.1 What happened
+
+At 14:01 the scheduled run issued `final_decision = BUY`. It was the first final BUY
+since SP-C.15, and `main.py` sent the SP-A alert by Telegram and email.
+
+```text
+valuation CHEAP (rank 9 of 100, n=336) -> momentum IMPROVING -> structure DISCOUNT_DOMINANT
+-> conflict SUPPORTIVE -> candidate BUY -> hysteresis passed -> final BUY -> alert sent
+```
+
+The whole chain rested on one platform:
+
+```text
+14:01      vs fair     note
+Taline     -4.93%      fell 1.2% in the hour while ten platforms rose with the dollar
+Milli      -2.53%      second cheapest
+Invi       -1.78%
+median     about -1.4%
+```
+
+- The dollar input rose from 244,800 to 253,300 over the day, with world gold flat.
+- On the displayed basis (the three cheapest) the discount was 3.08%, below the 3.50%
+  deep-discount level, so the push correctly did not fire.
+- The 14:31 `/Update` produced candidate BUY and final WAIT: the 24-hour repeat block
+  (`signals.DEFAULT_COOLDOWN_HOURS`) held it.
+- The next BUY alert is possible from 14:01 on 09-30.
+
+### 37.2 Root cause: Taline's collector reads a stale CDN copy from abroad
+
+`collector/taline.py` does not read a trading API. It reads the headline under
+"قیمت ۱گرم طلای ۱۸ عیار" on `taline.ir/goldprice/`, a marketing page served by Sotoon
+CDN, an Iranian CDN. The collector runs on GitHub's servers, outside Iran.
+
+```text
+same minute, 2026-09-29 ~16:27
+from abroad (Psiphon), 5 fetches   24,102,500   <- first seen at 13:18 on 09-28
+from Iran, 3 fetches               24,996,000   <- live; the page's widget showed
+                                                   buy 25,094,100 / sell 24,894,200
+```
+
+The stale copies are **intermittent**. At 16:30 both paths returned fresh values for all
+11 platforms, Taline included, with or without cache-busting. That is why the record
+shows Taline flipping between a handful of recurring old values (24,102,500 /
+24,388,500 / 24,091,000 / 23,962,000) instead of tracking the market.
+
+Measured since 09-15, Taline returns to a value it last showed at least 3 hours earlier
+on 15.5% of readings. The other platforms do so on 2-9%, and some of that is natural,
+since MioGold prices in coarse steps and has only 55 distinct values. Daric: 0%.
+
+This is section 15.7 item 1, "a single-vendor move is read as a market valuation move,
+... on the strength of one stale quote", recorded on 2026-09-16 and now live.
+
+### 37.3 Why the engine let it through
+
+- **Two of the three legs read the single cheapest platform.** Valuation ranks the
+  stored `premium_percent` (the single cheapest), and momentum and premium direction
+  move with it. One vendor therefore drives two legs of the matrix.
+- **A single platform standing apart is common, not rare.** Over the 30-day window the
+  gap between the cheapest and the second cheapest platform has a median of 0.57 pp,
+  a 90th percentile of 2.15 pp and a 95th of 2.61 pp. It exceeds 1 pp on 81 of 408
+  readings (20%). Of all 133 BUY candidates on record, 55 (41%) had a gap over 1 pp
+  (Milli, MioGold, Taline).
+- **The displayed basis alone would not have stopped it.** The stale Taline pulled the
+  three-cheapest mean to -3.08%, which ranks 36 against a 40th percentile of -3.02%.
+  One bad platform contaminates a mean of three. The check has to ask whether a
+  second platform confirms the discount, not which average to use.
+
+### 37.4 The owner's decision (2026-09-29)
+
+- **Fix the cause now,** without waiting for SP-D's scheduled opening on 10-03. In the
+  owner's words: "double check if something is odd, or recheck".
+- **Redesign the BUY message.** The current one is the old SP-A layout. It prints the
+  single-cheapest `Premium`, which contradicts UPDATE's three-cheapest basis. It
+  surfaces internal labels (`DISCOUNT WIDENING`, `SUPPORTIVE`), which
+  `skills/market-analyst.md` forbids in user-facing text. And it says nothing about
+  whether the signal was checked.
+- **Record the goal assessment:** done, `MASTER_PLAN_STATUS.md` section 15a.
+
+### 37.5 Proposed fix (awaiting approval)
+
+The SP-A conflict matrix stays unchanged (`skills/market-analyst.md`: no weighted score
+without approval). A **BUY confirmation check** sits between the candidate and the
+final decision. `CANDIDATE != FINAL` is preserved: the candidate is still recorded,
+and only the final is held. When a check fails, the final is WAIT and its reason names
+the check in plain words.
+
+```text
+check                     passes when                                        09-29 14:01
+second platform confirms  the second-cheapest platform is itself in the cheap  fails
+                          band of its own 30-day record (rank < 40)
+dollar is live            USD/IRR has updated since the previous evening;      passes
+                          morning readings on yesterday's dollar cannot
+                          confirm (34.3)
+world gold is live        XAU/USD is not a cached fallback (SP-C.8)            passes
+```
+
+Also, Taline's collector gets cache-busting headers and a query string. That hardens
+it, but it cannot be proven today because the stale copies are intermittent, so the
+confirmation check has to hold on its own.
+
+Before merge the change needs:
+
+- KPI assertions for each check and for the candidate/final split;
+- a replay over every stored BUY candidate, showing which ones each check would have
+  held;
+- the owner's review.
+
+### 37.6 BUY message (draft awaiting approval)
+
+The redesign uses UPDATE's vocabulary: the same basis, labels and "Bigger than". It
+states the evidence and the checks, and ends with a decision-support disclaimer.
+Nothing ships until the owner approves the preview.
+
+### 37.7 Also found today
+
+- **The 09:00 run was lost to the Kitco hang,** the fourth instance (33.2): gold-api.com
+  hit a DNS failure, then the Kitco SSE read hung until the 20-minute kill.
+- **Seven news items failed to save at 14:00.** Google News URLs are longer than
+  `news_events.url varchar(500)` (`StringDataRightTruncation`). This joins the
+  reliability phase; it needs either truncation at the collector or a schema change,
+  and a schema change goes through the Neon migration policy.
+

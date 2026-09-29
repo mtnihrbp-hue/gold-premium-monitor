@@ -468,6 +468,38 @@ After the merge, in the order agreed on 2026-09-28 (section 34.7):
 6 research            6h horizon, quote_side
 ```
 
+## 15a. Progress toward the product goal (assessed 2026-09-29)
+
+The product goal, in the owner's words (September 2026):
+
+- an expert system that reads its own data: *"This discount is in the 12th percentile.
+  The last 23 times it got this deep, it closed within a day 61% of the time"*;
+- it learns from itself: it records each decision, checks it against what happened,
+  and builds a confidence score;
+- news and sentiment as an input;
+- served to 30-50 friends: UPDATE on demand, ANALYZE for intelligence, push alerts;
+- later, Iranian gold-ETF money flow.
+
+The table below is an engineering judgment, not a measurement. Re-assess it at each
+phase close.
+
+| Pillar | Status | What is missing |
+|---|---|---|
+| Data foundation (prices, fair value, discount) | Solid: hourly, 11 platforms, stable on `main` | Morning dollar (about a third of readings off by 0.71 pp on average, SP_C_HANDOFF 34.3, 36.2); the Kitco hang (33.2); stale platform quotes such as Taline's (37) |
+| "Where does today sit" (the 12th-percentile part) | Done: rank against 30 days, one deep-discount level on every surface, scheduled-only sampling since the D gate | Nothing beyond the morning-dollar effect on the history |
+| "What happened next" (the 61% part) | Built (ANALYZE), statistics thin | About 44 independent days; the 09-25 re-measure reversed a lean in two days (33.6); percentages designed, not built (31) |
+| Decision engine | Repaired, working | First live BUY on 2026-09-29 rested on one stale platform (37); a confirmation check is needed before its alerts can be trusted; its verdict is deliberately not shown in UPDATE |
+| Learning / confidence score | Early | The scorecard exists but has almost nothing to score; calibration needs about 171 independent days, so February 2027 at the earliest |
+| News | Collecting well (9 sources, about 420 a day) | No relationship to market moves found yet; classifier precision; re-measure from about 2026-10-22 |
+| Friends | Designed, not built | Broadcast (29.3); a per-user `/Update` needs requester identity (29.1) |
+| ETF money flow | Not started | Deferred (section 12) |
+
+**Summary.** The data layer and the "where does today sit" layer can be trusted. The
+"what happens next" and "learning" layers exist but need time and a varied decision
+history, which code cannot shorten. The largest reachable gains are clean inputs (the
+morning dollar, stale platform quotes, the Kitco hang), a decision that is confirmed
+before it alerts, and delivery to readers.
+
 ## 16. Continuity protocol
 
 ```text
