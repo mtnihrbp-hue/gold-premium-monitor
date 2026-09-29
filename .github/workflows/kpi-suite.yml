@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - SP-C
+      - SP-D
   pull_request:
 
 jobs:
