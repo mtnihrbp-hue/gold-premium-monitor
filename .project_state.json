@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "project": "Gold Premium Monitor",
-  "active_branch": "main",
-  "current_phase": "SP-C merged into main 2026-09-28; SP-D planning (settle period and R&D)",
+  "active_branch": "SP-D (R&D and docs until code work opens 2026-10-03); main is production",
+  "current_phase": "SP-D settle period and R&D; code work opens 2026-10-03",
   "current_phase_status": "SP-C.1 through SP-C.18 COMPLETE and MERGED into main 2026-09-28 (2b7c5f8; v1.3safe tags main before the merge; merged tree identical to SP-C). Production (cron-job.org and the Telegram worker) dispatches ref main. SP-D in planning: settle period on main, then SP-D branches from main. SP_C_HANDOFF.md section 35.",
   "completed_phases": [
     "SP-B.1",
@@ -58,7 +58,8 @@
       "Rollout steps 2 and 3 done 2026-09-28: SP-C merged into main (2b7c5f8, one conflict resolved by taking SP-C's gold-monitor.yml, merged tree identical to SP-C, KPI 26/26 on main) and both triggers repointed to main; first /Analyze and /Update on main succeeded. Section 35."
     ],
     "in_progress": [
-      "SP-D planning: settle period on main (owner's direction 2026-09-28) and R&D on scope, following the order in rollout.post_merge_order. SP-D branches from main when code work begins; add SP-D to kpi-suite.yml push branches then."
+      "SP-D settle period on main (agreed 2026-09-29): daily health checks, no code changes; code work opens Saturday 2026-10-03.",
+      "Morning-dollar R&D (first in the R&D order): tgju and bonbast both still showed the previous day's close at 09:20 on 09-29, supporting 'the currency market has not opened' over 'bonbast lags'. Next: recompute morning premiums with each day's first post-open dollar and measure the shift in readings, ranks, states and structure firings. SP_C_HANDOFF.md section 36.1."
     ],
     "not_wired": "decision_scorecard is computed but unwired. It is admin-facing and has nothing to report while every recorded decision is WAIT.",
     "decision_trigger_finding": "Forward 24h return changes sign near the 40th percentile in 41 days of data. Never hardcoded; the reference recomputes every run.",
@@ -212,17 +213,18 @@
     "causal_explanation_requires_evidence": true
   },
   "branch_policy": {
-    "active_development_branch": "main (production); SP-D to be created from main when its code work begins",
+    "active_development_branch": "SP-D (created from main 2026-09-29; R&D and docs until code work opens 2026-10-03)",
     "main_write_allowed": "only with the product owner's review",
     "main_merge_allowed": "only with the product owner's review",
     "sp_b_status": "CLOSED — merged into main",
     "sp_b_remote_deleted": false,
     "planned_merge": "DONE 2026-09-28",
     "rule": "main is production and receives work only by owner-reviewed merge. The next sprint branch is SP-D, created from main when code work begins; per skills/sprint-execution.md the user reviews the sprint branch before merge; never merge automatically.",
-    "sp_c_status": "CLOSED -- merged into main 2026-09-28 (2b7c5f8); tag v1.3safe = main before the merge"
+    "sp_c_status": "CLOSED -- merged into main 2026-09-28 (2b7c5f8); tag v1.3safe = main before the merge",
+    "sp_d_status": "OPEN for R&D and docs from 2026-09-29; code work from 2026-10-03; added to kpi-suite.yml push branches"
   },
   "verified_production_state": {
-    "verified_on": "2026-09-28",
+    "verified_on": "2026-09-29",
     "method": "direct read-only queries against production Neon, and GitHub Actions run metadata",
     "market_snapshots": "stored premium_percent -8.19% to +0.36%. Both positive readings (2026-09-24 12:01 and 2026-09-28 10:01 Tehran) were most likely a stale morning USD/IRR input, not a real premium (section 34.3).",
     "market_states_since_2026_09_22": "109 rows, valuation FAIR / candidate WAIT / final WAIT on all; valuation percentile 53-100, none below 40",
@@ -234,7 +236,8 @@
     "canonical_series_contamination": "History before 2026-09-14 mixes scheduled and user readings and cannot be separated; collection_mode separates them from 2026-09-14.",
     "valuation_cheap_history": "Last CHEAP 2026-09-21 13:31Z, from the pre-SP-C.15 fixed threshold (rank 83). The shipped leg went live with c29819a at 14:08Z the same day and has returned FAIR on all 116 rows since, with no BUY candidate.",
     "d_gate": "OPENED 2026-09-28: 207 scheduled readings, 14 settled local days; ANALYZE REPORT logged readings=328 (non-user pool).",
-    "daric": "Down since 2026-09-25 (15 s read timeout on apisc.daric.gold); one price in ~59 snapshots (section 34.4)."
+    "daric": "Returned 2026-09-28 15:01 Tehran after four days of timeouts; 11 of 11 platforms since.",
+    "first_day_on_main": "Every run on main from 2026-09-28 14:11 to 2026-09-29 09:00 Tehran succeeded; the 15:00 run sent the expected one-off extra recap."
   },
   "continuity_protocol": {
     "orchestration_flow": [
@@ -264,7 +267,7 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "SP-D planning. Let the system settle on main (daily health checks), run the morning-dollar and other R&D meanwhile, then open SP-D from main with the reliability phase first. Order in rollout.post_merge_order.",
+  "next_gate": "Settle on main until SP-D code work opens 2026-10-03 (daily health checks). R&D meanwhile, morning dollar first (SP_C_HANDOFF.md section 36). Then rollout.post_merge_order.",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
@@ -299,7 +302,7 @@
     "quote_side is SINGLE on all observations; bid vs ask is never recorded.",
     "regime volatility and usd_change thresholds remain unverified constants.",
     "The valuation bounds (-1.5, 3.0) are now direction gates rather than triggers, and the ranks (40/80) are still the SP-C.2 starting values from 41 days of observation. Neither has been re-derived from data.",
-    "Structure leg: measured in SP-C.17 and deliberately left alone. It is a rare-event detector (z = -2.04 on 7 days) and all three candidate replacements are indistinguishable from chance. Review when the non-DISCOUNT_DOMINANT count reaches 30. SP_C_HANDOFF.md section 28. REOPENED AS A QUESTION 2026-09-28 (section 34.6): all 14 non-DISCOUNT_DOMINANT rows fall before 13:00 Tehran, in the stale-dollar window, so the z = -2.04 separation may be mechanical. Count only current-dollar readings toward the review trigger, and re-run SP-C.17 with morning readings excluded as part of the 34.3 research.",
+    "Structure leg: measured in SP-C.17 and deliberately left alone. It is a rare-event detector (z = -2.04 on 7 days) and all three candidate replacements are indistinguishable from chance. Review when the non-DISCOUNT_DOMINANT count reaches 30. SP_C_HANDOFF.md section 28. REOPENED AS A QUESTION 2026-09-28 (section 34.6): all 14 non-DISCOUNT_DOMINANT rows fall before 13:00 Tehran, in the stale-dollar window, so the z = -2.04 separation may be mechanical. Count only current-dollar readings toward the review trigger, and re-run SP-C.17 with morning readings excluded as part of the 34.3 research. Revised 2026-09-29: it also fired at 19:01 and 19:10 on 09-28 on a current dollar, so split firings by dollar freshness in the re-measure rather than dropping mornings.",
     "News in ANALYZE: the stage-2 measurement was run on 2026-09-21 and says nothing -- all six event types show slightly LESS next-day movement, likely a calendar artifact. The blocker is a structural break, not sample size: four sources began 2026-09-21 and daily volume stepped 67 -> 219, so any volume rank compares two feeds. Re-run from about 2026-10-22, thirty days of a stable feed (stable from 2026-09-22, section 33.3), counting distinct dedup keys rather than rows. This is NOT the D gate's 2026-09-28. SP_C_HANDOFF.md section 28.5.",
     "BUCKET (added 2026-09-23 by the product owner): percentages beside the ANALYZE level counts. Agreed design after measurement, not the raw version: whole numbers (one reading is 0.7% of the sample, so a decimal implies resolution the data lacks); the distinct-day count printed beside the reading count (145 readings spanned only 25 local days, so the standard error on the 47% share is 10.0 pp by days against 4.3 pp by readings); and a 'close to even' line when the increased/decreased gap is under about two standard errors on the day count. At 3.13% the split was 47/43 -- 0.4 SE, a coin flip that a bare percentage would make look like a lean. At 2.29% it was 70/25 on 20 days, 4.5 SE, and that call came true at +1.68 pp. The later half of the idea -- how often the section was right, conditioned on the news at the time -- is calibration (z = +2.23 day level, needs about 171 independent days, we have 42) and news conditioning is two gates beyond that. SP_C_HANDOFF.md section 31. Re-measured 2026-09-25 (section 33.6): at 3.13% the lean reversed to 43/48 in two days, and at 2.29% the 70/25 split decayed to 57/38, about 1.9 SE -- the close-to-even line is stronger for it, and the level section is weaker as a forecast.",
     "Job-timeout stalls (section 33.2) -- DIAGNOSED 2026-09-27: whenever gold-api.com fails, the Kitco SSE fallback hangs the run (unending body, no stream=True, per-read timeout only), so goldprice.org, Yahoo and the DB fallback are never reached. Fix: stream=True with a total deadline and close, plus one shared deadline over get_world_gold_price in the SP-C.9 pattern. Owner decision 2026-09-27: first item of the post-merge reliability phase.",
@@ -308,7 +311,7 @@
     "goldbroker.com items are a median 26 days old when collected and kingworldnews about 2 days. Whether to keep them is a product call (section 33.3).",
     "6h outcome horizon lands in the overnight gap (bucket item 5 as of 2026-09-23, section 33.6).",
     "Morning dollar (section 34.3): USD/IRR input barely changes before ~11:00 Tehran (1 change in 39 readings at 07/09/10:00) while platforms reprice from early morning, so morning readings (5 of 16 scheduled runs a day) price today's gold on yesterday's dollar; the 10:00->13:00 USD step was >=0.9% on 5 of 14 days. Both premiums on record are most likely this. USD freshness is stored as always fresh ((now, now) in main.py). Research first: a second dollar source over more days, and the bias on the pool and ranks; then choose a remedy. Place in the post-merge order is the owner's call.",
-    "Daric (section 34.4): collector timing out since 2026-09-25; watch, and add to the reliability phase if it has not returned in a few days.",
+    "Daric (section 34.4): RESOLVED on their side 2026-09-28 15:01 Tehran; no action taken.",
     "News dedup, second gap (section 34.5): Google News appends ' - Publisher' to titles, so one story from two outlets hashes differently. Also classifier precision: war mentions in economic pieces get MILITARY_ESCALATION with impact HIGH -- fixing N2 (read impact) without a precision check would turn a constant zero into a noisy count."
   ],
   "corrections": [

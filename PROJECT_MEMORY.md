@@ -40,14 +40,14 @@ before reading any failure narrative below as live.**
 | datetime.now() against UTC-stored timestamps, 74 calls in 14 modules | 2026-09-21 | SP-C.16, section 27.3 |
 | Six constants for two tolerances, under four names | 2026-09-21 | SP-C.16, section 27.6 |
 | News classifier matched "us" inside base64 image tokens; 879 of 1441 mislabelled | 2026-09-21 | SP-C.16, section 27.5 |
-| structure_state is DISCOUNT_DOMINANT on 365 of 367 rows | **MEASURED, LEFT ALONE -- REOPENED AS A QUESTION 2026-09-28** | SP-C.17, section 28 -- a rare-event detector, not a dead leg; all three candidate replacements are within one standard error of chance. But all 14 firings sit before 13:00 Tehran, in the stale-dollar window, so the separation may be mechanical (section 34.6) |
+| structure_state is DISCOUNT_DOMINANT on 365 of 367 rows | **MEASURED, LEFT ALONE -- REOPENED AS A QUESTION 2026-09-28** | SP-C.17, section 28 -- a rare-event detector, not a dead leg; all three candidate replacements are within one standard error of chance. The firings up to 09-28 morning all sat before 13:00 Tehran, in the stale-dollar window, so part of the separation may be mechanical (section 34.6); it also fired at 19:01 and 19:10 on 09-28 on a current dollar, so the re-measure should split by dollar freshness |
 | News LLM classification path has never run | **OPEN** | SP-C.16, section 27.5 |
 | Three runs stalled at the 20-minute job timeout before their first write (09-24, 09-25 x2) | **DIAGNOSED, fix queued** | section 33.2 -- no partial rows; the Kitco SSE body never ends and is read without `stream=True`, so every gold-api.com failure hangs the run; fix leads the post-merge reliability phase |
 | News dedup looks back 24 h while feeds keep items for days; 330 of 2,294 rows re-inserted | **OPEN** | section 33.3 N1 -- live consumers unaffected, measurements must count distinct keys |
 | `high_impact_count` 0 on 268/268 snapshots; reads `relevance` for values only `impact` holds | **OPEN** | section 33.3 N2 -- interpretation layer only |
 | donya-e-eqtesad.com and tejaratnews.com unproven from a GitHub runner | 2026-09-27 | section 33.3 -- the two largest and freshest sources |
 | Morning readings priced on the previous day's dollar; both "premiums" on record (09-24, 09-28) most likely this | **OPEN, research first** | section 34.3 -- USD/IRR input barely moves before 11:00 Tehran while platforms reprice; USD freshness stored as always fresh |
-| Daric collector timing out since 09-25 | **WATCH** | section 34.4 -- isolated as designed; was in the cheapest three 19% of the time |
+| Daric collector timing out since 09-25 | 2026-09-28 (their side) | section 34.4 -- isolated as designed; returned at 15:01 on 09-28 with no change on ours (35.4) |
 | Google News " - Publisher" title suffix defeats title-hash dedup | **OPEN** | section 34.5 -- beside N1 |
 
 

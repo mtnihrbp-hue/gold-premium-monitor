@@ -60,7 +60,7 @@ pip install -r requirements.txt
 ```
 
 CI workflows (`.github/workflows/`):
-- `kpi-suite.yml` — full KPI suite + `compileall`, on SP-C pushes, PRs, and manual dispatch. Never given `DATABASE_URL`, so it cannot reach production Neon. Safe to run freely.
+- `kpi-suite.yml` — full KPI suite + `compileall`, on SP-C and SP-D pushes, PRs, and manual dispatch. Never given `DATABASE_URL`, so it cannot reach production Neon. Safe to run freely.
 - `gold-monitor.yml` — the live app (`src/main.py`). **Not sandboxed on any branch**: it uses repository secrets, so running it from a feature branch still writes to production Neon and sends real Telegram messages. Treat every run as production.
 - `test-task-c.yml` — runs two unit test files on manual dispatch.
 
@@ -261,4 +261,4 @@ Neon Postgres is the long-term historical store (`market_snapshots`, `platform_p
 
 ### Phase completion discipline
 
-A phase/task is not "done" on green tests alone. The full loop this repo expects: inspect → define change surface → implement minimally (surgical diffs only, no drive-by refactors) → targeted test → regression (prior KPIs + compileall) → KPI → Neon verification when applicable → diff review → update `PROJECT_MEMORY.md`/`MASTER_PLAN_STATUS.md`/`.project_state.json` as relevant → commit. Current branch policy: `main` is production. cron-job.org and the Telegram worker dispatch `ref: main` since 2026-09-28, when SP-C was merged (tag `v1.3safe` marks `main` before the merge; `SP_C_HANDOFF.md` §35). The next sprint, **SP-D**, branches from `main` when its code work begins; until then work is R&D and docs. Never commit to or merge into `main` without the product owner's review. When SP-D is created, add it to the `push` branches of `.github/workflows/kpi-suite.yml`, which currently lists only `SP-C`. Do not create a parallel long-lived branch without explicit direction.
+A phase/task is not "done" on green tests alone. The full loop this repo expects: inspect → define change surface → implement minimally (surgical diffs only, no drive-by refactors) → targeted test → regression (prior KPIs + compileall) → KPI → Neon verification when applicable → diff review → update `PROJECT_MEMORY.md`/`MASTER_PLAN_STATUS.md`/`.project_state.json` as relevant → commit. Current branch policy: `main` is production. cron-job.org and the Telegram worker dispatch `ref: main` since 2026-09-28, when SP-C was merged (tag `v1.3safe` marks `main` before the merge; `SP_C_HANDOFF.md` §35). The next sprint, **SP-D**, was branched from `main` on 2026-09-29. It carries R&D and docs until its code work opens on 2026-10-03, and all SP-D commits target it (`SP_C_HANDOFF.md` §36). Never commit to or merge into `main` without the product owner's review. Do not create a parallel long-lived branch without explicit direction.

@@ -3494,6 +3494,13 @@ All 14 non-DISCOUNT_DOMINANT rows on record fall before 13:00 Tehran:
 A reading priced on the previous day's dollar understates fair value, so it pushes
 platforms "above fair", which is exactly what this leg counts.
 
+> **Revised 2026-09-29.** The leg fired PREMIUM_DOMINANT at 19:01 and 19:10 Tehran on
+> 09-28, on a dollar input that had been updating hourly all afternoon. So "all firings
+> sit in the stale-dollar window" no longer holds. The narrower question stands: the
+> morning firings may still be artefacts, but the leg does fire on current-dollar
+> readings too. The SP-C.17 re-measure should split firings by dollar freshness rather
+> than simply dropping mornings.
+
 This reopens section 28 as a question, not a conclusion. SP-C.17 kept the leg because
 it separated at z = -2.04 on the days it fired. But a stale-dollar morning is followed,
 mechanically, by a deeper discount once the dollar updates, and that would produce the
@@ -3568,7 +3575,7 @@ history.
                                      hourly reading lost, no data affected
 14:11   /Analyze   main   success    the first production run on main
 14:12   /Update    main   success    the collecting path on main
-15:00   scheduled  main   -> see 35.4
+15:00   scheduled  main   success    the first scheduled run on main (35.4)
 ```
 
 `main` had no state cache left: caches unused for 7 days are evicted, and `main`
@@ -3596,3 +3603,51 @@ Everything in the order of 34.7 is carried into SP-D:
 The owner's direction on 2026-09-28: let the system settle on `main` first, and use the
 time for R&D on SP-D's scope. SP-D branches from `main` when its code work begins, and
 `kpi-suite.yml` must gain SP-D in its push branches at that point.
+
+### 35.4 The first day on main (2026-09-28 15:00 to 2026-09-29 09:00, Tehran)
+
+```text
+15:00   first scheduled ANALYZE on main -- success. Push armed=None (fresh state,
+        failing open), BELOW_FIRE. Sent the one extra daily recap, as expected
+        (35.2): EMAIL OK, TELEGRAM OK
+15:00-21:00, 06:00-09:00   every hourly run on main, all success
+06:00   09-29's first run: recap sent once, push armed=True, level 3.4996%
+user    /Update and /Analyze on main, all success
+```
+
+Daric returned at 15:01 on 09-28 (11 of 11 platforms), after four days of timeouts
+(34.4). Nothing was changed on our side, so the outage was on theirs.
+
+---
+
+## 36. SP-D: settle period and R&D (from 2026-09-29)
+
+Agreed by the owner on 2026-09-29:
+
+- SP-D's code work opens on **Saturday 2026-10-03**, after a settle period on `main`
+  with daily health checks and no code changes.
+- R&D starts with the **morning dollar** (34.3), because comparing mornings needs
+  several days of a second dollar source.
+- Order after that: 34.7.
+
+The `SP-D` branch was created from `main` on 2026-09-29 to hold R&D records and docs,
+and was added to `kpi-suite.yml`'s push branches. Where SP-D's narrative lives, this
+file or a new `SP_D_HANDOFF.md`, is for the owner to decide when code work opens.
+
+### 36.1 Morning dollar: first observation
+
+At 09:20 on 09-29, tgju.org's free-market dollar read 2,448,000 rial, which is its
+previous-day close, with no new open posted. bonbast read 244,800 Toman, the same rate.
+Neither source had a new dollar for the day yet. This supports the second reading in
+34.3: the currency market has not opened, rather than bonbast lagging a market that has.
+The consequence is the same either way, but the remedy differs. No source can supply a
+fresher morning dollar, so the choice is between:
+
+- marking pre-open readings with a provisional-dollar provenance;
+- keeping them out of the reference windows;
+- modelling an implied dollar from the platforms.
+
+The next R&D step is read-only: recompute each morning's stored premium with that
+day's first post-open dollar, then measure how far the readings shift and how many
+valuation ranks, states and structure firings would change.
+

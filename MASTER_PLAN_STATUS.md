@@ -450,6 +450,10 @@ Rollout (`SP_C_HANDOFF.md` section 29), state on 2026-09-27:
 4 broadcast   TELEGRAM_BROADCAST_IDS + audience per message type (section 29.3)
 ```
 
+SP-D: code work opens Saturday 2026-10-03, after a settle period on `main`; R&D
+starts with the morning dollar (agreed 2026-09-29, `SP_C_HANDOFF.md` section 36). The
+`SP-D` branch exists from 2026-09-29 for R&D records and docs.
+
 After the merge, in the order agreed on 2026-09-28 (section 34.7):
 
 ```text
