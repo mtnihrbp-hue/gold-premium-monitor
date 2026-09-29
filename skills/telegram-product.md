@@ -80,6 +80,21 @@ case.
 deterministic `final_decision`. A `Candidate: BUY` with `Final: WAIT` is not a BUY
 alert.
 
+**The BUY message** (`alerts/telegram_signal.py`, approved 2026-09-29) replaced the
+SP-A alert layout for BUY. The old layout printed the single-cheapest `Premium`, which
+contradicted UPDATE's three-cheapest basis, and it printed internal labels. The new
+message:
+
+- reuses UPDATE's helpers, so `Discount`, `Bigger than` and `Deep discount` carry the
+  same numbers as UPDATE;
+- says why (valuation, momentum, platforms) and what was checked (second platform,
+  dollar, world gold);
+- ends with "Decision support, not an instruction to trade."
+
+A CHEAP valuation is shown as **"heavily discounted"**, never "cheap": a large discount
+is not a cheap market (owner, 2026-09-29). SELL keeps the old layout until a SELL
+message is designed.
+
 ## Relative position
 
 Where a reading sits in its own recent distribution is reported as a rank, not as a

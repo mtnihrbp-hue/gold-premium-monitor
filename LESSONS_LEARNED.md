@@ -669,3 +669,37 @@ than the oldest age a source delivers, that source will repeat.
 **The fix that works.** Size the window from the input's retention rather than from
 intuition, or make the store enforce uniqueness, which needs no window at all. Until
 the fix lands, any measurement must count distinct keys, not rows.
+
+---
+
+## 18. The data depends on where you stand
+
+**The pattern.** A source serves different content to different clients: by country,
+by CDN edge, by request headers. The collector runs in one place and the people who
+verify it look from another, so every manual check passes while production reads
+something else.
+
+**Where it happened.** Taline's price page, behind Sotoon CDN, intermittently served
+GitHub's non-Iranian runners a copy up to a day old. From Iran it served the live
+price. In the same minute on 2026-09-29, five fetches from abroad returned 24,102,500
+and three from Iran returned 24,996,000. The stale value produced the first live BUY
+(`SP_C_HANDOFF.md` section 37). It had already happened once, on 2026-09-15 (section
+15.7: "one stale quote"), and was recorded as a structural weakness of the decision
+engine without the cause being found, because every check was made from Iran.
+
+**The measurement that exposes it.** Fetch from the collector's vantage point, not
+your own: run the real collector through a proxy that exits where the runner does (on
+this project, the Psiphon proxy) and compare with a local fetch in the same minute.
+In storage, look for a value that **returns** to one last seen hours earlier while the
+market has moved. A stale cache alternates between old copies; a live quote does not
+go back in time. Taline did so on 15.5% of readings; the other platforms on 2-9%.
+
+**The fix that works.** Two layers, because the source cannot be trusted to stay
+fixed:
+
+- **At the collector:** ask for a fresh copy (no-cache headers, a changing query
+  string). This is hardening, not proof, because the failure was intermittent.
+- **At the decision:** never let one source carry a recommendation alone. A BUY now
+  needs a second platform to confirm it (section 38). A defect at a boundary you do not
+  control is contained by a check you do control.
+

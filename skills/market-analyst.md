@@ -83,9 +83,16 @@ Valuation
 → Market Structure
 → Conflict
 → Candidate Decision
+→ Confirmation
 → Hysteresis
 → Final Decision
 ```
+
+Confirmation was added on 2026-09-29, with the owner's approval, after the first live
+BUY rested on one stale platform quote (`SP_C_HANDOFF.md` §37, §38). It does not change
+the matrix. It checks the evidence under a BUY/SELL candidate: a second platform
+confirms a discount, the dollar is today's, and world gold is live. It fails closed.
+A deep discount on one platform is not a market-wide opportunity.
 
 The conflict matrix is explicit and testable. Do not replace it with a weighted score without explicit approval.
 

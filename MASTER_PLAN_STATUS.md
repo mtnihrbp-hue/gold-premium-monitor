@@ -488,7 +488,7 @@ phase close.
 | Data foundation (prices, fair value, discount) | Solid: hourly, 11 platforms, stable on `main` | Morning dollar (about a third of readings off by 0.71 pp on average, SP_C_HANDOFF 34.3, 36.2); the Kitco hang (33.2); stale platform quotes such as Taline's (37) |
 | "Where does today sit" (the 12th-percentile part) | Done: rank against 30 days, one deep-discount level on every surface, scheduled-only sampling since the D gate | Nothing beyond the morning-dollar effect on the history |
 | "What happened next" (the 61% part) | Built (ANALYZE), statistics thin | About 44 independent days; the 09-25 re-measure reversed a lean in two days (33.6); percentages designed, not built (31) |
-| Decision engine | Repaired, working | First live BUY on 2026-09-29 rested on one stale platform (37); a confirmation check is needed before its alerts can be trusted; its verdict is deliberately not shown in UPDATE |
+| Decision engine | Repaired, working; confirmation check added 2026-09-29 | The first live BUY (2026-09-29) rested on one stale platform (37); fixed by a fail-closed confirmation check (38), under which all 4 BUYs ever sent would have been held. No confirmed BUY yet; its verdict is deliberately not shown in UPDATE |
 | Learning / confidence score | Early | The scorecard exists but has almost nothing to score; calibration needs about 171 independent days, so February 2027 at the earliest |
 | News | Collecting well (9 sources, about 420 a day) | No relationship to market moves found yet; classifier precision; re-measure from about 2026-10-22 |
 | Friends | Designed, not built | Broadcast (29.3); a per-user `/Update` needs requester identity (29.1) |

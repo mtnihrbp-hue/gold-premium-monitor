@@ -3694,8 +3694,9 @@ Next R&D steps:
 
 ## 37. The first live BUY, and why it was wrong (2026-09-29)
 
-Times are Tehran local. No code has changed yet: this section records the event, the
-diagnosis and the owner's decision. The design is awaiting approval (37.5, 37.6).
+Times are Tehran local. This section records the event, the diagnosis and the
+owner's decision. The design (37.5) and the message (37.6) were approved the same day
+and implemented in section 38.
 
 ### 37.1 What happened
 
@@ -3775,7 +3776,7 @@ This is section 15.7 item 1, "a single-vendor move is read as a market valuation
   whether the signal was checked.
 - **Record the goal assessment:** done, `MASTER_PLAN_STATUS.md` section 15a.
 
-### 37.5 Proposed fix (awaiting approval)
+### 37.5 Proposed fix (approved 2026-09-29, built in section 38)
 
 The SP-A conflict matrix stays unchanged (`skills/market-analyst.md`: no weighted score
 without approval). A **BUY confirmation check** sits between the candidate and the
@@ -3804,7 +3805,7 @@ Before merge the change needs:
   held;
 - the owner's review.
 
-### 37.6 BUY message (draft awaiting approval)
+### 37.6 BUY message (approved 2026-09-29, with one wording change, built in section 38)
 
 The redesign uses UPDATE's vocabulary: the same basis, labels and "Bigger than". It
 states the evidence and the checks, and ends with a decision-support disclaimer.
@@ -3818,4 +3819,121 @@ Nothing ships until the owner approves the preview.
   `news_events.url varchar(500)` (`StringDataRightTruncation`). This joins the
   reliability phase; it needs either truncation at the collector or a schema change,
   and a schema change goes through the Neon migration policy.
+
+---
+
+## 38. The confirmation check and the BUY message (hotfix on main, 2026-09-29)
+
+Times are Tehran local. This fixes the cause recorded in section 37, as the owner
+directed on 2026-09-29: "fix the cause", with a double check for anything odd. It also
+redesigns the BUY message. NEON MIGRATION REQUIRED = NO.
+
+### 38.1 Where it was built, and why there
+
+The owner's direction was that SP-D is for the next phase and anything found before
+2026-10-03 is fixed on `main`. `sprint-execution.md` forbids developing directly on
+`main`, and `branch-management.md` allows it only on explicit request. Both are met
+by a short-lived branch, `hotfix-signal-confirmation`:
+
+- cut from the SP-D tip, so SP-D's four docs and CI commits reach `main` with the fix;
+- tested in full;
+- fast-forwarded into `main` only after the owner's review.
+
+`kpi-suite.yml` now also runs on pushes to `main`.
+
+### 38.2 What changed
+
+```text
+src/analysis/confirmation.py     new: SignalConfirmation + resolve_signal_confirmation
+src/caluclator/signal_state.py   the gate between candidate and hysteresis; held_reason
+src/main.py                      resolves the checks (fails closed), passes them in,
+                                 routes a BUY to the new message, resolves the RUN
+                                 baseline for a scheduled BUY before the reading is saved
+src/alerts/telegram_signal.py    new: the BUY message, built from UPDATE's own helpers
+src/alerts/resend_mail.py        send_signal_email: the same text by email
+src/collector/taline.py          no-cache headers and a changing query string
+kpi/kpi_signal_confirmation.py   new: 22 behavioural assertions
+kpi/kpi_coherence.py             test_28, test_29 (cross-module)
+```
+
+The conflict matrix is untouched (`skills/market-analyst.md`: no weighted score without
+approval). SELL keeps its old message.
+
+### 38.3 Design decisions, and the evidence behind each
+
+- **Second platform, on its own record.** The second-cheapest platform's gap is ranked
+  against a 30-day window of second-cheapest gaps. It uses the same settled non-user
+  pool, the same `_percentile_of` and the same `classify_valuation`, including the
+  direction gate, as the valuation leg. Measured in 37.3: switching the basis alone
+  would not have held 09-29 (-3.08% ranks 36), and the gap between the cheapest and
+  second cheapest exceeds 1 pp on 20% of readings.
+- **BUY only.** A SELL rests on the cheapest platform already being above fair value
+  by the sell gate. The cheapest price is the conservative reading of a premium,
+  because every other platform is higher.
+- **The dollar rule is time-based, from measurement.** Strict "unchanged since last
+  evening" flagged only 20% of morning readings, because bonbast drifts slightly around
+  08:00 while the real update comes at 11:00-13:00 (34.3). The rule: not live before
+  11:00; between 11:00 and 13:00, live only if the rate has moved since the open; live
+  from 13:00, since a flat rate after 13:00 is a quiet day (Fridays, one Wednesday),
+  not a missing update. This applies to SELL too: an overnight dollar jump of 3%, which
+  09-29 came close to, would make a stale morning read as a premium.
+- **Fails closed.** A check that cannot run holds the signal. The push fails open
+  because its failure mode is silence about a measurement; a BUY is a recommendation.
+- **The candidate survives.** A held BUY stays `candidate_decision = BUY`, `final = WAIT`.
+  The stored reason reads "BUY held: <why>", and a held candidate never reaches
+  hysteresis, so it cannot start a cooldown for an alert that was not sent.
+
+### 38.4 Verified
+
+```text
+kpi_signal_confirmation.py    22/22   gate, fail-closed, 09-29 replayed and held, broad
+                                      discount confirmed, user rows and the unsettled day
+                                      excluded, the direction gate, the dollar rule at
+                                      09:31 / 11:31 / 12:31 / 13:31, message wording,
+                                      Taline's request headers (transport substituted)
+kpi_coherence.py              27/27   + test_28 (one classifier, one pool), test_29 (main
+                                      always confirms; BUY goes through its own message)
+full suite                    27/27 files, runner exit 0; compileall PASS; main imports
+Taline, hardened              the same live price from Iran and from abroad (25,045,500)
+unit tests (src/tests, tests) identical results on this branch and on main (see 38.6)
+```
+
+**Replay against production.** Read-only SQL over every BUY candidate on record,
+applying the three checks as of each reading's own day:
+
+```text
+BUY candidates on record          133
+would pass all checks              37   (28% -- selective, not prohibitive)
+held by the second platform        87   (mostly from the old leg that read CHEAP on
+                                         every reading)
+held only by the dollar             9
+held only by world gold             0
+BUYs ever sent (final)              4   09-18 15:01, 09-19 15:00, 09-20 18:01, 09-29 14:01
+... that would pass                 0   all four held by the second platform
+```
+
+### 38.5 The BUY message (as built)
+
+The draft from 37.6, with the owner's wording: "Heavily discounted for its own record",
+not "Cheap". It reuses UPDATE's helpers for Discount / from the N cheapest / Bigger than
+/ Deep discount / the move, its cheapest-three list and its price format. The move line
+says "in the last hour" when the baseline is 45-75 minutes old, and "since HH:MM"
+otherwise. The footer: "History at this level: /Analyze", "Decision support, not an
+instruction to trade.", and "No repeat BUY signal before <time>". Email carries the same
+text.
+
+### 38.6 Found while verifying, not fixed here
+
+- `kpi_coherence.test_27` ("no KPI reaches the live network") has never been able to
+  fail. It searches `_code()` output for `get_invi_price(`, but `_code` keeps one token
+  per line, so a call reads `get_invi_price
+(`. The plain form was found in no KPI
+  file; the token form was. Test_28 and test_29 use the token form.
+- `tests/test_signal_state.py` fails to import `evaluate_valuation`, which SP-C.15
+  removed.
+- `src/tests/test_signal_state.py::test_hysteresis_cooldown_same_alert` fails on `main`
+  too. It predates the SP-C.6 cooldown.
+
+CI runs only the KPI suite, which is how these went unnoticed. All three join the
+reliability phase.
 

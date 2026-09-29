@@ -42,7 +42,7 @@ python tests/test_momentum.py
 python kpi/kpi_pre_sp_c14c.py
 ```
 
-Run the entire KPI suite (26 files) — this is the regression check before calling any phase complete:
+Run the entire KPI suite (27 files) — this is the regression check before calling any phase complete:
 ```
 python kpi/run_all.py
 ```
@@ -60,7 +60,7 @@ pip install -r requirements.txt
 ```
 
 CI workflows (`.github/workflows/`):
-- `kpi-suite.yml` — full KPI suite + `compileall`, on SP-C and SP-D pushes, PRs, and manual dispatch. Never given `DATABASE_URL`, so it cannot reach production Neon. Safe to run freely.
+- `kpi-suite.yml` — full KPI suite + `compileall`, on `main`, SP-C and SP-D pushes, PRs, and manual dispatch. Never given `DATABASE_URL`, so it cannot reach production Neon. Safe to run freely.
 - `gold-monitor.yml` — the live app (`src/main.py`). **Not sandboxed on any branch**: it uses repository secrets, so running it from a feature branch still writes to production Neon and sends real Telegram messages. Treat every run as production.
 - `test-task-c.yml` — runs two unit test files on manual dispatch.
 
@@ -235,7 +235,26 @@ READ MODEL ≠ DECISION AUTHORITY
 PREDICTION ≠ FACTS / EVIDENCE / INTERPRETATION / FEATURES
 ```
 
-`final_decision` (from the SP-A pipeline: Valuation → Premium Direction → Momentum → Market Structure → Conflict Matrix → Candidate Decision → SP-A Hysteresis → Final Decision) is the sole external BUY/SELL alert authority — legacy/candidate signals must never independently trigger an alert.
+`final_decision` (from the SP-A pipeline: Valuation → Premium Direction → Momentum → Market Structure → Conflict Matrix → Candidate Decision → Confirmation → SP-A Hysteresis → Final Decision) is the sole external BUY/SELL alert authority — legacy/candidate signals must never independently trigger an alert.
+
+### Signal confirmation
+
+Added 2026-09-29, after the first live BUY rested on one stale platform quote
+(`SP_C_HANDOFF.md` §37, §38). `analysis/confirmation.resolve_signal_confirmation` is
+checked between the candidate and hysteresis; the conflict matrix itself is unchanged.
+A BUY needs the **second-cheapest platform** to be heavily discounted on its own settled
+30-day record, judged by `classify_valuation` over `reference_readings`, the same
+classifier and pool as the valuation leg (`kpi_coherence.test_28`). Any signal needs the
+**dollar rate to be today's** (not live before 11:00 Tehran; between 11:00 and 13:00 only
+if it has moved since the open; live from 13:00) and **world gold to be live**. A held
+candidate stays recorded as the candidate, `final_decision` becomes WAIT, and the stored
+reason says why.
+
+It **fails closed**: a check that cannot run holds the signal. That is deliberate and
+the opposite of the push, which fails open. A BUY is a recommendation and must be able
+to show its evidence. Do not make it fail open to "unblock" signals. A BUY that reaches
+the reader goes through `alerts/telegram_signal.py`, which reuses UPDATE's helpers and
+prints "heavily discounted", never "cheap".
 
 LLM/intelligence layers may summarize, interpret, and express uncertainty over already-validated evidence; they must never calculate fair price/premium/indicators, invent levels or stats, or acquire independent BUY/SELL authority.
 
@@ -261,4 +280,4 @@ Neon Postgres is the long-term historical store (`market_snapshots`, `platform_p
 
 ### Phase completion discipline
 
-A phase/task is not "done" on green tests alone. The full loop this repo expects: inspect → define change surface → implement minimally (surgical diffs only, no drive-by refactors) → targeted test → regression (prior KPIs + compileall) → KPI → Neon verification when applicable → diff review → update `PROJECT_MEMORY.md`/`MASTER_PLAN_STATUS.md`/`.project_state.json` as relevant → commit. Current branch policy: `main` is production. cron-job.org and the Telegram worker dispatch `ref: main` since 2026-09-28, when SP-C was merged (tag `v1.3safe` marks `main` before the merge; `SP_C_HANDOFF.md` §35). The next sprint, **SP-D**, was branched from `main` on 2026-09-29. It carries R&D and docs until its code work opens on 2026-10-03, and all SP-D commits target it (`SP_C_HANDOFF.md` §36). Never commit to or merge into `main` without the product owner's review. Do not create a parallel long-lived branch without explicit direction.
+A phase/task is not "done" on green tests alone. The full loop this repo expects: inspect → define change surface → implement minimally (surgical diffs only, no drive-by refactors) → targeted test → regression (prior KPIs + compileall) → KPI → Neon verification when applicable → diff review → update `PROJECT_MEMORY.md`/`MASTER_PLAN_STATUS.md`/`.project_state.json` as relevant → commit. Current branch policy: `main` is production. cron-job.org and the Telegram worker dispatch `ref: main` since 2026-09-28, when SP-C was merged (tag `v1.3safe` marks `main` before the merge; `SP_C_HANDOFF.md` §35). The next sprint, **SP-D**, was branched from `main` on 2026-09-29. SP-D is for the next phase, whose code work opens on 2026-10-03 (`SP_C_HANDOFF.md` §36). Until then, by the owner's direction of 2026-09-29, anything found is fixed **on `main`**, through a short-lived branch cut from `main` and fast-forwarded after the owner's review (`sprint-execution.md`: never develop directly on `main`). The first was `hotfix-signal-confirmation` (§38). Never commit to or merge into `main` without the product owner's review. Do not create a parallel long-lived branch without explicit direction.

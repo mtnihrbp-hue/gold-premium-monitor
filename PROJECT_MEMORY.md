@@ -49,8 +49,10 @@ before reading any failure narrative below as live.**
 | Morning readings priced on the previous day's dollar; both "premiums" on record (09-24, 09-28) most likely this | **OPEN, research first** | section 34.3 -- USD/IRR input barely moves before 11:00 Tehran while platforms reprice; USD freshness stored as always fresh |
 | Daric collector timing out since 09-25 | 2026-09-28 (their side) | section 34.4 -- isolated as designed; returned at 15:01 on 09-28 with no change on ours (35.4) |
 | Google News " - Publisher" title suffix defeats title-hash dedup | **OPEN** | section 34.5 -- beside N1 |
-| First live BUY (2026-09-29 14:01) rested on one stale platform quote; Taline's page is intermittently served stale to non-Iranian clients | **OPEN, fix designed, awaiting approval** | section 37 -- a BUY confirmation check between candidate and final, plus collector hardening; section 15.7 item 1 made live |
-| BUY alert uses the old SP-A layout: single-cheapest premium contradicts UPDATE, raw internal labels | **OPEN, redesign awaiting approval** | section 37.4, 37.6 |
+| First live BUY (2026-09-29 14:01) rested on one stale platform quote; Taline's page is intermittently served stale to non-Iranian clients | 2026-09-29 (hotfix on main) | sections 37, 38 -- a confirmation check between candidate and hysteresis (second platform confirms; dollar is today's; world gold live), failing closed; Taline collector hardened; replay: all 4 BUYs ever sent would have been held. Section 15.7 item 1 is closed by it |
+| BUY alert uses the old SP-A layout: single-cheapest premium contradicts UPDATE, raw internal labels | 2026-09-29 (hotfix on main) | section 38.5 -- `alerts/telegram_signal.py`, UPDATE's helpers, "heavily discounted"; SELL keeps the old layout |
+| `kpi_coherence.test_27` can never fail: it searches `_code()` output for `name(`, which `_code` splits into tokens | **OPEN** | section 38.6 -- reliability phase |
+| Two stale unit tests fail on `main` (`tests/test_signal_state.py` import; `test_hysteresis_cooldown_same_alert`); CI runs only the KPI suite | **OPEN** | section 38.6 -- reliability phase |
 | Google News URLs over 500 characters fail to save (`news_events.url varchar(500)`) | **OPEN** | section 37.7 -- 7 items on 2026-09-29 14:00 |
 
 
