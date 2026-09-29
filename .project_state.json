@@ -59,7 +59,7 @@
     ],
     "in_progress": [
       "SP-D settle period on main (agreed 2026-09-29): daily health checks, no code changes; code work opens Saturday 2026-10-03.",
-      "Morning-dollar R&D (first in the R&D order): tgju and bonbast both still showed the previous day's close at 09:20 on 09-29, supporting 'the currency market has not opened' over 'bonbast lags'. Next: recompute morning premiums with each day's first post-open dollar and measure the shift in readings, ranks, states and structure firings. SP_C_HANDOFF.md section 36.1."
+      "Morning-dollar R&D: on 09-29 at 09:20, tgju and bonbast both still showed the previous close, which supports 'the market has not opened'. Measured (36.2): recomputing the 68 morning readings of 09-15 to 09-28 with each day's 13:00 dollar shifts them by 0.71 pp on average (max 2.83), 53% by 0.5 pp or more, and removes the one stored premium and all 6 morning majority-above-fair structure readings. Next: effect on pool, thresholds and ranks; a collection-time stale-dollar test; then remedy options."
     ],
     "not_wired": "decision_scorecard is computed but unwired. It is admin-facing and has nothing to report while every recorded decision is WAIT.",
     "decision_trigger_finding": "Forward 24h return changes sign near the 40th percentile in 41 days of data. Never hardcoded; the reference recomputes every run.",

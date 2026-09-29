@@ -3651,3 +3651,42 @@ The next R&D step is read-only: recompute each morning's stored premium with tha
 day's first post-open dollar, then measure how far the readings shift and how many
 valuation ranks, states and structure firings would change.
 
+### 36.2 Morning dollar: how far the morning readings move
+
+The measurement is read-only. It takes every scheduled reading from 06:00 to 10:00 Tehran,
+09-15 to 09-28, and recomputes its stored premium with that day's 13:00 dollar in place
+of the morning one, using `fair x usd13 / usd_morning`, while platform prices stay as
+stored:
+
+```text
+morning readings                    68
+mean shift                          -0.49 pp   (the dollar rose over the period, so
+                                                corrected discounts are deeper)
+mean absolute shift                  0.71 pp
+largest shift                        2.83 pp
+shifted by 0.5 pp or more           36 of 68  (53%)
+shifted by 1 pp or more             14 of 68  (21%)
+readings above fair value            1 stored  ->  0 corrected
+majority of platforms above fair     6 stored  ->  0 corrected
+```
+
+- **The error is as large as the signal.** A mean error of 0.71 pp is close to the
+  typical *daily* move of 0.85 pp that SP-C.1 measured. So on an average morning, the
+  error in the reading is about as large as a whole day's real movement.
+- **Every morning "premium" and every morning structure firing disappears** once the
+  dollar is current. This supports 34.3 and 34.6 for the morning cases. The evening
+  firings (34.6, revised) are not affected by this correction.
+- **Limits.** The 13:00 dollar is a proxy, not the morning truth: it includes any real
+  move between the open and 13:00. On 09-28, tgju's narrow day range (2,404,600 to
+  2,410,200) says that move was small against the overnight gap. On some days the
+  input updates only at 12:00 or 13:00, so readings at 11:00 and 12:00 can also be
+  stale; they are not in this count.
+
+Next R&D steps:
+
+- measure what the corrected mornings do to the 30-day pool, the CHEAP threshold, the
+  deep-discount level and the ranks;
+- define a stale-dollar test that can be applied at collection time (for example: the
+  USD value equals the previous evening's last value, before a set hour);
+- then put remedy options to the owner.
+
