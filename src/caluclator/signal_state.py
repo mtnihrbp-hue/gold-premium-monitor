@@ -48,6 +48,9 @@ class SignalState:
     candidate_decision: str = "UNKNOWN"
     final_decision: str = "UNKNOWN"
     reason: str = ""
+    # Why the confirmation check held a BUY/SELL candidate, in plain words. Empty when
+    # nothing was held.
+    held_reason: str = ""
 
     # Meta
     timestamp: datetime = field(default_factory=datetime.now)
@@ -65,6 +68,7 @@ def build_signal_state(
     snapshot_id: int = 0,
     last_alert_at: Optional[datetime] = None,
     valuation: Optional[str] = None,
+    confirmation=None,
 ) -> SignalState:
     """Orchestrate the full signal state pipeline.
 
@@ -90,6 +94,13 @@ def build_signal_state(
             ranking needs the window, the window needs a session, and a calculator
             must not open one. There is deliberately no fixed-threshold fallback: a
             fallback that always answers is exactly how this leg became a constant.
+        confirmation: the checks a BUY/SELL candidate must pass before it may become
+            final, from `analysis.confirmation.resolve_signal_confirmation`. Passed in
+            for the same reason as `valuation`. It is read through one method,
+            `held_reason(side)`, so this module does not import the analysis layer.
+            None means no confirmation was supplied and the gate is skipped; the
+            production caller always supplies one, and supplies a failed one when the
+            checks cannot run (SP_C_HANDOFF.md section 38).
 
     Returns:
         fully populated SignalState
@@ -108,8 +119,18 @@ def build_signal_state(
     # Conflict
     conflict, candidate = evaluate_conflict(valuation, momentum, structure)
 
+    # Confirmation gate, between the candidate and hysteresis. A held candidate stays
+    # recorded as the candidate -- CANDIDATE != FINAL -- and never reaches hysteresis,
+    # so it cannot start a cooldown for an alert that was not sent.
+    held_reason = ""
+    confirmed = candidate
+    if confirmation is not None and candidate in ("BUY", "SELL"):
+        held_reason = confirmation.held_reason(candidate) or ""
+        if held_reason:
+            confirmed = "WAIT"
+
     # Hysteresis gate
-    final = apply_hysteresis(candidate, last_alert, thresholds, last_alert_at=last_alert_at)
+    final = apply_hysteresis(confirmed, last_alert, thresholds, last_alert_at=last_alert_at)
 
     # Human-readable reason
     reason = build_reason(
@@ -121,7 +142,9 @@ def build_signal_state(
     )
 
     # SP-A STABILIZATION: explain when candidate differs from final
-    if candidate != final:
+    if held_reason:
+        reason += f" {candidate} held: {held_reason}."
+    elif candidate != final:
         if candidate in ("BUY", "SELL") and final == "WAIT":
             reason += " Candidate conditions are met, but the transition is not yet confirmed by hysteresis."
         else:
@@ -145,6 +168,7 @@ def build_signal_state(
         candidate_decision=candidate,
         final_decision=final,
         reason=reason,
+        held_reason=held_reason,
         timestamp=datetime.utcnow(),
         snapshot_id=snapshot_id,
     )

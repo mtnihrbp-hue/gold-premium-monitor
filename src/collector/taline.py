@@ -1,4 +1,6 @@
 import re
+import time
+
 import requests
 from bs4 import BeautifulSoup
 
@@ -26,9 +28,15 @@ def parse_price(text: str) -> float:
 
 
 def get_taline_price():
+    # The page sits behind a CDN that, on 2026-09-29, served GitHub's non-Iranian
+    # runners copies up to a day old while serving Iran the live price (SP_C_HANDOFF.md
+    # section 37.2). Ask for a fresh copy explicitly. The stale copies were
+    # intermittent, so this is hardening rather than a proven cure; the confirmation
+    # check in analysis/confirmation.py is what stops a stale price from alerting.
     response = requests.get(
         URL,
-        headers=HEADERS,
+        headers={**HEADERS, "Cache-Control": "no-cache", "Pragma": "no-cache"},
+        params={"_": int(time.time())},
         timeout=10,
     )
     response.raise_for_status()

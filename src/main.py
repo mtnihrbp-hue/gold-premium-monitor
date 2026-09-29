@@ -15,7 +15,10 @@ from caluclator.trends import get_trend_summary, get_market_spread
 from caluclator.momentum import build_momentum_context
 from persistence.state import load_state, save_state
 
-from alerts.resend_mail import send_daily_recap as send_email_recap, send_alert as send_email_alert
+from alerts.resend_mail import send_daily_recap as send_email_recap, send_alert as send_email_alert, send_signal_email
+from alerts.telegram_signal import build_buy_signal_message, send_buy_signal
+from analysis.confirmation import SignalConfirmation, resolve_signal_confirmation
+from caluclator.signals import DEFAULT_COOLDOWN_HOURS
 from alerts.telegram import (
     send_alert as send_telegram_alert,
     send_manual_update as send_telegram_manual,
@@ -111,6 +114,56 @@ def _resolve_decision_valuation(premium, thresholds):
     except Exception as e:
         print(f"Decision valuation failed, abstaining: {e}")
         return DecisionValuation(premium=premium)
+
+
+def _resolve_signal_confirmation(markets, fair, usd, world_from_fallback, thresholds):
+    """The checks a BUY/SELL candidate must pass, or a failed set.
+
+    Fails closed, unlike the valuation leg's abstention and the push's fail-open: a
+    check that cannot run holds the signal, because a recommendation that cannot show
+    its evidence must not be sent (SP_C_HANDOFF.md section 38).
+    """
+    session = get_session()
+    if session is None:
+        return SignalConfirmation(world_live=not world_from_fallback, status="NO_SESSION")
+    try:
+        return resolve_signal_confirmation(session, markets, fair, usd,
+                                           world_from_fallback, thresholds)
+    except Exception as e:
+        print(f"Signal confirmation failed, holding any signal: {e}")
+        return SignalConfirmation(world_live=not world_from_fallback, status="ERROR")
+    finally:
+        session.close()
+
+
+def _send_buy_signal(markets, fair, premium, signal_state, confirmation, baselines,
+                     thresholds):
+    """Resolve UPDATE's presentation values for this reading and send the BUY message.
+
+    Telegram and email are isolated from each other, as every other alert path is.
+    """
+    run_premium = baselines.run.premium_percent if baselines and baselines.run else None
+    run_elapsed_hours = None
+    if baselines and baselines.run and baselines.run.timestamp:
+        run_elapsed_hours = (datetime.utcnow() - baselines.run.timestamp).total_seconds() / 3600.0
+    _, _, _, valuation = _resolve_presentation_context(
+        premium, run_premium, markets=markets, fair=fair,
+        run_basis_gap=_basis_change(markets, fair, baselines),
+        run_elapsed_hours=run_elapsed_hours,
+    )
+    text = build_buy_signal_message(
+        fair=fair, markets=markets, signal_state=signal_state, confirmation=confirmation,
+        valuation=valuation, baselines=baselines,
+        cooldown_hours=thresholds.get("cooldown_hours", DEFAULT_COOLDOWN_HOURS),
+    )
+    try:
+        send_signal_email("GOLDPremium: BUY SIGNAL", text)
+    except Exception as e:
+        print(f"ERROR: Email BUY signal failed: {e}")
+    try:
+        send_buy_signal(text)
+    except Exception as e:
+        print(f"ERROR: Telegram BUY signal failed: {e}")
 
 
 def _build_valuation_context(premium, markets=None, fair=None, thresholds=None):
@@ -483,10 +536,21 @@ def main():
     # conflict matrix abstain -- never a guess, and never the old constant.
     decision_valuation = _resolve_decision_valuation(premium, thresholds)
 
-    signal_state = build_signal_state(premium=premium, fair_price=fair, lowest_price=lowest, markets=markets, previous_premium=previous_premium, thresholds=thresholds, last_alert=last_alert, snapshot_id=0, last_alert_at=_last_alert_time(state), valuation=decision_valuation.state)
+    # Checked before a BUY/SELL candidate may become final: a second platform confirms
+    # a discount, the dollar is today's, and world gold is live. Resolved here for the
+    # same reason as the valuation leg -- it needs a session.
+    confirmation = _resolve_signal_confirmation(markets, fair, usd, world_from_fallback, thresholds)
+
+    signal_state = build_signal_state(premium=premium, fair_price=fair, lowest_price=lowest, markets=markets, previous_premium=previous_premium, thresholds=thresholds, last_alert=last_alert, snapshot_id=0, last_alert_at=_last_alert_time(state), valuation=decision_valuation.state, confirmation=confirmation)
     print(f"Valuation: {decision_valuation.state} "
           f"(rank {decision_valuation.percentile}, n={decision_valuation.sample_size}, "
           f"status={decision_valuation.status})")
+    print(f"Confirmation: second={confirmation.second_platform} "
+          f"rank={confirmation.second_percentile} confirms={confirmation.second_confirms} "
+          f"dollar_live={confirmation.dollar_live} world_live={confirmation.world_live} "
+          f"status={confirmation.status}")
+    if signal_state.held_reason:
+        print(f"HELD: {signal_state.candidate_decision} -- {signal_state.held_reason}")
     signal = None
     if signal_state.final_decision in ("BUY", "SELL"):
         signal = {"signal": signal_state.final_decision, "new_alert_type": signal_state.final_decision, "reason": signal_state.reason or f"Final decision: {signal_state.final_decision}."}
@@ -504,7 +568,10 @@ def main():
         print(f"Momentum/Directions build failed: {e}")
 
     baselines = None
-    if not is_scheduled:
+    # A scheduled BUY needs the RUN baseline too, for its message's move line. Resolved
+    # here, before this reading is saved, so the baseline is the previous scheduled
+    # reading rather than this one.
+    if not is_scheduled or signal_state.final_decision == "BUY":
         try:
             baselines = resolve_update_baselines(current_platform_avg=signal_state.platform_average, current_premium=premium)
             print(f"UPDATE baselines: RUN={'OK' if baselines.run else 'N/A'} DAY={'OK' if baselines.day else 'N/A'}")
@@ -569,7 +636,9 @@ def main():
         save_state(state)
 
     should_send_alert = bool(signal and signal["signal"] in ("BUY", "SELL") and email_cfg.get("send_alerts", True))
-    if should_send_alert:
+    if should_send_alert and signal["signal"] == "BUY":
+        _send_buy_signal(markets, fair, premium, signal_state, confirmation, baselines, thresholds)
+    elif should_send_alert:
         try:
             send_email_alert(signal, world, usd, fair, lowest, premium, markets, trends=trends, momentum=momentum, previous_markets=previous_markets, signal_state=signal_state)
         except Exception as e:

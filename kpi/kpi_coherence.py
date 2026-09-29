@@ -604,6 +604,34 @@ class KPICoherence(unittest.TestCase):
         self.assertEqual(offenders, [],
                          "a KPI calls a collector without substituting its transport")
 
+    def test_28_the_second_platform_is_judged_by_the_valuation_classifier(self):
+        """The confirmation check ranks the second-cheapest platform, and it must say
+        "heavily discounted" by exactly the rule the valuation leg uses: the one
+        classifier, the one percentile helper, the one settled non-user pool. A
+        second copy of any of the three is how `Deep discount` came to mean two
+        numbers (SP_C_HANDOFF.md sections 24 and 38)."""
+        # `_code` keeps one token per line, so a call is matched as its tokens.
+        body = _code(SRC / "analysis" / "confirmation.py")
+        for shared in ("classify_valuation", "_percentile_of", "reference_readings"):
+            self.assertIn(f"{shared}\n(", body, f"confirmation no longer calls {shared}")
+        for name in ("classify_valuation", "_percentile_of", "reference_readings"):
+            self.assertNotIn(f"def\n{name}", body, f"confirmation defines its own {name}")
+        for constant in ("CHEAP_PERCENTILE", "MIN_OBSERVATIONS", "DEFAULT_WINDOW_DAYS"):
+            self.assertNotIn(f"\n{constant}\n=\n", body,
+                             f"confirmation restates {constant} instead of importing it")
+
+    def test_29_every_signal_passes_through_confirmation(self):
+        """A BUY/SELL candidate reaches the final decision only through the
+        confirmation check, and a BUY reaches the reader only through its own
+        message. The first live BUY (2026-09-29) was sent on one stale quote because
+        nothing stood between the candidate and the alert (SP_C_HANDOFF.md 37)."""
+        body = _code(SRC / "main.py")
+        self.assertIn("_resolve_signal_confirmation\n(", body)
+        self.assertIn("confirmation\n=\nconfirmation", body,
+                      "main builds the decision without its confirmation")
+        self.assertIn("_send_buy_signal\n(", body,
+                      "a BUY no longer reaches the reader through its own message")
+
     # -- 6. the register must stay honest -------------------------------------
 
     def test_30_every_accepted_divergence_names_both_sides_and_a_reason(self):

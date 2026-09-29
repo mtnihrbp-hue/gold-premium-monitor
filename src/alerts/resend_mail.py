@@ -35,6 +35,18 @@ def _send(subject: str, html: str):
         print(f"EMAIL ERROR: {e}")
 
 
+def send_signal_email(subject: str, text: str):
+    """A Telegram signal message, sent as-is by email.
+
+    Both channels carry one message rather than two layouts of the same signal. The
+    Telegram text uses only <b>, <i> and line breaks, which render the same in HTML
+    once whitespace is preserved.
+    """
+    html = ('<div style="font-family:Menlo,Consolas,monospace;white-space:pre-wrap;'
+            'max-width:650px;">' + text + "</div>")
+    _send(subject, html)
+
+
 def _trend_block_html(trends):
     """Optional trend block for email HTML."""
     lines = format_trend_lines(trends)
