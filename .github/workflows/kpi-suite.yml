@@ -8,6 +8,7 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - main
       - SP-C
       - SP-D
   pull_request:
