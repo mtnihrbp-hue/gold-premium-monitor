@@ -3937,3 +3937,52 @@ text.
 CI runs only the KPI suite, which is how these went unnoticed. All three join the
 reliability phase.
 
+### 38.7 Taline itself: fixed at validation, before the merge
+
+The owner asked (2026-09-29): is Taline corrupting the whole system? Fix it before
+pushing.
+
+**How much of the record it touched.** Taline has appeared in 597 of 600 readings
+since 2026-08-04, as the cheapest platform in 66 (11%) and among the three cheapest in
+383 (64%). Under the rule below, **17 of 600 readings (2.8%) carried a stale copy**:
+
+- it changed the stored discount in 14 of them and the displayed discount in 16, by at
+  most 1.15 pp;
+- only 2 sit in the current 30-day window;
+- cleaning them moves neither the deep-discount level (3.500%) nor the CHEAP threshold
+  (-3.527%).
+
+So it did not corrupt the system's levels. It corrupted individual readings, which is
+exactly how it produced the false BUY.
+
+**No live source exists.** Taline's page is rendered on the server and cached by the
+CDN. Its only script call is a reader poll (`tlyn_vote`). Its price API,
+`/wp-json/price/v1/data`, accepts POST only and returns 401 without authentication,
+which we will not work around. `api.taline.ir` returns 403 and `app.taline.ir` does
+not answer.
+
+**The fix.** `validation/data.validate_market_prices` discards a quote from a platform
+in `STALE_PRONE_PLATFORMS` (Taline) when it sits more than
+`MAX_DEVIATION_FROM_OTHERS_PCT` = 1.0% from the median of the other valid platforms,
+on either side:
+
+- It needs at least 3 others; with fewer, the quote is kept.
+- The threshold is measured: Taline sits within -0.64% .. +0.25% of the others' median
+  on 90% of 293 readings, and its stale copies sat 1.0-3.6% away.
+- A discarded quote is treated exactly as a failed collector: it is not stored, not in
+  the basis, not in the stored premium, and not in structure.
+- Only Taline is checked. Its source is the proven problem, and a genuinely cheap
+  platform elsewhere is information; what one cheap platform may trigger is the
+  confirmation check's job (38.3).
+- KPI: test_23 to test_27 (the 09-29 prices, a quote in line with the market, a stale
+  copy above the market, too few others, and other platforms untouched).
+
+**History is not rewritten.** The stored readings are the record of what the system saw
+and decided, the levels do not move, and the stale readings age out of the 30-day
+window by about 2026-10-29. A rewrite would also have to reach the copies of
+`premium_percent` in `analysis_snapshots` and `outcome_evaluations`. Available on
+request.
+
+**Also found:** `validation/data.MAX_WORLD_GOLD` = $5,000 per ounce, with gold at about
+$4,150, only about 17% below it. A rally past it would reject every world-gold quote.
+Reliability phase.

@@ -699,6 +699,9 @@ fixed:
 
 - **At the collector:** ask for a fresh copy (no-cache headers, a changing query
   string). This is hardening, not proof, because the failure was intermittent.
+- **At validation:** where no fresh source exists, check the source against its
+  peers. A Taline quote more than 1.0% from the other platforms' median is discarded
+  for that reading (section 38.7); normally it sits within about 0.6%.
 - **At the decision:** never let one source carry a recommendation alone. A BUY now
   needs a second platform to confirm it (section 38). A defect at a boundary you do not
   control is contained by a check you do control.

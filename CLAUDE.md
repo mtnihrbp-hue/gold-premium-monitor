@@ -256,6 +256,12 @@ to show its evidence. Do not make it fail open to "unblock" signals. A BUY that 
 the reader goes through `alerts/telegram_signal.py`, which reuses UPDATE's helpers and
 prints "heavily discounted", never "cheap".
 
+Taline's price is read from a web page that its CDN can serve stale, up to a day old,
+to the non-Iranian runners (§37.2). There is no public live source, so
+`validation/data.validate_market_prices` discards a Taline quote more than 1.0% from the
+other platforms' median for that reading (§38.7). Do not widen that check to other
+platforms without evidence: a genuinely cheap platform is information.
+
 LLM/intelligence layers may summarize, interpret, and express uncertainty over already-validated evidence; they must never calculate fair price/premium/indicators, invent levels or stats, or acquire independent BUY/SELL authority.
 
 Fail-safe law used throughout collection/analysis: on missing data, use a safe deterministic fallback with degraded provenance if one exists, otherwise return `INSUFFICIENT_DATA`/`ABSTAIN` — never silently extrapolate.
