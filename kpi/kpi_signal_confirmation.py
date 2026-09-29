@@ -25,6 +25,10 @@ Load-bearing properties, each asserted below:
 - **The 09-29 case is held**, replayed from the production prices of that minute.
 - **The message says "heavily discounted", never "cheap"**, and prints no internal
   label, by product decision on 2026-09-29.
+- **A stale Taline quote never enters a calculation.** Validation discards a Taline
+  price more than 1.0% from the other platforms' median, on either side, and only
+  Taline's: its source is the proven problem, and a genuinely cheap platform elsewhere
+  is information.
 """
 
 import inspect
@@ -407,6 +411,40 @@ class KPISignalConfirmation(unittest.TestCase):
         gate = source.index("held_reason(candidate)")
         hysteresis = source.index("apply_hysteresis(")
         self.assertLess(gate, hysteresis, "a held candidate must never reach hysteresis")
+
+    # -- 7. a stale Taline never enters a calculation ------------------------------
+
+    def _validate(self, gaps):
+        from validation.data import validate_market_prices
+        prices = {name: {"price": FAIR * (1 + gap / 100.0), "status": "OK"}
+                  for name, gap in gaps.items()}
+        return validate_market_prices(prices)
+
+    def test_23_the_stale_taline_of_2026_09_29_is_discarded(self):
+        valid = self._validate(STALE_BUY_GAPS)
+        self.assertNotIn("Taline", valid, "3.6% below the others is a stale copy")
+        self.assertEqual(len(valid), 10, "no other platform may be discarded with it")
+
+    def test_24_a_taline_in_line_with_the_market_is_kept(self):
+        gaps = dict(STALE_BUY_GAPS, Taline=-1.55)   # 0.2% below the others' median
+        self.assertIn("Taline", self._validate(gaps))
+
+    def test_25_a_stale_copy_above_the_market_is_discarded_too(self):
+        """In a falling market a stale copy sits above the others."""
+        gaps = dict(STALE_BUY_GAPS, Taline=+0.2)
+        self.assertNotIn("Taline", self._validate(gaps))
+
+    def test_26_too_few_others_to_judge_keeps_the_quote(self):
+        self.assertIn("Taline", self._validate({"Taline": -4.0, "Milli": -1.0, "Invi": -1.0}))
+
+    def test_27_only_the_stale_prone_platform_is_checked(self):
+        """The check is about Taline's source, not about outliers. A genuinely cheap
+        platform elsewhere is information, and the confirmation check -- not the
+        validator -- decides what a single cheap platform may trigger."""
+        gaps = dict(STALE_BUY_GAPS, Taline=-1.4, Milli=-4.5)
+        valid = self._validate(gaps)
+        self.assertIn("Milli", valid)
+        self.assertIn("Taline", valid)
 
 
 if __name__ == "__main__":

@@ -3,6 +3,8 @@
 Raises ValueError on invalid data so main.py can skip the run gracefully.
 """
 
+from statistics import median
+
 
 # World gold price reasonable range: $1000 – $5000 USD/oz
 MIN_WORLD_GOLD = 1000.0
@@ -18,6 +20,24 @@ MAX_MARKET_PRICE = 500_000_000.0
 
 # Minimum number of working market sources for a valid signal
 MIN_WORKING_SOURCES = 2
+
+# Platforms whose published price can be a stale copy. Taline's price is read from a
+# web page behind a CDN that, on 2026-09-29, served GitHub's non-Iranian runners copies
+# up to a day old while serving Iran the live price (SP_C_HANDOFF.md 37.2). There is no
+# public live source to read instead, so each quote is checked against the others.
+STALE_PRONE_PLATFORMS = ("Taline",)
+
+# Measured over 293 readings, 2026-09-15 to 09-29: Taline sits between -0.64% and
+# +0.25% of the other platforms' median on 90% of readings, and its stale copies sat
+# 1.0-3.6% away. A quote further than this is discarded for that reading, exactly as a
+# failed collector is. Both sides are checked: in a falling market a stale copy sits
+# above the others.
+MAX_DEVIATION_FROM_OTHERS_PCT = 1.0
+
+# The check needs enough other platforms to have a meaningful median. With fewer, the
+# quote is kept; the decision engine's confirmation check still stops one platform
+# from carrying a BUY on its own (SP_C_HANDOFF.md 38).
+MIN_OTHERS_FOR_DEVIATION_CHECK = 3
 
 
 def validate_world_gold(price):
@@ -90,6 +110,19 @@ def validate_market_prices(prices):
             continue
 
         valid[name] = info
+
+    for name in STALE_PRONE_PLATFORMS:
+        if name not in valid:
+            continue
+        others = [float(info["price"]) for other, info in valid.items() if other != name]
+        if len(others) < MIN_OTHERS_FOR_DEVIATION_CHECK:
+            continue
+        deviation = (float(valid[name]["price"]) / median(others) - 1) * 100
+        if abs(deviation) > MAX_DEVIATION_FROM_OTHERS_PCT:
+            print(f"  Discarded {name}: stale copy suspected, "
+                  f"{deviation:+.2f}% from the other platforms' median")
+            del valid[name]
+            discarded += 1
 
     print(f"  {len(valid)} valid source(s)")
     if discarded:
