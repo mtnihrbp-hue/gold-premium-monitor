@@ -2,7 +2,7 @@
   "schema_version": "1",
   "project": "Gold Premium Monitor",
   "active_branch": "SP-D (R&D and docs until code work opens 2026-10-03); main is production",
-  "current_phase": "Hotfix on main (signal confirmation + BUY message) awaiting owner review; SP-D code work opens 2026-10-03",
+  "current_phase": "Hotfix merged into main 2026-09-29 17:33 (049bb32) and verified in production at 18:00; SP-D code work opens 2026-10-03",
   "current_phase_status": "SP-C.1 through SP-C.18 COMPLETE and MERGED into main 2026-09-28 (2b7c5f8; v1.3safe tags main before the merge; merged tree identical to SP-C). Production (cron-job.org and the Telegram worker) dispatches ref main. SP-D in planning: settle period on main, then SP-D branches from main. SP_C_HANDOFF.md section 35.",
   "completed_phases": [
     "SP-B.1",
@@ -58,7 +58,7 @@
       "Rollout steps 2 and 3 done 2026-09-28: SP-C merged into main (2b7c5f8, one conflict resolved by taking SP-C's gold-monitor.yml, merged tree identical to SP-C, KPI 26/26 on main) and both triggers repointed to main; first /Analyze and /Update on main succeeded. Section 35."
     ],
     "in_progress": [
-      "First live BUY (2026-09-29 14:01) rested on a stale Taline quote. FIXED on branch hotfix-signal-confirmation: a fail-closed confirmation check between candidate and hysteresis (second platform confirms on its own record; dollar is today's; world gold live), the BUY message rebuilt on UPDATE's helpers ('heavily discounted'), Taline collector hardened. KPI 27/27 (new kpi_signal_confirmation 22/22, coherence 27/27). Replay: 37 of 133 BUY candidates pass; all 4 BUYs ever sent would have been held. Awaiting owner review, then fast-forward into main. SP_C_HANDOFF.md section 38. Taline fixed at validation before the merge (owner 2026-09-29): a Taline quote more than 1.0% from the other platforms' median is discarded for that reading; 17 of 600 historical readings (2.8%) were stale copies, levels unaffected, history not rewritten. KPI kpi_signal_confirmation 27/27. Section 38.7.",
+      "MERGED 2026-09-29 17:33 (main=SP-D=049bb32) after owner approval: signal confirmation check, the BUY message, the Taline stale-copy guard at validation. CI green on the branch and on the main push. Verified at 18:00: Taline discarded (-2.56% from the others' median), confirmation line present, run successful. The 15:00 deep-discount push (the first ever) was a false alarm from the same stale Taline (3.53% vs 2.82%). SP_C_HANDOFF.md sections 37-38.",
       "SP-D settle period on main (agreed 2026-09-29): daily health checks, no code changes; code work opens Saturday 2026-10-03.",
       "Morning-dollar R&D: on 09-29 at 09:20, tgju and bonbast both still showed the previous close, which supports 'the market has not opened'. Measured (36.2): recomputing the 68 morning readings of 09-15 to 09-28 with each day's 13:00 dollar shifts them by 0.71 pp on average (max 2.83), 53% by 0.5 pp or more, and removes the one stored premium and all 6 morning majority-above-fair structure readings. Next: effect on pool, thresholds and ranks; a collection-time stale-dollar test; then remedy options."
     ],
@@ -318,7 +318,8 @@
     "News dedup, second gap (section 34.5): Google News appends ' - Publisher' to titles, so one story from two outlets hashes differently. Also classifier precision: war mentions in economic pieces get MILITARY_ESCALATION with impact HIGH -- fixing N2 (read impact) without a precision check would turn a constant zero into a noisy count.",
     "news_events.url varchar(500) rejects long Google News URLs (section 37.7); truncate at the collector or migrate under the Neon policy.",
     "Stale tests (section 38.6): kpi_coherence.test_27 cannot fail (searches _code output for 'name('); tests/test_signal_state.py import error; src/tests test_hysteresis_cooldown_same_alert failing on main. Reliability phase.",
-    "validation/data.MAX_WORLD_GOLD is $5,000/oz with gold near $4,150; a rally past it rejects every world-gold quote (section 38.7). Reliability phase."
+    "validation/data.MAX_WORLD_GOLD is $5,000/oz with gold near $4,150; a rally past it rejects every world-gold quote (section 38.7). Reliability phase.",
+    "Deep-discount push has no second-platform confirmation of its own; the stale-Taline case is closed at validation (38.8). Decide in SP-D whether the push needs one."
   ],
   "corrections": [
     "Decision scorecard 'edge 0.0' does NOT mean the strategy failed. final_decision was a constant (WAIT 264/264) because of the hysteresis latch, so the scorecard compared always-WAIT against always-WAIT. The engine is untested, not disproven.",
@@ -333,7 +334,8 @@
     "2026-09-27: the three job-timeout stalls are diagnosed. Logs fetched through the Psiphon proxy (port found live, the transcript's saved ports were stale) show gold-api.com failing on DNS and the run then hanging in the Kitco SSE call in all three; a 30 s probe confirmed api.kitco.com/sse/full is an unending text/event-stream. Owner decisions the same day: merge moved to 2026-09-28 after the health check; the section 33 defects fixed after the merge; post-merge order reliability -> broadcast -> basis divergence -> ANALYZE percentages -> research.",
     "2026-09-28: the two 'premiums' on record (09-24, reported in section 32 as the record's first; 09-28 at +0.36%, reported that morning as a new record) were most likely a stale morning USD/IRR input. On both days the input held the previous rate until 11:00-13:00 Tehran while the platforms had already repriced, and each premium vanished at the hour the input stepped (+1.29%, +1.78%). tgju.org corroborates that the dollar gapped overnight on 09-28 (2,350,000 -> open 2,405,000 rial). The gates behaving correctly stands; the premium events do not. Also corrected: 33.6's '0.03 pp from CHEAP on 09-27' (real: 0.38 pp; closest 0.22 pp on 09-23). Section 34.",
     "2026-09-29: the first live BUY since SP-C.15 (14:01 Tehran) was wrong. It rested on a stale Taline quote served by the CDN to GitHub's non-Iranian runners, the live case of section 15.7 item 1. Also the fourth Kitco hang (09:00). Goal assessment recorded in MASTER_PLAN_STATUS.md section 15a. Section 37.",
-    "2026-09-29: the cause of the stale-quote BUY is fixed by a confirmation check between candidate and hysteresis, approved by the owner, built on a short-lived branch for main. The first ever fail-closed gate in the decision path: a check that cannot run holds the signal. Section 38."
+    "2026-09-29: the cause of the stale-quote BUY is fixed by a confirmation check between candidate and hysteresis, approved by the owner, built on a short-lived branch for main. The first ever fail-closed gate in the decision path: a check that cannot run holds the signal. Section 38.",
+    "2026-09-29 18:00: the first production run on the hotfix discarded a stale Taline copy; the log also revealed that the first-ever deep-discount push (15:00) had been a false alarm from the same stale page. Section 38.8."
   ],
   "rollout": {
     "step_1_observe": "CLOSED 2026-09-27 by the product owner, after five days without a code change. BUY and the push remain untested because the market did not reach them; the D gate falls on 2026-09-28. Section 33.1.",

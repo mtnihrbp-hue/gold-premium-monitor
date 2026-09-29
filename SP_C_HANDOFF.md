@@ -3986,3 +3986,37 @@ request.
 **Also found:** `validation/data.MAX_WORLD_GOLD` = $5,000 per ounce, with gold at about
 $4,150, only about 17% below it. A rally past it would reject every world-gold quote.
 Reliability phase.
+
+### 38.8 In production: the first run on the new code, and a second false alarm
+
+The fix reached `main` at 17:33 (049bb32). CI ran on the push to `main` and passed.
+The 18:00 ANALYZE, the first production run on the new code, succeeded:
+
+```text
+Taline          OK                     (the collector still fetched a stale copy from
+                                        abroad: the no-cache request alone did not cure
+                                        the CDN, as 38.7 expected)
+VALIDATION      Discarded Taline: stale copy suspected, -2.56% from the other
+                platforms' median  ->  10 valid sources
+Confirmation    second=Invi rank=54 confirms=False dollar_live=True world_live=True
+Valuation       FAIR (rank 65)         push gap -2.48 -> REARMED
+```
+
+The run's push state (`armed=False` before 18:00) showed that **the deep-discount push
+had fired at 15:00**, the first push ever sent, and it was a second false alarm from
+the same stale page:
+
+```text
+Tehran   displayed discount as run   without Taline   cheapest three as run
+15:00    3.53%  -> FIRED (level 3.50) 2.82%            Taline, Milli, Invi
+16:00    3.31%                        2.60%            Taline, Milli, Invi
+17:01    3.43%                        2.28%            Taline, Milli, Invi
+18:01    2.48%  (fix live)            2.48%            Milli, Invi, WallGold
+```
+
+So on 2026-09-29 one stale page produced a BUY alert (14:01) and a deep-discount push
+(15:00), and it inflated the displayed discount in every reading from about 12:00 to
+17:00 by 0.7-1.2 pp. Since 18:00 a stale Taline cannot reach any calculation. The push
+has no confirmation step of its own. With Taline filtered at validation, the proven
+case is closed; whether the push should also require a second platform is an open
+question for SP-D, not a change made here.
