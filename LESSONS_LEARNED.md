@@ -699,9 +699,13 @@ fixed:
 
 - **At the collector:** ask for a fresh copy (no-cache headers, a changing query
   string). This is hardening, not proof, because the failure was intermittent.
-- **At validation:** where no fresh source exists, check the source against its
-  peers. A Taline quote more than 1.0% from the other platforms' median is discarded
-  for that reading (section 38.7); normally it sits within about 0.6%.
+- **At validation:** where no fresh source exists, check each source against its
+  peers. For every platform, a quote is deferred when it repeats a price from 3-48
+  hours ago and has drifted more than 1.0 pp from its own usual position (section
+  39). The usual position matters: judged against the raw median, Goldika (+1.1%)
+  and Milli (-0.9%) would look stale on most readings. Taline alone is also
+  discarded when more than 1.0% from the median (section 38.7); normally it sits
+  within about 0.6%.
 - **At the decision:** never let one source carry a recommendation alone. A BUY now
   needs a second platform to confirm it (section 38). A defect at a boundary you do not
   control is contained by a check you do control.

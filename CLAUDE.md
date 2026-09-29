@@ -256,11 +256,19 @@ to show its evidence. Do not make it fail open to "unblock" signals. A BUY that 
 the reader goes through `alerts/telegram_signal.py`, which reuses UPDATE's helpers and
 prints "heavily discounted", never "cheap".
 
-Taline's price is read from a web page that its CDN can serve stale, up to a day old,
-to the non-Iranian runners (§37.2). There is no public live source, so
-`validation/data.validate_market_prices` discards a Taline quote more than 1.0% from the
-other platforms' median for that reading (§38.7). Do not widen that check to other
-platforms without evidence: a genuinely cheap platform is information.
+**Stale platform quotes are deferred** (owner's principle, 2026-09-29; §38.7, §39). In
+`validation/data.validate_market_prices`, for that reading only:
+
+- **Any platform** is deferred when it repeats the exact price it reported 3-48 hours
+  ago **and** sits more than 1.0 pp from its own 14-day usual position against the
+  other platforms' median. That is 27 of about 3,150 readings replayed.
+- **Taline** is also discarded when more than 1.0% from that median. Its CDN serves
+  stale copies to the non-Iranian runners, and no public live source exists.
+
+Staleness is not distance. A fresh price far from the others is information, and
+platforms have natural offsets (Goldika about +1.1%, Milli about -0.9%). Do not turn
+this into an outlier filter. The history read fails open; the signal confirmation
+fails closed.
 
 LLM/intelligence layers may summarize, interpret, and express uncertainty over already-validated evidence; they must never calculate fair price/premium/indicators, invent levels or stats, or acquire independent BUY/SELL authority.
 

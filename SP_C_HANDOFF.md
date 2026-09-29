@@ -4020,3 +4020,80 @@ So on 2026-09-29 one stale page produced a BUY alert (14:01) and a deep-discount
 has no confirmation step of its own. With Taline filtered at validation, the proven
 case is closed; whether the push should also require a second platform is an open
 question for SP-D, not a change made here.
+
+---
+
+## 39. Any stale platform is deferred (hotfix on main, 2026-09-29)
+
+Times are Tehran local. The owner's principle: "if a platform is stale, it should be
+deferred", to be implemented if it agreed with the system's documentation and argued
+otherwise. It agrees with the fail-safe law (a stale quote is missing data, and missing
+data must never be used silently), with source isolation (deferring one platform
+leaves the others untouched), and with "no invented precision" (no age is claimed;
+staleness is inferred from behaviour). NEON MIGRATION REQUIRED = NO.
+
+### 39.1 What "stale" had to mean
+
+A copy of 38.7's rule (1% from the median) extended to every platform would have been
+wrong, because platforms sit at different places: Goldika usually about +1.1%, Milli
+about -0.9%, MioGold at times -2.4%. It would have deferred Goldika and Milli on most
+readings.
+
+Staleness is also not distance. A fresh price far from the others is information: a
+real bargain, or a platform repricing first. So a quote is deferred only when **both**
+hold:
+
+1. **The fingerprint:** the exact price the platform already reported between 3 and 48
+   hours ago, either a feed that never moved or a cache returning an old copy.
+2. **The market has left it:** its distance from the other platforms' median differs
+   from its own 14-day median distance by more than 1.0 pp.
+
+### 39.2 Evidence (replayed over 2026-09-15 to 09-29, read-only)
+
+```text
+platform   readings   fingerprint   deferred   far but fresh (kept)   usual position
+Taline        294          74           14                1               -0.21%
+HoorGold      288         151            8                0               +0.28%
+MioGold       286         121            5               14               -0.34%
+Goldika       297          14            0                5               +1.09%
+Milli         284          14            0                0               -0.87%
+6 others    ~1,700        ~250            0               ~3
+```
+
+- 27 of about 3,150 platform readings are deferred (0.9%).
+- Taline's 14 are its stale episodes, 09-29 08:00-17:09 among them.
+- HoorGold's 8 fall mostly around 10:00, when the others have repriced and it has not;
+  it once went 28 readings without a change.
+- MioGold's 14 genuine large moves carry new prices and are kept.
+- Same-minute fetches from Iran and from abroad (three rounds) matched on all other
+  platforms: only Taline serves abroad a different copy.
+
+### 39.3 What changed
+
+```text
+src/validation/data.py       defer_stale_quotes(); validate_market_prices(prices,
+                             history=None, now=None) calls it after the Taline check
+src/database/repository.py   get_recent_platform_prices(session, since)
+src/main.py                  _recent_platform_history(now), which fails open
+kpi/kpi_signal_confirmation  tests 28-34
+```
+
+- **Fails open.** Without history (a database failure, or fewer than 20 readings of a
+  platform), no quote is deferred. Dropping a price on a guess is worse than keeping
+  it, and the confirmation check (38) still fails closed, so a stale quote that slips
+  through cannot carry a signal on its own.
+- **Taline's peer check (38.7) stays.** It catches a stale copy of a value we never
+  saw live, which has no fingerprint.
+- A deferred quote is treated as a failed collector for that reading. It is not stored,
+  and it returns by itself as soon as it is fresh.
+
+### 39.4 Verified
+
+```text
+kpi_signal_confirmation    34/34   + a frozen price the market has left is deferred; an
+                                     unchanged price in a quiet market is kept; a genuine
+                                     move to a new price is kept; natural offsets are
+                                     kept; no history or too little history defers
+                                     nothing; production passes history and fails open
+full suite                 27/27 files, exit 0; compileall PASS; main imports
+```

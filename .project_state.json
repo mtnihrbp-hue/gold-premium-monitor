@@ -58,6 +58,7 @@
       "Rollout steps 2 and 3 done 2026-09-28: SP-C merged into main (2b7c5f8, one conflict resolved by taking SP-C's gold-monitor.yml, merged tree identical to SP-C, KPI 26/26 on main) and both triggers repointed to main; first /Analyze and /Update on main succeeded. Section 35."
     ],
     "in_progress": [
+      "Any stale platform deferred (owner's principle 2026-09-29), branch hotfix-stale-platforms: a quote repeating a 3-48h-old price and >1.0 pp from its own 14-day usual position is deferred for the reading; the history read fails open. Replay: 27 of ~3,150 readings (Taline 14, HoorGold 8, MioGold 5). KPI 34/34, suite 27/27. SP_C_HANDOFF.md section 39.",
       "MERGED 2026-09-29 17:33 (main=SP-D=049bb32) after owner approval: signal confirmation check, the BUY message, the Taline stale-copy guard at validation. CI green on the branch and on the main push. Verified at 18:00: Taline discarded (-2.56% from the others' median), confirmation line present, run successful. The 15:00 deep-discount push (the first ever) was a false alarm from the same stale Taline (3.53% vs 2.82%). SP_C_HANDOFF.md sections 37-38.",
       "SP-D settle period on main (agreed 2026-09-29): daily health checks, no code changes; code work opens Saturday 2026-10-03.",
       "Morning-dollar R&D: on 09-29 at 09:20, tgju and bonbast both still showed the previous close, which supports 'the market has not opened'. Measured (36.2): recomputing the 68 morning readings of 09-15 to 09-28 with each day's 13:00 dollar shifts them by 0.71 pp on average (max 2.83), 53% by 0.5 pp or more, and removes the one stored premium and all 6 morning majority-above-fair structure readings. Next: effect on pool, thresholds and ranks; a collection-time stale-dollar test; then remedy options."
@@ -294,7 +295,7 @@
     "assertions_coherence": 27,
     "status": "27/27 files passing (2026-09-29, runner exit 0)",
     "note": "kpi_coherence.py checks modules against each other and carries the register of accepted divergences, now 5 entries. An entry whose divergence is fixed fails the suite, so the register cannot go stale.",
-    "assertions_signal_confirmation": 27
+    "assertions_signal_confirmation": 34
   },
   "open_decisions": [
     "The push is buy-side only. A shallow discount is the sell-side mirror and is the same measurement with the comparison flipped; deferred until the first trigger has proven itself.",
@@ -335,7 +336,8 @@
     "2026-09-28: the two 'premiums' on record (09-24, reported in section 32 as the record's first; 09-28 at +0.36%, reported that morning as a new record) were most likely a stale morning USD/IRR input. On both days the input held the previous rate until 11:00-13:00 Tehran while the platforms had already repriced, and each premium vanished at the hour the input stepped (+1.29%, +1.78%). tgju.org corroborates that the dollar gapped overnight on 09-28 (2,350,000 -> open 2,405,000 rial). The gates behaving correctly stands; the premium events do not. Also corrected: 33.6's '0.03 pp from CHEAP on 09-27' (real: 0.38 pp; closest 0.22 pp on 09-23). Section 34.",
     "2026-09-29: the first live BUY since SP-C.15 (14:01 Tehran) was wrong. It rested on a stale Taline quote served by the CDN to GitHub's non-Iranian runners, the live case of section 15.7 item 1. Also the fourth Kitco hang (09:00). Goal assessment recorded in MASTER_PLAN_STATUS.md section 15a. Section 37.",
     "2026-09-29: the cause of the stale-quote BUY is fixed by a confirmation check between candidate and hysteresis, approved by the owner, built on a short-lived branch for main. The first ever fail-closed gate in the decision path: a check that cannot run holds the signal. Section 38.",
-    "2026-09-29 18:00: the first production run on the hotfix discarded a stale Taline copy; the log also revealed that the first-ever deep-discount push (15:00) had been a false alarm from the same stale page. Section 38.8."
+    "2026-09-29 18:00: the first production run on the hotfix discarded a stale Taline copy; the log also revealed that the first-ever deep-discount push (15:00) had been a false alarm from the same stale page. Section 38.8.",
+    "2026-09-29: stale platform quotes generalised beyond Taline (section 39). Staleness is a repeated old price plus drift from the platform's own usual position, not distance from the median, which would have deferred Goldika and Milli on most readings."
   ],
   "rollout": {
     "step_1_observe": "CLOSED 2026-09-27 by the product owner, after five days without a code change. BUY and the push remain untested because the market did not reach them; the D gate falls on 2026-09-28. Section 33.1.",
