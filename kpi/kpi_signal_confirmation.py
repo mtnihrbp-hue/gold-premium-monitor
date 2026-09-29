@@ -29,6 +29,10 @@ Load-bearing properties, each asserted below:
   price more than 1.0% from the other platforms' median, on either side, and only
   Taline's: its source is the proven problem, and a genuinely cheap platform elsewhere
   is information.
+- **Any stale platform is deferred** (owner's principle, SP_C_HANDOFF.md section 39):
+  a quote that repeats a price from 3-48 hours ago and has drifted more than 1.0 pp
+  from the platform's own usual position. Not an outlier filter -- a fresh price far
+  from the others, and a platform's natural offset, are both kept.
 """
 
 import inspect
@@ -436,6 +440,101 @@ class KPISignalConfirmation(unittest.TestCase):
 
     def test_26_too_few_others_to_judge_keeps_the_quote(self):
         self.assertIn("Taline", self._validate({"Taline": -4.0, "Milli": -1.0, "Invi": -1.0}))
+
+    # -- 8. any stale platform is deferred (owner, 2026-09-29) ---------------------
+
+    # Usual positions against the other platforms' median, in percent, as measured:
+    # Goldika sits about +1.1%, Milli about -0.9%, most near zero.
+    USUAL = {"Taline": -0.2, "HoorGold": 0.3, "Goldika": 1.1, "Milli": -0.9, "MioGold": -0.3,
+             "Invi": 0.1, "WallGold": 0.3, "Parasteh": 0.3, "Ayyareh": -0.1, "Eligold": -0.1,
+             "Daric": 0.0}
+
+    def _history(self, days=10, every_hours=6, base=FAIR):
+        """Readings at every platform's usual position, ending 5 hours before NOW."""
+        rows, sid = [], 0
+        count = int(days * 24 / every_hours)
+        for k in range(count):
+            timestamp = NOW - timedelta(hours=5) - timedelta(hours=every_hours * (count - 1 - k))
+            sid += 1
+            for name, offset in self.USUAL.items():
+                rows.append((sid, timestamp, name, round(base * (1 + offset / 100.0))))
+        return rows
+
+    def _now(self, overrides, base):
+        """Current quotes at their usual positions around `base`, with overrides."""
+        prices = {name: {"price": round(base * (1 + offset / 100.0)), "status": "OK"}
+                  for name, offset in self.USUAL.items()}
+        for name, price in overrides.items():
+            prices[name]["price"] = price
+        return prices
+
+    def _defer(self, prices, history):
+        from validation.data import defer_stale_quotes
+        return dict(defer_stale_quotes(prices, history, NOW)), prices
+
+    def test_28_a_frozen_price_the_market_has_left_is_deferred(self):
+        """HoorGold still quotes its price of 5 hours ago; the market is 2% higher."""
+        history = self._history()
+        frozen = round(FAIR * 1.003)
+        deferred, kept = self._defer(self._now({"HoorGold": frozen}, FAIR * 1.02), history)
+        self.assertIn("HoorGold", deferred)
+        self.assertNotIn("HoorGold", kept)
+        self.assertEqual(len(kept), 10, "no other platform may be deferred with it")
+
+    def test_29_an_unchanged_price_in_a_quiet_market_is_kept(self):
+        """The same price as 5 hours ago is not stale if the market has not moved."""
+        history = self._history()
+        deferred, kept = self._defer(self._now({}, FAIR), history)
+        self.assertEqual(deferred, {}, "a sticky price the market still agrees with is real")
+        self.assertEqual(len(kept), 11)
+
+    def test_30_a_genuine_move_with_a_new_price_is_kept(self):
+        """MioGold 2.5% below its usual place, at a price it never quoted before: that
+        is information, not staleness."""
+        history = self._history()
+        deferred, _ = self._defer(self._now({"MioGold": round(FAIR * 0.972)}, FAIR), history)
+        self.assertEqual(deferred, {})
+
+    def test_31_a_platforms_natural_offset_is_not_staleness(self):
+        """Goldika repeats a price at +1.1%, its usual place: kept. A flat rule of 1%
+        from the median would defer it on most readings."""
+        history = self._history()
+        deferred, _ = self._defer(self._now({}, FAIR), history)
+        self.assertNotIn("Goldika", deferred)
+        self.assertNotIn("Milli", deferred)
+
+    def test_32_without_history_nothing_is_deferred(self):
+        from validation.data import defer_stale_quotes
+        prices = self._now({"HoorGold": round(FAIR * 1.003)}, FAIR * 1.02)
+        self.assertEqual(defer_stale_quotes(prices, [], NOW), [])
+        self.assertEqual(defer_stale_quotes(prices, None, NOW), [])
+        self.assertEqual(len(prices), 11)
+
+    def test_33_too_little_history_to_know_the_usual_place_keeps_the_quote(self):
+        history = self._history(days=2, every_hours=6)   # 8 readings, fewer than 20
+        deferred, _ = self._defer(self._now({"HoorGold": round(FAIR * 1.003)}, FAIR * 1.02),
+                                  history)
+        self.assertEqual(deferred, {})
+
+    def test_34_production_passes_history_and_fails_open_without_it(self):
+        import main
+        self.assertIn("history=_recent_platform_history(", inspect.getsource(main.main))
+        original = main.get_session
+        try:
+            main.get_session = lambda: None
+            self.assertEqual(main._recent_platform_history(NOW), [])
+
+            class _Session:
+                def query(self, *args, **kwargs):
+                    raise RuntimeError("query failed")
+
+                def close(self):
+                    pass
+
+            main.get_session = lambda: _Session()
+            self.assertEqual(main._recent_platform_history(NOW), [])
+        finally:
+            main.get_session = original
 
     def test_27_only_the_stale_prone_platform_is_checked(self):
         """The check is about Taline's source, not about outliers. A genuinely cheap

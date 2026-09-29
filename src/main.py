@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from dataclasses import replace
 
 from collector.kitco import get_world_gold_price
@@ -27,9 +27,9 @@ from alerts.telegram import (
     send_daily_recap as send_telegram_recap,
 )
 from alerts.telegram_update_v1 import send_update_v1
-from validation.data import validate_world_gold, validate_usd_rate, validate_market_prices, validate_fair_price
+from validation.data import validate_world_gold, validate_usd_rate, validate_market_prices, validate_fair_price, USUAL_OFFSET_DAYS
 from database.connection import get_session
-from database.repository import save_market_snapshot, save_market_state, save_price_observation, get_input_directions
+from database.repository import save_market_snapshot, save_market_state, save_price_observation, get_input_directions, get_recent_platform_prices
 from intelligence.freshness import evaluate_freshness
 from update.baseline_resolver import resolve_update_baselines
 from analysis.bubble_position import (
@@ -114,6 +114,25 @@ def _resolve_decision_valuation(premium, thresholds):
     except Exception as e:
         print(f"Decision valuation failed, abstaining: {e}")
         return DecisionValuation(premium=premium)
+
+
+def _recent_platform_history(now):
+    """Stored platform prices for the stale-quote check, or an empty list.
+
+    Fails open: without history no quote is deferred, because dropping a price on a
+    guess is worse than keeping it -- and the confirmation check below still fails
+    closed, so a stale quote that slips through cannot carry a signal on its own.
+    """
+    session = get_session()
+    if session is None:
+        return []
+    try:
+        return get_recent_platform_prices(session, now - timedelta(days=USUAL_OFFSET_DAYS))
+    except Exception as e:
+        print(f"Platform history unavailable, stale-quote check skipped: {e}")
+        return []
+    finally:
+        session.close()
 
 
 def _resolve_signal_confirmation(markets, fair, usd, world_from_fallback, thresholds):
@@ -494,7 +513,7 @@ def main():
         status = info.get("status", "UNKNOWN")
         print(f" {name:<15} {status.replace('ERROR: ', '') if status.startswith('ERROR: ') else status}")
     try:
-        markets = validate_market_prices(raw_markets)
+        markets = validate_market_prices(raw_markets, history=_recent_platform_history(now), now=now)
     except Exception as e:
         print(f"\nERROR: Market data invalid: {e}. Skipping.")
         return

@@ -206,6 +206,29 @@ def _verbal_direction(premium, diff):
 
 # --- Input Directions (Refinement R1) ---
 
+def get_recent_platform_prices(session, since):
+    """Every stored platform price since `since` (naive UTC), oldest first.
+
+    Returns (snapshot_id, timestamp, platform_name, price) tuples. Read by the
+    stale-quote check in `validation.data`, which needs each platform's recent prices
+    and its usual position against the other platforms (SP_C_HANDOFF.md section 39).
+    """
+    rows = (
+        session.query(
+            PlatformPrice.snapshot_id,
+            MarketSnapshot.timestamp,
+            PlatformPrice.platform_name,
+            PlatformPrice.price_irr,
+        )
+        .join(MarketSnapshot, MarketSnapshot.id == PlatformPrice.snapshot_id)
+        .filter(MarketSnapshot.timestamp >= since, PlatformPrice.price_irr.isnot(None))
+        .order_by(MarketSnapshot.timestamp.asc())
+        .all()
+    )
+    return [(snapshot_id, timestamp, name, float(price))
+            for snapshot_id, timestamp, name, price in rows]
+
+
 def get_input_directions(world, usd, session):
     """Return direction indicators for world gold and USD."""
     if world is None or usd is None:
