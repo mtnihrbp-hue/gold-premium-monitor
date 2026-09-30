@@ -116,6 +116,27 @@ def _resolve_decision_valuation(premium, thresholds):
         return DecisionValuation(premium=premium)
 
 
+def _log_tgju_candles():
+    """Collect tgju's latest daily candles and print them. Nothing is stored.
+
+    SP-D technical-analysis track, step 1 (SP_C_HANDOFF.md section 41): proves the
+    production runner can collect tgju's history before a table is migrated for it.
+    Scheduled runs only. It never raises, and the collector is bounded by its own
+    deadline, so it cannot hold or fail a run.
+    """
+    try:
+        from collector.tgju import collect_daily_candles
+        for instrument, result in collect_daily_candles(rows=2).items():
+            if result["status"] != "OK":
+                print(f"TGJU {instrument}: {result['status']}")
+                continue
+            c = result["candles"][0]
+            print(f"TGJU {instrument}: {c['date']} open {c['open']:,.0f} high {c['high']:,.0f} "
+                  f"low {c['low']:,.0f} close {c['close']:,.0f}")
+    except Exception as e:
+        print(f"TGJU probe failed: {e}")
+
+
 def _recent_platform_history(now):
     """Stored platform prices for the stale-quote check, or an empty list.
 
@@ -639,6 +660,7 @@ def main():
                 print(f"NEWS: {news_result.get('total_new', 0)} new events")
         except Exception as e:
             print(f"News ingestion failed: {e}")
+        _log_tgju_candles()
         if snapshot_id is not None:
             try:
                 analysis_snapshot_id = build_analysis_snapshot(config=config)
