@@ -8,9 +8,11 @@ tracks our platforms at 0.95 daily correlation, a median +0.19% apart.
 This is a separate instrument with its own provenance. It is never mixed with
 platform prices: FACTS keep their source.
 
-The endpoint is the one tgju's own public history page reads. Only the latest few rows
-are requested. Each fetch runs on a daemon thread under one shared deadline, the
-pattern collector/iran.py uses since SP-C.9, so a hung request can never hold a run.
+The endpoint is the one tgju's own public history page reads. A run requests only the
+rows it lacks: the whole history once, when nothing is stored yet (about 1 second and
+650 KB per instrument), then a short window. Each fetch runs on a daemon thread under
+one shared deadline, the pattern collector/iran.py uses since SP-C.9, so a hung request
+can never hold a run. This module collects only; main stores (section 41.6).
 """
 
 import re
@@ -20,6 +22,13 @@ import time
 import requests
 
 API = "https://api.tgju.org/v1/market/indicator/summary-table-data/{instrument}"
+
+SOURCE = "tgju"
+UNIT = "IRR"
+
+# Enough rows for the whole history. tgju serves up to at least 20,000 in one answer
+# (2026-09-30); the longest instrument had 3,964 trading days.
+FULL_HISTORY_ROWS = 20000
 
 # tgju's instrument key -> the name this system stores it under.
 INSTRUMENTS = {
@@ -88,15 +97,19 @@ def fetch_daily_candles(instrument, rows=5):
 def collect_daily_candles(rows=5):
     """{instrument: {"status": "OK", "candles": [...]}} or {"status": "ERROR: ..."}.
 
+    `rows` is one count for every instrument, or {instrument: count}, so an instrument
+    still waiting for its history does not make the others fetch theirs again.
     Instruments are isolated from each other, and all of them together are bounded by
     DEADLINE_SECONDS: a fetch still running at the deadline is abandoned and reported
     as a timeout rather than awaited.
     """
     results = {name: {"status": "TIMEOUT"} for name in INSTRUMENTS}
+    counts = rows if isinstance(rows, dict) else {name: rows for name in INSTRUMENTS}
 
     def runner(instrument):
         try:
-            results[instrument] = {"status": "OK", "candles": fetch_daily_candles(instrument, rows)}
+            results[instrument] = {"status": "OK",
+                                   "candles": fetch_daily_candles(instrument, counts[instrument])}
         except Exception as e:
             results[instrument] = {"status": f"ERROR: {e}"}
 

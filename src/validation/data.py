@@ -235,3 +235,21 @@ def validate_fair_price(price):
     if price <= 0:
         raise ValueError(f"Fair price must be positive, got {price}")
     return float(price)
+
+
+def classify_daily_candle(candle):
+    """COMPLETE, INCONSISTENT or INVALID, for one external daily candle.
+
+    INVALID (a price that is missing or not positive) is not a candle and is not
+    stored. INCONSISTENT means the low and high do not bound the open and close: it is
+    stored as the source published it, flagged, because correcting it would fabricate a
+    price and dropping it would hide the source's own defect. tgju has 10 such candles
+    in 7,480, most at a 100,000,000 / 1,000,000 Rial cap in September 2025.
+    """
+    prices = [candle.get(key) for key in ("open", "high", "low", "close")]
+    if any(price is None or price <= 0 for price in prices):
+        return "INVALID"
+    open_, high, low, close = prices
+    if low > min(open_, close) or high < max(open_, close):
+        return "INCONSISTENT"
+    return "COMPLETE"

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Text, JSON, Index, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Numeric, Date, DateTime, ForeignKey, Text, JSON, Index, UniqueConstraint
 from sqlalchemy.sql import func
 
 from database.connection import Base
@@ -333,3 +333,34 @@ class PlatformCandle(Base):
         Index("idx_platform_candles_quality", "source_quality"),
     )
     #########
+
+
+class MarketDailyCandle(Base):
+    """A daily candle as an external market source published it (tgju since 2026-09-30).
+
+    SP-D technical-analysis track (SP_C_HANDOFF.md section 41). Not a platform price
+    and never mixed with one: tgju is not a platform a reader can buy from. One row
+    per source, instrument and completed trading day; trade_date is the Tehran day,
+    collected_at is UTC. First-seen values are never overwritten. A candle whose low
+    and high do not bound its open and close is kept as published, flagged
+    INCONSISTENT.
+    """
+
+    __tablename__ = "market_daily_candles"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source = Column(String(20), nullable=False)
+    instrument = Column(String(50), nullable=False)
+    trade_date = Column(Date, nullable=False)
+    trade_date_jalali = Column(String(10), nullable=True)
+    open = Column(Numeric(20, 2), nullable=False)
+    high = Column(Numeric(20, 2), nullable=False)
+    low = Column(Numeric(20, 2), nullable=False)
+    close = Column(Numeric(20, 2), nullable=False)
+    unit = Column(String(10), nullable=False, default="IRR")
+    source_quality = Column(String(20), nullable=False, default="COMPLETE")
+    collected_at = Column(DateTime, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("source", "instrument", "trade_date", name="uq_market_daily_candles_identity"),
+    )

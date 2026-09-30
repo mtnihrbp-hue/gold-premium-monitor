@@ -335,6 +335,32 @@ CREATE INDEX IF NOT EXISTS idx_platform_candles_bucket
 
 CREATE INDEX IF NOT EXISTS idx_platform_candles_quality
     ON platform_candles(source_quality);
+
+-- ============================================================
+-- 11. MARKET DAILY CANDLES (SP-D TA track, 2026-09-30)
+-- ============================================================
+-- Daily candles as an external source published them (tgju: 18K gold from
+-- 2013-07-22, the dollar from 2011-11-26). Never mixed with platform prices.
+-- Completed Tehran days only; first-seen values are never overwritten; a candle
+-- whose low and high do not bound it is kept as published, flagged INCONSISTENT.
+-- Migration: sql/neon_migration_daily_candles.sql (SP_C_HANDOFF.md section 41.6).
+
+CREATE TABLE IF NOT EXISTS market_daily_candles (
+    id SERIAL PRIMARY KEY,
+    source VARCHAR(20) NOT NULL,
+    instrument VARCHAR(50) NOT NULL,
+    trade_date DATE NOT NULL,
+    trade_date_jalali VARCHAR(10),
+    open NUMERIC(20, 2) NOT NULL,
+    high NUMERIC(20, 2) NOT NULL,
+    low NUMERIC(20, 2) NOT NULL,
+    close NUMERIC(20, 2) NOT NULL,
+    unit VARCHAR(10) NOT NULL DEFAULT 'IRR',
+    source_quality VARCHAR(20) NOT NULL DEFAULT 'COMPLETE',
+    collected_at TIMESTAMP NOT NULL,
+    CONSTRAINT uq_market_daily_candles_identity UNIQUE (source, instrument, trade_date)
+);
+
 -- ============================================================
 -- 9. VERIFICATION
 -- ============================================================
@@ -352,7 +378,9 @@ WHERE table_schema = 'public'
       'news_events',
       'price_observations',
       'analysis_snapshots',
-      'outcome_evaluations'
+      'outcome_evaluations',
+      'platform_candles',
+      'market_daily_candles'
   )
 ORDER BY table_name;
 

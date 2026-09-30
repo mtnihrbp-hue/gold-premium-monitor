@@ -1,4 +1,4 @@
-"""KPI -- tgju daily candles, collected in log-only mode (SP-D TA track, step 1).
+"""KPI -- tgju daily candles, collected and stored (SP-D TA track, step 1).
 
 Technical analysis needs real candles and a long history. Our platform_candles are
 single points (98% have open = high = low = close) and our own daily candles go back
@@ -6,29 +6,44 @@ single points (98% have open = high = low = close) and our own daily candles go 
 dollar from 2011, and tgju's 18K daily close tracks our platforms at 0.95 daily
 correlation (SP_C_HANDOFF.md section 41).
 
-This step only proves the production runner can collect them. The run prints the latest
-candles and stores nothing until a table is migrated for them.
+The 11:00 and 12:00 runs of 2026-09-30 proved the production runner collects them in
+log-only mode. Since section 41.6 every scheduled run stores them in
+market_daily_candles: the whole history once, then each new completed day.
 
 Load-bearing properties:
 - the columns are read in tgju's order: open, low, high, close;
-- one instrument failing does not stop the other;
+- one instrument failing does not stop the other, in collection or in storage;
 - a hung request cannot hold a run: one shared deadline bounds the collection;
-- the probe never raises into main, and runs on scheduled runs only;
-- nothing is stored.
+- the collection never raises into main, and runs on scheduled runs only;
+- an instrument with nothing stored asks for its whole history, and only that one;
+- only completed Tehran days are stored, never today's;
+- tgju is asked about once a day: not while the last trading day is stored;
+- a second run stores nothing twice, and first-seen values are never overwritten;
+- a candle whose low and high do not bound it is kept as published, flagged;
+- the collector itself stores nothing: collectors collect, main stores.
 
 No test here reaches the network: requests.get is substituted (kpi_coherence.test_27).
 """
 
+import contextlib
 import inspect
+import io
 import os
 import sys
 import time
 import unittest
+from datetime import date, datetime
 
 SRC_DIR = os.path.join(os.path.dirname(__file__), "..", "src")
 sys.path.insert(0, SRC_DIR)
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
 import collector.tgju as tgju
+import main
+from database.connection import Base
+from database.models import MarketDailyCandle
 
 # Two rows as the endpoint returned them on 2026-09-30.
 PAYLOAD = {
@@ -40,6 +55,14 @@ PAYLOAD = {
          "2.09%", "2026/09/28", "1405/07/06"],
     ],
 }
+
+# 12:00 Tehran on Wednesday 2026-09-30, and on the Thursday after.
+NOW = datetime(2026, 9, 30, 8, 30)
+NEXT_DAY = datetime(2026, 10, 1, 8, 30)
+
+
+def _row(day, open_, low, high, close):
+    return [f"{open_:,}", f"{low:,}", f"{high:,}", f"{close:,}", "0", "0%", day, ""]
 
 
 class _Response:
@@ -73,8 +96,41 @@ class _Transport:
     def __exit__(self, *exc):
         tgju.requests.get = self.original
 
+    def rows_requested(self):
+        return {url.rsplit("/", 1)[-1]: kwargs["params"]["length"] for url, kwargs in self.calls}
+
 
 class KPITgjuCandles(unittest.TestCase):
+
+    def setUp(self):
+        self.original_get_session = main.get_session
+        self._fresh_database()
+
+    def tearDown(self):
+        main.get_session = self.original_get_session
+
+    def _fresh_database(self):
+        engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(bind=engine)
+        self.Session = sessionmaker(bind=engine, expire_on_commit=False)
+        main.get_session = self.Session
+
+    def _run(self, fake, now=NOW):
+        """One scheduled collection against `fake`; returns (transport, printed)."""
+        out = io.StringIO()
+        with _Transport(fake) as transport, contextlib.redirect_stdout(out):
+            main._collect_tgju_candles(now=now)
+        return transport, out.getvalue()
+
+    def _stored(self, instrument="TGJU_GOLD_18K"):
+        session = self.Session()
+        try:
+            return {row.trade_date: row for row in session.query(MarketDailyCandle)
+                    .filter(MarketDailyCandle.instrument == instrument)}
+        finally:
+            session.close()
+
+    # -- collection ------------------------------------------------------------
 
     def test_01_columns_are_open_low_high_close(self):
         candles = tgju.parse_rows(PAYLOAD)
@@ -126,35 +182,147 @@ class KPITgjuCandles(unittest.TestCase):
         self.assertLess(elapsed, 1.5, "the collection waited past its deadline")
         self.assertEqual({r["status"] for r in results.values()}, {"TIMEOUT"})
 
-    def test_06_the_probe_never_raises_into_main(self):
-        import main
-
+    def test_06_the_collection_never_raises_into_main(self):
         def broken(**kwargs):
             raise RuntimeError("collector exploded")
 
         original = tgju.collect_daily_candles
         tgju.collect_daily_candles = broken
         try:
-            main._log_tgju_candles()          # must not raise
+            with contextlib.redirect_stdout(io.StringIO()):
+                main._collect_tgju_candles(now=NOW)          # must not raise
         finally:
             tgju.collect_daily_candles = original
 
-    def test_07_the_probe_runs_on_scheduled_runs_only(self):
-        import main
+        def no_database():
+            raise RuntimeError("database unreachable")
+
+        main.get_session = no_database
+        with contextlib.redirect_stdout(io.StringIO()):
+            main._collect_tgju_candles(now=NOW)              # must not raise either
+
+    def test_07_the_collection_runs_on_scheduled_runs_only(self):
         source = inspect.getsource(main.main)
         news = source.index("news_result = run_news_ingestion(config)")
-        probe = source.index("_log_tgju_candles()")
+        collection = source.index("_collect_tgju_candles()")
         analysis = source.index("analysis_snapshot_id = build_analysis_snapshot")
-        self.assertLess(news, probe)
-        self.assertLess(probe, analysis, "the probe left the scheduled block")
-        self.assertEqual(source.count("_log_tgju_candles()"), 1)
+        self.assertLess(news, collection)
+        self.assertLess(collection, analysis, "the collection left the scheduled block")
+        self.assertEqual(source.count("_collect_tgju_candles()"), 1)
 
-    def test_08_nothing_is_stored(self):
-        """Log-only until a table is migrated for tgju's candles."""
-        import main
-        for module_source in (inspect.getsource(tgju), inspect.getsource(main._log_tgju_candles)):
-            for storage in ("database", "save_", "session", "INSERT"):
-                self.assertNotIn(storage, module_source)
+    # -- storage ---------------------------------------------------------------
+
+    def test_08_an_instrument_with_nothing_stored_asks_for_its_whole_history(self):
+        today = date(2026, 9, 30)
+        full, window = tgju.FULL_HISTORY_ROWS, main.TGJU_WINDOW_ROWS
+        self.assertEqual(main._tgju_rows_needed({}, today),
+                         {"geram18": full, "price_dollar_rl": full})
+        needed = main._tgju_rows_needed({"TGJU_GOLD_18K": date(2026, 9, 29)}, today)
+        self.assertEqual(needed, {"geram18": window, "price_dollar_rl": full},
+                         "a missing dollar history made gold fetch its own again")
+        needed = main._tgju_rows_needed({"TGJU_GOLD_18K": date(2026, 8, 31),
+                                         "TGJU_USD_IRR": date(2026, 9, 29)}, today)
+        self.assertEqual(needed["geram18"], 35, "a 30-day gap must be reached back over")
+
+        transport, _ = self._run(lambda url, **kw: _Response(PAYLOAD))
+        self.assertEqual(transport.rows_requested(),
+                         {"geram18": full, "price_dollar_rl": full})
+
+    def test_09_completed_days_are_stored_and_today_is_not(self):
+        payload = {"data": [_row("2026/09/30", 250, 249, 252, 251),
+                            _row("2026/09/29", 244, 243, 253, 252),
+                            _row("2026/09/28", 239, 238, 246, 244)]}
+        self._run(lambda url, **kw: _Response(payload))
+        self.assertEqual(set(self._stored()), {date(2026, 9, 29), date(2026, 9, 28)})
+
+        # 00:30 Tehran on the 30th is still the 29th in UTC: the 29th is complete.
+        self._fresh_database()
+        self._run(lambda url, **kw: _Response(payload), now=datetime(2026, 9, 29, 21, 0))
+        self.assertIn(date(2026, 9, 29), self._stored(),
+                      "the day was cut at UTC midnight, not Tehran's")
+
+    def test_10_a_second_run_stores_nothing_twice(self):
+        self._run(lambda url, **kw: _Response(PAYLOAD))
+        # The next day, before tgju has published the 30th: the window is re-read.
+        transport, printed = self._run(lambda url, **kw: _Response(PAYLOAD), now=NEXT_DAY)
+        self.assertEqual(len(self._stored()), 2)
+        self.assertEqual(len(self._stored("TGJU_USD_IRR")), 2)
+        self.assertIn("geram18: 0 new", printed)
+        self.assertEqual(set(transport.rows_requested().values()), {main.TGJU_WINDOW_ROWS},
+                         "a run with history stored fetched it again")
+
+    def test_11_first_seen_values_are_never_overwritten(self):
+        self._run(lambda url, **kw: _Response(PAYLOAD))
+        changed = {"data": [_row("2026/09/29", 244_014_000, 244_014_000, 253_017_000, 252_000_000),
+                            PAYLOAD["data"][1]]}
+        _, printed = self._run(lambda url, **kw: _Response(changed), now=NEXT_DAY)
+        self.assertEqual(float(self._stored()[date(2026, 9, 29)].close), 252_655_000.0)
+        self.assertIn("changed by tgju since stored", printed)
+        self.assertIn("2026-09-29", printed)
+
+    def test_12_an_inconsistent_candle_is_kept_flagged_and_an_invalid_one_is_not(self):
+        # The shape tgju published on 2025-09-25: a low above the high, at a cap.
+        payload = {"data": [_row("2026/09/29", 99_462_000, 100_000_000, 99_997_000, 99_757_000),
+                            _row("2026/09/28", 239, 238, 246, 244),
+                            _row("2026/09/27", 0, 0, 0, 0)]}
+        _, printed = self._run(lambda url, **kw: _Response(payload))
+        stored = self._stored()
+        self.assertEqual(stored[date(2026, 9, 29)].source_quality, "INCONSISTENT")
+        self.assertEqual(float(stored[date(2026, 9, 29)].low), 100_000_000.0,
+                         "a flagged candle must be kept as published, not corrected")
+        self.assertEqual(stored[date(2026, 9, 28)].source_quality, "COMPLETE")
+        self.assertNotIn(date(2026, 9, 27), stored)
+        self.assertIn("without a valid price skipped", printed)
+
+    def test_13_one_instrument_failing_does_not_stop_the_other_being_stored(self):
+        def fake(url, **kw):
+            if "price_dollar_rl" in url:
+                return _Response({}, status=503)
+            return _Response(PAYLOAD)
+
+        _, printed = self._run(fake)
+        self.assertEqual(len(self._stored()), 2)
+        self.assertEqual(self._stored("TGJU_USD_IRR"), {})
+        self.assertIn("price_dollar_rl: ERROR", printed)
+
+        # The next run asks the dollar for its whole history, and gold for a window.
+        transport, _ = self._run(lambda url, **kw: _Response(PAYLOAD))
+        self.assertEqual(transport.rows_requested(),
+                         {"geram18": main.TGJU_WINDOW_ROWS,
+                          "price_dollar_rl": tgju.FULL_HISTORY_ROWS})
+
+    def test_14_provenance_is_recorded_and_the_collector_stores_nothing(self):
+        self._run(lambda url, **kw: _Response(PAYLOAD))
+        row = self._stored()[date(2026, 9, 29)]
+        self.assertEqual((row.source, row.unit, row.trade_date_jalali),
+                         ("tgju", "IRR", "1405/07/07"))
+        self.assertEqual(row.collected_at, NOW, "collected_at must be the run's UTC time")
+
+        module_source = inspect.getsource(tgju)
+        for storage in ("database", "save_", "session", "INSERT"):
+            self.assertNotIn(storage, module_source, "collectors collect; main stores")
+
+    def test_15_tgju_is_asked_about_once_a_day(self):
+        """Section 41.5 committed the stored collection to once a day, not two requests
+        an hour: a run whose table already holds the last trading day asks nothing."""
+        self._run(lambda url, **kw: _Response(PAYLOAD))
+        transport, printed = self._run(lambda url, **kw: _Response(PAYLOAD))
+        self.assertEqual(transport.calls, [], "an up-to-date table still asked tgju")
+        self.assertIn("up to date", printed)
+
+        # Saturday 2026-10-03: Friday has no candle, so Thursday's is the newest there is.
+        self.assertEqual(main._tgju_last_trading_day(date(2026, 10, 3)), date(2026, 10, 1))
+        self.assertEqual(main._tgju_last_trading_day(date(2026, 10, 1)), date(2026, 9, 30))
+        thursday = {"data": [_row("2026/10/01", 250, 249, 252, 251)]}
+        self._run(lambda url, **kw: _Response(thursday), now=datetime(2026, 10, 2, 8, 30))
+        transport, _ = self._run(lambda url, **kw: _Response(thursday),
+                                 now=datetime(2026, 10, 3, 8, 30))
+        self.assertEqual(transport.calls, [], "a Saturday kept asking for Friday's candle")
+
+        # A day behind: asked again.
+        transport, _ = self._run(lambda url, **kw: _Response(thursday),
+                                 now=datetime(2026, 10, 4, 8, 30))
+        self.assertTrue(transport.calls)
 
 
 if __name__ == "__main__":

@@ -653,6 +653,36 @@ class KPICoherence(unittest.TestCase):
         migration = (REPO / "sql" / "neon_migration_news_url.sql").read_text(encoding="utf-8")
         self.assertIn("ALTER TABLE news_events ALTER COLUMN url TYPE TEXT", migration)
 
+    def test_34_the_model_the_schema_and_the_migration_declare_one_candle_table(self):
+        """market_daily_candles was created in production by
+        sql/neon_migration_daily_candles.sql (SP_C_HANDOFF.md section 41.6). The model
+        is what the code writes, the target schema is what a rebuild creates, and the
+        migration is what production has. A column in one and not the others fails a
+        write in production or disappears in a rebuild; an identity that differs lets
+        the same trading day be stored twice."""
+        from database.models import MarketDailyCandle
+        table = MarketDailyCandle.__table__
+        model_columns = {column.name for column in table.columns}
+        identity = [c for c in table.constraints
+                    if c.name == "uq_market_daily_candles_identity"]
+        self.assertEqual(len(identity), 1, "the model lost its identity constraint")
+        self.assertEqual([column.name for column in identity[0].columns],
+                         ["source", "instrument", "trade_date"])
+
+        sources = {
+            "target schema": (REPO / "sql" / "neon_schema.sql").read_text(encoding="utf-8"),
+            "migration": (REPO / "sql" / "neon_migration_daily_candles.sql").read_text(encoding="utf-8"),
+        }
+        for name, sql in sources.items():
+            block = sql[sql.index("CREATE TABLE IF NOT EXISTS market_daily_candles"):]
+            block = block[:block.index(");")]
+            sql_columns = set(re.findall(r"^\s+([a-z_]+)\s+[A-Z]", block, re.MULTILINE))
+            sql_columns.discard("CONSTRAINT")
+            self.assertEqual(sql_columns, model_columns, f"the {name} and the model disagree")
+            self.assertIn("CONSTRAINT uq_market_daily_candles_identity "
+                          "UNIQUE (source, instrument, trade_date)", block,
+                          f"the {name} has a different identity")
+
     # -- 6. the register must stay honest -------------------------------------
 
     def test_30_every_accepted_divergence_names_both_sides_and_a_reason(self):

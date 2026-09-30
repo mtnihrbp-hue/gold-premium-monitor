@@ -1402,3 +1402,69 @@ def get_existing_candle_bucket_starts(
         return set()
     finally:
         session.close()
+
+
+# --- External daily candles (SP-D technical-analysis track) ---
+
+def get_latest_daily_candle_dates(session, source):
+    """{instrument: latest stored trade_date} for one source; an instrument with no
+    stored candle is absent."""
+    from database.models import MarketDailyCandle
+
+    rows = (
+        session.query(MarketDailyCandle.instrument, func.max(MarketDailyCandle.trade_date))
+        .filter(MarketDailyCandle.source == source)
+        .group_by(MarketDailyCandle.instrument)
+        .all()
+    )
+    return {instrument: latest for instrument, latest in rows}
+
+
+def save_daily_candles(session, source, instrument, unit, candles, collected_at):
+    """Store the candles not stored yet, in one transaction. Returns (inserted, revised).
+
+    `candles` are dicts with trade_date (a date), jdate, open, high, low, close and
+    quality. First-seen values are never overwritten: a candle already stored with
+    different prices is left as it is and its trade_date is returned in `revised`, so
+    the caller can report that the source changed its own history.
+    """
+    from database.models import MarketDailyCandle
+
+    if not candles:
+        return 0, []
+    dates = [c["trade_date"] for c in candles]
+    stored = {
+        row.trade_date: row
+        for row in session.query(MarketDailyCandle).filter(
+            MarketDailyCandle.source == source,
+            MarketDailyCandle.instrument == instrument,
+            MarketDailyCandle.trade_date >= min(dates),
+            MarketDailyCandle.trade_date <= max(dates),
+        )
+    }
+    inserted, revised, seen = 0, [], set()
+    for c in candles:
+        if c["trade_date"] in seen:        # a repeated day would fail the whole batch
+            continue
+        seen.add(c["trade_date"])
+        row = stored.get(c["trade_date"])
+        if row is not None:
+            if any(float(getattr(row, key)) != c[key] for key in ("open", "high", "low", "close")):
+                revised.append(c["trade_date"])
+            continue
+        session.add(MarketDailyCandle(
+            source=source,
+            instrument=instrument,
+            trade_date=c["trade_date"],
+            trade_date_jalali=c.get("jdate") or None,
+            open=c["open"],
+            high=c["high"],
+            low=c["low"],
+            close=c["close"],
+            unit=unit,
+            source_quality=c["quality"],
+            collected_at=collected_at,
+        ))
+        inserted += 1
+    session.commit()
+    return inserted, revised

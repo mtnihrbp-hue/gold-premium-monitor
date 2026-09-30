@@ -116,25 +116,98 @@ def _resolve_decision_valuation(premium, thresholds):
         return DecisionValuation(premium=premium)
 
 
-def _log_tgju_candles():
-    """Collect tgju's latest daily candles and print them. Nothing is stored.
+# Rows re-read when a new trading day is due and history is stored: covers Fridays,
+# holidays and a few missed days. A longer gap is covered by _tgju_rows_needed.
+TGJU_WINDOW_ROWS = 10
 
-    SP-D technical-analysis track, step 1 (SP_C_HANDOFF.md section 41): proves the
-    production runner can collect tgju's history before a table is migrated for it.
-    Scheduled runs only. It never raises, and the collector is bounded by its own
-    deadline, so it cannot hold or fail a run.
+
+def _tgju_rows_needed(latest_dates, today):
+    """{tgju key: rows to request}: the whole history for an instrument with nothing
+    stored, otherwise enough to reach back past its latest stored candle."""
+    from collector.tgju import FULL_HISTORY_ROWS, INSTRUMENTS
+
+    needed = {}
+    for key, name in INSTRUMENTS.items():
+        latest = latest_dates.get(name)
+        needed[key] = (FULL_HISTORY_ROWS if latest is None else
+                       min(FULL_HISTORY_ROWS, max(TGJU_WINDOW_ROWS, (today - latest).days + 5)))
+    return needed
+
+
+def _tgju_last_trading_day(today):
+    """The newest candle tgju can have before `today`: yesterday, or Thursday when
+    yesterday was Friday. Public holidays are not known here; after one, runs simply
+    keep asking until a newer candle appears."""
+    day = today - timedelta(days=1)
+    return day - timedelta(days=1) if day.weekday() == 4 else day
+
+
+def _collect_tgju_candles(now=None):
+    """Collect tgju's daily candles and store the completed days not stored yet.
+
+    SP-D technical-analysis track (SP_C_HANDOFF.md section 41.6). Scheduled runs only.
+    On an empty table the first run stores the whole history. After that tgju is asked
+    only while the newest stored candle is older than the last trading day, so about
+    once a day, and then for a short window. Today's candle is never stored, because
+    it is not complete. A stored day that tgju has since changed is reported, not
+    overwritten. Never raises, and the collector is bounded by its own deadline, so it
+    cannot hold or fail a run.
     """
+    session = None
     try:
-        from collector.tgju import collect_daily_candles
-        for instrument, result in collect_daily_candles(rows=2).items():
+        from datetime import date
+        from collector.tgju import INSTRUMENTS, SOURCE, UNIT, collect_daily_candles
+        from database.repository import get_latest_daily_candle_dates, save_daily_candles
+        from timeutil import local_now
+        from validation.data import classify_daily_candle
+
+        session = get_session()
+        if session is None:
+            print("TGJU: database unavailable, nothing collected")
+            return
+        now = now or datetime.utcnow()
+        today = local_now(now).date()
+        latest = get_latest_daily_candle_dates(session, SOURCE)
+        expected = _tgju_last_trading_day(today)
+        if all(latest.get(name) is not None and latest[name] >= expected
+               for name in INSTRUMENTS.values()):
+            print(f"TGJU: up to date, latest {max(latest.values())}")
+            return
+        for key, result in collect_daily_candles(rows=_tgju_rows_needed(latest, today)).items():
             if result["status"] != "OK":
-                print(f"TGJU {instrument}: {result['status']}")
+                print(f"TGJU {key}: {result['status']}")
                 continue
-            c = result["candles"][0]
-            print(f"TGJU {instrument}: {c['date']} open {c['open']:,.0f} high {c['high']:,.0f} "
-                  f"low {c['low']:,.0f} close {c['close']:,.0f}")
+            candles, invalid = [], 0
+            for c in result["candles"]:
+                trade_date = date.fromisoformat(c["date"])
+                if trade_date >= today:
+                    continue
+                quality = classify_daily_candle(c)
+                if quality == "INVALID":
+                    invalid += 1
+                    continue
+                candles.append({**c, "trade_date": trade_date, "quality": quality})
+            try:
+                inserted, revised = save_daily_candles(
+                    session, SOURCE, INSTRUMENTS[key], UNIT, candles, now)
+            except Exception as e:
+                session.rollback()
+                print(f"TGJU {key}: store failed: {e}")
+                continue
+            line = f"TGJU {key}: {inserted} new"
+            if candles:
+                line += f", latest {candles[0]['date']} close {candles[0]['close']:,.0f}"
+            if revised:
+                line += (f", {len(revised)} changed by tgju since stored, kept as first seen "
+                         f"({', '.join(str(d) for d in revised[:3])})")
+            if invalid:
+                line += f", {invalid} without a valid price skipped"
+            print(line)
     except Exception as e:
-        print(f"TGJU probe failed: {e}")
+        print(f"TGJU collection failed: {e}")
+    finally:
+        if session is not None:
+            session.close()
 
 
 def _recent_platform_history(now):
@@ -660,7 +733,7 @@ def main():
                 print(f"NEWS: {news_result.get('total_new', 0)} new events")
         except Exception as e:
             print(f"News ingestion failed: {e}")
-        _log_tgju_candles()
+        _collect_tgju_candles()
         if snapshot_id is not None:
             try:
                 analysis_snapshot_id = build_analysis_snapshot(config=config)
