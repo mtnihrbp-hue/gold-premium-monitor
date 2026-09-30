@@ -455,6 +455,13 @@ Rollout (`SP_C_HANDOFF.md` section 29), state on 2026-09-27:
 4 broadcast   TELEGRAM_BROADCAST_IDS + audience per message type (section 29.3)
 ```
 
+SP-D also carries a Technical Analysis track for ANALYZE (agreed 2026-09-30,
+`SP_C_HANDOFF.md` section 41): step 1 data research now (tgju's 13-year daily
+history tracks our platforms at 0.95 daily correlation); step 2 fixes and shows
+support/resistance and a moving-average crossing after the reliability phase; step 3
+long averages and candle patterns when history allows. TA is evidence, never a
+decision, until validated.
+
 SP-D: code work opens Saturday 2026-10-03, after a settle period on `main`; R&D
 starts with the morning dollar (agreed 2026-09-29, `SP_C_HANDOFF.md` section 36). The
 `SP-D` branch exists from 2026-09-29 for R&D records and docs.

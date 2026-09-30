@@ -4157,3 +4157,93 @@ alone rather than widened on speculation.
 The 11:00 run is the first after the migration. Items still inside the feeds' windows
 (two days for two Google feeds, seven for the rial feed) are saved as they come round
 again. Items that have already left the windows are lost for good.
+
+---
+
+## 41. SP-D: a Technical Analysis track for the ANALYZE wing (agreed 2026-09-30)
+
+Times are Tehran local. The owner asked for technical analysis in the platform and in
+the ANALYZE message: support and resistance, moving-average crossings, candle
+principles. The plan below was agreed on 2026-09-30, with full authorization. It is
+SP-D scope: step 1 is research and runs now; steps 2 and 3 are code, in SP-D.
+
+### 41.1 What the data supports today (measured 2026-09-30)
+
+```text
+history          615 readings since 2026-08-04; 242 clean hourly readings since
+                 2026-09-14 (16 days); 58 calendar days, 23 of them with 10+ readings
+candles          platform_candles (C.14A) is 30-minute candles built from about one
+                 reading each: 98% have open = high = low = close. They are points,
+                 not candles, and every candlestick pattern on them would read as doji
+support/         live since PRE-SP-C.3 in analysis/structure.py, stored in
+resistance       analysis_snapshots.technical_state_json, never shown to a reader.
+                 Three defects: a 20-reading (~1 day) lookback; one platform (Milli)
+                 as the instrument; levels labelled by extremum type, not by position.
+                 On 2026-09-30 at 10:01 the price was 25.28M, and "support" was
+                 listed at 25.43M and 25.69M, above the price
+moving averages  SMA/EMA in intelligence/features.py and MACD in forecast_features.py,
+                 feeding forecast features only
+```
+
+### 41.2 Principles (from the existing documentation)
+
+- **Evidence, not a decision.** READ MODEL != DECISION AUTHORITY. A TA line may not
+  trigger BUY or SELL until it has been validated against outcomes; `RESEARCH_ADOPTION.md`
+  admits technical triggers only "subject to walk-forward validation".
+- **Every line states its evidence**, e.g. "support 25.21M, tested 3 times in 14 days".
+  No confidence manufactured from a small sample (`skills/market-analyst.md`).
+- **Deterministic**, never produced by an LLM.
+- **"Technical analysis must consume actual price observations"** (PROJECT_MEMORY).
+  TA runs on the price in Toman (the three-cheapest basis), which is how buyers think
+  and is unaffected by the morning dollar. The discount keeps its statistical levels
+  (the CHEAP threshold and the deep-discount level); classic TA on it would duplicate
+  them.
+
+### 41.3 The plan
+
+```text
+step 1  data research (now, read-only, beside the morning-dollar research)
+        - daily candles from our hourly readings (done below)
+        - tgju.org daily OHLC history: coverage, agreement with our prices (done
+          below), terms of use (open: the owner's call)
+step 2  fix and show what exists (SP-D, after the reliability phase)
+        - support/resistance over 14-30 days, on the three-cheapest price, labelled by
+          position (below the price = support), with touch counts
+        - a short moving-average crossing on the price
+        - both into ANALYZE, each with its evidence
+step 3  when history allows
+        - 20/50/200-day averages and daily candlestick patterns, each shown with its
+          measured record ("after this pattern the price rose the next day in X of N")
+```
+
+### 41.4 Step 1 results (2026-09-30)
+
+**Our own daily candles are real.** Each local day since 2026-09-15 has 14-17 hourly
+readings, so a daily candle's open, high, low and close carry information: 15 days so
+far.
+
+**tgju.org publishes 13 years of real daily candles.** Its history pages read
+`api.tgju.org/v1/market/indicator/summary-table-data/<instrument>`, which returns
+open, low, high, close, change, change %, and the Gregorian and Persian dates:
+
+- 18K gold (`geram18`): 3,516 trading days, 2013-07-22 to 2026-09-29, in Rial;
+- the dollar (`price_dollar_rl`): 3,964 trading days from 2011.
+
+tgju's `robots.txt` does not restrict the history pages.
+
+**tgju's 18K tracks our platforms closely.** Over 13 overlapping days, tgju's daily
+close against the median of our platforms' last reading of the day:
+
+```text
+daily moves     correlation 0.95; same direction on 11 of 12 days
+level           tgju a median +0.19% above ours (range -0.14% .. +1.06%)
+calendar        tgju has no Friday candles: the bazaar is closed; our platforms trade
+```
+
+So tgju's history can serve as the long history TA needs, from day one: long-term
+support and resistance, 50/200-day averages, and candlestick base rates. It must be
+stored as its own instrument with its own provenance, never mixed silently with our
+platform prices (FACTS keep their source).
+
+**Open for the owner:** tgju's terms of use for an automated daily fetch (one request
+a day). Nothing is collected until that is settled.
