@@ -4247,3 +4247,27 @@ platform prices (FACTS keep their source).
 
 **Open for the owner:** tgju's terms of use for an automated daily fetch (one request
 a day). Nothing is collected until that is settled.
+
+### 41.5 tgju collected in log-only mode (2026-09-30)
+
+At the owner's request ("implement something fast, and see if the run collects the
+tgju thing easily"):
+
+- **From abroad** (Psiphon, as the GitHub runner sees it): HTTP 200 on every try,
+  about 600 bytes for three days of candles, 1-2 s, and the same values as from Iran.
+- `src/collector/tgju.py` collects the latest daily candles for `geram18` (18K gold)
+  and `price_dollar_rl` (the dollar). Each fetch runs on a daemon thread under one
+  20-second deadline, the SP-C.9 pattern, so a hung request cannot hold a run; the two
+  instruments are isolated from each other. Locally: 0.6 s from Iran, 0.9 s from
+  abroad.
+- `main._log_tgju_candles()` runs on scheduled runs only, after news ingestion. It
+  prints the latest candle per instrument and **stores nothing**: it never raises and
+  never writes. Storing needs a table, and a table goes through the Neon migration
+  policy as SP-D work.
+- `kpi/kpi_tgju_candles.py`, 8/8, with no network access: column order, request
+  parameters, isolation, the deadline, that it never raises, scheduled runs only, and
+  nothing stored. The KPI suite is now 28 files.
+
+The owner's request to collect is taken as the answer, for this probe, to 41.4's open
+question on terms of use. It makes two small requests an hour. When storage is built,
+the collection moves to once a day.

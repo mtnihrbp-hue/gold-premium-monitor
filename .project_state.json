@@ -75,9 +75,9 @@
   },
   "latest_verified_kpi": {
     "phase": "FULL SUITE",
-    "verified_on": "2026-09-29",
-    "files_passed": 27,
-    "files_total": 27,
+    "verified_on": "2026-09-30",
+    "files_passed": 28,
+    "files_total": 28,
     "assertions": "661 across 25 files; kpi_update_telegram_v1.py reports no count",
     "status": "PASS",
     "evidence_source": "python kpi/run_all.py on SP-C against an isolated in-memory database, runner exit status 0; compileall PASS; also green in CI (.github/workflows/kpi-suite.yml)",
@@ -295,16 +295,17 @@
   },
   "process_rule": "Do not change an agreed design, template or framework without explicit permission, including changes that appear obvious while working on a different task. Raise them as a question instead. Recorded after unrequested edits to an approved message template forced re-review and removed a column that was broken for a fixable reason.",
   "kpi_suite": {
-    "files": 27,
+    "files": 28,
     "latest": "kpi_coherence.py",
     "assertions_sp_b2": 15,
     "assertions_sp_c1": 59,
     "assertions_sp_c4": 54,
     "assertions_sp_c6": 44,
     "assertions_coherence": 27,
-    "status": "27/27 files passing (2026-09-29, runner exit 0)",
+    "status": "28/28 files passing (2026-09-30, runner exit 0)",
     "note": "kpi_coherence.py checks modules against each other and carries the register of accepted divergences, now 5 entries. An entry whose divergence is fixed fails the suite, so the register cannot go stale.",
-    "assertions_signal_confirmation": 34
+    "assertions_signal_confirmation": 34,
+    "assertions_tgju_candles": 8
   },
   "open_decisions": [
     "The push is buy-side only. A shallow discount is the sell-side mirror and is the same measurement with the comparison flipped; deferred until the first trigger has proven itself.",
@@ -329,7 +330,7 @@
     "Stale tests (section 38.6): kpi_coherence.test_27 cannot fail (searches _code output for 'name('); tests/test_signal_state.py import error; src/tests test_hysteresis_cooldown_same_alert failing on main. Reliability phase.",
     "validation/data.MAX_WORLD_GOLD is $5,000/oz with gold near $4,150; a rally past it rejects every world-gold quote (section 38.7). Reliability phase.",
     "Deep-discount push has no second-platform confirmation of its own; the stale-Taline case is closed at validation (38.8). Decide in SP-D whether the push needs one.",
-    "tgju.org terms of use for an automated daily fetch of its 18K and dollar history (one request a day) -- the owner's call before any tgju collector is built (SP_C_HANDOFF.md 41.4)."
+    "tgju storage (SP-D TA step 1 to 2): a table for tgju daily candles needs the Neon migration process; the collection moves to once a day when storage is built (SP_C_HANDOFF.md 41.5)."
   ],
   "corrections": [
     "Decision scorecard 'edge 0.0' does NOT mean the strategy failed. final_decision was a constant (WAIT 264/264) because of the hysteresis latch, so the scorecard compared always-WAIT against always-WAIT. The engine is untested, not disproven.",
@@ -356,6 +357,6 @@
     "step_4_broadcast": "Readers receive, only the owner triggers. Needs TELEGRAM_BROADCAST_IDS, _send iterating the list, and an audience per message type with a KPI asserting operator messages never reach readers. Section 29.3.",
     "not_yet": "Routing a requester's identity through the workflow, which /Update for other readers would require. Section 29.1.",
     "post_merge_order": "Agreed by the owner 2026-09-28 (supersedes 09-27): 1 reliability phase (world-gold deadline; high_impact_count with a precision check; news dedup window and Google suffix; Daric if still down); 2 morning-dollar research, no code (second dollar source, pool/rank bias, SP-C.17 structure re-measure) ending in a fix decision; 3 broadcast (step 4); 4 basis divergence (own phase and approval); 5 ANALYZE percentages; 6 research (6h horizon, quote_side). Section 34.7.",
-    "technical_analysis_track": "Agreed 2026-09-30, fully authorized (SP_C_HANDOFF.md section 41). Step 1 data research now: our daily candles are real (14-17 hourly readings a day); tgju.org publishes 13 years of daily OHLC (18K: 3,516 days from 2013; dollar: 3,964 from 2011) that tracks our platforms at 0.95 daily correlation, +0.19% median level; its terms of use for a daily fetch are the owner's call. Step 2 (after the reliability phase): support/resistance fixed and shown in ANALYZE, plus a moving-average crossing. Step 3 when history allows: 20/50/200-day averages and candle patterns with measured records. TA is evidence, never a decision, until walk-forward validated."
+    "technical_analysis_track": "Agreed 2026-09-30, fully authorized (SP_C_HANDOFF.md section 41). Step 1 data research now: our daily candles are real (14-17 hourly readings a day); tgju.org publishes 13 years of daily OHLC (18K: 3,516 days from 2013; dollar: 3,964 from 2011) that tracks our platforms at 0.95 daily correlation, +0.19% median level; its terms of use for a daily fetch are the owner's call. Step 2 (after the reliability phase): support/resistance fixed and shown in ANALYZE, plus a moving-average crossing. Step 3 when history allows: 20/50/200-day averages and candle patterns with measured records. TA is evidence, never a decision, until walk-forward validated. 2026-09-30: tgju collected in log-only mode on every scheduled run (collector/tgju.py, main._log_tgju_candles; nothing stored), after a probe from abroad succeeded. Section 41.5."
   }
 }
