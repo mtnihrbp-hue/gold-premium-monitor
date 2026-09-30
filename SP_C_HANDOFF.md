@@ -4358,3 +4358,57 @@ once a day including the Friday rule, and that the collector itself stores nothi
 same columns and identity. Suite 28/28, exit 0. Three deliberate mutations (store
 today, cut the day at UTC, drop the Friday rule) and one dropped column each made
 its KPI fail.
+
+## 42. The world-gold chain bounded, and a second Kitco defect (2026-09-30)
+
+**What happened.** The 13:00 ANALYZE run (36696563613), the first on the tgju storage
+code, hung and was cancelled by the 20-minute job timeout at 13:20:51, having written
+nothing. The log has the section 33.2 signature exactly:
+
+```text
+13:01:00  COLLECT
+13:01:00    World Gold   gold-api.com   FAILED (... NameResolutionError ...)
+          <nothing for 19.8 minutes>
+13:20:51  ##[error]The operation was canceled.
+```
+
+No database connection from the runner was open while it hung, and no row of any kind
+was written, so it stopped in collection, before the tgju step. The tgju change was not
+involved. This is the fourth run lost to the Kitco read (09-24, 09-25 twice, 09-30). At
+the owner's direction ("take necessary action asap") the fix queued for the
+reliability phase was built now, on `hotfix-world-gold-deadline`.
+
+**The fix** (`collector/kitco.py`), as 33.2 proposed:
+
+- Kitco's stream is read line by line (`stream=True`), abandoned after
+  `KITCO_SSE_SECONDS` = 15, and closed.
+- The whole chain (gold-api.com, Kitco, goldprice.org, Yahoo) runs on a daemon thread
+  under `WORLD_GOLD_DEADLINE_SECONDS` = 60, the SP-C.9 pattern. A chain that runs out of
+  time returns None, and `main` already turns that into the stored fallback with
+  degraded provenance, which also holds any BUY/SELL (world gold not live). An
+  abandoned chain stays silent, so a late answer cannot print as if it had been used.
+
+**A second defect, found only because the first was fixed.** Tested live through
+Psiphon, the repaired Kitco read returned **1,706** with gold at 4,189. Each Kitco event
+carries one metal, named by `Symbol`, in no fixed order: palladium (PD, 1,202) and
+platinum (PT, 1,705) often come first, then silver (AG) and gold (AU). The old code
+took the first metal in the stream. It never mattered only because the old read never
+finished. With the hang fixed and nothing else changed, the next gold-api.com outage
+would have fed platinum as world gold: inside the validation range (1,000-5,000), live
+provenance, so the signal confirmation would not have held it. Kitco now takes gold by
+its symbol. Measured live: gold arrives 1.2-1.7 s after connecting; three reads
+returned 4,187.0, against gold-api.com's 4,189.3.
+
+**Checks.** `kpi_sp_c5` 54/54 (was 50), beside the SP-C.9 platform tests:
+- 23e: an endless stream is abandoned at its deadline and closed;
+- 23f: gold is taken past the connected event, a crypto event and three other metals;
+- 23g: a chain whose second source hangs returns None within the deadline, and a
+  healthy chain still answers;
+- 23h: a daemon thread, and no whole-body read.
+
+Restoring the old read fails 23e, 23f and 23h; taking the first metal fails 23f. Suite
+28/28.
+
+Still open from 33.2: `_fallback_world_from_db` opens a Neon connection without a
+connect timeout; bounded only by the job. Rare (the stored-history fallback comes
+first) and left for the reliability phase.

@@ -42,7 +42,7 @@ before reading any failure narrative below as live.**
 | News classifier matched "us" inside base64 image tokens; 879 of 1441 mislabelled | 2026-09-21 | SP-C.16, section 27.5 |
 | structure_state is DISCOUNT_DOMINANT on 365 of 367 rows | **MEASURED, LEFT ALONE -- REOPENED AS A QUESTION 2026-09-28** | SP-C.17, section 28 -- a rare-event detector, not a dead leg; all three candidate replacements are within one standard error of chance. The firings up to 09-28 morning all sat before 13:00 Tehran, in the stale-dollar window, so part of the separation may be mechanical (section 34.6); it also fired at 19:01 and 19:10 on 09-28 on a current dollar, so the re-measure should split by dollar freshness |
 | News LLM classification path has never run | **OPEN** | SP-C.16, section 27.5 |
-| Three runs stalled at the 20-minute job timeout before their first write (09-24, 09-25 x2) | **DIAGNOSED, fix queued** | section 33.2 -- no partial rows; the Kitco SSE body never ends and is read without `stream=True`, so every gold-api.com failure hangs the run; fix leads the post-merge reliability phase |
+| Four runs stalled at the 20-minute job timeout before their first write (09-24, 09-25 x2, 09-30 13:00) | 2026-09-30 (hotfix on main) | sections 33.2, 42 -- the Kitco SSE body never ends and was read whole; now read line by line under 15 s, and the whole world-gold chain under one 60 s deadline on a daemon thread. The fix exposed a second defect: Kitco's parser took the first metal (platinum, palladium), now gold by symbol |
 | News dedup looks back 24 h while feeds keep items for days; 330 of 2,294 rows re-inserted | **OPEN** | section 33.3 N1 -- live consumers unaffected, measurements must count distinct keys |
 | `high_impact_count` 0 on 268/268 snapshots; reads `relevance` for values only `impact` holds | **OPEN** | section 33.3 N2 -- interpretation layer only |
 | donya-e-eqtesad.com and tejaratnews.com unproven from a GitHub runner | 2026-09-27 | section 33.3 -- the two largest and freshest sources |
@@ -2345,8 +2345,8 @@ CHEAP check   leg correct and reachable; the market never went there, closest
               0.22 pp on 09-23 (34.2) -- no fix needed
 ```
 
-**Open, found in the window.** Three runs stalled before their first write (now
-diagnosed as the Kitco SSE read). News dedup re-inserts items from slow feeds, and
+**Open, found in the window.** Three runs stalled before their first write (the Kitco
+SSE read; fixed 2026-09-30 after a fourth, section 42). News dedup re-inserts items from slow feeds, and
 `high_impact_count` is a constant. The index at the top of this file lists all three.
 The owner decided on 2026-09-27 to fix them after the merge, as one reliability
 phase. On 2026-09-28 the order became: reliability, then morning-dollar research,

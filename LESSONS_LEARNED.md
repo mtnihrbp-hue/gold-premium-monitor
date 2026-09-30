@@ -710,3 +710,23 @@ fixed:
   needs a second platform to confirm it (section 38). A defect at a boundary you do not
   control is contained by a check you do control.
 
+
+## 19. A path that never finished hides its next defect
+
+**The pattern.** A fallback that has never completed in production has never had its
+output checked. Fixing whatever stopped it does not make it correct. It lets the next
+defect through, and the next one runs where the first merely hung.
+
+**Where it happened.** Kitco was second in the world-gold chain and could only hang
+(section 5; `SP_C_HANDOFF.md` 33.2). Once the read was bounded on 2026-09-30, a live
+test returned 1,706 with gold at 4,189: the parser took the first metal in the stream,
+often palladium or platinum. The hang had been the only thing keeping platinum out of
+the fair price. Had the bounded read shipped alone, the next outage of the first source
+would have produced a live-provenance world price about 60% low, inside the validation range
+(`SP_C_HANDOFF.md` section 42).
+
+**The check.** When unblocking a path that has never finished, run it against the real
+source and compare its answer with a source you trust, in the same minute, before
+shipping. A unit test written from the parser's own assumptions ("the first item is
+the price") passes against the fixture it was written for. The first draft of this
+fix's own test did exactly that: a one-metal event, no symbol, and it passed.
