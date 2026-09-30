@@ -1252,9 +1252,10 @@ market_daily_candles   new table                  sql/neon_migration_daily_candl
 
 `market_daily_candles` holds one row per source, instrument and completed Tehran
 trading day. First-seen values are never overwritten, and a candle whose low and high
-do not bound it is kept as published, flagged `INCONSISTENT`. The first scheduled run
-on an empty table stores the whole history (18K gold from 2013, the dollar from 2011);
-after that tgju is asked about once a day. `SP_C_HANDOFF.md` sections 40 and 41.6.
+do not bound it is kept as published, flagged `INCONSISTENT`. Scheduled runs
+fill the history a page of 1,000 per run, oldest first, resuming from the stored count
+(18K gold from 2013, the dollar from 2011, about four runs; section 43); after that
+tgju is asked about once a day. `SP_C_HANDOFF.md` sections 40, 41.6 and 43.
 
 ### SP-C.1 additions, applied 2026-09-14
 
@@ -2333,7 +2334,9 @@ rollout       step 1 (observe) CLOSED 2026-09-27
               step 4 (broadcast) in the SP-D order (SP_C_HANDOFF 34.7)
 KPI           28/28 files, exit 0; compileall PASS (2026-09-30)
 TA data       tgju daily candles stored in market_daily_candles from 2026-09-30:
-              gold from 2013, the dollar from 2011 (SP_C_HANDOFF 41.6)
+              gold from 2013, the dollar from 2011, paged in (SP_C_HANDOFF 41.6, 43)
+reliability   world-gold chain bounded; Neon connections time out at 10 s per
+              address (SP_C_HANDOFF 42, 43)
 production    hourly ANALYZE continuous since 2026-09-14; all runs green since
               2026-09-25 16:30Z; stored range -8.19% to +0.36%, but both positive
               readings are most likely a stale-dollar artefact (SP_C_HANDOFF 34.3)

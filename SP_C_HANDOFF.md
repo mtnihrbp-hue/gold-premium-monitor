@@ -4412,3 +4412,67 @@ Restoring the old read fails 23e, 23f and 23h; taking the first metal fails 23f.
 Still open from 33.2: `_fallback_world_from_db` opens a Neon connection without a
 connect timeout; bounded only by the job. Rare (the stored-history fallback comes
 first) and left for the reliability phase.
+
+## 43. Neon connections bounded; tgju's history paged (2026-09-30)
+
+**The 14:00 run** (36702852756, the first on the world-gold fix) succeeded in about 6
+minutes: world gold live from gold-api.com, confirmation checks ran, 47 news items,
+analysis snapshot 313. The tgju backfill did not: both whole-history requests hit the
+10-second read timeout. The step stayed bounded (10 s) and the run was unaffected.
+
+**Why the whole history failed.** tgju's answer time follows its load, not only the
+size. Measured from abroad through Psiphon on the same day:
+
+```text
+12:45   3 rows 6.7 s; 500 rows timed out at 10 s
+14:40   10 rows 2.5 s; 400 rows 1.2 s; 1,000 rows 3.2 s; 3,964 rows 4.3 s
+Iran    3,516 rows 1.1 s (12:20)
+runner  2 rows 0.5 s (12:00); 20,000 requested, read timeout at 10 s (14:02)
+```
+
+A single large request at a busy moment is fragile, and when it fails nothing is
+stored, so the next run starts from zero.
+
+**The change** (`hotfix-db-timeout-tgju-pages`, at the owner's direction "take
+necessary action ... go ahead"):
+
+- **tgju history a page per run.** An instrument with no stored candle, or a newest
+  one more than 30 days old, asks for the next 1,000 rows **oldest first**, starting at
+  its stored count. Oldest-first offsets do not move, because tgju only appends new
+  days (checked: gold row 1,000 is 2017-08-05 whatever the day); a skipped row can
+  only make pages overlap, which the identity constraint absorbs, never leave a gap.
+  Each page is stored as it arrives, so a failed page costs one run, not the history.
+  Four runs fill the dollar (3,964 days) and four fill gold (3,516), both in parallel.
+  Once the newest stored day is recent, the daily window takes over as before. Read
+  timeout 20 s (was 10), collector deadline 30 s (was 20).
+- **Neon connections bounded** (the owner: "take necessary action on the db"). The
+  world-gold database fallback, which a degraded network reaches after the chain's
+  60 s deadline, opened a connection bounded only by the operating system's TCP
+  timeout. `database/connection.py` now passes libpq's `connect_timeout` = 10 s for
+  PostgreSQL URLs (each address in turn; Neon's pooler has three, so about 30 s at
+  most) and nothing for SQLite, which the KPI suite uses. A connection to a blackhole
+  address failed at exactly its 2-second test timeout. It is one setting on the one
+  engine in `src/`, so every database call is bounded, not only the fallback. Nothing
+  else in the database changed: no migration.
+
+**Checks.** `kpi_tgju_candles` 16/16: test_08 (a missing history asks for a page,
+resuming from the count; a present one gets the window), test_13, and test_16 (a fake
+tgju with 2,500 days that honours start, length and order, answering past the end with
+a body that is not JSON, as the real one does, is filled in three pages without a gap
+or a repeat, then asks nothing). `kpi_sp_c5` 55/55: test_23i (the timeout reaches the
+engine; none for SQLite). Restarting pages at row 0 or paging newest-first each fails
+the KPI. Suite 28/28. Live check through Psiphon with the production timeouts: first
+page for both instruments in 16.9 s (gold 2013-07-22 .. 2017-08-02, dollar
+2011-11-26 .. 2015-11-08).
+
+Section 41.6's "an instrument with nothing stored asks for its whole history" is
+superseded by this section.
+
+**Verified at 15:00** (run 36708976471, success in 7.6 minutes, the first on
+0efef76): world gold live from gold-api.com; Taline discarded by the stale-copy guard
+(-4.05% from the other platforms' median); 29 news items; analysis snapshot 314; the
+push below its level (no message). The first pages were stored at 15:02, 1,000 days for
+each instrument (gold 2013-07-22 .. 2017-08-02, dollar 2011-11-26 .. 2015-11-08), in
+about 11 s for both. The 16:00, 17:00 and 18:00 runs take rows 1,000, 2,000 and 3,000
+onward; the 18:00 page reaches 2026-09-29 for both, after which tgju is asked about once
+a day.
