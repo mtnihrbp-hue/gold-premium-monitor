@@ -129,7 +129,10 @@ class NewsEvent(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     timestamp = Column(DateTime, nullable=False)
     source = Column(String(200), nullable=False)
-    url = Column(String(500), nullable=True)
+    # TEXT since 2026-09-30 (sql/neon_migration_news_url.sql): Google News and
+    # percent-encoded Persian links exceed 500 characters, and an item whose link
+    # did not fit was lost entirely.
+    url = Column(Text, nullable=True)
     dedup_key = Column(String(32), nullable=True, index=True)
     raw_headline = Column(String(500), nullable=False)
     raw_summary = Column(Text, nullable=True)

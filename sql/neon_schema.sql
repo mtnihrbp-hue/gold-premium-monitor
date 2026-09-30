@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS news_events (
     id SERIAL PRIMARY KEY,
     timestamp TIMESTAMP NOT NULL,
     source VARCHAR(200) NOT NULL,
-    url VARCHAR(500),
+    url TEXT,  -- VARCHAR(500) until 2026-09-30, see neon_migration_news_url.sql
     dedup_key VARCHAR(32),
     raw_headline VARCHAR(500) NOT NULL,
     raw_summary TEXT,

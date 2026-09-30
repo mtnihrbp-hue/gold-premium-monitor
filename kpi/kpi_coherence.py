@@ -632,6 +632,27 @@ class KPICoherence(unittest.TestCase):
         self.assertIn("_send_buy_signal\n(", body,
                       "a BUY no longer reaches the reader through its own message")
 
+    def test_33_the_model_and_the_schema_agree_that_a_news_link_is_text(self):
+        """news_events.url was VARCHAR(500) in the model, the target schema and
+        production, and Google News and percent-encoded Persian links are longer: 45
+        items failed to save in six runs on 2026-09-30, each item lost entirely.
+        Production was widened by sql/neon_migration_news_url.sql. The model and the
+        target schema must say the same, or a rebuild reintroduces the limit
+        (SP_C_HANDOFF.md section 40)."""
+        from sqlalchemy import Text
+        from database.models import NewsEvent
+        column = NewsEvent.__table__.c.url.type
+        self.assertIsInstance(column, Text, "the model limits news_events.url again")
+        self.assertIsNone(getattr(column, "length", None))
+
+        schema = (REPO / "sql" / "neon_schema.sql").read_text(encoding="utf-8")
+        block = schema[schema.index("CREATE TABLE IF NOT EXISTS news_events"):]
+        block = block[:block.index(");")]
+        self.assertRegex(block, r"\burl TEXT\b", "the target schema limits news_events.url again")
+
+        migration = (REPO / "sql" / "neon_migration_news_url.sql").read_text(encoding="utf-8")
+        self.assertIn("ALTER TABLE news_events ALTER COLUMN url TYPE TEXT", migration)
+
     # -- 6. the register must stay honest -------------------------------------
 
     def test_30_every_accepted_divergence_names_both_sides_and_a_reason(self):
