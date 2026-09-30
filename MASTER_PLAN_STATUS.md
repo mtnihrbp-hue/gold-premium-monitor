@@ -330,6 +330,11 @@ counts identical before and after. Details in `SP_C_HANDOFF.md` section 10.
 
 Prior C.14B, C.14C and UPDATE v1 work required no migration.
 
+2026-09-30: `news_events.url` widened from VARCHAR(500) to TEXT
+(`sql/neon_migration_news_url.sql`), because news items with longer links were
+lost entirely. A catalogue change only, verified on a temporary branch first, with
+the owner's authorization. Details in `SP_C_HANDOFF.md` section 40.
+
 Relevant existing structures include:
 
 ```text

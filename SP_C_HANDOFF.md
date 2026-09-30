@@ -4097,3 +4097,63 @@ kpi_signal_confirmation    34/34   + a frozen price the market has left is defer
                                      nothing; production passes history and fails open
 full suite                 27/27 files, exit 0; compileall PASS; main imports
 ```
+
+---
+
+## 40. News links no longer lose the item (Neon migration, 2026-09-30)
+
+Times are Tehran local. The owner asked whether widening the column was the proper
+solution or whether a better one existed, and authorized the fix if not.
+
+### 40.1 The defect
+
+`news_events.url` was `VARCHAR(500)`. Google News article links, and Persian article
+links (percent-encoded, so each Persian letter becomes six characters), are longer.
+Such an item failed to save with `StringDataRightTruncation`, and **the whole item was
+lost**, not just its link. Because it was never stored, deduplication never saw it,
+so the same items were retried and failed again every hour.
+
+- 45 unique items failed across six runs on 2026-09-30, about 10-15% of the news, from
+  donya-e-eqtesad.com and the three Google feeds.
+- 139 stored donya-e-eqtesad links already sat at 450-499 characters.
+- This corrects 37.7, which blamed Google links only. The link lengths the job log
+  shows are cut short by the log itself (about 300 characters), which is why they
+  looked safe.
+
+### 40.2 Why widening, and what was rejected
+
+```text
+truncate the link to 500        stores a broken link: fabricated data
+save the item without a link    keeps the headline, loses provenance
+decode percent-encoding         fixes Persian links only; mixes two formats
+resolve Google redirect links   a network request per item; slow, and blockable
+widen to TEXT                   chosen: nothing lost, nothing invented
+```
+
+Nothing reads `url` for logic (deduplication hashes the title), no index or view uses
+it, and `VARCHAR` to `TEXT` is binary-compatible in PostgreSQL: a catalogue change, not
+a table rewrite.
+
+### 40.3 The migration, following the Neon policy
+
+```text
+inspect     url VARCHAR(500); no index or view on it; 4,987 rows; longest stored 500
+migration   sql/neon_migration_news_url.sql  (ALTER ... TYPE TEXT, a column comment,
+            verification queries, rollback)
+verify      temporary branch br-tiny-frog-ag7grqyc, copied from production at 10:18:
+            type text, no length; a 1,560-character link saved; 4,987 rows intact
+authorize   the product owner, 2026-09-30
+apply       production br-ancient-river-ag4hjjri at 10:19
+verify      type text; comment recorded; 4,987 rows; longest stored link unchanged
+```
+
+`src/database/models.py` (`url = Column(Text)`) and `sql/neon_schema.sql` (`url TEXT`)
+were brought in line. `kpi_coherence.test_33` keeps the model, the target schema and
+the migration in agreement, so a rebuild cannot bring the limit back.
+
+`raw_headline` is still `VARCHAR(500)`. No headline has come near it, so it was left
+alone rather than widened on speculation.
+
+The 11:00 run is the first after the migration. Items still inside the feeds' windows
+(two days for two Google feeds, seven for the rial feed) are saved as they come round
+again. Items that have already left the windows are lost for good.

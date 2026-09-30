@@ -143,6 +143,15 @@
       ],
       "verification": "row counts identical before and after across all seven tables; existing rows report collection_mode 'unknown'; valuation_context_json null on all 217 pre-existing states",
       "known_limitation": "History before 2026-09-14 cannot be separated into scheduled and user readings. Statistics over that period remain drawn from a mixed sample."
+    },
+    "news_url_migration": {
+      "file": "sql/neon_migration_news_url.sql",
+      "applied": "2026-09-30 10:19 Tehran",
+      "authorised_by_user": true,
+      "change": "news_events.url VARCHAR(500) -> TEXT, plus a column comment; catalogue change, no rewrite",
+      "verified_on_branch": "br-tiny-frog-ag7grqyc (temporary, copied from production at 10:18)",
+      "verification": "type text with no length; 4,987 rows before and after; a 1,560-character link saved on the temporary branch",
+      "reason": "Google News and percent-encoded Persian links exceed 500 characters; such items failed to save entirely (45 unique in six runs). SP_C_HANDOFF.md section 40."
     }
   },
   "architecture_wings": {
@@ -317,7 +326,6 @@
     "Morning dollar (section 34.3): USD/IRR input barely changes before ~11:00 Tehran (1 change in 39 readings at 07/09/10:00) while platforms reprice from early morning, so morning readings (5 of 16 scheduled runs a day) price today's gold on yesterday's dollar; the 10:00->13:00 USD step was >=0.9% on 5 of 14 days. Both premiums on record are most likely this. USD freshness is stored as always fresh ((now, now) in main.py). Research first: a second dollar source over more days, and the bias on the pool and ranks; then choose a remedy. Place in the post-merge order is the owner's call.",
     "Daric (section 34.4): RESOLVED on their side 2026-09-28 15:01 Tehran; no action taken.",
     "News dedup, second gap (section 34.5): Google News appends ' - Publisher' to titles, so one story from two outlets hashes differently. Also classifier precision: war mentions in economic pieces get MILITARY_ESCALATION with impact HIGH -- fixing N2 (read impact) without a precision check would turn a constant zero into a noisy count.",
-    "news_events.url varchar(500) rejects long Google News URLs (section 37.7); truncate at the collector or migrate under the Neon policy.",
     "Stale tests (section 38.6): kpi_coherence.test_27 cannot fail (searches _code output for 'name('); tests/test_signal_state.py import error; src/tests test_hysteresis_cooldown_same_alert failing on main. Reliability phase.",
     "validation/data.MAX_WORLD_GOLD is $5,000/oz with gold near $4,150; a rally past it rejects every world-gold quote (section 38.7). Reliability phase.",
     "Deep-discount push has no second-platform confirmation of its own; the stale-Taline case is closed at validation (38.8). Decide in SP-D whether the push needs one."
@@ -337,7 +345,8 @@
     "2026-09-29: the first live BUY since SP-C.15 (14:01 Tehran) was wrong. It rested on a stale Taline quote served by the CDN to GitHub's non-Iranian runners, the live case of section 15.7 item 1. Also the fourth Kitco hang (09:00). Goal assessment recorded in MASTER_PLAN_STATUS.md section 15a. Section 37.",
     "2026-09-29: the cause of the stale-quote BUY is fixed by a confirmation check between candidate and hysteresis, approved by the owner, built on a short-lived branch for main. The first ever fail-closed gate in the decision path: a check that cannot run holds the signal. Section 38.",
     "2026-09-29 18:00: the first production run on the hotfix discarded a stale Taline copy; the log also revealed that the first-ever deep-discount push (15:00) had been a false alarm from the same stale page. Section 38.8.",
-    "2026-09-29: stale platform quotes generalised beyond Taline (section 39). Staleness is a repeated old price plus drift from the platform's own usual position, not distance from the median, which would have deferred Goldika and Milli on most readings."
+    "2026-09-29: stale platform quotes generalised beyond Taline (section 39). Staleness is a repeated old price plus drift from the platform's own usual position, not distance from the median, which would have deferred Goldika and Milli on most readings.",
+    "2026-09-30: news items with links over 500 characters were lost entirely, from Google News and from percent-encoded Persian links, not Google alone as section 37.7 said (the job log cuts long values short). Fixed by widening news_events.url to TEXT under the Neon policy. Section 40."
   ],
   "rollout": {
     "step_1_observe": "CLOSED 2026-09-27 by the product owner, after five days without a code change. BUY and the push remain untested because the market did not reach them; the D gate falls on 2026-09-28. Section 33.1.",
