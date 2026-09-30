@@ -378,6 +378,145 @@ class KPISPC5(unittest.TestCase):
         source = inspect.getsource(iran.get_market_prices)
         self.assertIn("deadline", source)
 
+    # -- 3c. the world-gold chain, the fourth instance (2026-09-30) -------------
+
+    class _EndlessStream:
+        """Kitco's endpoint as measured: HTTP 200, an event about every `gap`
+        seconds, never closes. `lines` are sent first, then keep-alives forever."""
+
+        def __init__(self, lines=(), gap=0.05):
+            self.lines, self.gap, self.closed = list(lines), gap, False
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self.closed = True
+
+        def raise_for_status(self):
+            pass
+
+        def iter_lines(self):
+            import time
+            for line in self.lines:
+                yield line
+            while True:
+                time.sleep(self.gap)
+                yield b": keep-alive"
+
+        @property
+        def text(self):
+            import time
+            time.sleep(60)            # reading the whole body never finishes
+            return ""
+
+    def _kitco_with(self, stream, seconds=0.5):
+        import collector.kitco as kitco
+        captured = {}
+
+        def fake_get(url, **kwargs):
+            captured.update(kwargs)
+            return stream
+
+        original_get, original_seconds = kitco.requests.get, kitco.KITCO_SSE_SECONDS
+        kitco.requests.get, kitco.KITCO_SSE_SECONDS = fake_get, seconds
+        return kitco, captured, (original_get, original_seconds)
+
+    def _restore_kitco(self, kitco, saved):
+        kitco.requests.get, kitco.KITCO_SSE_SECONDS = saved
+
+    def test_23e_the_kitco_stream_cannot_hang_the_run(self):
+        """Every run in which gold-api.com failed hung inside Kitco until the 20-minute
+        job timeout and wrote nothing: 09-24, 09-25 twice, and 09-30 at 13:00 Tehran,
+        the first run on the tgju storage code (SP_C_HANDOFF.md sections 33.2, 42).
+        The endpoint never closes and was read whole; timeout=10 bounds each read,
+        not the total."""
+        import time
+        stream = self._EndlessStream()
+        kitco, captured, saved = self._kitco_with(stream)
+        try:
+            started = time.monotonic()
+            with self.assertRaises(TimeoutError):
+                kitco._try_kitco_sse()
+            elapsed = time.monotonic() - started
+        finally:
+            self._restore_kitco(kitco, saved)
+        self.assertLess(elapsed, 3, "the Kitco stream was not abandoned at its deadline")
+        self.assertTrue(captured.get("stream"), "the stream is read whole again")
+        self.assertTrue(stream.closed, "the abandoned stream was left open")
+
+    def test_23f_kitco_answers_with_gold_without_waiting_for_the_end(self):
+        """Each Kitco event carries one metal, in no fixed order. On 2026-09-30 the
+        first were palladium (1,202) and platinum (1,705), both inside the world-gold
+        validation range; the old code took whichever came first."""
+        import time
+
+        def metal(symbol, price):
+            return ('data: {"PreciousMetals": {"PM": [{"Symbol": "%s", "asset_price": "%s", '
+                    '"quality_flag": "OK"}]}}' % (symbol, price)).encode()
+
+        stream = self._EndlessStream(lines=[
+            b'data: {"type": "connected", "key": "", "data": null}', b"data:",
+            b'data: {"Cryptos": {}}', metal("PD", 1202), metal("PT", 1705),
+            metal("AG", 48.2), metal("AU", 4151.3)])
+        kitco, _, saved = self._kitco_with(stream, seconds=10)
+        try:
+            started = time.monotonic()
+            price = kitco._try_kitco_sse()
+            elapsed = time.monotonic() - started
+        finally:
+            self._restore_kitco(kitco, saved)
+        self.assertEqual(price, 4151.3)
+        self.assertLess(elapsed, 1)
+        self.assertTrue(stream.closed)
+
+    def test_23g_the_world_gold_chain_is_one_deadline(self):
+        """requests' timeout bounds neither a stream's length nor DNS resolution, so
+        the chain as a whole needs the SP-C.9 treatment: a daemon thread and one
+        deadline. A chain out of time returns None, which main already turns into
+        the stored fallback with degraded provenance."""
+        import contextlib
+        import io
+        import time
+        import collector.kitco as kitco
+
+        def fails():
+            raise RuntimeError("NameResolutionError")
+
+        def hangs():
+            time.sleep(30)
+            return 4150.0
+
+        sources, deadline = kitco.SOURCES, kitco.WORLD_GOLD_DEADLINE_SECONDS
+        kitco.SOURCES = [("gold-api.com", fails), ("kitco.com/sse", hangs),
+                         ("goldprice.org", lambda: 4149.0)]
+        kitco.WORLD_GOLD_DEADLINE_SECONDS = 0.5
+        printed = io.StringIO()
+        try:
+            started = time.monotonic()
+            with contextlib.redirect_stdout(printed):
+                price = kitco.get_world_gold_price()
+            elapsed = time.monotonic() - started
+        finally:
+            kitco.SOURCES, kitco.WORLD_GOLD_DEADLINE_SECONDS = sources, deadline
+        self.assertIsNone(price)
+        self.assertLess(elapsed, 3, "the world-gold chain was not bounded")
+        self.assertIn("TIMED OUT", printed.getvalue())
+
+        # A healthy chain still answers from its first working source.
+        kitco.SOURCES = [("gold-api.com", fails), ("goldprice.org", lambda: 4149.0)]
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(kitco.get_world_gold_price(), 4149.0)
+        finally:
+            kitco.SOURCES = sources
+
+    def test_23h_the_world_gold_chain_runs_on_a_daemon_thread(self):
+        import inspect
+        import collector.kitco as kitco
+        self.assertIn("daemon=True", inspect.getsource(kitco.get_world_gold_price))
+        self.assertNotIn("response.text", inspect.getsource(kitco._try_kitco_sse))
+
     # -- 4. world-gold fallback provenance (SP-C-003) --------------------------
 
     def test_24_fallbacks_return_the_observation_time_not_just_a_price(self):
