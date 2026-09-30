@@ -39,7 +39,7 @@ C14C  COMPLETE — 21/21 KPI
 UPDATE v1  SURGICAL IMPLEMENTATION / VALIDATION
 SP-C.1 … SP-C.18  COMPLETE; SP-C merged into main 2026-09-28 (tag v1.3safe = main before)
 ROLLOUT    steps 1-3 done (observe, merge, repoint to main); SP-D in planning
-FULL SUITE  28/28 files — executed 2026-09-30 (hotfix-tgju-probe), exit 0; also green in CI
+FULL SUITE  28/28 files — executed 2026-09-30 (hotfix-tgju-storage), exit 0; also green in CI
 ```
 
 Current sprint state is narrated in `SP_C_HANDOFF.md` (latest: section 33,

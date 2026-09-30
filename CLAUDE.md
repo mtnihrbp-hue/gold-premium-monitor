@@ -276,7 +276,7 @@ Fail-safe law used throughout collection/analysis: on missing data, use a safe d
 
 ### Source layout
 
-- `src/collector/` — per-platform Iranian gold price collectors (HoorGold, Parasteh, Daric, Taline, Ayyareh, Invi, MioGold, Eligold, Goldika, Milli, WallGold) plus `kitco.py` (XAU/USD), `bonbast.py` (USD/IRR), `news/` (RSS ingestion). Representative Iranian price fallback order is `Milli → Ayyareh → WallGold → UNKNOWN`; source failures must stay isolated from each other. Unit normalization (e.g. Toman→Rial) is a collector-level responsibility, not a market-model adjustment.
+- `src/collector/` — per-platform Iranian gold price collectors (HoorGold, Parasteh, Daric, Taline, Ayyareh, Invi, MioGold, Eligold, Goldika, Milli, WallGold) plus `kitco.py` (XAU/USD), `bonbast.py` (USD/IRR), `news/` (RSS ingestion), and `tgju.py` (tgju's daily candles for technical analysis, stored by `main` in `market_daily_candles`, never mixed with platform prices). Representative Iranian price fallback order is `Milli → Ayyareh → WallGold → UNKNOWN`; source failures must stay isolated from each other. Unit normalization (e.g. Toman→Rial) is a collector-level responsibility, not a market-model adjustment.
 - `src/caluclator/` (sic — existing spelling, keep it) — deterministic market math: fair price, premium/bubble, momentum, signal/decision state, trends, structure, conflict resolution.
 - `src/validation/` — input validation gates before values enter calculation.
 - `src/analysis/` — the Analysis Wing pipeline: scheduler, snapshot builder, regime detection, structure, outcome evaluation, runner.
@@ -290,7 +290,7 @@ Fail-safe law used throughout collection/analysis: on missing data, use a safe d
 
 ### Database / Neon migration policy
 
-Neon Postgres is the long-term historical store (`market_snapshots`, `platform_prices`, `market_states`, `news_events`, `price_observations`, `analysis_snapshots`, `outcome_evaluations`, `platform_candles`). Any schema-affecting change requires: inspect production → compare migration intent → write incremental migration → verify on a temporary Neon branch → explicit authorization → apply to production → verify → sync docs/`.project_state.json`. Do not introduce a migration merely because a feature exists — demonstrate the persistence requirement first, and explicitly record `NEON MIGRATION REQUIRED = NO` when a phase needs none.
+Neon Postgres is the long-term historical store (`market_snapshots`, `platform_prices`, `market_states`, `news_events`, `price_observations`, `analysis_snapshots`, `outcome_evaluations`, `platform_candles`, `market_daily_candles`). Any schema-affecting change requires: inspect production → compare migration intent → write incremental migration → verify on a temporary Neon branch → explicit authorization → apply to production → verify → sync docs/`.project_state.json`. Do not introduce a migration merely because a feature exists — demonstrate the persistence requirement first, and explicitly record `NEON MIGRATION REQUIRED = NO` when a phase needs none.
 
 ### Phase completion discipline
 

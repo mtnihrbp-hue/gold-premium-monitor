@@ -4271,3 +4271,90 @@ tgju thing easily"):
 The owner's request to collect is taken as the answer, for this probe, to 41.4's open
 question on terms of use. It makes two small requests an hour. When storage is built,
 the collection moves to once a day.
+
+### 41.6 tgju stored: `market_daily_candles` (2026-09-30)
+
+**The probe held in production.** The 12:00 ANALYZE run (36690137357, the first on
+9d97157) printed both instruments from the GitHub runner, in about 0.5 s, with the same
+values as fetched from Iran. On that condition the owner asked for storage now rather
+than in SP-D ("adding the new table or cols to collect would be much more beneficial"),
+so the history is complete on the day TA step 2 starts. Built on `hotfix-tgju-storage`.
+
+**The table.** `market_daily_candles`, created by `sql/neon_migration_daily_candles.sql`:
+
+```text
+source, instrument, trade_date      identity: one row per source, instrument, day
+trade_date_jalali                   tgju's Persian date, as published
+open, high, low, close              NUMERIC(20,2), in unit (IRR)
+source_quality                      COMPLETE | INCONSISTENT
+collected_at                        UTC
+```
+
+A table of its own, never `platform_prices` or `price_observations`: tgju is not a
+platform a reader can buy from, and its candles are daily aggregates, not readings.
+Instruments are stored as `TGJU_GOLD_18K` and `TGJU_USD_IRR` with source `tgju`.
+
+**What a scheduled run does** (`main._collect_tgju_candles`, after news ingestion):
+
+- An instrument with nothing stored asks for its **whole history** (a single request:
+  about 1 s and 650 KB per instrument from Iran; tgju serves up to at least 20,000 rows
+  in one answer). Only that instrument asks, so a failed dollar backfill does not make
+  gold download its history again.
+- After that, tgju is asked **about once a day**, as 41.5 committed: no request at all
+  while the table holds the last trading day (yesterday, or Thursday when yesterday was
+  Friday); otherwise a 10-row window, or enough rows to reach back over a longer gap.
+  After a public holiday, runs keep asking until a newer candle appears.
+- Only **completed Tehran days** are stored; today's candle never is. At 12:00 tgju's
+  newest candle was still yesterday's, so it does not publish the day in progress.
+- **First-seen values are never overwritten.** A stored day that tgju later changes is
+  reported in the log ("changed by tgju since stored, kept as first seen"), so a
+  revision is visible without rewriting a fact.
+- A candle whose low and high do not bound its open and close is stored **as
+  published, flagged `INCONSISTENT`**: correcting it would fabricate a price, dropping
+  it would hide the source's defect. A candle without a valid price is not stored.
+- It never raises and cannot hold a run: the collector keeps its 20-second deadline,
+  and a database failure is logged and skipped.
+
+**Verified on a temporary Neon branch before production**, with the real code
+(`br-shy-thunder-ag1c8vlc`, copied from production at 12:06; reached through Psiphon,
+since port 5432 is blocked from Iran):
+
+```text
+first runs      TGJU_GOLD_18K 3,516 days (2013-07-22 .. 2026-09-29)
+                TGJU_USD_IRR  3,964 days (2011-11-26 .. 2026-09-29)
+                7,480 rows, one per day, every one with its Persian date
+next run        0 new, no false "changed" reports (stored and fetched prices agree)
+flagged         10 INCONSISTENT: gold 2025-09-24/25; dollar 8, 2018-08-04 .. 2025-09-17
+```
+
+The dollar's first backfill timed out twice through the tunnel (Psiphon took 6.7 s for
+three rows, the runner 0.5 s). The isolation held each time: gold was stored and
+nothing raised, and the next run asked the dollar alone for its history.
+
+**Applied to production at 12:53 Tehran** with the owner's authorization, through
+the same prepared migration; the temporary branch was deleted with it. Verified: 12
+columns, the identity constraint, 0 rows, 11 tables, the existing tables untouched
+(618 snapshots, 5,051 news rows). The first scheduled run on the merged code stores
+the history.
+
+**What the data says for step 3 (candle patterns).** Two findings, measured on the
+temporary branch:
+
+- The September 2025 inconsistencies are a cap in tgju's own feed, not market data:
+  gold's low reads exactly 100,000,000 with a high of 99,997,000, the dollar's
+  1,000,000 with 999,950, on the days prices crossed those levels.
+- **Flat candles** (open = high = low = close): 284 of gold's 3,516 and 388 of the
+  dollar's 3,964. They cluster in 2011-2014 and 2019-2023 (up to about 18% of days in
+  2020-2022); from 2024 on there are 3 in 2,050. A flat candle is a missing intraday
+  record, not a doji. Pattern base rates must exclude them, or start in 2024.
+- Trading days per year stepped from about 240 (2015-2017) to about 280 (2020 on).
+  A per-day statistic must not assume one calendar across the whole history.
+
+**Checks.** `kpi/kpi_tgju_candles.py` 15/15 (was 8): per-instrument backfill, completed
+Tehran days only (including 00:30 Tehran, still the previous day in UTC), nothing
+stored twice, first-seen values kept, the flag, isolation in storage, provenance,
+once a day including the Friday rule, and that the collector itself stores nothing.
+`kpi_coherence.test_34`: the model, the target schema and the migration declare the
+same columns and identity. Suite 28/28, exit 0. Three deliberate mutations (store
+today, cut the day at UTC, drop the Friday rule) and one dropped column each made
+its KPI fail.

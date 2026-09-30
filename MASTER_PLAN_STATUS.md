@@ -335,12 +335,19 @@ Prior C.14B, C.14C and UPDATE v1 work required no migration.
 lost entirely. A catalogue change only, verified on a temporary branch first, with
 the owner's authorization. Details in `SP_C_HANDOFF.md` section 40.
 
+2026-09-30: new table `market_daily_candles` (`sql/neon_migration_daily_candles.sql`)
+for tgju's daily candles, the long history the TA track needs. Additive only, no
+existing table touched; verified on a temporary branch with the real code (7,480
+candles stored, a second run storing none), with the owner's authorization. Details
+in `SP_C_HANDOFF.md` section 41.6.
+
 Relevant existing structures include:
 
 ```text
 analysis_snapshots
 outcome_evaluations
 platform_candles
+market_daily_candles
 news_events
 market_snapshots
 platform_prices
@@ -457,7 +464,8 @@ Rollout (`SP_C_HANDOFF.md` section 29), state on 2026-09-27:
 
 SP-D also carries a Technical Analysis track for ANALYZE (agreed 2026-09-30,
 `SP_C_HANDOFF.md` section 41): step 1 data research now (tgju's 13-year daily
-history tracks our platforms at 0.95 daily correlation); step 2 fixes and shows
+history tracks our platforms at 0.95 daily correlation; stored in
+`market_daily_candles` since 2026-09-30, section 41.6); step 2 fixes and shows
 support/resistance and a moving-average crossing after the reliability phase; step 3
 long averages and candle patterns when history allows. TA is evidence, never a
 decision, until validated.

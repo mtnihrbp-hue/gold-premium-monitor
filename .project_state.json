@@ -2,7 +2,7 @@
   "schema_version": "1",
   "project": "Gold Premium Monitor",
   "active_branch": "SP-D (R&D and docs until code work opens 2026-10-03); main is production",
-  "current_phase": "Hotfix merged into main 2026-09-29 17:33 (049bb32) and verified in production at 18:00; SP-D code work opens 2026-10-03",
+  "current_phase": "Pre-SP-D hotfixes on main (sections 38-41): latest 2026-09-30, tgju daily candles stored in market_daily_candles (new table applied 12:53 Tehran, section 41.6); SP-D code work opens 2026-10-03",
   "current_phase_status": "SP-C.1 through SP-C.18 COMPLETE and MERGED into main 2026-09-28 (2b7c5f8; v1.3safe tags main before the merge; merged tree identical to SP-C). Production (cron-job.org and the Telegram worker) dispatches ref main. SP-D in planning: settle period on main, then SP-D branches from main. SP_C_HANDOFF.md section 35.",
   "completed_phases": [
     "SP-B.1",
@@ -143,6 +143,15 @@
       ],
       "verification": "row counts identical before and after across all seven tables; existing rows report collection_mode 'unknown'; valuation_context_json null on all 217 pre-existing states",
       "known_limitation": "History before 2026-09-14 cannot be separated into scheduled and user readings. Statistics over that period remain drawn from a mixed sample."
+    },
+    "daily_candles_migration": {
+      "file": "sql/neon_migration_daily_candles.sql",
+      "applied": "2026-09-30 12:53 Tehran",
+      "authorised_by_user": true,
+      "change": "new table market_daily_candles (source, instrument, trade_date identity; OHLC NUMERIC(20,2); unit; source_quality; collected_at UTC); no existing table touched",
+      "verified_on_branch": "br-shy-thunder-ag1c8vlc (temporary, copied from production at 12:06 Tehran)",
+      "verification": "production after apply: 12 columns, identity constraint, 0 rows, 11 tables, other tables untouched (618 snapshots, 5,051 news rows). Real code run on the temporary branch: 3,516 gold + 3,964 dollar = 7,480 rows, one per day, all with Persian dates; next run 0 new and no false revisions; 10 flagged INCONSISTENT",
+      "reason": "TA needs real daily candles and a long history; platform_candles are single points and our own daily history is 15 days. SP_C_HANDOFF.md section 41.6."
     },
     "news_url_migration": {
       "file": "sql/neon_migration_news_url.sql",
@@ -301,11 +310,11 @@
     "assertions_sp_c1": 59,
     "assertions_sp_c4": 54,
     "assertions_sp_c6": 44,
-    "assertions_coherence": 27,
+    "assertions_coherence": 29,
     "status": "28/28 files passing (2026-09-30, runner exit 0)",
     "note": "kpi_coherence.py checks modules against each other and carries the register of accepted divergences, now 5 entries. An entry whose divergence is fixed fails the suite, so the register cannot go stale.",
     "assertions_signal_confirmation": 34,
-    "assertions_tgju_candles": 8
+    "assertions_tgju_candles": 15
   },
   "open_decisions": [
     "The push is buy-side only. A shallow discount is the sell-side mirror and is the same measurement with the comparison flipped; deferred until the first trigger has proven itself.",
@@ -330,7 +339,7 @@
     "Stale tests (section 38.6): kpi_coherence.test_27 cannot fail (searches _code output for 'name('); tests/test_signal_state.py import error; src/tests test_hysteresis_cooldown_same_alert failing on main. Reliability phase.",
     "validation/data.MAX_WORLD_GOLD is $5,000/oz with gold near $4,150; a rally past it rejects every world-gold quote (section 38.7). Reliability phase.",
     "Deep-discount push has no second-platform confirmation of its own; the stale-Taline case is closed at validation (38.8). Decide in SP-D whether the push needs one.",
-    "tgju storage (SP-D TA step 1 to 2): a table for tgju daily candles needs the Neon migration process; the collection moves to once a day when storage is built (SP_C_HANDOFF.md 41.5)."
+    "TA step 3 data (SP_C_HANDOFF.md 41.6): tgju has flat candles (open = high = low = close) on 284 of 3,516 gold days and 388 of 3,964 dollar days, clustered in 2011-2014 and 2019-2023 (3 in 2,050 from 2024); candle-pattern base rates must exclude them or start in 2024. 10 candles are flagged INCONSISTENT, most at a cap in tgju's own feed in September 2025. Trading days per year stepped from ~240 to ~280 around 2019-2020."
   ],
   "corrections": [
     "Decision scorecard 'edge 0.0' does NOT mean the strategy failed. final_decision was a constant (WAIT 264/264) because of the hysteresis latch, so the scorecard compared always-WAIT against always-WAIT. The engine is untested, not disproven.",
@@ -357,6 +366,6 @@
     "step_4_broadcast": "Readers receive, only the owner triggers. Needs TELEGRAM_BROADCAST_IDS, _send iterating the list, and an audience per message type with a KPI asserting operator messages never reach readers. Section 29.3.",
     "not_yet": "Routing a requester's identity through the workflow, which /Update for other readers would require. Section 29.1.",
     "post_merge_order": "Agreed by the owner 2026-09-28 (supersedes 09-27): 1 reliability phase (world-gold deadline; high_impact_count with a precision check; news dedup window and Google suffix; Daric if still down); 2 morning-dollar research, no code (second dollar source, pool/rank bias, SP-C.17 structure re-measure) ending in a fix decision; 3 broadcast (step 4); 4 basis divergence (own phase and approval); 5 ANALYZE percentages; 6 research (6h horizon, quote_side). Section 34.7.",
-    "technical_analysis_track": "Agreed 2026-09-30, fully authorized (SP_C_HANDOFF.md section 41). Step 1 data research now: our daily candles are real (14-17 hourly readings a day); tgju.org publishes 13 years of daily OHLC (18K: 3,516 days from 2013; dollar: 3,964 from 2011) that tracks our platforms at 0.95 daily correlation, +0.19% median level; its terms of use for a daily fetch are the owner's call. Step 2 (after the reliability phase): support/resistance fixed and shown in ANALYZE, plus a moving-average crossing. Step 3 when history allows: 20/50/200-day averages and candle patterns with measured records. TA is evidence, never a decision, until walk-forward validated. 2026-09-30: tgju collected in log-only mode on every scheduled run (collector/tgju.py, main._log_tgju_candles; nothing stored), after a probe from abroad succeeded. Section 41.5."
+    "technical_analysis_track": "Agreed 2026-09-30, fully authorized (SP_C_HANDOFF.md section 41). Step 1 data research now: our daily candles are real (14-17 hourly readings a day); tgju.org publishes 13 years of daily OHLC (18K: 3,516 days from 2013; dollar: 3,964 from 2011) that tracks our platforms at 0.95 daily correlation, +0.19% median level; its terms of use for a daily fetch are the owner's call. Step 2 (after the reliability phase): support/resistance fixed and shown in ANALYZE, plus a moving-average crossing. Step 3 when history allows: 20/50/200-day averages and candle patterns with measured records. TA is evidence, never a decision, until walk-forward validated. 2026-09-30: tgju collected in log-only mode on every scheduled run (collector/tgju.py, main._log_tgju_candles; nothing stored), after a probe from abroad succeeded. Section 41.5. 2026-09-30 afternoon: stored in the new table market_daily_candles (sql/neon_migration_daily_candles.sql) on the owner's request once the 12:00 run proved the collection in production; the first run backfills the whole history per instrument, then tgju is asked about once a day; completed Tehran days only, first-seen values never overwritten, inconsistent candles flagged. Section 41.6."
   }
 }

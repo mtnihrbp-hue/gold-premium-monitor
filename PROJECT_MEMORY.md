@@ -55,7 +55,7 @@ before reading any failure narrative below as live.**
 | Stale quotes from any platform entered calculations (Taline, HoorGold, MioGold on the record) | 2026-09-29 (validation) | section 39 -- deferred per reading when the price repeats a 3-48h-old value and sits >1.0 pp from the platform's own usual position; 27 of ~3,150 readings replayed; fails open without history |
 | First deep-discount push (2026-09-29 15:00) was a false alarm: 3.53% displayed, 2.82% without the stale Taline | 2026-09-29 (by 38.7) | section 38.8 -- verified in production at 18:00 (Taline discarded, 2.48%); whether the push needs its own second-platform check is open for SP-D |
 | Support/resistance (live since PRE-SP-C.3, unshown) labels levels by extremum type, not position: "support" listed above the price; 20-reading lookback; one platform | **OPEN, SP-D TA step 2** | section 41.1 |
-| `platform_candles` are 30-minute candles from about one reading each: 98% have open = high = low = close | **KNOWN, SP-D TA** | section 41.1 -- real daily candles come from our hourly readings and tgju's history (41.4) |
+| `platform_candles` are 30-minute candles from about one reading each: 98% have open = high = low = close | **KNOWN, SP-D TA** | section 41.1 -- real daily candles come from our hourly readings and tgju's history (41.4), stored in `market_daily_candles` since 2026-09-30 (41.6) |
 | `MAX_WORLD_GOLD` = $5,000/oz with gold near $4,150 | **OPEN** | section 38.7 -- reliability phase |
 | `kpi_coherence.test_27` can never fail: it searches `_code()` output for `name(`, which `_code` splits into tokens | **OPEN** | section 38.6 -- reliability phase |
 | Two stale unit tests fail on `main` (`tests/test_signal_state.py` import; `test_hysteresis_cooldown_same_alert`); CI runs only the KPI suite | **OPEN** | section 38.6 -- reliability phase |
@@ -1240,6 +1240,21 @@ Neon PostgreSQL is the long-term historical store.
 | `price_observations` | Canonical raw technical time series |
 | `analysis_snapshots` | Scheduled analytical history and analytical packages |
 | `outcome_evaluations` | Retrospective +1h / +6h / +24h measurements |
+| `platform_candles` | 30-minute candles derived from platform readings (C.14A) |
+| `market_daily_candles` | Daily candles from external sources (tgju since 2026-09-30), never mixed with platform prices |
+
+### Hotfix migrations, applied 2026-09-30
+
+```text
+news_events.url        VARCHAR(500) -> TEXT       sql/neon_migration_news_url.sql
+market_daily_candles   new table                  sql/neon_migration_daily_candles.sql
+```
+
+`market_daily_candles` holds one row per source, instrument and completed Tehran
+trading day. First-seen values are never overwritten, and a candle whose low and high
+do not bound it is kept as published, flagged `INCONSISTENT`. The first scheduled run
+on an empty table stores the whole history (18K gold from 2013, the dollar from 2011);
+after that tgju is asked about once a day. `SP_C_HANDOFF.md` sections 40 and 41.6.
 
 ### SP-C.1 additions, applied 2026-09-14
 
@@ -2301,21 +2316,24 @@ no direction or sentiment.
 
 ---
 
-## Current state (2026-09-28)
+## Current state (2026-09-30)
 
-Full record in `SP_C_HANDOFF.md` sections 29-35. Chronology for SP-C.17 and SP-C.18
+Full record in `SP_C_HANDOFF.md` sections 29-41. Chronology for SP-C.17 and SP-C.18
 lives there and in `.project_state.json` → `corrections`.
 
 ```text
 branch        main is production. SP-C merged 2026-09-28 (2b7c5f8) and closed;
-              v1.3safe tags main as it was before the merge. SP-D is in planning
-              and will branch from main
+              v1.3safe tags main as it was before the merge. SP-D branched from
+              main 2026-09-29; its code work opens 2026-10-03. Until then fixes land
+              on main through short-lived branches (sections 36, 38-41)
 rollout       step 1 (observe) CLOSED 2026-09-27
               step 2 (merge) DONE 2026-09-28; merged tree identical to SP-C
               step 3 (repoint) DONE 2026-09-28; cron-job.org and the worker send
               ref main; first /Analyze and /Update on main succeeded
               step 4 (broadcast) in the SP-D order (SP_C_HANDOFF 34.7)
-KPI           26/26 files, exit 0; compileall PASS
+KPI           28/28 files, exit 0; compileall PASS (2026-09-30)
+TA data       tgju daily candles stored in market_daily_candles from 2026-09-30:
+              gold from 2013, the dollar from 2011 (SP_C_HANDOFF 41.6)
 production    hourly ANALYZE continuous since 2026-09-14; all runs green since
               2026-09-25 16:30Z; stored range -8.19% to +0.36%, but both positive
               readings are most likely a stale-dollar artefact (SP_C_HANDOFF 34.3)
