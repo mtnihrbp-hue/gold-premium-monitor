@@ -8,14 +8,16 @@ correlation (SP_C_HANDOFF.md section 41).
 
 The 11:00 and 12:00 runs of 2026-09-30 proved the production runner collects them in
 log-only mode. Since section 41.6 every scheduled run stores them in
-market_daily_candles: the whole history once, then each new completed day.
+market_daily_candles: the history a page per run, oldest first (section 43), then
+each new completed day.
 
 Load-bearing properties:
 - the columns are read in tgju's order: open, low, high, close;
 - one instrument failing does not stop the other, in collection or in storage;
 - a hung request cannot hold a run: one shared deadline bounds the collection;
 - the collection never raises into main, and runs on scheduled runs only;
-- an instrument with nothing stored asks for its whole history, and only that one;
+- an instrument whose history is missing pages through it oldest first, resuming
+  from its stored count, and only that instrument does;
 - only completed Tehran days are stored, never today's;
 - tgju is asked about once a day: not while the last trading day is stored;
 - a second run stores nothing twice, and first-seen values are never overwritten;
@@ -98,6 +100,11 @@ class _Transport:
 
     def rows_requested(self):
         return {url.rsplit("/", 1)[-1]: kwargs["params"]["length"] for url, kwargs in self.calls}
+
+    def plans(self):
+        return {url.rsplit("/", 1)[-1]: (kwargs["params"]["start"], kwargs["params"]["length"],
+                                         kwargs["params"]["order_dir"])
+                for url, kwargs in self.calls}
 
 
 class KPITgjuCandles(unittest.TestCase):
@@ -212,21 +219,27 @@ class KPITgjuCandles(unittest.TestCase):
 
     # -- storage ---------------------------------------------------------------
 
-    def test_08_an_instrument_with_nothing_stored_asks_for_its_whole_history(self):
+    def test_08_a_missing_history_is_asked_for_a_page_at_a_time(self):
+        """The whole history in one request failed from the runner at 14:00 on
+        2026-09-30: tgju's answer time follows its load (section 43)."""
         today = date(2026, 9, 30)
-        full, window = tgju.FULL_HISTORY_ROWS, main.TGJU_WINDOW_ROWS
-        self.assertEqual(main._tgju_rows_needed({}, today),
-                         {"geram18": full, "price_dollar_rl": full})
-        needed = main._tgju_rows_needed({"TGJU_GOLD_18K": date(2026, 9, 29)}, today)
-        self.assertEqual(needed, {"geram18": window, "price_dollar_rl": full},
-                         "a missing dollar history made gold fetch its own again")
-        needed = main._tgju_rows_needed({"TGJU_GOLD_18K": date(2026, 8, 31),
-                                         "TGJU_USD_IRR": date(2026, 9, 29)}, today)
-        self.assertEqual(needed["geram18"], 35, "a 30-day gap must be reached back over")
+        page, window = main.TGJU_BACKFILL_PAGE_ROWS, main.TGJU_WINDOW_ROWS
+        self.assertEqual(main._tgju_requests({}, today),
+                         {"geram18": (0, page, "asc"), "price_dollar_rl": (0, page, "asc")})
+        needed = main._tgju_requests({"TGJU_GOLD_18K": (3516, date(2026, 9, 29))}, today)
+        self.assertEqual(needed, {"geram18": (0, window, "desc"),
+                                  "price_dollar_rl": (0, page, "asc")},
+                         "a missing dollar history made gold page through its own again")
+        needed = main._tgju_requests({"TGJU_GOLD_18K": (1000, date(2017, 8, 4))}, today)
+        self.assertEqual(needed["geram18"], (1000, page, "asc"),
+                         "a part-filled history must resume from its stored count")
+        needed = main._tgju_requests({"TGJU_GOLD_18K": (3500, date(2026, 8, 31))}, today)
+        self.assertEqual(needed["geram18"], (0, 35, "desc"),
+                         "a 30-day gap must be reached back over")
 
         transport, _ = self._run(lambda url, **kw: _Response(PAYLOAD))
-        self.assertEqual(transport.rows_requested(),
-                         {"geram18": full, "price_dollar_rl": full})
+        self.assertEqual(transport.plans(), {"geram18": (0, page, "asc"),
+                                             "price_dollar_rl": (0, page, "asc")})
 
     def test_09_completed_days_are_stored_and_today_is_not(self):
         payload = {"data": [_row("2026/09/30", 250, 249, 252, 251),
@@ -285,11 +298,11 @@ class KPITgjuCandles(unittest.TestCase):
         self.assertEqual(self._stored("TGJU_USD_IRR"), {})
         self.assertIn("price_dollar_rl: ERROR", printed)
 
-        # The next run asks the dollar for its whole history, and gold for a window.
-        transport, _ = self._run(lambda url, **kw: _Response(PAYLOAD))
-        self.assertEqual(transport.rows_requested(),
-                         {"geram18": main.TGJU_WINDOW_ROWS,
-                          "price_dollar_rl": tgju.FULL_HISTORY_ROWS})
+        # The next run pages the dollar from its start, and gives gold a window.
+        transport, _ = self._run(lambda url, **kw: _Response(PAYLOAD), now=NEXT_DAY)
+        self.assertEqual(transport.plans(),
+                         {"geram18": (0, main.TGJU_WINDOW_ROWS, "desc"),
+                          "price_dollar_rl": (0, main.TGJU_BACKFILL_PAGE_ROWS, "asc")})
 
     def test_14_provenance_is_recorded_and_the_collector_stores_nothing(self):
         self._run(lambda url, **kw: _Response(PAYLOAD))
@@ -324,6 +337,42 @@ class KPITgjuCandles(unittest.TestCase):
                                  now=datetime(2026, 10, 4, 8, 30))
         self.assertTrue(transport.calls)
 
+
+    def test_16_a_history_is_filled_page_by_page_without_gaps_or_repeats(self):
+        """A fake tgju with 2,500 days that honours start, length and order, and
+        answers past the end as the real one does, with a body that is not JSON."""
+        from datetime import timedelta
+        last = date(2026, 9, 29)
+        days = [last - timedelta(days=2499 - i) for i in range(2500)]     # oldest first
+
+        class _NotJson(_Response):
+            def json(self):
+                raise ValueError("Expecting value: line 1 column 1 (char 0)")
+
+        def server(url, **kw):
+            p = kw["params"]
+            ordered = days if p["order_dir"] == "asc" else days[::-1]
+            if p["start"] >= len(ordered):
+                return _NotJson(None)
+            page = ordered[p["start"]:p["start"] + p["length"]]
+            return _Response({"recordsTotal": len(days), "data": [
+                _row(d.strftime("%Y/%m/%d"), 100 + i, 99 + i, 102 + i, 101 + i)
+                for i, d in enumerate(page)]})
+
+        plans = []
+        for _ in range(3):
+            transport, printed = self._run(server)
+            plans.append(transport.plans()["geram18"])
+        page = main.TGJU_BACKFILL_PAGE_ROWS
+        self.assertEqual(plans, [(0, page, "asc"), (page, page, "asc"), (2 * page, page, "asc")])
+        self.assertIn("history page from row 2000", printed)
+        for instrument in ("TGJU_GOLD_18K", "TGJU_USD_IRR"):
+            self.assertEqual(sorted(self._stored(instrument)), days,
+                             f"{instrument}: the pages left a gap or a repeat")
+
+        transport, printed = self._run(server)
+        self.assertEqual(transport.calls, [], "a complete history kept paging")
+        self.assertIn("up to date", printed)
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(KPITgjuCandles)

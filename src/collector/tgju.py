@@ -9,10 +9,13 @@ This is a separate instrument with its own provenance. It is never mixed with
 platform prices: FACTS keep their source.
 
 The endpoint is the one tgju's own public history page reads. A run requests only the
-rows it lacks: the whole history once, when nothing is stored yet (about 1 second and
-650 KB per instrument), then a short window. Each fetch runs on a daemon thread under
-one shared deadline, the pattern collector/iran.py uses since SP-C.9, so a hung request
-can never hold a run. This module collects only; main stores (section 41.6).
+rows it lacks: while history is missing, one page of it, oldest first, from where the
+stored history ends; after that a short window of the newest days. The whole history in
+one request was tried first and failed from the runner at 14:00 on 2026-09-30: tgju's
+answer time follows its load, not only the size (section 43). Each fetch runs on a
+daemon thread under one shared deadline, the pattern collector/iran.py uses since
+SP-C.9, so a hung request can never hold a run. This module collects only; main stores
+(section 41.6).
 """
 
 import re
@@ -25,10 +28,6 @@ API = "https://api.tgju.org/v1/market/indicator/summary-table-data/{instrument}"
 
 SOURCE = "tgju"
 UNIT = "IRR"
-
-# Enough rows for the whole history. tgju serves up to at least 20,000 in one answer
-# (2026-09-30); the longest instrument had 3,964 trading days.
-FULL_HISTORY_ROWS = 20000
 
 # tgju's instrument key -> the name this system stores it under.
 INSTRUMENTS = {
@@ -44,8 +43,11 @@ HEADERS = {
     "Accept": "application/json",
 }
 
-REQUEST_TIMEOUT = (5, 10)
-DEADLINE_SECONDS = 20
+# A 1,000-row page took 1-5 s from abroad on 2026-09-30, and 3 rows took 6.7 s when
+# tgju was busy. The read timeout leaves room for a busy moment; the deadline bounds
+# the run's cost at 30 s whatever happens.
+REQUEST_TIMEOUT = (5, 20)
+DEADLINE_SECONDS = 30
 
 
 def _number(cell):
@@ -79,11 +81,12 @@ def parse_rows(payload):
     return candles
 
 
-def fetch_daily_candles(instrument, rows=5):
-    """The latest `rows` daily candles for one tgju instrument. Raises on failure."""
+def fetch_daily_candles(instrument, rows=5, start=0, order="desc"):
+    """`rows` daily candles for one tgju instrument, from offset `start` in `order`:
+    "desc" is newest first, "asc" oldest first. Raises on failure."""
     response = requests.get(
         API.format(instrument=instrument),
-        params={"lang": "fa", "order_dir": "desc", "start": 0, "length": rows},
+        params={"lang": "fa", "order_dir": order, "start": start, "length": rows},
         headers=HEADERS,
         timeout=REQUEST_TIMEOUT,
     )
@@ -97,19 +100,23 @@ def fetch_daily_candles(instrument, rows=5):
 def collect_daily_candles(rows=5):
     """{instrument: {"status": "OK", "candles": [...]}} or {"status": "ERROR: ..."}.
 
-    `rows` is one count for every instrument, or {instrument: count}, so an instrument
-    still waiting for its history does not make the others fetch theirs again.
+    `rows` is one count for every instrument (newest first), or {instrument: count},
+    or {instrument: (start, count, order)}, so an instrument still paging through its
+    history does not make the others fetch theirs.
     Instruments are isolated from each other, and all of them together are bounded by
     DEADLINE_SECONDS: a fetch still running at the deadline is abandoned and reported
     as a timeout rather than awaited.
     """
     results = {name: {"status": "TIMEOUT"} for name in INSTRUMENTS}
-    counts = rows if isinstance(rows, dict) else {name: rows for name in INSTRUMENTS}
+    requested = rows if isinstance(rows, dict) else {name: rows for name in INSTRUMENTS}
+    plans = {name: (value if isinstance(value, tuple) else (0, value, "desc"))
+             for name, value in requested.items()}
 
     def runner(instrument):
+        start, count, order = plans[instrument]
         try:
-            results[instrument] = {"status": "OK",
-                                   "candles": fetch_daily_candles(instrument, counts[instrument])}
+            results[instrument] = {"status": "OK", "candles": fetch_daily_candles(
+                instrument, count, start=start, order=order)}
         except Exception as e:
             results[instrument] = {"status": f"ERROR: {e}"}
 

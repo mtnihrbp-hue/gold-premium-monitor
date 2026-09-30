@@ -517,6 +517,21 @@ class KPISPC5(unittest.TestCase):
         self.assertIn("daemon=True", inspect.getsource(kitco.get_world_gold_price))
         self.assertNotIn("response.text", inspect.getsource(kitco._try_kitco_sse))
 
+    def test_23i_a_database_connection_cannot_wait_forever(self):
+        """The world-gold database fallback is the path a degraded network reaches,
+        and a Neon connection had no bound but the operating system's (SP_C_HANDOFF.md
+        sections 33.2, 43). libpq's connect_timeout bounds each address; a blackhole
+        address failed at exactly the timeout when measured on 2026-09-30."""
+        import inspect
+        import database.connection as connection
+        self.assertEqual(connection._connect_args("postgresql://u:p@host/db?sslmode=require"),
+                         {"connect_timeout": connection.CONNECT_TIMEOUT_SECONDS})
+        self.assertLessEqual(connection.CONNECT_TIMEOUT_SECONDS, 15)
+        self.assertEqual(connection._connect_args("sqlite:///:memory:"), {},
+                         "SQLite does not accept connect_timeout; the suite would break")
+        self.assertIn("connect_args=_connect_args(DATABASE_URL)",
+                      inspect.getsource(connection.get_engine))
+
     # -- 4. world-gold fallback provenance (SP-C-003) --------------------------
 
     def test_24_fallbacks_return_the_observation_time_not_just_a_price(self):

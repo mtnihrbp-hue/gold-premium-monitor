@@ -1406,18 +1406,20 @@ def get_existing_candle_bucket_starts(
 
 # --- External daily candles (SP-D technical-analysis track) ---
 
-def get_latest_daily_candle_dates(session, source):
-    """{instrument: latest stored trade_date} for one source; an instrument with no
-    stored candle is absent."""
+def get_daily_candle_coverage(session, source):
+    """{instrument: (stored candles, latest stored trade_date)} for one source; an
+    instrument with no stored candle is absent. The count is where a history backfill
+    resumes: tgju's oldest-first offsets do not move, because new days only append."""
     from database.models import MarketDailyCandle
 
     rows = (
-        session.query(MarketDailyCandle.instrument, func.max(MarketDailyCandle.trade_date))
+        session.query(MarketDailyCandle.instrument, func.count(MarketDailyCandle.id),
+                      func.max(MarketDailyCandle.trade_date))
         .filter(MarketDailyCandle.source == source)
         .group_by(MarketDailyCandle.instrument)
         .all()
     )
-    return {instrument: latest for instrument, latest in rows}
+    return {instrument: (count, latest) for instrument, count, latest in rows}
 
 
 def save_daily_candles(session, source, instrument, unit, candles, collected_at):

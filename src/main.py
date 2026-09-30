@@ -117,20 +117,37 @@ def _resolve_decision_valuation(premium, thresholds):
 
 
 # Rows re-read when a new trading day is due and history is stored: covers Fridays,
-# holidays and a few missed days. A longer gap is covered by _tgju_rows_needed.
+# holidays and a few missed days.
 TGJU_WINDOW_ROWS = 10
 
+# History is filled a page per run, oldest first, from where the stored history ends:
+# 3,964 dollar days take four runs. The whole history in one request failed from the
+# runner at 14:00 on 2026-09-30 (SP_C_HANDOFF.md section 43).
+TGJU_BACKFILL_PAGE_ROWS = 1000
 
-def _tgju_rows_needed(latest_dates, today):
-    """{tgju key: rows to request}: the whole history for an instrument with nothing
-    stored, otherwise enough to reach back past its latest stored candle."""
-    from collector.tgju import FULL_HISTORY_ROWS, INSTRUMENTS
+# An instrument whose newest stored candle is older than this pages forward rather than
+# re-reading the newest days, so a long outage is filled from where it began.
+TGJU_BACKFILL_AFTER_DAYS = 30
+
+
+def _tgju_requests(coverage, today):
+    """{tgju key: (start, rows, order)} from {name: (stored count, latest date)}.
+
+    An instrument with no stored candle, or a latest one more than
+    TGJU_BACKFILL_AFTER_DAYS old, asks for the next page of its history, oldest first,
+    starting at its stored count. tgju's oldest-first offsets do not move, because new
+    days only append; a skipped row can only make pages overlap, never leave a gap.
+    Otherwise it asks for the newest days, enough to reach back past its latest candle.
+    """
+    from collector.tgju import INSTRUMENTS
 
     needed = {}
     for key, name in INSTRUMENTS.items():
-        latest = latest_dates.get(name)
-        needed[key] = (FULL_HISTORY_ROWS if latest is None else
-                       min(FULL_HISTORY_ROWS, max(TGJU_WINDOW_ROWS, (today - latest).days + 5)))
+        count, latest = coverage.get(name, (0, None))
+        if latest is None or (today - latest).days > TGJU_BACKFILL_AFTER_DAYS:
+            needed[key] = (count, TGJU_BACKFILL_PAGE_ROWS, "asc")
+        else:
+            needed[key] = (0, max(TGJU_WINDOW_ROWS, (today - latest).days + 5), "desc")
     return needed
 
 
@@ -145,10 +162,10 @@ def _tgju_last_trading_day(today):
 def _collect_tgju_candles(now=None):
     """Collect tgju's daily candles and store the completed days not stored yet.
 
-    SP-D technical-analysis track (SP_C_HANDOFF.md section 41.6). Scheduled runs only.
-    On an empty table the first run stores the whole history. After that tgju is asked
-    only while the newest stored candle is older than the last trading day, so about
-    once a day, and then for a short window. Today's candle is never stored, because
+    SP-D technical-analysis track (SP_C_HANDOFF.md sections 41.6, 43). Scheduled runs
+    only. While an instrument's history is missing, each run stores one more page of
+    it. After that tgju is asked only while the newest stored candle is older than the
+    last trading day, so about once a day, and then for a short window. Today's candle is never stored, because
     it is not complete. A stored day that tgju has since changed is reported, not
     overwritten. Never raises, and the collector is bounded by its own deadline, so it
     cannot hold or fail a run.
@@ -157,7 +174,7 @@ def _collect_tgju_candles(now=None):
     try:
         from datetime import date
         from collector.tgju import INSTRUMENTS, SOURCE, UNIT, collect_daily_candles
-        from database.repository import get_latest_daily_candle_dates, save_daily_candles
+        from database.repository import get_daily_candle_coverage, save_daily_candles
         from timeutil import local_now
         from validation.data import classify_daily_candle
 
@@ -167,13 +184,15 @@ def _collect_tgju_candles(now=None):
             return
         now = now or datetime.utcnow()
         today = local_now(now).date()
-        latest = get_latest_daily_candle_dates(session, SOURCE)
+        coverage = get_daily_candle_coverage(session, SOURCE)
+        latest = {name: last for name, (_, last) in coverage.items()}
         expected = _tgju_last_trading_day(today)
         if all(latest.get(name) is not None and latest[name] >= expected
                for name in INSTRUMENTS.values()):
             print(f"TGJU: up to date, latest {max(latest.values())}")
             return
-        for key, result in collect_daily_candles(rows=_tgju_rows_needed(latest, today)).items():
+        plan = _tgju_requests(coverage, today)
+        for key, result in collect_daily_candles(rows=plan).items():
             if result["status"] != "OK":
                 print(f"TGJU {key}: {result['status']}")
                 continue
@@ -195,8 +214,11 @@ def _collect_tgju_candles(now=None):
                 print(f"TGJU {key}: store failed: {e}")
                 continue
             line = f"TGJU {key}: {inserted} new"
+            if plan[key][2] == "asc":
+                line += f" (history page from row {plan[key][0]})"
             if candles:
-                line += f", latest {candles[0]['date']} close {candles[0]['close']:,.0f}"
+                newest = max(candles, key=lambda c: c["trade_date"])
+                line += f", latest {newest['date']} close {newest['close']:,.0f}"
             if revised:
                 line += (f", {len(revised)} changed by tgju since stored, kept as first seen "
                          f"({', '.join(str(d) for d in revised[:3])})")
