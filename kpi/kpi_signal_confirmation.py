@@ -36,9 +36,11 @@ Load-bearing properties, each asserted below:
 """
 
 import inspect
+import io
 import os
 import sys
 import unittest
+from contextlib import redirect_stdout
 from datetime import datetime, timedelta
 
 SRC_DIR = os.path.join(os.path.dirname(__file__), "..", "src")
@@ -545,6 +547,179 @@ class KPISignalConfirmation(unittest.TestCase):
         self.assertIn("Milli", valid)
         self.assertIn("Taline", valid)
 
+
+    # -- 2026-10-02: staleness rectified once for all (SP_C_HANDOFF.md section 44) ---
+
+    def test_35_goldikas_own_price_time_is_read(self):
+        """Goldika stamps each price (createdAt, UTC); the runner was served a copy
+        stamped 2026-09-13 for over a day while Iran got the live price."""
+        import collector.goldika as goldika
+
+        class _Response:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"data": {"price": {"buy": 238094862, "sell": 232448344,
+                                           "createdAt": "2026-09-13T09:05:24.000000Z"}}}
+
+        original = goldika.requests.get
+        goldika.requests.get = lambda *a, **k: _Response()
+        try:
+            quote = goldika.get_goldika_price()
+        finally:
+            goldika.requests.get = original
+        self.assertEqual(quote["price"], 238094862.0)
+        self.assertEqual(quote["quoted_at"], datetime(2026, 9, 13, 9, 5, 24))
+
+    def test_36_millis_tehran_stamp_becomes_utc(self):
+        import collector.milli as milli
+
+        class _Response:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"data": {"price18": 255040, "date": "2026-10-02T11:32:00"}}
+
+        original = milli.requests.get
+        milli.requests.get = lambda *a, **k: _Response()
+        try:
+            quote = milli.get_milli_price()
+        finally:
+            milli.requests.get = original
+        self.assertEqual(quote["price"], 255_040_000.0)
+        self.assertEqual(quote["quoted_at"], datetime(2026, 10, 2, 8, 2),
+                         "Milli's stamp is Tehran time; stored times are UTC")
+
+    def test_37_the_platform_pool_keeps_the_price_time(self):
+        """The pool used to keep only price and status, which would drop the stamp
+        before validation could read it."""
+        import collector.iran as iran
+        stamp = datetime(2026, 9, 13, 9, 5, 24)
+        name, info = iran._run_collector(
+            lambda: {"platform": "Goldika", "price": 238094862.0, "quoted_at": stamp})
+        self.assertEqual((name, info["quoted_at"]), ("Goldika", stamp))
+        name, info = iran._run_collector(lambda: {"platform": "HoorGold", "price": 1e8})
+        self.assertNotIn("quoted_at", info)
+
+    def test_38_a_quote_priced_long_ago_is_discarded_at_first_sight(self):
+        from validation.data import validate_market_prices, MAX_QUOTE_AGE_HOURS
+        now = datetime(2026, 10, 1, 6, 31)                     # 10:01 Tehran
+        prices = self._now({}, FAIR)
+        prices["Goldika"].update(price=238094862.0, quoted_at=datetime(2026, 9, 13, 9, 5, 24))
+        prices["Milli"]["quoted_at"] = now - timedelta(minutes=2)
+        out = io.StringIO()
+        with redirect_stdout(out):
+            valid = validate_market_prices(prices, now=now)
+        self.assertNotIn("Goldika", valid)
+        self.assertIn("Milli", valid, "a fresh stamp must not be discarded")
+        self.assertIn("priced 2026-09-13 12:35 Tehran", out.getvalue())
+        self.assertLessEqual(MAX_QUOTE_AGE_HOURS, 6)
+
+    def test_39_a_copy_older_than_two_days_is_still_recognised(self):
+        """The window was 3-48 hours. The Goldika copy had been stored on 09-25 and
+        09-28, so on 10-01 it was a repeat -- older than the window, and missed."""
+        history = self._history()
+        stale = round(FAIR * (1 + (1.1 - 8.5) / 100.0))
+        history.append((999, NOW - timedelta(days=3), "Goldika", stale))
+        deferred, kept = self._defer(self._now({"Goldika": stale}, FAIR), history)
+        self.assertIn("Goldika", deferred)
+        self.assertTrue(deferred["Goldika"].startswith("stale"))
+
+    def test_40_a_frozen_price_is_caught_from_the_next_hourly_reading(self):
+        """The 3-hour minimum let a new frozen value through for three hours: on 10-01
+        three live UPDATEs and four ANALYZE runs carried Goldika's copy."""
+        history = self._history()
+        frozen = round(FAIR * 1.0065)        # stored once, an hour ago, and only then
+        history.append((998, NOW - timedelta(hours=1), "HoorGold", frozen))
+        deferred, _ = self._defer(self._now({"HoorGold": frozen}, FAIR * 1.02), history)
+        self.assertIn("HoorGold", deferred)
+        self.assertTrue(deferred["HoorGold"].startswith("stale"))
+
+    def test_41_a_price_unchanged_for_minutes_is_not_yet_a_repeat(self):
+        """An UPDATE minutes after the hourly run sees the same price on a platform
+        that updates slowly; that alone is not staleness."""
+        history = self._history()
+        price = round(FAIR * 1.02 * (1 + (0.3 - 1.5) / 100.0))   # new 15 minutes ago
+        history.append((997, NOW - timedelta(minutes=15), "HoorGold", price))
+        deferred, _ = self._defer(self._now({"HoorGold": price}, FAIR * 1.02), history)
+        self.assertNotIn("HoorGold", deferred)
+
+    def test_42_a_jump_is_held_until_it_moves(self):
+        """A quote 8.5 pp from its usual place, never seen before: held, not stored.
+        If it repeats it is a copy and stays held; once it moves it is a live price."""
+        from validation.data import defer_stale_quotes
+        history, holds = self._history(), {}
+        jumped = round(FAIR * (1 + (1.1 - 8.5) / 100.0))
+
+        def run(price):
+            prices = self._now({"Goldika": price}, FAIR)
+            return dict(defer_stale_quotes(prices, history, NOW, holds)), prices
+
+        deferred, kept = run(jumped)
+        self.assertTrue(deferred["Goldika"].startswith("held"))
+        self.assertNotIn("Goldika", kept)
+        deferred, _ = run(jumped)
+        self.assertIn("Goldika", deferred, "a repeated jump is a copy")
+        deferred, kept = run(jumped + 150_000)
+        self.assertNotIn("Goldika", deferred, "a jump that moves is a live price")
+        self.assertIn("Goldika", kept)
+        run(round(FAIR * 1.011))
+        self.assertNotIn("Goldika", holds, "back at its usual place, the hold is cleared")
+
+    def test_43_a_large_genuine_move_below_the_hold_is_untouched(self):
+        """The hold is a backstop for copies 4-9 pp away, not an outlier filter:
+        MioGold's genuine moves of 2-3 pp are kept at first sight (test_30)."""
+        from validation.data import JUMP_HOLD_PP, STALE_DRIFT_PP
+        self.assertGreaterEqual(JUMP_HOLD_PP, 3 * STALE_DRIFT_PP)
+        history, holds = self._history(), {}
+        from validation.data import defer_stale_quotes
+        prices = self._now({"MioGold": round(FAIR * 0.972)}, FAIR)
+        self.assertEqual(defer_stale_quotes(prices, history, NOW, holds), [])
+        self.assertEqual(holds, {})
+
+    def test_44_production_carries_holds_in_state_and_reads_two_months(self):
+        import main
+        source = inspect.getsource(main.main)
+        self.assertIn('holds=state.setdefault("quote_holds", {})', source)
+        self.assertIn("STALE_LOOKBACK_DAYS", inspect.getsource(main._recent_platform_history))
+        from validation.data import STALE_LOOKBACK_DAYS, USUAL_OFFSET_DAYS
+        self.assertGreater(STALE_LOOKBACK_DAYS, USUAL_OFFSET_DAYS)
+
+    def test_45_one_platform_cannot_carry_the_push(self):
+        """10-01 10:01, as stored: the deep-discount push fired at 4.63% on Goldika's
+        19-day-old copy. Without it the gap was 2.74%, below the 3.50% level."""
+        from analysis.push_trigger import (PushThresholds, corroborate, evaluate_push,
+                                           gap_without_cheapest)
+        from analysis.bubble_position import cheap_basis_price, signed_gap
+        prices = [238094862, 250620000, 251960000, 252795490, 253100000, 253170000,
+                  253730000, 253730000, 253950000, 254450000, 254500000]
+        fair = 258885466.09
+        thresholds = PushThresholds(fire_at=3.4995, rearm_at=2.6083, status="OK")
+        gap = signed_gap(cheap_basis_price(prices), fair)
+        self.assertAlmostEqual(gap, -4.63, places=2)
+        without = gap_without_cheapest(prices, fair)
+        self.assertAlmostEqual(without, -2.74, places=2)
+        decision = corroborate(evaluate_push(gap, thresholds, True), without, thresholds, True)
+        self.assertFalse(decision.should_fire)
+        self.assertTrue(decision.armed_after, "nothing was sent, so the trigger stays armed")
+        self.assertEqual(decision.reason, "HELD_ONE_PLATFORM")
+
+        broad = [p * 0.985 for p in prices[1:]] + [prices[1] * 0.985]
+        gap = signed_gap(cheap_basis_price(broad), fair)
+        decision = corroborate(evaluate_push(gap, thresholds, True),
+                               gap_without_cheapest(broad, fair), thresholds, True)
+        self.assertTrue(decision.should_fire, "a broad deep discount still fires")
+
+        decision = corroborate(evaluate_push(-4.0, thresholds, True), None, thresholds, True)
+        self.assertTrue(decision.should_fire, "an uncomputable check fails open, as the push does")
+
+    def test_46_the_push_is_corroborated_in_production(self):
+        import main
+        source = inspect.getsource(main._evaluate_deep_discount_push)
+        self.assertIn("corroborate(evaluate_push(", source)
+        self.assertIn("gap_without_cheapest(prices, fair)", source)
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(KPISignalConfirmation)

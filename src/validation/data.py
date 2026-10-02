@@ -6,6 +6,8 @@ Raises ValueError on invalid data so main.py can skip the run gracefully.
 from datetime import timedelta
 from statistics import median
 
+from timeutil import to_tehran
+
 
 # World gold price reasonable range: $1000 – $5000 USD/oz
 MIN_WORLD_GOLD = 1000.0
@@ -41,25 +43,38 @@ MAX_DEVIATION_FROM_OTHERS_PCT = 1.0
 MIN_OTHERS_FOR_DEVIATION_CHECK = 3
 
 # Any platform: a stale quote is deferred for the reading (owner, 2026-09-29: "if a
-# platform is stale, it should be deferred"; SP_C_HANDOFF.md section 39). Stale means
-# both of these at once, so that neither a genuine price move nor a platform's natural
-# position is mistaken for staleness:
+# platform is stale, it should be deferred"; 2026-10-02: "rectified once for all, it
+# contaminates our DB"; SP_C_HANDOFF.md sections 39, 44). Three checks, from exact to
+# inferred:
 #
-# - the fingerprint: the exact price the platform already reported between 3 and 48
-#   hours ago -- a feed that never moved, or a cache handing back an old copy;
-# - the market has moved away from it: its distance from the other platforms' median
-#   differs from its own usual distance by more than 1.0 pp. Usual means the median
-#   over 14 days, because platforms sit at different places: Goldika about +1.1%,
-#   Milli about -0.9%.
+# 1. The source's own price time, where it publishes one (Goldika, Milli). A quote
+#    priced longer ago than MAX_QUOTE_AGE_HOURS is a copy, not a price. On 2026-10-01
+#    Goldika's CDN served the runner a copy priced 2026-09-13 for over a day.
 #
-# Replayed over 2026-09-15..29 this defers 27 of about 3,150 platform readings (0.9%):
-# Taline 14 (its stale episodes), HoorGold 8 (mostly around 10:00, when the others
-# have repriced and it has not), MioGold 5 -- and keeps MioGold's 14 genuine large
-# moves, which carry new prices, and the natural offsets of Goldika and Milli.
-STALE_MIN_AGE_HOURS = 3
-STALE_MAX_AGE_HOURS = 48
+# 2. The fingerprint and the drift, for every platform. Stale means both at once, so
+#    that neither a genuine move nor a platform's natural position is mistaken for it:
+#    - the exact price the platform already reported in an earlier reading, at least
+#      STALE_MIN_AGE_HOURS ago and within STALE_LOOKBACK_DAYS -- a feed that stopped,
+#      or a cache handing back an old copy;
+#    - its distance from the other platforms' median differs from its own usual
+#      distance (median over USUAL_OFFSET_DAYS) by more than STALE_DRIFT_PP. Platforms
+#      sit at different places: Goldika about +1.1%, Milli about -0.9%.
+#    Until 2026-10-02 the fingerprint looked only 3-48 hours back, so a new frozen
+#    value passed for three hours, and a deferred one, never stored, slipped back in
+#    once its last stored copy was 48 hours old.
+#
+# 3. A jump on first sight. A quote more than JUMP_HOLD_PP from its own usual position
+#    is held until it is seen to move: a live price that has jumped keeps moving and
+#    is accepted at the next reading; a copy or a stopped feed repeats and stays held.
+#    Natural drift stays within about 1 pp; Taline's stale copies sat 4-5 pp away and
+#    Goldika's 8.5 pp. Without it the first reading of a copy reached the push, the
+#    decision engine and the stored record before any repeat could be seen.
+MAX_QUOTE_AGE_HOURS = 6
+STALE_MIN_AGE_HOURS = 0.75
+STALE_LOOKBACK_DAYS = 60
 USUAL_OFFSET_DAYS = 14
 STALE_DRIFT_PP = 1.0
+JUMP_HOLD_PP = 3.0
 MIN_USUAL_OBSERVATIONS = 20
 
 
@@ -95,15 +110,22 @@ def validate_usd_rate(rate):
     return float(rate)
 
 
-def defer_stale_quotes(valid, history, now):
-    """Find the quotes in `valid` that are stale copies, and remove them.
+def defer_stale_quotes(valid, history, now, holds=None):
+    """Find the quotes in `valid` that are stale copies or unseen jumps; remove them.
 
     `history` is (snapshot_id, timestamp, platform_name, price) for stored readings,
     `now` naive UTC. Every quote is judged against the same set of current prices
     before any is removed, so the outcome does not depend on the order of platforms.
     Without history nothing is deferred: a quote is never dropped on a guess, and the
     decision engine's confirmation check still stops one platform from carrying a
-    signal. Returns [(name, reason)] for what was deferred.
+    signal.
+
+    `holds` is {platform: price} carried between runs (state.json): the price a jumped
+    quote had when last held. A jumped quote is accepted once it differs from that
+    price, which is what a live price does and a copy does not. It is updated in place.
+    Without it a jumped quote is held for as long as it stays jumped.
+
+    Returns [(name, reason)] for what was removed.
     """
     if not history or now is None:
         return []
@@ -114,7 +136,7 @@ def defer_stale_quotes(valid, history, now):
             continue
         snapshots.setdefault(snapshot_id, (timestamp, {}))[1][name] = float(price)
 
-    fresh_from = now - timedelta(hours=STALE_MAX_AGE_HOURS)
+    fresh_from = now - timedelta(days=STALE_LOOKBACK_DAYS)
     old_until = now - timedelta(hours=STALE_MIN_AGE_HOURS)
     usual_from = now - timedelta(days=USUAL_OFFSET_DAYS)
 
@@ -131,8 +153,6 @@ def defer_stale_quotes(valid, history, now):
             and fresh_from <= timestamp <= old_until
             for timestamp, prices in snapshots.values()
         )
-        if not fingerprint:
-            continue
 
         offsets = []
         for timestamp, prices in snapshots.values():
@@ -145,16 +165,29 @@ def defer_stale_quotes(valid, history, now):
             continue
 
         drift = (price / median(others_now) - 1) * 100 - median(offsets)
-        if abs(drift) > STALE_DRIFT_PP:
-            deferred.append((name, f"stale, the same price as {STALE_MIN_AGE_HOURS}h+ ago "
-                                   f"and {drift:+.2f} pp from its usual position"))
+        if fingerprint and abs(drift) > STALE_DRIFT_PP:
+            deferred.append((name, f"stale, a price it already reported in an earlier "
+                                   f"reading, {drift:+.2f} pp from its usual position"))
+            continue
+
+        if abs(drift) <= JUMP_HOLD_PP:
+            if holds is not None:
+                holds.pop(name, None)
+            continue
+        held_at = holds.get(name) if holds is not None else None
+        if holds is not None:
+            holds[name] = price
+        if held_at is not None and abs(held_at - price) >= 0.5:
+            continue                    # it moved since it was held: a live price
+        deferred.append((name, f"held, {drift:+.2f} pp from its usual position on first "
+                               f"sight; accepted once it moves"))
 
     for name, _ in deferred:
         del valid[name]
     return deferred
 
 
-def validate_market_prices(prices, history=None, now=None):
+def validate_market_prices(prices, history=None, now=None, holds=None):
     """Filter market prices, removing invalid / outlier entries.
 
     Prints a diagnostic line for each discarded platform.
@@ -162,7 +195,8 @@ def validate_market_prices(prices, history=None, now=None):
     Raises ValueError if fewer than MIN_WORKING_SOURCES are available.
 
     `history` and `now` enable the stale-quote check (`defer_stale_quotes`); without
-    them it is skipped.
+    them it is skipped. `now` also enables the source-time check for platforms that
+    publish their price time. `holds` carries held jumps between runs.
     """
     if not prices:
         raise ValueError("No market price data received")
@@ -188,6 +222,11 @@ def validate_market_prices(prices, history=None, now=None):
                 reason = f"non-positive price: {price}"
             elif not (MIN_MARKET_PRICE <= price <= MAX_MARKET_PRICE):
                 reason = f"price out of range: {price}"
+            elif now is not None and info.get("quoted_at") is not None:
+                age = (now - info["quoted_at"]).total_seconds() / 3600
+                if age > MAX_QUOTE_AGE_HOURS:
+                    reason = (f"stale, priced {to_tehran(info['quoted_at']):%Y-%m-%d %H:%M} "
+                              f"Tehran, {age:.0f} h ago")
 
         if reason:
             print(f"  Discarded {name}: {reason}")
@@ -209,7 +248,7 @@ def validate_market_prices(prices, history=None, now=None):
             del valid[name]
             discarded += 1
 
-    for name, reason in defer_stale_quotes(valid, history, now):
+    for name, reason in defer_stale_quotes(valid, history, now, holds):
         print(f"  Deferred {name}: {reason}")
         discarded += 1
 

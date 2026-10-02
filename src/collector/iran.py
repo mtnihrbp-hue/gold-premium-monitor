@@ -56,10 +56,15 @@ def _run_collector(collector):
     """Run a single collector and return (name, result_dict)."""
     try:
         result = collector()
-        return result["platform"], {
+        info = {
             "price": result["price"],
             "status": "OK"
         }
+        # The source's own price time, where it publishes one: validation discards
+        # a quote whose stamp is too old (SP_C_HANDOFF.md section 44).
+        if result.get("quoted_at") is not None:
+            info["quoted_at"] = result["quoted_at"]
+        return result["platform"], info
     except Exception as e:
         name = collector.__name__.replace("get_", "").replace("_price", "").title()
         return name, {

@@ -60,7 +60,9 @@ from analysis.bubble_position import (
     DEEP_DISCOUNT_PERCENTILE,
     DEFAULT_WINDOW_DAYS,
     MIN_OBSERVATIONS,
+    cheap_basis_price,
     deep_discount_threshold,
+    signed_gap,
 )
 
 # Rank at which the discount is deep enough to interrupt someone. Measured: this is
@@ -202,4 +204,37 @@ def evaluate_push(
 
     decision.armed_after = is_armed
     decision.reason = "BELOW_FIRE" if is_armed else "HELD_BY_BAND"
+    return decision
+
+
+def gap_without_cheapest(prices, fair_price) -> Optional[float]:
+    """The push's gap with the single cheapest platform removed, or None.
+
+    One platform cannot carry the push. Both false pushes on record rested on one stale
+    quote: Taline on 2026-09-29 (3.53% shown, 2.82% without it) and Goldika on 10-01
+    (4.63%, 2.74% without it). A deep discount that disappears without its cheapest
+    platform is one platform's price, not the market's (SP_C_HANDOFF.md section 44).
+    """
+    values = sorted(p for p in prices if p is not None)
+    if len(values) < 2:
+        return None
+    return signed_gap(cheap_basis_price(values[1:]), fair_price)
+
+
+def corroborate(decision: PushDecision, gap_without: Optional[float],
+                thresholds: PushThresholds, armed: Optional[bool]) -> PushDecision:
+    """Hold a firing decision the market without its cheapest platform does not reach.
+
+    Judged by evaluate_push itself, so the level and the sign rule are the same ones.
+    A held push sends nothing, so the trigger stays as it was: armed, and able to fire
+    once the discount is broad. A gap that cannot be computed does not hold the push;
+    the push fails open, as it does everywhere else.
+    """
+    if not decision.should_fire or gap_without is None:
+        return decision
+    if evaluate_push(gap_without, thresholds, True).should_fire:
+        return decision
+    decision.should_fire = False
+    decision.armed_after = True if armed is None else bool(armed)
+    decision.reason = "HELD_ONE_PLATFORM"
     return decision
