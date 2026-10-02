@@ -256,19 +256,34 @@ to show its evidence. Do not make it fail open to "unblock" signals. A BUY that 
 the reader goes through `alerts/telegram_signal.py`, which reuses UPDATE's helpers and
 prints "heavily discounted", never "cheap".
 
-**Stale platform quotes are deferred** (owner's principle, 2026-09-29; §38.7, §39). In
+**Stale platform quotes are deferred** (owner's principle, 2026-09-29: "if a platform is
+stale, it should be deferred"; 2026-10-02: "rectified once for all, it contaminates our
+DB"; §38.7, §39, §44). Iranian CDNs (Sotoon serves Goldika, Taline and Daric) can hand
+the non-Iranian runner a copy days or weeks old while Iran gets the live price: from
+2026-10-01 Goldika's served the runner a price from 2026-09-13. **The data depends on
+where you stand: check a platform from the runner's side (Psiphon), not from Iran.** In
 `validation/data.validate_market_prices`, for that reading only:
 
-- **Any platform** is deferred when it repeats the exact price it reported 3-48 hours
-  ago **and** sits more than 1.0 pp from its own 14-day usual position against the
-  other platforms' median. That is 27 of about 3,150 readings replayed.
-- **Taline** is also discarded when more than 1.0% from that median. Its CDN serves
-  stale copies to the non-Iranian runners, and no public live source exists.
+- **Source time.** Goldika (`createdAt`, UTC) and Milli (`date`, Tehran) publish when
+  they set the price; the collectors return it as `quoted_at` and a quote priced more
+  than `MAX_QUOTE_AGE_HOURS` (6) ago is discarded at first sight. Use a source's own
+  stamp wherever one exists: it is exact, the rules below are inferred.
+- **Repeat.** Any platform is deferred when it repeats a price it reported in an
+  earlier reading, at least 45 minutes and at most 60 days ago, **and** sits more than
+  1.0 pp from its own 14-day usual position against the other platforms' median. The
+  window was 3-48 hours until 2026-10-02: a new frozen value passed for three hours,
+  and a deferred one, never stored, slipped back in once its stored copy aged out.
+- **Jump.** A quote more than 3 pp from its usual position is held until it is seen to
+  move (holds remembered in `state.json`): a live price that jumped moves and is
+  accepted at the next reading, a copy repeats and stays held. It fired once in two
+  months of replay; it is a backstop, not an outlier filter.
+- **Taline** is also discarded when more than 1.0% from the median.
 
 Staleness is not distance. A fresh price far from the others is information, and
 platforms have natural offsets (Goldika about +1.1%, Milli about -0.9%). Do not turn
 this into an outlier filter. The history read fails open; the signal confirmation
-fails closed.
+fails closed. **The push needs the deep discount without its cheapest platform too**
+(`push_trigger.corroborate`): both false pushes on record rested on one stale quote.
 
 LLM/intelligence layers may summarize, interpret, and express uncertainty over already-validated evidence; they must never calculate fair price/premium/indicators, invent levels or stats, or acquire independent BUY/SELL authority.
 

@@ -711,6 +711,16 @@ fixed:
   control is contained by a check you do control.
 
 
+**The second instance, and the step that was skipped (2026-10-02).** Goldika, behind the
+same CDN, served the runner a copy priced 2026-09-13 from 10-01 for over a day. The
+fix for Taline on 09-29 treated the platform, not the CDN: nobody fetched the other ten
+collectors from the runner's side. When a source misbehaves by vantage point, audit
+**every source** from that vantage point the same day, and prefer a source's own price
+time over any inference: Goldika publishes one, and it would have caught the copy at
+first sight (`SP_C_HANDOFF.md` section 44). A guard keyed on repetition also has a
+memory limit: a quote it defers is never stored, so once the stored copy ages out of
+its window the stale quote is new again.
+
 ## 19. A path that never finished hides its next defect
 
 **The pattern.** A fallback that has never completed in production has never had its

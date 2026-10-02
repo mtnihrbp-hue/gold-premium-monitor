@@ -4476,3 +4476,104 @@ each instrument (gold 2013-07-22 .. 2017-08-02, dollar 2011-11-26 .. 2015-11-08)
 about 11 s for both. The 16:00, 17:00 and 18:00 runs take rows 1,000, 2,000 and 3,000
 onward; the 18:00 page reaches 2026-09-29 for both, after which tgju is asked about once
 a day.
+
+## 44. Goldika's 19-day-old copy, and staleness rectified at the source (2026-10-02)
+
+**Reported by the owner** on 2026-10-02: stale platforms were visible in live messages
+on 10-01. The cause was found in the run logs and confirmed from both sides.
+
+**What happened.** From 10-01 10:01 Tehran the runner read Goldika at 238,094,862,
+about 6% below every other platform (Goldika usually sits about +1.1% above). Fetched
+in the same minute, Goldika's price API answered differently by vantage point:
+
+```text
+from Iran      260,837,868   createdAt 2026-10-02 07:40 UTC (live)
+from abroad    238,094,862   createdAt 2026-09-13 09:05 UTC (19 days old)
+                              any uncached request from abroad: 502 Bad Gateway
+```
+
+Goldika's CDN (Sotoon, as Taline's and Daric's) serves non-Iranian clients a cached
+copy, and its origin no longer answers them. It is the section 37-38 Taline defect on a
+second platform. The section 39 guard did not stop it, because it recognised only a
+repeat of a price 3-48 hours old: the copy appeared as a new value and passed for three
+hours, and it was deferred at 14:01 only once its own stored 10:01 reading was 3 hours
+old.
+
+**Damage on 10-01, 10:01-13:00:** a **false deep-discount push** at 10:01 (4.63% shown,
+2.74% without Goldika); three live UPDATEs (10:22, 10:44, 11:15) showing Goldika at
+238M and discounts of 7.5-8%; BUY candidates at 10:01, 11:15, 12:01 and 13:00, held only
+by the confirmation checks (at 10:01 the second platform passed and only the morning
+dollar held it); the regime detector in false PANIC from 11:02 to 17:01 and false RELIEF
+to 19:02. The database showed the same copy had already entered on 09-25 16:01 and
+09-28 10:01-11:02: **12 contaminated readings**, 9 of them with Goldika as the cheapest
+platform.
+
+**The miss was mine.** On 09-29 the Taline instance was fixed and the lesson written
+(`LESSONS_LEARNED.md` section 18, "the data depends on where you stand"), but the other
+platforms were never checked from the runner's side. The audit has now been done: every
+collector fetched from Iran and from abroad in the same minute, twice. Goldika differed
+(-8.77%); the other ten were identical. Goldika and Milli publish their price time.
+
+**The fix** (`hotfix-stale-quotes`, 4e88202, on the owner's "fix the issues ... the
+staleness should be rectified once for all"):
+
+1. **Source time.** The Goldika and Milli collectors return `quoted_at` (Milli's stamp
+   is Tehran time, converted to UTC); the platform pool keeps it; validation discards a
+   quote priced more than 6 hours ago at first sight.
+2. **Repeat.** Any price the platform reported in an earlier reading at least 45 minutes
+   and at most 60 days ago (was 3-48 hours), still with the 1.0 pp drift from its own
+   usual position. The history read is 60 days. This also closes the hole by which a
+   deferred quote, never stored, would have re-entered once its stored copy was 48 hours
+   old (for Goldika, at about 10:00 on 10-03).
+3. **Jump.** A quote more than 3 pp from its usual position is held until it is seen to
+   move; holds are carried between runs in `state.json`.
+4. **Push.** `push_trigger.gap_without_cheapest` and `corroborate`: the push needs the
+   deep discount with the cheapest platform removed too, judged by `evaluate_push`
+   itself; a held push sends nothing and leaves the trigger armed. The BUY's
+   second-platform check would not have stopped the 10-01 push: Milli did rank as
+   heavily discounted at 10:01.
+
+**Replay** over all 6,628 stored quotes (2026-08-04 to 10-02), sequential as production
+runs: the old rule stopped 0 of the 12 contaminated readings, the new one 11 (the 12th,
+on 09-25, sat near the market and is caught by its 09-13 stamp); 90 removals (1.36%)
+against 59, the extra all quotes repeating an earlier price more than 1 pp from their
+usual position; the jump hold fired once in two months. Dry run on the runner's view:
+Goldika discarded "stale, priced 2026-09-13 12:35 Tehran, 455 h ago", nothing else.
+
+**Checks.** `kpi_signal_confirmation` 46/46 (tests 35-46); restoring the old rule fails
+five of them. Suite 28/28. **Verified at 12:00 on 10-02** (run 36984423475): Goldika
+discarded by its stamp, the push line carrying the gap without the cheapest platform.
+
+**Database correction**, authorized by the owner ("correct the contaminated readings"),
+applied at 12:10 Tehran on 10-02 in one transaction, after a dry run, with every count
+asserted and a JSON backup of every touched row
+(`correction_backup_20261002T084008.json`, kept locally) and Neon's point-in-time
+restore behind it:
+
+```text
+platform_prices       12 stale Goldika rows deleted
+price_observations    12 stale Goldika rows deleted
+market_snapshots       9 premiums recomputed from the valid platforms
+                       (10-01: -7.30..-8.03% -> -2.06..-3.19%; 09-28 11:0x: -1.12 -> -1.04)
+market_states         12 platform figures recomputed; 7 on 10-01 valuation -> UNKNOWN,
+                       held BUY candidates -> WAIT; a correction note in each reason
+analysis_snapshots     5 premiums corrected, 4 valuations -> UNKNOWN,
+                       9 regimes (10-01 11:02..19:02) -> UNKNOWN
+outcome_evaluations   23 deleted that used a contaminated premium; the backfill
+                       recomputes them from the corrected record
+```
+
+Labels computed from the false input (valuation, regime) are set to UNKNOWN rather than
+guessed, the project's fail-safe rule. The formulas were checked against four clean rows
+before use. The three readings where Goldika was not the cheapest kept their premium:
+the +0.35% of 09-28 10:01 is therefore not Goldika's doing, and section 34.3's stale-dollar
+reading of it stands. The JSON packages inside the analysis snapshots are left as they
+were written.
+
+**Open for the owner: 37 more readings.** The same replay finds 37 earlier readings (20
+scheduled) whose cheapest quote the new rule judges stale, so their stored premium is
+contaminated the same way, by inference rather than a timestamp: Milli on 09-05 (the
+"record low" -8.19% becomes -3.22%, and -7.79% becomes -2.39%), MioGold on 09-15/16 and
+09-21 (-4.2..-6.2% -> -1.6..-4.4%), Taline on 09-29 (-3.5..-5.5% -> -1.6..-3.3%), and
+smaller shifts. Several sit in the extreme tail the deep-discount level is drawn from.
+Not applied: it needs its own decision and a measured effect on the level.

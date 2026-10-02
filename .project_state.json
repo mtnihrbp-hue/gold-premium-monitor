@@ -2,7 +2,7 @@
   "schema_version": "1",
   "project": "Gold Premium Monitor",
   "active_branch": "SP-D (R&D and docs until code work opens 2026-10-03); main is production",
-  "current_phase": "Pre-SP-D hotfixes on main (sections 38-41): latest 2026-09-30, tgju daily candles stored in market_daily_candles (new table applied 12:53 Tehran, section 41.6), then the world-gold chain bounded after the 13:00 stall (section 42), then Neon connections bounded and tgju's history paged after the 14:00 backfill timed out (section 43); SP-D code work opens 2026-10-03",
+  "current_phase": "Pre-SP-D hotfixes on main (sections 38-44): latest 2026-10-02, stale quotes rectified at the source and 12 contaminated readings corrected in production (section 44); before that 2026-09-30, tgju daily candles stored in market_daily_candles (new table applied 12:53 Tehran, section 41.6), then the world-gold chain bounded after the 13:00 stall (section 42), then Neon connections bounded and tgju's history paged after the 14:00 backfill timed out (section 43); SP-D code work opens 2026-10-03",
   "current_phase_status": "SP-C.1 through SP-C.18 COMPLETE and MERGED into main 2026-09-28 (2b7c5f8; v1.3safe tags main before the merge; merged tree identical to SP-C). Production (cron-job.org and the Telegram worker) dispatches ref main. SP-D in planning: settle period on main, then SP-D branches from main. SP_C_HANDOFF.md section 35.",
   "completed_phases": [
     "SP-B.1",
@@ -152,6 +152,13 @@
       "verified_on_branch": "br-shy-thunder-ag1c8vlc (temporary, copied from production at 12:06 Tehran)",
       "verification": "production after apply: 12 columns, identity constraint, 0 rows, 11 tables, other tables untouched (618 snapshots, 5,051 news rows). Real code run on the temporary branch: 3,516 gold + 3,964 dollar = 7,480 rows, one per day, all with Persian dates; next run 0 new and no false revisions; 10 flagged INCONSISTENT",
       "reason": "TA needs real daily candles and a long history; platform_candles are single points and our own daily history is 15 days. SP_C_HANDOFF.md section 41.6."
+    },
+    "goldika_correction_2026_10_02": {
+      "applied": "2026-10-02 12:10 Tehran",
+      "authorised_by_user": true,
+      "change": "12 stale Goldika platform_prices and 12 price_observations rows deleted; 9 market_snapshots premiums and 12 market_states platform figures recomputed from the valid platforms; 7 valuations and 4 analysis valuations -> UNKNOWN, held BUY candidates -> WAIT, 9 regimes (10-01 11:02..19:02) -> UNKNOWN; 23 outcome evaluations deleted for recompute",
+      "safety": "dry run first; one transaction with every row count asserted; JSON backup of every touched row kept locally (correction_backup_20261002T084008.json); Neon point-in-time restore",
+      "verification": "0 stale rows left; no CHEAP state or PANIC regime in October; 10-01 premiums -2.06..-3.19% (were -7.30..-8.03%)"
     },
     "news_url_migration": {
       "file": "sql/neon_migration_news_url.sql",
@@ -313,10 +320,13 @@
     "assertions_coherence": 29,
     "status": "28/28 files passing (2026-09-30, runner exit 0)",
     "note": "kpi_coherence.py checks modules against each other and carries the register of accepted divergences, now 5 entries. An entry whose divergence is fixed fails the suite, so the register cannot go stale.",
-    "assertions_signal_confirmation": 34,
+    "assertions_signal_confirmation": 46,
     "assertions_tgju_candles": 15
   },
   "open_decisions": [
+    "37 earlier readings (20 scheduled) whose cheapest quote the new stale rule judges stale: Milli 09-05 (the -8.19% record low becomes -3.22%), MioGold 09-15/16 and 09-21, Taline 09-29, smaller shifts elsewhere. Inferred, not timestamped; several sit in the tail the deep-discount level is drawn from. Owner's decision, with the measured effect on the level first (SP_C_HANDOFF.md section 44).",
+    "Ayyareh and Eligold quote the same price in ~60% of readings, likely one source: double weight in medians and in the second-platform check. Owner 2026-10-02: keep both and watch.",
+    "Goldika is unavailable from the runner while its CDN serves the 2026-09-13 copy (uncached requests from abroad get 502); discarded each run by its own price time. MAX_QUOTE_AGE_HOURS = 6 to be checked against the first morning runs (overnight update cadence of Goldika and Milli unknown).",
     "The push is buy-side only. A shallow discount is the sell-side mirror and is the same measurement with the comparison flipped; deferred until the first trigger has proven itself.",
     "ANALYZE: outcome evaluation horizons are session-dependent. A 24h horizon spanning a world-market closure measures Iranian-side movement alone. Testable once ~500 outcomes are resolved; the feedback loop depends on it.",
     "The repaired decision engine has not yet issued a decision. ANALYZE, track record and expectancy all need a decision history that varies. Observation period first.",
@@ -342,6 +352,7 @@
     "TA step 3 data (SP_C_HANDOFF.md 41.6): tgju has flat candles (open = high = low = close) on 284 of 3,516 gold days and 388 of 3,964 dollar days, clustered in 2011-2014 and 2019-2023 (3 in 2,050 from 2024); candle-pattern base rates must exclude them or start in 2024. 10 candles are flagged INCONSISTENT, most at a cap in tgju's own feed in September 2025. Trading days per year stepped from ~240 to ~280 around 2019-2020."
   ],
   "corrections": [
+    "2026-10-02: from 10-01 10:01 Goldika's CDN served the non-Iranian runner a copy priced 2026-09-13 (6% below the market); the section 39 rule (repeat 3-48 h) let it through for three hours: a false deep-discount push, three live UPDATEs, BUY candidates held only by confirmation, a false PANIC regime; it had also entered on 09-25 and 09-28 (12 readings). The 09-29 Taline fix had not audited the other platforms from the runner's side. Fixed: source price time (Goldika, Milli), repeat within 60 days, a 3 pp jump hold, the push corroborated without its cheapest platform; 12 readings corrected in production at 12:10 Tehran with a backup. Section 44.",
     "Decision scorecard 'edge 0.0' does NOT mean the strategy failed. final_decision was a constant (WAIT 264/264) because of the hysteresis latch, so the scorecard compared always-WAIT against always-WAIT. The engine is untested, not disproven.",
     "SP-C.13 (2026-09-21): `Deep discount` named two different numbers at once -- 3.29% in UPDATE (40th percentile of the signed gap) and 3.70% in ANALYZE and the push (85th of the size). One label, two definitions, shown together; a reader at 3.40% was told deep and got no push. The level is now resolved once by bubble_position.deep_discount_threshold over one pool, and UPDATE, ANALYZE and the push all call it. The ranking pool for `Bigger than X%` deliberately stays separate. Two further defects found while fixing it: the push compared abs(gap), so a premium would have alerted as a deep discount (latent -- all 437 readings on record are discounts), and rounding the threshold lifted it above the readings it was drawn from, so a zone with eight readings measured zero episodes. Recorded in SP_C_HANDOFF.md section 24.",
     "SP-C.14 (2026-09-21): added kpi/kpi_coherence.py, the first KPI that checks modules against each other rather than against the market. Found on its first run: a third copy of the percentile formula in regime.py (fixed, delegates now); caluclator/valuation.py reading config keys buy_premium/sell_premium which config.json does not define, so the configured sell threshold of 3.0 has never been in effect (OPEN); valuation_context_json persisted every run and read by nothing (OPEN). Also corrected a false row in PROJECT_MEMORY.md's defect index: valuation_state was recorded as fixed in SP-C.2 but is still CHEAP on 364/364 rows, disagreeing with the percentile band on 114 of the 134 rows carrying both. Recorded in SP_C_HANDOFF.md section 25.",
