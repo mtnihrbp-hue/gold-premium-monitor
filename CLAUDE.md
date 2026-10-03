@@ -42,7 +42,7 @@ python tests/test_momentum.py
 python kpi/kpi_pre_sp_c14c.py
 ```
 
-Run the entire KPI suite (28 files) — this is the regression check before calling any phase complete:
+Run the entire KPI suite (29 files) — this is the regression check before calling any phase complete:
 ```
 python kpi/run_all.py
 ```

@@ -4649,3 +4649,79 @@ staleness." The 09-05 readings are a real Milli price and stay as recorded; the 
 hold's accepting a moved price is therefore right for that case, and is kept. The test
 copy `br-morning-firefly-ag21gr3y` was deleted on the owner's approval; only the
 production branch remains.
+
+## 46. SP-D opens: Direction, the first deliverable (2026-10-03)
+
+**Why first.** The owner, 2026-10-03: "we have enough data and history, but there is no
+decision or prediction available ... are we going up, or down? whats the probability?
+when we started the project the gold was around 18 now its around 26 and we are just
+watching ... if i know the up trend, i will transform my rial into gold and maintain my
+money value." The diagnosis is the system's own: the decision engine has a valuation leg
+and a premium-momentum leg, and **nothing looks at the price trend itself**, so a +44%
+move with a premium near -2% read FAIR/WAIT for weeks. The question to answer is not
+BUY/SELL but "convert now, or wait for a better entry?", with the evidence for each part.
+The existing C.14B forecast engine predicts the next hour's direction from two months of
+hourly data and is shown nowhere: it does not answer this.
+
+**First read of tgju's 13-year daily 18K history** (as of 2026-10-01, research):
+
+```text
+close 25.69 M toman; +37% in 60 trading days, +124% in 250
+trend UPTREND (price > 50-day 22.04 M > 200-day 19.30 M, 50-day rising); RSI 75
+stretch +16.6% above the 50-day average; no resistance above (record high)
+support 24.43 M (-4.9%, tested twice, last 09-20), 23.11 M, 22.44 M
+
+price vs 50-day average   higher 20d later   median 20d   fell 5%+ meanwhile
+below it                        57%            +0.6%           21%
+0-5% above                      67%            +1.8%           11%
+5-10% above                     76%            +6.2%           14%
+10-15% above                    82%            +8.9%           21%
+15%+ above (now)                65%            +4.1%           47%   (13 episodes)
+all days 2014-2026              67%            +2.3%           19%
+```
+
+In toman, 18K is higher 20 trading days later on two days in three because the rial
+loses value, so every conditional figure is shown beside that base rate.
+
+**Entry timing**, the owner's actual decision. In days like now (uptrend, 15%+ above the
+50-day average), waiting up to 20 days for a dip, else converting then, against
+converting at once:
+
+```text
+wait for 2% dip   came 68% of the time   cost 3.0% more on average
+wait for 3% dip   came 62%               cost 3.2% more
+wait for 5% dip   came 47%               cost 3.9% more
+```
+
+When the dip did not come the price ran away, and those misses outweighed the dips
+caught: in this state delay was the expensive choice. Thirteen episodes: a lean sample,
+kept measured rather than treated as law.
+
+**Built** (branch `sp-d-direction` from SP-D):
+
+- `caluclator/technical.py`: TA-Lib for the standard indicators (SMA 20/50/200, RSI 14;
+  TA-Lib 0.8.1, binary wheels with the C library for the runner's Linux/py3.12 and
+  Windows/py3.13; 201 functions incl. 61 candlestick patterns for step 3); trend state;
+  stretch; support/resistance from one year of 5-day swings clustered within 2%, named by
+  position. **Causal**: a swing counts only once confirmed (5 days after), so levels never
+  use days that had not happened yet. MetaTrader 5's Python package was considered and
+  rejected: Windows-only, needs a running terminal and a broker account, and no broker
+  carries Iranian 18K in rial.
+- `analysis/direction.py`: the view, the odds over similar past days (same trend state and
+  stretch band; widened to the trend alone below 30 cases) for 5/20/60 days, the base
+  rate beside each, the 5% pullback risk, and the entry-timing measure. **Causal**: day i
+  counts only past days whose outcome was known by day i.
+- `alerts/telegram_direction.py`: the DIRECTION section for ANALYZE, a **draft** not wired
+  into any message until the owner approves its layout.
+- `kpi/kpi_direction.py` 17/17: TA-Lib definitions, trend states, confirmed swings only,
+  levels by position, later data never changing an earlier view, outcomes only once
+  happened, base rate and sample beside every figure, both entry-timing directions, no
+  decision authority, no instruction in the text, the draft not wired. Using unconfirmed
+  swings fails 8 tests; counting outcomes not yet happened fails 5. Suite 29/29.
+
+Direction is EVIDENCE: no BUY/SELL authority (CLAUDE.md invariants) until validated as
+one. **Next:** a walk-forward check that the conditional odds beat the base rate out of
+sample, year by year, before any of it is relied on; a split conversion (part now, part on
+a dip) as a third entry option; the owner's layout approval, then ANALYZE; later, the
+combination with the valuation leg ("heavily discounted + uptrend + near support") as a
+measured condition.

@@ -318,19 +318,21 @@
   },
   "process_rule": "Do not change an agreed design, template or framework without explicit permission, including changes that appear obvious while working on a different task. Raise them as a question instead. Recorded after unrequested edits to an approved message template forced re-review and removed a column that was broken for a fixable reason.",
   "kpi_suite": {
-    "files": 28,
+    "files": 29,
     "latest": "kpi_coherence.py",
     "assertions_sp_b2": 15,
     "assertions_sp_c1": 59,
     "assertions_sp_c4": 54,
     "assertions_sp_c6": 44,
     "assertions_coherence": 29,
-    "status": "28/28 files passing (2026-09-30, runner exit 0)",
+    "status": "29/29 files passing (2026-10-03, runner exit 0)",
     "note": "kpi_coherence.py checks modules against each other and carries the register of accepted divergences, now 5 entries. An entry whose divergence is fixed fails the suite, so the register cannot go stale.",
     "assertions_signal_confirmation": 46,
+    "assertions_direction": 17,
     "assertions_tgju_candles": 15
   },
   "open_decisions": [
+    "SP-D Direction (section 46): the first deliverable, on the owner's request -- trend, support/resistance, odds over similar past days beside the base rate, and entry timing (convert now or wait for a dip). Built on sp-d-direction (caluclator/technical.py with TA-Lib, analysis/direction.py, kpi_direction 17/17); the ANALYZE section is a draft awaiting the owner's layout approval. Next: walk-forward check that the conditional odds beat the base rate out of sample; a split-conversion option.",
     "Health check 2026-10-03 (23 runs since 10-02 12:00, all success): Goldika discarded by its stamp in all 21 collecting runs, nothing stored; the new repeat and jump rules fired 0 times; Milli fresh at 06:00 (MAX_QUOTE_AGE_HOURS 6 holds); the 23 deleted outcome evaluations recomputed from the corrected record. Open: Daric times out from the runner only (blocks GitHub addresses; works from Iran and abroad), last stored 10-01 21:01; the outcome backfill retries ~75-80 evaluations every run (3-4 min, the longest step) -- reliability phase.",
     "DONE 2026-10-03 (section 45): 79 stale quotes in 72 readings corrected in production (deep-discount level 3.4767% -> 3.4382%). Milli on 09-05 (5% below every other platform all day): the owner confirmed a real price (Milli sold low for some days) -- no correction, the jump hold is kept as built. Original item: 37 earlier readings (20 scheduled) whose cheapest quote the new stale rule judges stale: Milli 09-05 (the -8.19% record low becomes -3.22%), MioGold 09-15/16 and 09-21, Taline 09-29, smaller shifts elsewhere. Inferred, not timestamped; several sit in the tail the deep-discount level is drawn from. Owner's decision, with the measured effect on the level first (SP_C_HANDOFF.md section 44).",
     "Ayyareh and Eligold quote the same price in ~60% of readings, likely one source: double weight in medians and in the second-platform check. Owner 2026-10-02: keep both and watch.",
