@@ -4758,3 +4758,62 @@ day* to convert -- the platform spread and the discount to fair value (section 1
 whether to wait. Further direction research (time-series momentum over 3-12 months, the
 USD/IRR trend as a lead, 60-day horizons) is to be tested the same way before anything is
 claimed.
+
+## 47. SP-D R&D: decision anchors, R1 data and R2 event studies (2026-10-03)
+
+**The owner's brief.** Not descriptive text but decision anchors a person can lock in:
+will the uptrend resume and by how much, where in the trend we are (distance to the
+SMA/EMA), the crosses in prices and indicators, candles, and probability methods, after
+"a clean R&D before moving in". Approved plan: R1 data, R2 event studies, R3 probability
+models, R4 anchor report (decision gate with the owner), R5 product. Production stays on
+`main`; SP-D work reaches it only through the owner's review.
+
+**Anchor panel, 18K at the close of 2026-10-01** (rank in 2014-2026 history):
+
+```text
+distance  SMA20 +6.8% (88th pct of uptrend days)  EMA20 +7.0%  SMA50 +16.6% (91st)
+          EMA50 +14.5%  SMA200 +33.1% (77th); SMA50-SMA200 spread +14.2% (62nd)
+trend     SMA50 above SMA200 since 2023-11-29: 813 trading days, +936%; longer than 5 of
+          the 6 completed uptrends since 2014 (only 2016-2019 ran longer: 938 days)
+crosses   price above SMA20 08-05, SMA20 above SMA50 07-20, MACD above its signal 09-30,
+          RSI above 70 09-29
+momentum  RSI 74.8 (90th), ADX 46.6 (88th), ROC60 +36.9% (90th); ATR 2.0% a day;
+          price at 111% of the 20-day Bollinger band
+legs      the dollar +20.6% above its 50-day, +14% in 20 days, +34% in 60, at 52-week
+          highs; world gold (USD) -5.4% below its 50-day, -8.2% below its 200-day.
+          18K's rise is the dollar's: world gold is correcting.
+```
+
+**R1, data.** tgju's world gold (`ons`, USD per ounce) has 12,156 daily candles from
+1979-12-26 with a real range, reachable from Iran and from abroad. Added to the tgju
+collector as `TGJU_XAU_USD` (unit USD), with each market's own calendar for the
+once-a-day check: Iran trades Saturday to Thursday, world gold Monday to Friday. Once
+merged to `main` the runner backfills it a page per run (about 13 runs).
+
+**R2, event studies.** 110 event types with 8 or more cases: crosses of price and SMA
+20/50/200, SMA 20/50 and 50/200, EMA 20/50, MACD and signal, RSI 70 and 30, Bollinger
+bands, new 52-week highs and lows -- on 18K and, as leads, on the dollar and world gold --
+and TA-Lib's 61 candle patterns in both directions (on candles with a real range only).
+Measured: 18K's 5/20/60-day move and 5% pullbacks against the same period's base;
+bootstrap significance, Benjamini-Hochberg across all 110, confirmation on held-back
+2024-2026.
+
+```text
+passed (q <= 0.10 in 2014-2023 and same sign, half the size or more, on 2024-2026)
+  18K new 52-week high            +3.22% over 20d, +13 pp higher (98)   holdout +2.63%, +11 pp (43)
+  dollar falls below its 50-day   -3.21%, -18 pp; 5% pullback +25 pp (63) holdout -2.90% (19)
+  18K falls below its 50-day      -2.88%, -14 pp (56)                    holdout -5.48% (11)
+significant in-sample, not confirmed
+  candle belt-hold, marubozu, long line (bullish); dollar new 52-week high
+failed
+  every other candle pattern; RSI, MACD, Bollinger and moving-average crosses
+```
+
+The anchors with evidence are trend continuation (new highs), trend breaks (losing the
+50-day average) and, the strongest warning, the dollar's own break below its 50-day.
+None is triggered against the uptrend on 10-01: 18K made five new 52-week highs in the
+last 20 days, and both 18K and the dollar sit well above their 50-day averages.
+
+Next: R3, probability models (the 10/50/90% range of 20 and 60-day moves, the chance of a
+new high and of a pullback) from these anchors and the dollar and world-gold legs, walk-
+forward against the plain historical range; then R4 with the owner.

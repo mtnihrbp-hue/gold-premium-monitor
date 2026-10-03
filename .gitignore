@@ -219,3 +219,6 @@ __marimo__/
 
 # Runtime state
 state.json
+
+# SP-D research data (fetched by research/fetch_tgju_history.py)
+research/data/
