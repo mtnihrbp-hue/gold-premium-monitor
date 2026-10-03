@@ -4577,3 +4577,68 @@ contaminated the same way, by inference rather than a timestamp: Milli on 09-05 
 09-21 (-4.2..-6.2% -> -1.6..-4.4%), Taline on 09-29 (-3.5..-5.5% -> -1.6..-3.3%), and
 smaller shifts. Several sit in the extreme tail the deep-discount level is drawn from.
 Not applied: it needs its own decision and a measured effect on the level.
+
+## 45. The stored history corrected for stale quotes (2026-10-03)
+
+**Decision.** The owner, 2026-10-03, on section 44's open item: "Yes fix the issue." The
+section 44 rule, replayed over every stored reading as production runs it, judges 79
+stored quotes stale, in 72 readings from 2026-08-08 to 09-29; in 37 of them the stale
+quote was the cheapest, so the stored premium was wrong. Platforms: HoorGold 22,
+Parasteh 21, Taline 15, MioGold 14, Milli 4, Eligold 2, Ayyareh 1. These are inferred
+(a repeat of an earlier price more than 1 pp from the platform's usual place), not
+timestamped like Goldika's.
+
+**Method.** Run first on a temporary copy of production (`br-morning-firefly-ag21gr3y`,
+`correction-test-2026-10-03`), measured there with the project's own functions, then
+applied to production at 11:16 Tehran between runs, after a dry run with identical
+counts. One transaction, every count asserted, a JSON backup of every touched row
+(`correction_history_backup_ep-sweet-bread-agb1w6wg_20261003T074225.json`, local).
+
+```text
+platform_prices       79 stale quotes deleted
+price_observations    55 matching observations deleted (the rest predate them)
+platform_candles      57 single-observation candles built from them deleted
+market_snapshots      37 premiums recomputed from the valid platforms
+market_states         66 platform figures recomputed, a note in each reason;
+                      22 valuations -> UNKNOWN (from 09-21, the ranked era),
+                      5 held BUY candidates -> WAIT
+analysis_snapshots    23 premiums corrected, 1 representative price (Milli's stale
+                      quote, 08-30) replaced by the fallback;
+                      20 regimes -> UNKNOWN: 09-21 08:02..14:01 and
+                      09-29 10:02..09-30 07:01, the spans the regime left NORMAL
+                      on contaminated readings until it returned
+outcome_evaluations   51 analysis snapshots re-evaluated with the project's own
+                      evaluate_snapshot (most are older than the backfill's 7 days)
+```
+
+Labels before 09-21 are left as recorded: valuation was the constant CHEAP until
+SP-C.15 and the regime the constant PANIC until SP-C.5, both documented; only the facts
+under them are corrected. The BUY actually sent at 14:01 on 09-29 keeps its decision,
+with a note; its premium is now -2.53% (was -4.93%).
+
+**Measured effect** (same functions, production before and after):
+
+```text
+deep-discount level (fire_at)   3.4767% -> 3.4382%
+re-arm level                    2.5140% -> 2.3828%
+deep-zone episodes, longest     27, 5.0 h -> 29, 3.8 h
+rank of a -4.0% premium         12 -> 8      (-5.0%: 7 -> 4; -3.5%: 31 -> 28)
+lowest stored premium           -8.19% (09-05 18:11) -> -8.08% (09-05 20:23)
+highest stored premium          +0.36% -> +0.75% (09-29 10:00)
+```
+
+The level barely moves; genuine deep discounts now rank deeper, as they should. All
+four positive readings on record sit between 10:00 and 12:01 (09-24 12:01, 09-28
+10:01-10:02, 09-29 10:00): the morning-dollar window of section 34.3.
+
+**Open for the owner: Milli on 09-05.** Milli quoted about 224M all day (11:44, 15:22,
+18:11, 20:00, 20:23) while every other platform sat at 236-239M, a steady 5% below. The
+rule removed 15:22 (a jump) and 18:11 (an exact repeat of 11:44) and kept 11:44, 20:00
+and 20:23. It kept the last two because Milli's price had moved slightly since it was
+held (224.24 -> 224.43), and the jump hold reads movement as a live price. That is a
+weakness of the hold: a feed that wiggles passes it. Whether Milli really sold 5% below
+the market that day is a market question. If not, those three readings (now the three
+lowest on record, -5.5% to -8.1%) should be corrected the same way, and the hold should
+accept a jumped quote only once it moves toward the market, not merely moves.
+
+The test copy is still in Neon; deleting it needs the owner's approval.

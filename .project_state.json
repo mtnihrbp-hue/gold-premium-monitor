@@ -153,6 +153,13 @@
       "verification": "production after apply: 12 columns, identity constraint, 0 rows, 11 tables, other tables untouched (618 snapshots, 5,051 news rows). Real code run on the temporary branch: 3,516 gold + 3,964 dollar = 7,480 rows, one per day, all with Persian dates; next run 0 new and no false revisions; 10 flagged INCONSISTENT",
       "reason": "TA needs real daily candles and a long history; platform_candles are single points and our own daily history is 15 days. SP_C_HANDOFF.md section 41.6."
     },
+    "stale_history_correction_2026_10_03": {
+      "applied": "2026-10-03 11:16 Tehran",
+      "authorised_by_user": true,
+      "tested_on_branch": "br-morning-firefly-ag21gr3y (correction-test-2026-10-03), kept until the owner approves deleting it",
+      "change": "79 stale platform_prices, 55 price_observations, 57 candles deleted; 37 premiums and 66 market_states figures recomputed; 22 valuations and 20 regimes -> UNKNOWN, 5 held BUY candidates -> WAIT; 51 analysis snapshots re-evaluated with evaluate_snapshot",
+      "effect": "deep-discount level 3.4767% -> 3.4382%, re-arm 2.5140% -> 2.3828%; lowest premium -8.19% -> -8.08%; highest +0.36% -> +0.75%"
+    },
     "goldika_correction_2026_10_02": {
       "applied": "2026-10-02 12:10 Tehran",
       "authorised_by_user": true,
@@ -325,7 +332,7 @@
   },
   "open_decisions": [
     "Health check 2026-10-03 (23 runs since 10-02 12:00, all success): Goldika discarded by its stamp in all 21 collecting runs, nothing stored; the new repeat and jump rules fired 0 times; Milli fresh at 06:00 (MAX_QUOTE_AGE_HOURS 6 holds); the 23 deleted outcome evaluations recomputed from the corrected record. Open: Daric times out from the runner only (blocks GitHub addresses; works from Iran and abroad), last stored 10-01 21:01; the outcome backfill retries ~75-80 evaluations every run (3-4 min, the longest step) -- reliability phase.",
-    "37 earlier readings (20 scheduled) whose cheapest quote the new stale rule judges stale: Milli 09-05 (the -8.19% record low becomes -3.22%), MioGold 09-15/16 and 09-21, Taline 09-29, smaller shifts elsewhere. Inferred, not timestamped; several sit in the tail the deep-discount level is drawn from. Owner's decision, with the measured effect on the level first (SP_C_HANDOFF.md section 44).",
+    "DONE 2026-10-03 (section 45): 79 stale quotes in 72 readings corrected in production (deep-discount level 3.4767% -> 3.4382%). Still open: Milli on 09-05, 5% below every other platform all day; the jump hold accepted 20:00 and 20:23 because the price wiggled -- the owner's market call; if not real, correct 3 more readings and require a jumped quote to move toward the market. Original item: 37 earlier readings (20 scheduled) whose cheapest quote the new stale rule judges stale: Milli 09-05 (the -8.19% record low becomes -3.22%), MioGold 09-15/16 and 09-21, Taline 09-29, smaller shifts elsewhere. Inferred, not timestamped; several sit in the tail the deep-discount level is drawn from. Owner's decision, with the measured effect on the level first (SP_C_HANDOFF.md section 44).",
     "Ayyareh and Eligold quote the same price in ~60% of readings, likely one source: double weight in medians and in the second-platform check. Owner 2026-10-02: keep both and watch.",
     "Goldika is unavailable from the runner while its CDN serves the 2026-09-13 copy (uncached requests from abroad get 502); discarded each run by its own price time. MAX_QUOTE_AGE_HOURS = 6 to be checked against the first morning runs (overnight update cadence of Goldika and Milli unknown).",
     "The push is buy-side only. A shallow discount is the sell-side mirror and is the same measurement with the comparison flipped; deferred until the first trigger has proven itself.",

@@ -180,10 +180,11 @@ The direction gate is load-bearing. A percentile-EXPENSIVE reading means "less
 discounted than usual", **not** "above fair value", and the matrix turns
 `EXPENSIVE + WEAKENING` into `SELL` — on rank alone this engine would sell a market
 trading 1.6% *below* fair value. On the record the sell gate never opens, because the
-highest premium ever stored is +0.36%, against a +3.0% gate. That is correct, not a
-dead bound to tidy away. Both positive readings on record (2026-09-24 and 09-28) are
-most likely a stale morning USD/IRR input rather than a real premium
-(`SP_C_HANDOFF.md` §34.3). Morning readings, before about 11:00 Tehran, can carry the
+highest premium ever stored is +0.75% (2026-09-29 10:00, after the stale-quote
+correction of §45), against a +3.0% gate. That is correct, not a dead bound to tidy
+away. All four positive readings on record sit between 10:00 and 12:01 (09-24, 09-28
+twice, 09-29) and are most likely a stale morning USD/IRR input rather than a real
+premium (`SP_C_HANDOFF.md` §34.3). Morning readings, before about 11:00 Tehran, can carry the
 previous day's dollar.
 
 There is deliberately **no fixed-threshold fallback**: below `MIN_OBSERVATIONS` the
