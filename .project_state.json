@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "project": "Gold Premium Monitor",
-  "active_branch": "SP-D (R&D and docs until code work opens 2026-10-03); main is production",
+  "active_branch": "sp-d-direction (cut from SP-D; Direction v2 built 2026-10-03, awaiting the owner's review); main is production",
   "current_phase": "Pre-SP-D hotfixes on main (sections 38-44): latest 2026-10-02, stale quotes rectified at the source and 12 contaminated readings corrected in production (section 44); before that 2026-09-30, tgju daily candles stored in market_daily_candles (new table applied 12:53 Tehran, section 41.6), then the world-gold chain bounded after the 13:00 stall (section 42), then Neon connections bounded and tgju's history paged after the 14:00 backfill timed out (section 43); SP-D code work opens 2026-10-03",
   "current_phase_status": "SP-C.1 through SP-C.18 COMPLETE and MERGED into main 2026-09-28 (2b7c5f8; v1.3safe tags main before the merge; merged tree identical to SP-C). Production (cron-job.org and the Telegram worker) dispatches ref main. SP-D in planning: settle period on main, then SP-D branches from main. SP_C_HANDOFF.md section 35.",
   "completed_phases": [
@@ -175,7 +175,8 @@
       "verified_on_branch": "br-tiny-frog-ag7grqyc (temporary, copied from production at 10:18)",
       "verification": "type text with no length; 4,987 rows before and after; a 1,560-character link saved on the temporary branch",
       "reason": "Google News and percent-encoded Persian links exceed 500 characters; such items failed to save entirely (45 unique in six runs). SP_C_HANDOFF.md section 40."
-    }
+    },
+    "direction_snapshots": "PENDING: sql/neon_migration_direction.sql verified on temp branch temp-direction-test (br-sparkling-truth-agd8jbnb) 2026-10-03; not applied to production"
   },
   "architecture_wings": {
     "live_wing": "collect -> validate -> calculate -> current deterministic state -> Telegram",
@@ -302,7 +303,7 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "Settle on main until SP-D code work opens 2026-10-03 (daily health checks). R&D meanwhile, morning dollar first (SP_C_HANDOFF.md section 36). Then rollout.post_merge_order.",
+  "next_gate": "Owner's review of the DIRECTION v4 message and the NEXT deep-dive; authorization to apply sql/neon_migration_direction.sql to production (verified on temp branch br-sparkling-truth-agd8jbnb); then the safe tag v1.4safe on main, the merge, and verification (SP_C_HANDOFF.md section 49).",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
@@ -323,15 +324,16 @@
     "assertions_sp_b2": 15,
     "assertions_sp_c1": 59,
     "assertions_sp_c4": 54,
-    "assertions_sp_c6": 44,
+    "assertions_sp_c6": 45,
     "assertions_coherence": 29,
-    "status": "29/29 files passing (2026-10-03, runner exit 0)",
+    "status": "29/29 files passing (2026-10-03, sp-d-direction, runner exit 0)",
     "note": "kpi_coherence.py checks modules against each other and carries the register of accepted divergences, now 5 entries. An entry whose divergence is fixed fails the suite, so the register cannot go stale.",
     "assertions_signal_confirmation": 46,
-    "assertions_direction": 17,
+    "assertions_direction": 30,
     "assertions_tgju_candles": 15
   },
   "open_decisions": [
+    "SP-D Direction v2 built (section 49): live-price panel (rally legs, stall clock, position and gap closing, analyst stance beside the system's decision, 20-day outlook, levels, convert), forecast ledger with resolver and promotion gate, direction_snapshots (verified on a temp branch, NOT applied to production), /Direction read-only mode (workflow mode=direction, worker mapping), precompute at the first scheduled run from 06:00 and 13:00 Tehran. Awaiting: the owner's review of the v4 message, the NEXT section deep-dive, production migration authorization, temp-branch deletion, where the tested-anchor table lives.",
     "SP-D R&D R3/R4 done (section 48): predictive -- new 52-week high (+3.2%), dollar and 18K breaking their 50-day averages, the chance of a new high within 20 days (skill +26%, shown as its calibrated band rate), the cost of waiting for a dip; calibrated -- the volatility-scaled 10/50/90% range of 20/60-day moves; dropped -- up/down and pullback odds, candle patterns. A DIRECTION message is drafted for the owner's review; implementation follows the approved draft; then safe tag, then merge to main (owner: no merge before that).",
     "SP-D Direction (section 46): the first deliverable, on the owner's request -- trend, support/resistance, odds over similar past days beside the base rate, and entry timing (convert now or wait for a dip). Built on sp-d-direction (caluclator/technical.py with TA-Lib, analysis/direction.py, kpi_direction 17/17); the ANALYZE section is a draft awaiting the owner's layout approval. Next: walk-forward check that the conditional odds beat the base rate out of sample; a split-conversion option.",
     "Health check 2026-10-03 (23 runs since 10-02 12:00, all success): Goldika discarded by its stamp in all 21 collecting runs, nothing stored; the new repeat and jump rules fired 0 times; Milli fresh at 06:00 (MAX_QUOTE_AGE_HOURS 6 holds); the 23 deleted outcome evaluations recomputed from the corrected record. Open: Daric times out from the runner only (blocks GitHub addresses; works from Iran and abroad), last stored 10-01 21:01; the outcome backfill retries ~75-80 evaluations every run (3-4 min, the longest step) -- reliability phase.",

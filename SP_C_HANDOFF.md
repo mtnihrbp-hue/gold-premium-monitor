@@ -4912,3 +4912,117 @@ Up/down is not forecast: no tested signal beat the
 Next, after the owner's polish: implement the panel in `analysis/direction.py` from the
 stored tgju candles (the models refitted daily, a few seconds), its KPIs, then the safe
 tag and the merge to `main`.
+
+## 49. SP-D Direction v2: the panel, its ledger, and /Direction (2026-10-03, sp-d-direction)
+
+The owner's review of the section-48 draft (2026-10-03) rejected its shape, not its
+evidence: an 813-day trend says nothing about where a reader stands; yesterday's close is
+a day behind the market; "tested anchors" belong in a status view, not the message; the
+words were too many and too vague; and a 5-case "18 to 608 more days, +73% to +169%" was
+meaningless (it was: min..max of five rallies, and the gain counted from the rally's
+start, not from today). The owner chose analyst option (a), "System says X, Analyst says
+Y; the reader adjusts", an on-demand `/Direction` command computed once or twice a day, a
+new table, and self-learning from day one with safeguards. LLM set aside.
+
+### 49.1 Research behind v2 (`research/rd_gap_and_stall.py`, `rd_r2b.py`, `rd_stance.py`, `rd_leg_maturity.py`)
+
+```text
+RALLY LEGS (8% ZigZag, 2014-2026)  30 rallies, median 39 days, +41%; 31 corrections,
+                                   median 17 days, -14% from the peak (half -11% to -19%)
+DOES A MATURE RALLY END?           no: at every gain-rank bucket 10-16% ended within 20
+                                   days, against 12% for all rally days
+THE STALL CLOCK                    days in a major uptrend (50-day above the 200-day)
+                                   since the last 52-week closing high -> next 20 days:
+  days without a new high          2014-2023 new high / ended    2024-2026 holdout
+  0                                92% / 4%                      95% / 4%
+  1-4                              76% / 12%                     81% / 16%
+  5-9                              68% / 13%                     65% / 28%
+  10-19                            58% / 21%                     58% / 35%
+  20-39                            32% / 47%                     29% / 71%
+GAP TO THE 20-DAY (9%+ above)      closed in all 183 past cases, median 12 days; 68% by a
+                                   dip, price at the touch a median -3.3%
+GAP TO THE 50-DAY (15%+ above)     closed in 83% within 120 days, median 46 days; mostly
+                                   by the average rising (price +3.9% at the touch)
+WAITING FOR A 3% DIP               on stretched uptrend days the dip came 52-71% of the
+                                   time, yet waiting still cost +2.3..+3.8% on average:
+                                   when it does not come, the rally runs far. All days:
+                                   costlier in 12 of 13 years 2014-2026 (2015: -0.4%);
+                                   section 48's "every year" held for 2016-2026 only
+ANALYST RULEBOOK (fixed, not fitted) trend up +1 / below the 50-day -1; new high in the
+                                   last 4 days +1 / none for 20+ days -1; dollar above its
+                                   50-day +1 / below -1; rally broken -1. >=3 STRONG
+                                   BULLISH .. <=-3 STRONG BEARISH. Past STRONG BULLISH
+                                   days: 76% higher 20 days later (all days 67%)
+R2b TRADING PRINCIPLES             swing supports +4..+9 pp against a level with no
+                                   history; time-at-price zones (the volume-profile proxy:
+                                   no source publishes volume) +3/+14 pp near the price;
+                                   failed breakouts (a liquidity-sweep proxy) were
+                                   followed by gains, not reversals: dropped; fair value
+                                   gaps refill in 1-2 days with no direction edge:
+                                   dropped; AMD has no session structure on daily candles
+20-DAY RANGE, OUT OF SAMPLE        quantiles from 2014-2023 held 72% of 2024-2026
+                                   outcomes inside 10-90% (target 80), 22% above: short on
+                                   the upside in a strong market. 60-day: 81% inside but
+                                   17% above and 2% below, and as wide as the range the
+                                   owner rejected (to +44%): kept in the ledger, not shown
+```
+
+### 49.2 What was built
+
+- `caluclator/technical.py`: `rally_legs` (causal ZigZag), `days_since_high`,
+  `time_at_price_zones`.
+- `analysis/direction.py` (rewritten): `build_panel` -> one `DirectionPanel` with RALLY
+  (leg number in the uptrend, start, age, gain, peak, end line at peak x 0.92, rank among
+  past rallies, the stall ladder), POSITION (distances to SMA/EMA 20/50/200, rank among
+  uptrend days, RSI, ADX, gap-closing statistics, tags), STANCE (rulebook, reasons,
+  triggers with the stance each would leave, the stance's past record), OUTLOOK (new
+  high within 20 days from the stall clock's band, against the uptrend base rate; the
+  volatility-scaled 20- and 60-day range), LEVELS, CONVERT, the system's own decision
+  (passed in, never computed), and the forecasts it commits to.
+- Today's price is live: the platform median at tgju's level (+0.19%, section 41.4) as a
+  provisional close. It never enters a historical count, and ADX/ATR use completed
+  candles only (the live bar has no range); `kpi_direction.test_10`.
+- Tags, each with one definition: RECORD (a new 52-week closing high), STRONG TREND
+  (ADX >= 30 in a trend), STRETCHED (9%+ above the 20-day), STALLING (10+ days without a
+  new high), CORRECTION (inside an 8% correction), DOLLAR-DRIVEN (the dollar's 60-day
+  rise at least 3/4 of 18K's).
+- `analysis/direction_ledger.py`: the self-learning safeguards the owner asked for.
+  Every forecast is stored with its panel before its outcome exists and never rewritten;
+  it is resolved against tgju's candles only, never our own platform readings; one per
+  Tehran day enters the record; the rates are re-counted from the whole history at every
+  computation and nothing is fitted on the live record; the gate keeps a figure in the
+  message only while its live record holds (the new-high rate must beat the base rate on
+  Brier score, the range must hold 65-92% of outcomes, bullish stances must rise more
+  often than all days). Below 30 resolved days a figure shows as "learning"; a failing one
+  is demoted (the message falls back to the base rate or marks it with a warning) and the
+  alarm is printed in the run log.
+- `direction_snapshots` (`sql/neon_migration_direction.sql`, additive, one table, 14
+  columns, unique on Tehran day and slot). Verified on the temporary branch
+  `temp-direction-test` (br-sparkling-truth-agd8jbnb) 2026-10-03: table created, the
+  real precompute stored the 13:00 panel from production's 17:01 prices in 6.0 s, the
+  second run in the same slot was a 1.0 s no-op, and `/Direction` rendered it back.
+  **Not applied to production**: awaiting the owner's authorization.
+- `main.py`: `_direction_precompute` in the scheduled path after the tgju collection,
+  for the first run from 06:00 and from 13:00 Tehran (`DIRECTION_SLOTS`); it resolves
+  due forecasts, computes, gates and stores, and never raises. `DIRECTION_ONLY` mode
+  (`mode=direction` in `gold-monitor.yml`) renders the stored panel and returns before
+  any collection. The worker maps `/Direction` to it (the owner deploys the worker).
+- `alerts/telegram_direction.py`: the v4 message (VIEW, RALLY, POSITION, OUTLOOK, LEVELS,
+  CONVERT, NEXT, footer), about 3,300 characters, checked against the wording rules by
+  `kpi_direction.test_23`. NEXT is a first draft for the deep-dive with the owner.
+- The decision reason printed under "Reason:" in the daily recap, the SELL alert and the
+  e-mail said "Discount widening"/"narrowing" (`caluclator/conflict.py`): now
+  "increased"/"decreased", and "deeply discounted" is now "heavily discounted";
+  `kpi_sp_c6.test_26b`.
+- `kpi_direction` 30/30; full suite 29/29 files, runner exit 0.
+
+### 49.3 Open
+
+- The owner's review of the v4 message, and the NEXT section designed with the owner.
+- Production migration (authorization), then the temp branch's deletion (authorization).
+- Where the tested-anchor table lives: a `/Direction record` view, or the docs only.
+- The new-high figure is the stall clock's plain rate (93% at a record), not the
+  section-48 model (whose 80-100% band made a new high 81% of the time over a wider set
+  of days). The model can run in shadow through the same ledger once there is a live
+  record to compare it with.
+- Then: the safe tag on `main` (`v1.4safe`), the merge, and verification.
