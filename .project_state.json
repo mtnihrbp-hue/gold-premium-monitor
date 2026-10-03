@@ -324,6 +324,7 @@
     "assertions_tgju_candles": 15
   },
   "open_decisions": [
+    "Health check 2026-10-03 (23 runs since 10-02 12:00, all success): Goldika discarded by its stamp in all 21 collecting runs, nothing stored; the new repeat and jump rules fired 0 times; Milli fresh at 06:00 (MAX_QUOTE_AGE_HOURS 6 holds); the 23 deleted outcome evaluations recomputed from the corrected record. Open: Daric times out from the runner only (blocks GitHub addresses; works from Iran and abroad), last stored 10-01 21:01; the outcome backfill retries ~75-80 evaluations every run (3-4 min, the longest step) -- reliability phase.",
     "37 earlier readings (20 scheduled) whose cheapest quote the new stale rule judges stale: Milli 09-05 (the -8.19% record low becomes -3.22%), MioGold 09-15/16 and 09-21, Taline 09-29, smaller shifts elsewhere. Inferred, not timestamped; several sit in the tail the deep-discount level is drawn from. Owner's decision, with the measured effect on the level first (SP_C_HANDOFF.md section 44).",
     "Ayyareh and Eligold quote the same price in ~60% of readings, likely one source: double weight in medians and in the second-platform check. Owner 2026-10-02: keep both and watch.",
     "Goldika is unavailable from the runner while its CDN serves the 2026-09-13 copy (uncached requests from abroad get 502); discarded each run by its own price time. MAX_QUOTE_AGE_HOURS = 6 to be checked against the first morning runs (overnight update cadence of Goldika and Milli unknown).",
