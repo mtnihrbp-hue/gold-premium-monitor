@@ -39,12 +39,12 @@ from caluclator.technical import (HIGH_LOOKBACK_DAYS, RALLY_REVERSAL, days_since
                                   trend_state)
 from timeutil import local_date
 
-GOLD, USD = "TGJU_GOLD_18K", "TGJU_USD_IRR"
+GOLD, USD, XAU = "TGJU_GOLD_18K", "TGJU_USD_IRR", "TGJU_XAU_USD"
 HORIZON, HORIZON_LONG = 20, 60
 STRETCH_PCT = 9.0          # above SMA20: such gaps closed mostly by a fall (68%)
 STRONG_ADX = 30.0
 STALL_TAG_DAYS = 10        # from 10 days without a new high, one came within 20 days 58% of the time
-DOLLAR_SHARE = 0.75        # the dollar's 60-day rise at least 3/4 of gold's
+DOLLAR_SHARE = 0.75        # over the rally: the dollar's rise at least 3/4 of 18K's
 GAP_MAX_WAIT = 120
 GAP_BANDS = {"SMA20": ((3, 6), (6, 9), (9, 1e9)), "SMA50": ((5, 10), (10, 15), (15, 1e9))}
 ZONE_MAX_PCT = 10.0        # time-at-price zones farther than this are not shown
@@ -154,7 +154,17 @@ def _completed_legs(direction, start, dates, since_year=2014):
 
 # -- the panel -------------------------------------------------------------------------
 
-def build_panel(gold, usd, live_price=None, live_at=None, markets=None, system=None, now=None):
+def _move_between(series, start, end):
+    """Percent move of a (dates, high, low, close) series between the last closes on or
+    before `start` and `end`, or None without the series."""
+    if not series or not series[0]:
+        return None
+    dates, close = list(series[0]), series[3]
+    a, b = bisect_right(dates, start) - 1, bisect_right(dates, end) - 1
+    return _pct(close[b], close[a]) if a >= 0 and b >= 0 else None
+
+
+def build_panel(gold, usd, live_price=None, live_at=None, markets=None, system=None, now=None, xau=None):
     """`gold`/`usd`: (dates, high, low, close) oldest first, completed days only.
     `live_price`: today's platform-based price, used as a provisional close. Every
     historical count uses completed days only."""
@@ -255,7 +265,11 @@ def build_panel(gold, usd, live_price=None, live_at=None, markets=None, system=N
             "end_line": float(peak[i] * (1 - RALLY_REVERSAL)),
             "end_line_pct": _pct(peak[i] * (1 - RALLY_REVERSAL), c[i]),
             "longer_than": int(sum(x[0] < age for x in rallies)),
-            "larger_than": int(sum(x[1] < gain for x in rallies))})
+            "larger_than": int(sum(x[1] < gain for x in rallies)),
+            # where the rise came from: 18K is world gold times the dollar, give or take
+            # the platforms' discount
+            "usd_since_start": _pct(uc[uidx[i]], uc[uidx[a]]) if uidx[a] >= 0 else None,
+            "xau_since_start": _move_between(xau, gd[a], gd[i])})
     panel.rally = rally
 
     # POSITION: distances, their rank among uptrend days, tags, and how such gaps closed
@@ -264,7 +278,7 @@ def build_panel(gold, usd, live_price=None, live_at=None, markets=None, system=N
                 "dist": {k: _pct(c[i], v[i]) for k, v in avgs.items()},
                 "rank": {}, "rsi": float(r[i]), "adx": float(adx[last]),
                 "atr_pct": float(atr[last] / c[last] * 100), "trend": trend[i], "gaps": {}}
-    for key in ("SMA20", "SMA50", "SMA200"):
+    for key in ("SMA20", "EMA20", "SMA50", "EMA50", "SMA200"):
         series = (c[:done] / avgs[key][:done] - 1) * 100
         position["rank"][key] = _rank(series[np.flatnonzero(up[:done])], position["dist"][key])
     tags = []
@@ -278,13 +292,11 @@ def build_panel(gold, usd, live_price=None, live_at=None, markets=None, system=N
         tags.append("STALLING")
     if not in_rally:
         tags.append("CORRECTION")
-    j60 = uidx[i - 60]
-    gold60 = _pct(c[i], c[i - 60])
-    usd60 = _pct(uc[uidx[i]], uc[j60]) if j60 >= 0 else None
-    if usd60 is not None and gold60 > 0 and usd60 >= DOLLAR_SHARE * gold60:
+    # measured over the rally itself, not an arbitrary window (owner, 2026-10-03)
+    usd_move = rally.get("usd_since_start")
+    if in_rally and usd_move is not None and rally["gain_pct"] > 0 and usd_move >= DOLLAR_SHARE * rally["gain_pct"]:
         tags.append("DOLLAR-DRIVEN")
     position["tags"] = tags
-    position["gold60"], position["usd60"] = gold60, usd60
     for key, bands in GAP_BANDS.items():
         s = avgs[key]
         dist = (c / s - 1) * 100
@@ -318,6 +330,19 @@ def build_panel(gold, usd, live_price=None, live_at=None, markets=None, system=N
         "death_cross_cases": len(fresh_death),
         "death_cross_drop_pct": float(np.mean([drop(j) for j in fresh_death]) * 100) if fresh_death else None,
         "base_drop_pct": float(np.mean([drop(j) for j in pool]) * 100)}
+    # the same measure for every break a reader watches: in the 5 days after it, how
+    # often a 5% drop followed within 20 trading days, against all days
+
+    def fresh(state):
+        flips = [j for j in range(1, n) if state[j] and not state[j - 1]]
+        days = [j for j in pool if state[j] and any(j - 4 <= k <= j for k in flips)]
+        return {"cases": len(days), "drop_pct": float(np.mean([drop(j) for j in days]) * 100) if days else None}
+    has50 = ~np.isnan(e50)
+    position["risk"] = {
+        "base_drop_pct": position["ema"]["base_drop_pct"],
+        "ema_death": fresh(has50 & ~ema_up),
+        "below_sma50": fresh(np.array([not np.isnan(s50[j]) and c[j] < s50[j] for j in range(n)])),
+        "usd_below_sma50": fresh(np.array([usd_above[j] == 0 for j in range(n)]))}
     panel.position = position
 
     # STANCE: the rulebook, its triggers, and what followed it before
@@ -443,7 +468,7 @@ def resolve_direction(session, markets=None, system=None, now=None):
             return DirectionPanel()
         now = now or datetime.utcnow()
         return build_panel(gold, usd, live_price=live_gold_price(markets), live_at=now,
-                           markets=markets, system=system, now=now)
+                           markets=markets, system=system, now=now, xau=load_series(session, XAU))
     except Exception as e:
         print(f"Direction unavailable: {e}")
         return DirectionPanel()

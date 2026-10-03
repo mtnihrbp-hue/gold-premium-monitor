@@ -332,6 +332,24 @@ class KPIDirection(unittest.TestCase):
         self.assertGreater(ema["death_cross_cases"], 0)
         self.assertIsNotNone(ema["base_drop_pct"], "a conditional figure carries its base rate")
 
+    def test_23e_the_source_of_the_rise_is_measured_over_the_rally(self):
+        # "why 60 days?" (owner, 2026-10-03): the window is the rally itself, not a
+        # number picked for it; the dollar's and world gold's moves over the same days
+        gold = _series(_cycles(1200))
+        xau = _series([1500.0] * 1200)                       # world gold flat
+        now = datetime.combine(gold[0][-1] + timedelta(days=1), datetime.min.time()) + timedelta(hours=9)
+        p = d.build_panel(gold, _usd(), live_at=now, now=now, xau=xau)
+        self.assertNotIn("gold60", p.position)
+        self.assertTrue(p.rally["in_rally"], "the fixture ends inside a rally")
+        self.assertAlmostEqual(p.rally["xau_since_start"], 0.0)
+        expect = (1.001 ** (p.rally["age_days"]) - 1) * 100       # the dollar rises 0.1% a day
+        self.assertAlmostEqual(p.rally["usd_since_start"], expect, places=6)
+        self.assertEqual("DOLLAR-DRIVEN" in p.position["tags"],
+                         p.rally["usd_since_start"] >= d.DOLLAR_SHARE * p.rally["gain_pct"])
+        for key in ("ema_death", "below_sma50", "usd_below_sma50"):
+            self.assertIn(key, p.position["risk"], "every watched break carries what followed it")
+        self.assertIsNotNone(p.position["risk"]["base_drop_pct"])
+
     def test_23d_trading_days_skip_friday(self):
         saturday = date(2026, 10, 3)
         self.assertEqual(d.trading_date(saturday, 5), date(2026, 10, 8), "Sun..Thu")

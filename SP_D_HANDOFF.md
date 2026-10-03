@@ -475,3 +475,76 @@ temporary branch `temp-direction-test` was deleted; only the production branch r
 
 **Open:** the owner's polish of v5; then the safe tag `v1.4safe` on `main`, the merge,
 the worker redeploy (owner), and the first 06:00 and 13:00 panels verified.
+
+## 6. v6: plain words (2026-10-03)
+
+**The review of v5.** "76 in 100 you mean 76%? then what does it mean higher 20 days
+later?"; "60 days ... why not 59, why not 61? and how could this data help the user
+decide?"; "3% dip mean 3 percent drop? so instead of dip let's say drop"; "waiting for it
+paid 2.6% more on avg, so don't wait, ha?"; the EMA cross to get a proper place: above or
+below, and by how much. The same notion applies to every line: plainly readable.
+
+**What changed.**
+
+- Odds are percentages ("93% chance"); 20 trading days is "a month" (stated once:
+  "NEXT MONTH (20 trading days, from past days like today)"); "dip" is "drop".
+- The stance's record reads as a sentence: "After past days like this, 18K was higher a
+  month later 76% of the time (any day: 67%)."
+- The 60-day window was arbitrary and is gone. The source of the rise is measured over
+  the rally itself, and the DOLLAR-DRIVEN tag with it: since 06-16 the dollar rose 67%
+  (155,000 to 258,465 toman, tgju) and world gold fell 4% ($4,334 to $4,143), while the
+  platforms' gap to fair value went from -3.4% to -0.5%. The rally is the dollar's, which
+  is what a rial holder needs to know: the dollar line in WATCH is the one that matters.
+- The wait-for-a-drop result is the plain comparison: "Buy now or wait for that drop? On
+  average, buying now was 2.6% better." It is an average over 197 past days like today,
+  on which the drop came 63% of the time; when it did not come, the rally ran far.
+- MOVING AVERAGES (EMA) is its own section: the price against the 20- and 50-day EMA, the
+  20-day against the 50-day with the date of the cross, and the stretch as a rank (now
+  measured on EMA20: price this far above it on only 7% of uptrend days).
+- Every break in WATCH carries the same measured consequence, the chance of a 5% drop
+  within a month in the 5 days after it, against 19% on any day (2014-2026): 18K below its
+  50-day 28% (242 days), the EMA20 under the EMA50 33% (104), the dollar below its 50-day
+  33% (228).
+
+```text
+GOLDPremium: DIRECTION
+18K 26.57M · 17:01 · record high
+[STRONG TREND] [STRETCHED] [DOLLAR-DRIVEN]
+
+VIEW
+System: WAIT (platforms at their usual discount to fair value)
+Analyst: STRONG BULLISH
+Why: uptrend · new record highs · dollar above its 50-day average
+After past days like this, 18K was higher a month later 76% of the time (any day: 67%).
+
+TREND
+Rally 10 of the uptrend since 2023-11: +70% since 06-16 (86 trading days)
+Driven by the dollar: dollar +67%, world gold −4%
+
+MOVING AVERAGES (EMA)
+Price is 9.5% above the 20-day and 17.6% above the 50-day
+20-day is 7.4% above the 50-day: bullish since 07-18
+Stretched: price was this far above its 20-day on only 7% of uptrend days
+
+NEXT MONTH (20 trading days, from past days like today)
+New record high: 93% chance
+3% drop (to 25.77M): 63% chance
+Buy now or wait for that drop? On average, buying now was 2.6% better.
+
+WATCH (chance of a 5% drop within a month: usually 19%)
+Below 24.45M (−8%): rally over; past corrections −14% median. Analyst → BULLISH
+Below 22.20M (50-day avg): uptrend broken; chance of a 5% drop 28%. Analyst → NEUTRAL
+20-day EMA under the 50-day: chance of a 5% drop 33%.
+Dollar below 214,232 (its 50-day avg): chance of a 5% drop 33%. Analyst → NEUTRAL
+No new record by ~10-08: Analyst → BULLISH
+No new record by ~10-26: the rally then ended 54% of the time.
+
+Computed 17:01 from live prices · history since 2014 · not a price forecast · track record 0 of 30 days checked
+```
+
+1,467 characters. `resolve_direction` now also loads world gold (`TGJU_XAU_USD`).
+`kpi_direction` 34/34 (`test_23e`: the source and the tag over the rally, every watched
+break with its consequence); full suite 29/29 files, runner exit 0.
+
+**Open:** the owner's polish of v6; then the safe tag, the merge, the worker redeploy and
+the first panels verified.
