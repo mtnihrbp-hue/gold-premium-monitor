@@ -548,3 +548,30 @@ break with its consequence); full suite 29/29 files, runner exit 0.
 
 **Open:** the owner's polish of v6; then the safe tag, the merge, the worker redeploy and
 the first panels verified.
+
+## 7. Safe tag and merge to main (2026-10-03)
+
+The owner, on v6: "much better, go ahead with the tag and push".
+
+- **CI first.** `kpi-suite.yml` dispatched on `sp-d-direction` (run 37131408592): install
+  (TA-Lib 0.8.1 wheel included), compile check and the full KPI suite passed on GitHub's
+  runner. `main` has never installed TA-Lib before; this run is the evidence it can.
+- **Safe tag.** `v1.4safe` (annotated) on `main` at cc9431d, pushed before the merge:
+  "main before the SP-D Direction merge (2026-10-03): the last state of main without
+  SP-D, kept as the rollback point". Rollback: `git push --force origin
+  v1.4safe^{}:main` and nothing else, since `direction_snapshots` is additive and
+  unread by the old code.
+- **Merge.** `main` was an ancestor of `sp-d-direction`, so `main` and `SP-D` were
+  fast-forwarded to it: the tree CI passed plus the worker file, its README and these
+  records (no Python change; `kpi_direction` 34/34 locally), and `kpi-suite.yml` runs
+  again on the push to `main`.
+- **Worker** (`src/worker/telegram-trigger.js`): the `Direction` command (mode
+  `direction`), and the two improvements its README held for the next edit -- one
+  `TARGET_REF`, and `Status` scoped to `gold-monitor.yml` on that ref. The owner
+  deploys it (Cloudflare dashboard, paste the file, Save and deploy).
+- **cron-job.org needs no change.** It already dispatches `mode=analyze` on `main` every
+  hour; the precompute runs inside that path, at the first run from 06:00 and from
+  13:00 Tehran. The first run after the merge stores today's 13:00 panel.
+
+**To verify:** the first post-merge ANALYZE run logs `DIRECTION: 13:00 panel 1 stored`
+and writes one row to `direction_snapshots`; then `/Direction` after the worker deploy.
