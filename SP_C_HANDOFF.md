@@ -4642,3 +4642,10 @@ lowest on record, -5.5% to -8.1%) should be corrected the same way, and the hold
 accept a jumped quote only once it moves toward the market, not merely moves.
 
 The test copy is still in Neon; deleting it needs the owner's approval.
+
+**Owner's answers, 2026-10-03.** Milli on 09-05: "do nothing on milli ... i remember for
+some days, the milli was selling low ... the important thing is the safeguard against
+staleness." The 09-05 readings are a real Milli price and stay as recorded; the jump
+hold's accepting a moved price is therefore right for that case, and is kept. The test
+copy `br-morning-firefly-ag21gr3y` was deleted on the owner's approval; only the
+production branch remains.
