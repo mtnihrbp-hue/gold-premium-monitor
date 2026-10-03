@@ -66,7 +66,7 @@ def build_reason(
     parts = []
 
     if valuation == "CHEAP":
-        parts.append("Market deeply discounted.")
+        parts.append("Market heavily discounted.")
     elif valuation == "EXPENSIVE":
         parts.append("Market expensive.")
     elif valuation == "FAIR":
@@ -74,16 +74,16 @@ def build_reason(
 
     if "DISCOUNT" in premium_direction:
         if "WIDENING" in premium_direction:
-            parts.append("Discount widening (improving for buyer).")
+            parts.append("Discount increased (improving for buyer).")
         elif "NARROWING" in premium_direction:
-            parts.append("Discount narrowing (weakening for buyer).")
+            parts.append("Discount decreased (weakening for buyer).")
         elif "STABLE" in premium_direction:
             parts.append("Discount stable.")
     elif "PREMIUM" in premium_direction:
         if "WIDENING" in premium_direction:
-            parts.append("Premium widening (weakening for buyer).")
+            parts.append("Premium increased (weakening for buyer).")
         elif "NARROWING" in premium_direction:
-            parts.append("Premium narrowing (improving for buyer).")
+            parts.append("Premium decreased (improving for buyer).")
         elif "STABLE" in premium_direction:
             parts.append("Premium stable.")
 

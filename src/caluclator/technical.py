@@ -96,3 +96,64 @@ def split_levels(levels, price):
     supports = sorted((lv for lv in levels if lv["price"] < price), key=lambda lv: -lv["price"])
     resistances = sorted((lv for lv in levels if lv["price"] >= price), key=lambda lv: lv["price"])
     return supports, resistances
+
+
+# -- trend legs, levels by time at price, and the clocks (SP-D, section 49) ----------
+
+RALLY_REVERSAL = 0.08          # a rally ends 8% below its peak; a correction ends 8% above its trough
+HIGH_LOOKBACK_DAYS = 250       # a "new high" is a new 52-week closing high
+ZONE_BIN_PCT = 1.0             # time-at-price bins, 1% wide
+ZONE_TOP = 5                   # the five most-visited bins of the last year
+
+
+def rally_legs(close, reversal=RALLY_REVERSAL):
+    """Causal ZigZag. For every day i: (direction, leg_start) as known on day i.
+
+    direction is "up" inside a rally and "down" inside a correction; leg_start is the
+    trough (or peak) that began the current leg, confirmed only once the price had moved
+    `reversal` away from it -- so the leg a day belongs to never depends on later days.
+    """
+    c = np.asarray(close, dtype=float)
+    n = len(c)
+    direction = np.empty(n, dtype=object)
+    start = np.zeros(n, dtype=int)
+    state, extreme, pivot = "up", 0, 0
+    for i in range(n):
+        if state == "up":
+            if c[i] > c[extreme]:
+                extreme = i
+            elif c[i] <= c[extreme] * (1 - reversal):
+                state, pivot, extreme = "down", extreme, i
+        else:
+            if c[i] < c[extreme]:
+                extreme = i
+            elif c[i] >= c[extreme] * (1 + reversal):
+                state, pivot, extreme = "up", extreme, i
+        direction[i], start[i] = state, pivot
+    return direction, start
+
+
+def days_since_high(close, lookback=HIGH_LOOKBACK_DAYS):
+    """Trading days since the last new `lookback`-day closing high (0 on the day of one)."""
+    c = np.asarray(close, dtype=float)
+    out = np.zeros(len(c), dtype=int)
+    for i in range(1, len(c)):
+        out[i] = 0 if c[i] >= c[max(0, i - lookback + 1):i + 1].max() else out[i - 1] + 1
+    return out
+
+
+def time_at_price_zones(close, upto, lookback=LEVEL_LOOKBACK_DAYS, bin_pct=ZONE_BIN_PCT, top=ZONE_TOP):
+    """The price zones where daily closes clustered most over the last year, known at
+    `upto`: a stand-in for a volume profile, since no source publishes volume. Returns
+    [{"price", "days"}] for the `top` most-visited `bin_pct` bins."""
+    window = np.asarray(close[max(0, upto - lookback + 1):upto + 1], dtype=float)
+    if len(window) < 20 or window.min() <= 0:
+        return []
+    step = np.log1p(bin_pct / 100)
+    edges = np.exp(np.arange(np.log(window.min()), np.log(window.max()) + step, step))
+    if len(edges) < 3:
+        return []
+    counts, _ = np.histogram(window, bins=edges)
+    order = np.argsort(counts)[::-1][:top]
+    return [{"price": float((edges[k] + edges[k + 1]) / 2), "days": int(counts[k])}
+            for k in order if counts[k] > 0]

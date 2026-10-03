@@ -402,6 +402,77 @@ def _send_analyze_report():
         session.close()
 
 
+DIRECTION_SLOTS = (6, 13)       # Tehran hours: the first scheduled run from each computes the panel
+
+
+def _direction_slot(now):
+    """"06:00" or "13:00", the latest slot this Tehran hour has reached, or None before 06:00."""
+    from timeutil import local_now
+
+    hour = local_now(now).hour
+    reached = [h for h in DIRECTION_SLOTS if hour >= h]
+    return f"{reached[-1]:02d}:00" if reached else None
+
+
+def _direction_precompute(markets, signal_state, now):
+    """Compute and store the DIRECTION panel once per slot, after resolving the forecasts
+    whose horizon has passed (SP-D, section 49). Never raises: Direction is evidence,
+    and a failure here must not cost the run its push or recap."""
+    slot = _direction_slot(now)
+    if slot is None:
+        return
+    from analysis.direction import resolve_direction
+    from analysis.direction_ledger import apply_gate, assess, resolve_pending
+    from database.repository import (direction_snapshot_exists, resolved_direction_snapshots,
+                                     save_direction_snapshot)
+    from timeutil import local_date
+
+    session = get_session()
+    if session is None:
+        return
+    try:
+        day = local_date(now)
+        if direction_snapshot_exists(session, day, slot):
+            return
+        resolved = resolve_pending(session, now)
+        system = {"final_decision": signal_state.final_decision, "valuation": signal_state.valuation,
+                  "candidate": signal_state.candidate_decision} if signal_state else {}
+        panel = resolve_direction(session, markets=markets, system=system, now=now)
+        if panel.status != "OK":
+            print(f"DIRECTION: {panel.status}; the next run retries")
+            return
+        for alarm in apply_gate(panel, assess(resolved_direction_snapshots(session))):
+            print(f"DIRECTION ALARM: {alarm}")
+        snapshot_id = save_direction_snapshot(session, panel, day, slot)
+        print(f"DIRECTION: {slot} panel {snapshot_id} stored ({panel.stance.get('label')}, "
+              f"{', '.join(panel.position.get('tags', [])) or 'no tags'}); {resolved} forecasts resolved")
+    except Exception as e:
+        session.rollback()
+        print(f"DIRECTION failed: {e}")
+    finally:
+        session.close()
+
+
+def _send_direction_report():
+    """Answer the Telegram Direction command from the stored panel. Reads only."""
+    from alerts.telegram_direction import send_direction
+    from analysis.direction import DirectionPanel
+    from database.repository import latest_direction_snapshot
+
+    session = get_session()
+    if session is None:
+        print("DIRECTION: no database session")
+        return
+    try:
+        row = latest_direction_snapshot(session)
+        send_direction(DirectionPanel.from_json(row.panel) if row else None)
+        print(f"DIRECTION sent. panel={row.id if row else None}")
+    except Exception as e:
+        print(f"DIRECTION report failed: {e}")
+    finally:
+        session.close()
+
+
 def _evaluate_deep_discount_push(markets, fair, state):
     """Fire the deep-discount push if the level is reached and the trigger is armed.
 
@@ -579,8 +650,13 @@ def main():
     last_alert = state["last_alert"]
     is_scheduled = os.environ.get("SCHEDULED_RUN", "false").lower() == "true"
     report_only = os.environ.get("REPORT_ONLY", "false").lower() == "true"
-    print(f"MODE: {'REPORT' if report_only else ('ANALYZE' if is_scheduled else 'UPDATE')}")
+    direction_only = os.environ.get("DIRECTION_ONLY", "false").lower() == "true"
+    print(f"MODE: {'DIRECTION' if direction_only else 'REPORT' if report_only else ('ANALYZE' if is_scheduled else 'UPDATE')}")
 
+    if direction_only:
+        # Read-only like the report: the panel was computed by a scheduled run.
+        _send_direction_report()
+        return
     if report_only:
         # The Live Wing boundary in its strictest form. A reader asking what the
         # record shows must not collect prices, create a snapshot or produce an
@@ -764,6 +840,7 @@ def main():
         except Exception as e:
             print(f"News ingestion failed: {e}")
         _collect_tgju_candles()
+        _direction_precompute(markets, signal_state, now)
         if snapshot_id is not None:
             try:
                 analysis_snapshot_id = build_analysis_snapshot(config=config)

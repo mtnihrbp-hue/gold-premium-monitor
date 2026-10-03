@@ -364,3 +364,34 @@ class MarketDailyCandle(Base):
     __table_args__ = (
         UniqueConstraint("source", "instrument", "trade_date", name="uq_market_daily_candles_identity"),
     )
+
+
+class DirectionSnapshot(Base):
+    """The DIRECTION panel as computed by a scheduled run, with its forecast ledger.
+
+    SP-D (SP_C_HANDOFF.md section 49). One row per Tehran day and slot ("06:00" or
+    "13:00"): the first scheduled run from each hour computes it, /Direction only reads
+    it. `panel` is never rewritten; `outcomes` and `resolved_at` are filled in once each
+    forecast's horizon has passed on tgju's candles.
+    """
+
+    __tablename__ = "direction_snapshots"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    local_date = Column(Date, nullable=False)
+    slot = Column(String(8), nullable=False)
+    computed_at = Column(DateTime, nullable=False)
+    candle_date = Column(Date, nullable=True)
+    price = Column(Numeric(20, 2), nullable=True)
+    price_source = Column(String(8), nullable=True)
+    status = Column(String(24), nullable=False)
+    model_version = Column(String(24), nullable=False)
+    stance = Column(String(24), nullable=True)
+    panel = Column(JSON, nullable=False)
+    forecasts = Column(JSON, nullable=False)
+    outcomes = Column(JSON, nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("local_date", "slot", name="uq_direction_snapshots_slot"),
+    )

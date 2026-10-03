@@ -6,6 +6,9 @@ name: Gold Premium Monitor
 # The caller therefore declares intent, which keeps the Live and Analyze wings separate:
 # a user /Update stays UPDATE, and only an explicit mode=analyze runs the pipeline.
 #
+# mode=direction is read-only in the same way: it renders the DIRECTION panel the
+# scheduled runs stored at 06:00 and 13:00 Tehran, for the Telegram /Direction command.
+#
 # mode=report is the third wing and writes nothing at all. It answers the Telegram
 # /Analyze command by reading persisted state. skills/telegram-product.md requires
 # that "a user request must not silently become an Analysis Wing execution or
@@ -13,7 +16,8 @@ name: Gold Premium Monitor
 # collect prices, must not create a snapshot, and must not produce an outcome.
 
 run-name: >-
-  ${{ github.event.inputs.mode == 'report' && 'REPORT'
+  ${{ github.event.inputs.mode == 'direction' && 'DIRECTION'
+      || github.event.inputs.mode == 'report' && 'REPORT'
       || ((github.event_name == 'schedule' || github.event.inputs.mode == 'analyze')
           && 'ANALYZE' || 'UPDATE') }}
 
@@ -30,6 +34,7 @@ on:
           - update
           - analyze
           - report
+          - direction
 
 # The GitHub native schedule was removed on 2026-09-20. Do not re-add it.
 #
@@ -104,6 +109,10 @@ jobs:
           # Read-only report wing. Set independently of SCHEDULED_RUN so a report can
           # never be mistaken for an Analyze run and start writing history.
           REPORT_ONLY: ${{ github.event.inputs.mode == 'report' && 'true' || 'false' }}
+
+          # Read-only DIRECTION wing (SP-D): renders the panel the scheduled runs stored
+          # at 06:00 and 13:00 Tehran. Computes nothing and writes nothing.
+          DIRECTION_ONLY: ${{ github.event.inputs.mode == 'direction' && 'true' || 'false' }}
 
           PYTHONUNBUFFERED: "1"
 

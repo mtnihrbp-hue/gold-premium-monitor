@@ -362,6 +362,32 @@ CREATE TABLE IF NOT EXISTS market_daily_candles (
 );
 
 -- ============================================================
+-- 12. DIRECTION SNAPSHOTS (SP-D Direction, 2026-10-03)
+-- ============================================================
+-- The DIRECTION panel, computed by the first scheduled run from 06:00 and from 13:00
+-- Tehran, with the forecasts it showed and their outcomes against tgju candles.
+-- A panel is never rewritten; only outcomes and resolved_at are filled in later.
+-- Migration: sql/neon_migration_direction.sql (SP_C_HANDOFF.md section 49).
+
+CREATE TABLE IF NOT EXISTS direction_snapshots (
+    id SERIAL PRIMARY KEY,
+    local_date DATE NOT NULL,
+    slot VARCHAR(8) NOT NULL,
+    computed_at TIMESTAMP NOT NULL,
+    candle_date DATE,
+    price NUMERIC(20, 2),
+    price_source VARCHAR(8),
+    status VARCHAR(24) NOT NULL,
+    model_version VARCHAR(24) NOT NULL,
+    stance VARCHAR(24),
+    panel JSONB NOT NULL,
+    forecasts JSONB NOT NULL,
+    outcomes JSONB,
+    resolved_at TIMESTAMP,
+    CONSTRAINT uq_direction_snapshots_slot UNIQUE (local_date, slot)
+);
+
+-- ============================================================
 -- 9. VERIFICATION
 -- ============================================================
 
@@ -380,7 +406,8 @@ WHERE table_schema = 'public'
       'analysis_snapshots',
       'outcome_evaluations',
       'platform_candles',
-      'market_daily_candles'
+      'market_daily_candles',
+      'direction_snapshots'
   )
 ORDER BY table_name;
 

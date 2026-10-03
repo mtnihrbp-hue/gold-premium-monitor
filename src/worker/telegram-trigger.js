@@ -43,6 +43,7 @@ export default {
         "Commands:\n" +
         "• <b>Update</b> — Fresh market report (~1–2 min)\n" +
         "• <b>Analyze</b> — What the record shows (~1 min)\n" +
+        "• <b>Direction</b> — Where the 18K trend stands (~1 min)\n" +
         "• <b>Status</b>  — Check latest workflow run\n\n" +
         "The bot will also send a heartbeat while collecting data."
       );
@@ -95,6 +96,27 @@ ${errBody.slice(0, 400)}`);
       return new Response("OK");
     }
 
+    // ─── Direction ───
+    // inputs.mode = "direction" is read-only like "report": it renders the panel the
+    // scheduled runs stored at 06:00 and 13:00 Tehran, and computes nothing.
+    if (command === "direction") {
+      const ghRes = await triggerGitHub(env, "direction");
+
+      if (!ghRes.ok) {
+        let errBody = "";
+        try { errBody = await ghRes.text(); } catch {}
+        await sendTelegram(env, chatId,
+          `❌ <b>GitHub Error ${ghRes.status}</b>
+
+${errBody.slice(0, 400)}`);
+        console.error(`GitHub ${ghRes.status}: ${errBody}`);
+        return new Response("GitHub error", { status: 500 });
+      }
+
+      await sendTelegram(env, chatId, "⏳ <b>Direction triggered</b>\nPanel arriving shortly...");
+      return new Response("OK");
+    }
+
     // ─── Status ───
     if (command === "status") {
       const statusMsg = await getWorkflowStatus(env);
@@ -104,7 +126,7 @@ ${errBody.slice(0, 400)}`);
 
     // ─── Unknown ───
     await sendTelegram(env, chatId,
-      "Unknown command. Send <b>Update</b>, <b>Analyze</b> or <b>Status</b>.");
+      "Unknown command. Send <b>Update</b>, <b>Analyze</b>, <b>Direction</b> or <b>Status</b>.");
     return new Response("OK");
   },
 };

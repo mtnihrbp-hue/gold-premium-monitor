@@ -1470,3 +1470,66 @@ def save_daily_candles(session, source, instrument, unit, candles, collected_at)
         inserted += 1
     session.commit()
     return inserted, revised
+
+
+# -- DIRECTION (SP-D, section 49) ----------------------------------------------------
+
+def direction_snapshot_exists(session, local_day, slot):
+    from database.models import DirectionSnapshot
+
+    return session.query(DirectionSnapshot.id).filter(
+        DirectionSnapshot.local_date == local_day, DirectionSnapshot.slot == slot).first() is not None
+
+
+def save_direction_snapshot(session, panel, local_day, slot):
+    """Store a computed panel once per Tehran day and slot. Returns the id, or None when
+    that slot is already stored (a second run in the same hour)."""
+    from datetime import date as _date
+    from database.models import DirectionSnapshot
+
+    if direction_snapshot_exists(session, local_day, slot):
+        return None
+    data = panel.to_json()
+    row = DirectionSnapshot(
+        local_date=local_day, slot=slot, computed_at=datetime.fromisoformat(panel.computed_at),
+        candle_date=_date.fromisoformat(panel.candle_date) if panel.candle_date else None,
+        price=panel.price, price_source=panel.price_source, status=panel.status,
+        model_version=panel.model_version, stance=(panel.stance or {}).get("label"),
+        panel=data, forecasts=data.get("forecasts") or [])
+    session.add(row)
+    session.commit()
+    return row.id
+
+
+def latest_direction_snapshot(session):
+    """The most recently computed stored panel row, or None."""
+    from database.models import DirectionSnapshot
+
+    return (session.query(DirectionSnapshot).filter(DirectionSnapshot.status == "OK")
+            .order_by(DirectionSnapshot.computed_at.desc()).first())
+
+
+def pending_direction_snapshots(session):
+    """Stored panels whose forecasts are not all resolved yet, oldest first."""
+    from database.models import DirectionSnapshot
+
+    return (session.query(DirectionSnapshot)
+            .filter(DirectionSnapshot.status == "OK", DirectionSnapshot.resolved_at.is_(None))
+            .order_by(DirectionSnapshot.computed_at.asc()).all())
+
+
+def resolved_direction_snapshots(session):
+    """Stored panels with at least one resolved forecast, oldest first."""
+    from database.models import DirectionSnapshot
+
+    return (session.query(DirectionSnapshot)
+            .filter(DirectionSnapshot.status == "OK", DirectionSnapshot.outcomes.isnot(None))
+            .order_by(DirectionSnapshot.computed_at.asc()).all())
+
+
+def save_direction_outcomes(session, row, outcomes, complete, now):
+    """Record a panel's resolved outcomes; `complete` closes it once every forecast is in."""
+    row.outcomes = outcomes
+    if complete:
+        row.resolved_at = now
+    session.commit()

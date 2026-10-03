@@ -547,6 +547,17 @@ class KPISPC6(unittest.TestCase):
         for banned in ("widening", "widened", "grew", "deepening", "dearer"):
             self.assertNotIn(banned, text.lower())
 
+    def test_26b_the_decision_reason_uses_the_same_vocabulary(self):
+        # The reason is printed under "Reason:" in the daily recap, the SELL alert and
+        # the e-mail; until 2026-10-03 it said "Discount widening".
+        from caluclator.conflict import build_reason
+        for direction in ("DISCOUNT WIDENING", "DISCOUNT NARROWING", "DISCOUNT STABLE",
+                          "PREMIUM WIDENING", "PREMIUM NARROWING", "PREMIUM STABLE"):
+            for valuation in ("CHEAP", "FAIR", "EXPENSIVE", "UNKNOWN"):
+                text = build_reason(valuation, "IMPROVING", direction, "MIXED", "NONE").lower()
+                for banned in ("widening", "widened", "narrowing", "grew", "deepening", "dearer", "cheap"):
+                    self.assertNotIn(banned, text, (valuation, direction))
+
     def test_27_counts_read_as_english(self):
         from alerts.telegram_analyze import _times
         self.assertEqual(_times(1), "1 time")
