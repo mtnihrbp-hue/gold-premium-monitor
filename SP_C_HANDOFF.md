@@ -4725,3 +4725,36 @@ sample, year by year, before any of it is relied on; a split conversion (part no
 a dip) as a third entry option; the owner's layout approval, then ANALYZE; later, the
 combination with the valuation leg ("heavily discounted + uptrend + near support") as a
 measured condition.
+
+### 46.1 Walk-forward check: what holds out of sample (2026-10-03)
+
+Every day from 2016, judged with only what was known that day (similar past cases whose
+outcome had happened), against what followed. Brier score, lower is better.
+
+```text
+higher 20 trading days later    conditional 0.229 vs base rate 0.222   skill -3.1%   NO
+                                 (better in 5 of 11 years; days forecast 0-40% rose 94%)
+fell 5%+ within 20 days         conditional 0.160 vs base rate 0.162   skill +1.2%   weak yes
+                                 (better in 7 of 11 years)
+entry: always wait for a 3% dip, against converting at once    +4.05% paid on average,
+                                 a cost in every year 2016-2026 (+1.2% .. +7.8%)
+near a support (within 2%)      higher after 20d 70% = all days 70%; level broke by 2%+
+                                 within 20d on 26% (3+ times tested: 19%)
+near a resistance (within 2%)   higher after 20d 71%; broke on 61% (3+ tested: 55%)
+```
+
+**What this means.** Classic trend and stretch states do not predict 18K's direction in
+toman better than its base rate (higher a month later on about 70% of days since 2016,
+the rial's depreciation). Support and resistance do not predict direction either; they
+describe where pullbacks tended to stop (well-tested supports held about 4 times in 5).
+The one robust, decision-relevant finding is the cost of delay: for preserving value,
+converting promptly beat waiting for a dip in every year on record.
+
+So the draft DIRECTION section's conditional "higher after 20d" figures must not be shown
+as a forecast. The section is to be rebuilt around what held: the trend and the levels as
+context, the base rate stated plainly, the pullback risk with its weak skill, and the
+entry-timing record. Where the system has a real, immediate edge is *where and when in the
+day* to convert -- the platform spread and the discount to fair value (section 15) -- not
+whether to wait. Further direction research (time-series momentum over 3-12 months, the
+USD/IRR trend as a lead, 60-day horizons) is to be tested the same way before anything is
+claimed.
