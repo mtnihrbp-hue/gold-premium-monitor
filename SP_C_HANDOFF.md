@@ -4817,3 +4817,98 @@ last 20 days, and both 18K and the dollar sit well above their 50-day averages.
 Next: R3, probability models (the 10/50/90% range of 20 and 60-day moves, the chance of a
 new high and of a pullback) from these anchors and the dollar and world-gold legs, walk-
 forward against the plain historical range; then R4 with the owner.
+
+## 48. SP-D R&D: R3 probability models, R4 verdicts, and the message draft (2026-10-03)
+
+**R3, walk-forward.** Each year 2017-2026 predicted by models fitted only on earlier
+years with known outcomes (regularised logistic regression and gradient boosting,
+scikit-learn), from 24 causal anchors: 18K's distances to the averages, trend age,
+momentum, range position and days since a new high, plus the dollar's and world gold's
+own trends (world gold taken from the previous day). Scored against the plain record
+known at the same time. `research/rd_models.py`, `rd_models_followup.py`,
+`rd_calibration.py`, `rd_today.py`.
+
+```text
+question (next 20 trading days)          best skill vs plain record    verdict
+new 52-week high                         +26.0%  AUC 0.78              PREDICTIVE
+new 52-week high clearing it by 2%+      +19.0%  AUC 0.78              PREDICTIVE
+new 52-week high clearing it by 5%+       +5.9%  AUC 0.62              too weak
+higher 20 days later                     -27.3%  AUC 0.49              fails
+fell 5% or more on the way                -8.0%  AUC 0.58              fails
+how much: modelled 10/50/90% range       -2..-17% pinball, 51% cover   fails
+how much: volatility-scaled range        +11% / +0% / +18% pinball,    CALIBRATED
+                                         79% of outcomes in the 10-90% band (target 80)
+```
+
+The new-high forecasts rank well but are over-confident at the top: days forecast
+80-100% made a new high 81% of the time (608 days), forecast 0-20% did so 23% of the
+time. Only the measured rate of the forecast's band is shown, never the raw output.
+The volatility-scaled range takes the historical spread of 20/60-day moves in units of
+the recent daily volatility, times today's volatility; it fits the record far better
+than the plain spread (64% coverage) because the market's volatility changes by period.
+Its middle is no better than the plain one: consistent with direction being unpredictable.
+
+**R4, anchor verdicts** (R2 and R3 together):
+
+```text
+PREDICTIVE   18K new 52-week high (continuation, +3.2% over 20d vs normal)
+             dollar falls below its 50-day average (-3.2%; 5% pullbacks +25 pp)
+             18K falls below its 50-day average (-2.9%)
+             chance of a new high, and of one 2%+ above the record, within 20 days
+             waiting for a dip against converting at once (a cost in every year)
+CALIBRATED   the 10/50/90% range of 20 and 60-day moves, volatility-scaled
+CONTEXT      distances to SMA/EMA 20/50/200 and their rank; trend age and gain against
+             past uptrends; support/resistance (does not predict direction; well-
+             tested supports held about 4 in 5); RSI, ADX, MACD and their crosses
+DROPPED      up/down odds, pullback odds, every candle pattern
+```
+
+**Today's values** (close 2026-10-01, 25.69 M toman, a record): new high within 20
+trading days 81% (base 41%); new high 2%+ above the record (26.21 M) about 70% (base
+32%); 20-day range 10% / 50% / 90%: -6.3% / +3.3% / +17.0% (24.07 / 26.54 / 30.06 M);
+60-day: -6.7% / +10.7% / +44.5%; 18K would break its 50-day average 14% lower
+(22.04 M), the dollar 17% lower.
+
+**Message draft for the owner's review** (DIRECTION, numbers only; delivery to be
+decided: a daily message once the new tgju candle arrives, an on-demand command, a
+section of ANALYZE, or several):
+
+```text
+DIRECTION · 18K · close 10-01
+Price             25.69M   record high
+Trend             up · day 813 · +936%
+                  longer than 5 of the 6 uptrends since 2014
+
+WHERE IN THE TREND                 rank since 2014
+vs SMA 20         +6.8%            88th
+vs SMA 50         +16.6%           91st
+vs SMA 200        +33.1%           77th
+RSI 14  75   ADX 47 (strong)
+
+TESTED ANCHORS (2014-2023, confirmed 2024-2026)
+New 52-week high      ON   5 in the last 20 days    then +3.2% vs normal
+18K below its 50-day  off  14% away (22.04M)        if it breaks: -2.9%
+Dollar below 50-day   off  17% away                 if it breaks: -3.2%
+
+NEXT 20 TRADING DAYS
+New high              81%   (all days 41%)
+New high 2%+ (26.21M) 70%   (all days 32%)
+Range 10/50/90%       -6.3% / +3.3% / +17.0%
+                      24.07M / 26.54M / 30.06M
+Next 60 days          -6.7% / +10.7% / +44.5%
+
+LEVELS
+Resistance            none (record)
+Support               24.43M (-4.9%, tested 2x) · 22.44M (-12.7%, tested 2x)
+
+TIMING
+Waiting for a 3% dip cost 4.1% more than converting
+at once, in every year 2016-2026.
+
+Up/down is not forecast: no tested signal beat the
+70% base rate. Historical record, not advice.
+```
+
+Next, after the owner's polish: implement the panel in `analysis/direction.py` from the
+stored tgju candles (the models refitted daily, a few seconds), its KPIs, then the safe
+tag and the merge to `main`.
