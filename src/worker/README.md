@@ -13,14 +13,15 @@ because a reader would trust it.
 
 1. Receives webhook POST requests from Telegram
 2. Validates the chat ID against `TELEGRAM_CHAT_ID`
-3. Handles `Update`, `Status`, `start` / `help`
-4. `Update` triggers `gold-monitor.yml` via `workflow_dispatch` on `TARGET_REF`
+3. Handles `Update`, `Analyze`, `Direction`, `Status`, `start` / `help`
+4. `Update`, `Analyze` (mode `report`) and `Direction` (mode `direction`) trigger
+   `gold-monitor.yml` via `workflow_dispatch` on `TARGET_REF`
 5. `Status` reports the newest run of that workflow on that branch
 
 ## The branch ref
 
 ```js
-body: JSON.stringify({ ref: "SP-C" }),
+const TARGET_REF = "main";
 ```
 
 `workflow_dispatch` runs the workflow file **and the application code** from this ref.
@@ -80,30 +81,13 @@ The `.mjs` extension is what makes node parse it as an ES module and actually lo
 5. Send `Update` and confirm the message format matches the branch you expect
 6. Send `Analyze` and confirm a report arrives. It reads persisted state and writes
    nothing, so it is safe to send repeatedly.
+7. Send `Direction` and confirm the DIRECTION panel arrives. It renders the panel the
+   scheduled runs stored (from 06:00 and 13:00 Tehran) and writes nothing.
 
 Step 4 is the check that catches a wrong ref before a wrong report does.
 
+## Applied 2026-10-03, with the Direction command
 
-## Pending improvements, not yet deployed
-
-Neither is urgent and neither justifies a redeploy on its own. Apply them the next
-time the worker is edited for another reason. They are recorded here rather than
-applied to the file above, because this file mirrors what is **actually running** and
-must not be allowed to describe something else.
-
-**1. `Status` reports the wrong workflow.** It queries the unscoped runs endpoint,
-which returns the newest run of *any* workflow in the repository, so it can report a
-KPI suite run instead of the monitor. Scope it:
-
-```js
-const url = `https://api.github.com/repos/${env.GITHUB_REPO}` +
-  `/actions/workflows/gold-monitor.yml/runs?per_page=1&branch=SP-C`;
-```
-
-Adding `run.name` to the reply also surfaces which wing ran, since the workflow's
-`run-name` resolves to UPDATE or ANALYZE.
-
-**2. The ref appears in two places** — the dispatch body and, once the fix above
-lands, the status query. Lifting it to a single `const TARGET_REF` at the top of the
-file makes the value that decides which version of the system answers a user visible
-rather than buried in a request body, and makes the merge-time change one edit.
+The two improvements that waited for the next edit: `Status` is scoped to
+`gold-monitor.yml` on `TARGET_REF` (the unscoped endpoint could report a KPI suite run),
+and the ref is one `const TARGET_REF` used by the dispatch and by `Status`.

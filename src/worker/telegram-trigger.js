@@ -13,6 +13,12 @@
 //   TELEGRAM_BOT_TOKEN = from @BotFather
 //   TELEGRAM_CHAT_ID   = your chat ID
 
+// The branch whose workflow file AND application code answer the user. It must match
+// the ref cron-job.org sends. Both were repointed from "SP-C" to "main" on 2026-09-28,
+// after the merge (SP_C_HANDOFF.md section 35). One definition, used by the dispatch
+// and by Status.
+const TARGET_REF = "main";
+
 export default {
   async fetch(request, env, ctx) {
     if (request.method !== "POST") {
@@ -131,19 +137,15 @@ ${errBody.slice(0, 400)}`);
   },
 };
 
-// Trigger GitHub Actions
-//
-// ref decides which branch's workflow file AND application code answer the user.
-// It must match the ref cron-job.org sends. Both were repointed from "SP-C" to
-// "main" on 2026-09-28, after the merge (SP_C_HANDOFF.md section 35).
+// Trigger GitHub Actions on TARGET_REF.
 async function triggerGitHub(env, mode) {
   // NOTE: GITHUB_REPO must be FULL path: "owner/repo-name"
   const url = `https://api.github.com/repos/${env.GITHUB_REPO}/actions/workflows/gold-monitor.yml/dispatches`;
 
   // mode is omitted for /Update: the workflow declares a default of "update", which
   // GitHub applies, so SCHEDULED_RUN stays false and it takes the Live Wing path.
-  // "report" is the read-only wing. Only cron-job.org sends "analyze", which is the
-  // one that writes history.
+  // "report" and "direction" are read-only wings. Only cron-job.org sends "analyze",
+  // which is the one that writes history.
   return fetch(url, {
     method: "POST",
     headers: {
@@ -154,14 +156,17 @@ async function triggerGitHub(env, mode) {
       "User-Agent": "GoldMonitorBot/1.0",
     },
     body: JSON.stringify(
-      mode ? { ref: "main", inputs: { mode } } : { ref: "main" }
+      mode ? { ref: TARGET_REF, inputs: { mode } } : { ref: TARGET_REF }
     ),
   });
 }
 
 // Check latest workflow run
 async function getWorkflowStatus(env) {
-  const url = `https://api.github.com/repos/${env.GITHUB_REPO}/actions/runs?per_page=1`;
+  // Scoped to the monitor's workflow on TARGET_REF: the unscoped endpoint returned the
+  // newest run of any workflow, which could be a KPI suite run.
+  const url = `https://api.github.com/repos/${env.GITHUB_REPO}` +
+    `/actions/workflows/gold-monitor.yml/runs?per_page=1&branch=${TARGET_REF}`;
 
   try {
     const res = await fetch(url, {
