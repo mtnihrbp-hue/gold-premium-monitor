@@ -1,4 +1,4 @@
-"""tgju.org daily candles: open, low, high, close for 18K gold and the dollar.
+"""tgju.org daily candles: open, low, high, close for 18K gold, the dollar and world gold.
 
 SP-D technical-analysis track, step 1 (SP_C_HANDOFF.md section 41). Our own candles
 are too short a history for technical analysis, and platform_candles are single points.
@@ -29,10 +29,21 @@ API = "https://api.tgju.org/v1/market/indicator/summary-table-data/{instrument}"
 SOURCE = "tgju"
 UNIT = "IRR"
 
+# Unit per instrument: the Iranian ones in Rial, world gold in dollars per ounce.
+UNITS = {"geram18": "IRR", "price_dollar_rl": "IRR", "ons": "USD"}
+
+# Weekdays a market is closed (Monday = 0): tgju publishes no candle for them. Iran's
+# market trades Saturday to Thursday; world gold Monday to Friday.
+CLOSED_WEEKDAYS = {"geram18": (4,), "price_dollar_rl": (4,), "ons": (5, 6)}
+
 # tgju's instrument key -> the name this system stores it under.
 INSTRUMENTS = {
     "geram18": "TGJU_GOLD_18K",
     "price_dollar_rl": "TGJU_USD_IRR",
+    # World gold, USD per ounce, from 1979 (12,156 days on 2026-10-02). 18K in toman is
+    # world gold x the dollar x the premium; the SP-D R&D needs each leg's own trend
+    # (SP_C_HANDOFF.md section 47).
+    "ons": "TGJU_XAU_USD",
 }
 
 HEADERS = {

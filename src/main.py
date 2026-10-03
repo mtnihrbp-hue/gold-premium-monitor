@@ -151,12 +151,16 @@ def _tgju_requests(coverage, today):
     return needed
 
 
-def _tgju_last_trading_day(today):
-    """The newest candle tgju can have before `today`: yesterday, or Thursday when
-    yesterday was Friday. Public holidays are not known here; after one, runs simply
-    keep asking until a newer candle appears."""
+def _tgju_last_trading_day(today, key="geram18"):
+    """The newest candle tgju can have for `key` before `today`: the last earlier day its
+    market trades (Iran: not Friday; world gold: not Saturday or Sunday). Public holidays
+    are not known here; after one, runs simply keep asking until a newer candle appears."""
+    from collector.tgju import CLOSED_WEEKDAYS
+    closed = CLOSED_WEEKDAYS.get(key, (4,))
     day = today - timedelta(days=1)
-    return day - timedelta(days=1) if day.weekday() == 4 else day
+    while day.weekday() in closed:
+        day -= timedelta(days=1)
+    return day
 
 
 def _collect_tgju_candles(now=None):
@@ -173,7 +177,7 @@ def _collect_tgju_candles(now=None):
     session = None
     try:
         from datetime import date
-        from collector.tgju import INSTRUMENTS, SOURCE, UNIT, collect_daily_candles
+        from collector.tgju import INSTRUMENTS, SOURCE, UNITS, collect_daily_candles
         from database.repository import get_daily_candle_coverage, save_daily_candles
         from timeutil import local_now
         from validation.data import classify_daily_candle
@@ -186,9 +190,8 @@ def _collect_tgju_candles(now=None):
         today = local_now(now).date()
         coverage = get_daily_candle_coverage(session, SOURCE)
         latest = {name: last for name, (_, last) in coverage.items()}
-        expected = _tgju_last_trading_day(today)
-        if all(latest.get(name) is not None and latest[name] >= expected
-               for name in INSTRUMENTS.values()):
+        if all(latest.get(name) is not None and latest[name] >= _tgju_last_trading_day(today, key)
+               for key, name in INSTRUMENTS.items()):
             print(f"TGJU: up to date, latest {max(latest.values())}")
             return
         plan = _tgju_requests(coverage, today)
@@ -208,7 +211,7 @@ def _collect_tgju_candles(now=None):
                 candles.append({**c, "trade_date": trade_date, "quality": quality})
             try:
                 inserted, revised = save_daily_candles(
-                    session, SOURCE, INSTRUMENTS[key], UNIT, candles, now)
+                    session, SOURCE, INSTRUMENTS[key], UNITS[key], candles, now)
             except Exception as e:
                 session.rollback()
                 print(f"TGJU {key}: store failed: {e}")

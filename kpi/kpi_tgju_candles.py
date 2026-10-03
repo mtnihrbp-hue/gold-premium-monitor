@@ -225,10 +225,11 @@ class KPITgjuCandles(unittest.TestCase):
         today = date(2026, 9, 30)
         page, window = main.TGJU_BACKFILL_PAGE_ROWS, main.TGJU_WINDOW_ROWS
         self.assertEqual(main._tgju_requests({}, today),
-                         {"geram18": (0, page, "asc"), "price_dollar_rl": (0, page, "asc")})
+                         {"geram18": (0, page, "asc"), "price_dollar_rl": (0, page, "asc"),
+                          "ons": (0, page, "asc")})
         needed = main._tgju_requests({"TGJU_GOLD_18K": (3516, date(2026, 9, 29))}, today)
         self.assertEqual(needed, {"geram18": (0, window, "desc"),
-                                  "price_dollar_rl": (0, page, "asc")},
+                                  "price_dollar_rl": (0, page, "asc"), "ons": (0, page, "asc")},
                          "a missing dollar history made gold page through its own again")
         needed = main._tgju_requests({"TGJU_GOLD_18K": (1000, date(2017, 8, 4))}, today)
         self.assertEqual(needed["geram18"], (1000, page, "asc"),
@@ -239,7 +240,8 @@ class KPITgjuCandles(unittest.TestCase):
 
         transport, _ = self._run(lambda url, **kw: _Response(PAYLOAD))
         self.assertEqual(transport.plans(), {"geram18": (0, page, "asc"),
-                                             "price_dollar_rl": (0, page, "asc")})
+                                             "price_dollar_rl": (0, page, "asc"),
+                                             "ons": (0, page, "asc")})
 
     def test_09_completed_days_are_stored_and_today_is_not(self):
         payload = {"data": [_row("2026/09/30", 250, 249, 252, 251),
@@ -302,13 +304,16 @@ class KPITgjuCandles(unittest.TestCase):
         transport, _ = self._run(lambda url, **kw: _Response(PAYLOAD), now=NEXT_DAY)
         self.assertEqual(transport.plans(),
                          {"geram18": (0, main.TGJU_WINDOW_ROWS, "desc"),
-                          "price_dollar_rl": (0, main.TGJU_BACKFILL_PAGE_ROWS, "asc")})
+                          "price_dollar_rl": (0, main.TGJU_BACKFILL_PAGE_ROWS, "asc"),
+                          "ons": (0, main.TGJU_WINDOW_ROWS, "desc")})
 
     def test_14_provenance_is_recorded_and_the_collector_stores_nothing(self):
         self._run(lambda url, **kw: _Response(PAYLOAD))
         row = self._stored()[date(2026, 9, 29)]
         self.assertEqual((row.source, row.unit, row.trade_date_jalali),
                          ("tgju", "IRR", "1405/07/07"))
+        self.assertEqual(self._stored("TGJU_XAU_USD")[date(2026, 9, 29)].unit, "USD",
+                         "world gold is in dollars per ounce, not Rial")
         self.assertEqual(row.collected_at, NOW, "collected_at must be the run's UTC time")
 
         module_source = inspect.getsource(tgju)
@@ -323,18 +328,27 @@ class KPITgjuCandles(unittest.TestCase):
         self.assertEqual(transport.calls, [], "an up-to-date table still asked tgju")
         self.assertIn("up to date", printed)
 
-        # Saturday 2026-10-03: Friday has no candle, so Thursday's is the newest there is.
-        self.assertEqual(main._tgju_last_trading_day(date(2026, 10, 3)), date(2026, 10, 1))
-        self.assertEqual(main._tgju_last_trading_day(date(2026, 10, 1)), date(2026, 9, 30))
-        thursday = {"data": [_row("2026/10/01", 250, 249, 252, 251)]}
-        self._run(lambda url, **kw: _Response(thursday), now=datetime(2026, 10, 2, 8, 30))
-        transport, _ = self._run(lambda url, **kw: _Response(thursday),
-                                 now=datetime(2026, 10, 3, 8, 30))
-        self.assertEqual(transport.calls, [], "a Saturday kept asking for Friday's candle")
+        # Saturday 2026-10-03: Iran has no Friday candle, so Thursday's is the newest
+        # there is; world gold trades Friday and not at the weekend.
+        last = main._tgju_last_trading_day
+        self.assertEqual(last(date(2026, 10, 3)), date(2026, 10, 1))
+        self.assertEqual(last(date(2026, 10, 1)), date(2026, 9, 30))
+        self.assertEqual(last(date(2026, 10, 3), "ons"), date(2026, 10, 2))
+        self.assertEqual(last(date(2026, 10, 5), "ons"), date(2026, 10, 2), "Monday: Friday's")
+        self.assertEqual(last(date(2026, 10, 4), "ons"), date(2026, 10, 2), "Sunday: Friday's")
+
+        def market(url, **kw):
+            if url.endswith("/ons"):
+                return _Response({"data": [_row("2026/10/02", 4170, 4120, 4220, 4140),
+                                           _row("2026/10/01", 4150, 4140, 4190, 4175)]})
+            return _Response({"data": [_row("2026/10/01", 250, 249, 252, 251)]})
+
+        self._run(market, now=datetime(2026, 10, 3, 8, 30))
+        transport, _ = self._run(market, now=datetime(2026, 10, 3, 9, 30))
+        self.assertEqual(transport.calls, [], "a Saturday kept asking for a candle no market made")
 
         # A day behind: asked again.
-        transport, _ = self._run(lambda url, **kw: _Response(thursday),
-                                 now=datetime(2026, 10, 4, 8, 30))
+        transport, _ = self._run(market, now=datetime(2026, 10, 4, 8, 30))
         self.assertTrue(transport.calls)
 
 
@@ -366,7 +380,7 @@ class KPITgjuCandles(unittest.TestCase):
         page = main.TGJU_BACKFILL_PAGE_ROWS
         self.assertEqual(plans, [(0, page, "asc"), (page, page, "asc"), (2 * page, page, "asc")])
         self.assertIn("history page from row 2000", printed)
-        for instrument in ("TGJU_GOLD_18K", "TGJU_USD_IRR"):
+        for instrument in ("TGJU_GOLD_18K", "TGJU_USD_IRR", "TGJU_XAU_USD"):
             self.assertEqual(sorted(self._stored(instrument)), days,
                              f"{instrument}: the pages left a gap or a repeat")
 
