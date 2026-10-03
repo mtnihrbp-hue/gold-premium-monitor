@@ -23,3 +23,6 @@ resend==2.44.0
 sqlalchemy==2.0.52
 psycopg2-binary==2.9.13
 scikit-learn==1.9.1
+# SP-D Direction: standard indicators and, later, candle patterns. Ships binary wheels
+# with the C library bundled (Linux py3.12 on the runner, Windows py3.13 locally).
+TA-Lib==0.8.1
