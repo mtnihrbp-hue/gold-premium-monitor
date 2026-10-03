@@ -369,7 +369,7 @@ class MarketDailyCandle(Base):
 class DirectionSnapshot(Base):
     """The DIRECTION panel as computed by a scheduled run, with its forecast ledger.
 
-    SP-D (SP_C_HANDOFF.md section 49). One row per Tehran day and slot ("06:00" or
+    SP-D (SP_D_HANDOFF.md section 4). One row per Tehran day and slot ("06:00" or
     "13:00"): the first scheduled run from each hour computes it, /Direction only reads
     it. `panel` is never rewritten; `outcomes` and `resolved_at` are filled in once each
     forecast's horizon has passed on tgju's candles.

@@ -14,7 +14,8 @@ This file is the navigation authority for repository documentation. It identifie
 | `C14_HANDOFF.md` | C14A/C14B contracts, terminology, feedback, and audit rules |
 | `C14C_HANDOFF.md` | C14C architecture and implementation contract |
 | `C14C_IMPLEMENTATION.md` | Verified C14C implementation reference, KPI boundary, supporting operational news-ingestion work, and UPDATE v1 wing-boundary record |
-| `SP_C_HANDOFF.md` | SP-C implementation contract: relative valuation, decision scorecard, and the evidence behind both |
+| `SP_C_HANDOFF.md` | SP-C implementation contract: relative valuation, decision scorecard, and the evidence behind both; closed, with the pre-SP-D hotfixes on `main` (sections 37-45) |
+| `SP_D_HANDOFF.md` | SP-D record from its first deliverable (Direction, 2026-10-03) on: research, contracts, builds and their evidence |
 | `RESEARCH_ADOPTION.md` | External research boundaries |
 | `Prompt_Guide.md` | AI engineering operating rules |
 | `CLAUDE.md` | Claude Code entry point: commands, architecture summary, and pointers into this hierarchy |
@@ -38,12 +39,13 @@ C14B  COMPLETE — 36/36 KPI
 C14C  COMPLETE — 21/21 KPI
 UPDATE v1  SURGICAL IMPLEMENTATION / VALIDATION
 SP-C.1 … SP-C.18  COMPLETE; SP-C merged into main 2026-09-28 (tag v1.3safe = main before)
-ROLLOUT    steps 1-3 done (observe, merge, repoint to main); SP-D in planning
+ROLLOUT    steps 1-3 done (observe, merge, repoint to main)
+SP-D       Direction built on sp-d-direction, under the owner's review (SP_D_HANDOFF.md)
 FULL SUITE  29/29 files — executed 2026-10-03 (sp-d-direction), exit 0
 ```
 
-Current sprint state is narrated in `SP_C_HANDOFF.md` (latest: section 33,
-2026-09-27) and mirrored in `.project_state.json`.
+Current sprint state is narrated in `SP_D_HANDOFF.md` (SP-C's in `SP_C_HANDOFF.md`,
+closed) and mirrored in `.project_state.json`.
 
 KPI evidence is now produced by `python kpi/run_all.py` and by the `KPI Suite`
 workflow, rather than reported from ad-hoc local runs. See the production

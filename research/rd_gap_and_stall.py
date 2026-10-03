@@ -1,4 +1,4 @@
-"""How a stretch above the averages resolves, and what a stalled rally does (SP-D, section 49).
+"""How a stretch above the averages resolves, and what a stalled rally does (SP-D, SP_D_HANDOFF.md section 4).
 
 GAP: from a day stretched above its SMA20 or SMA50 inside an uptrend, the first later day
 the price touches that average again: how long it took, and whether the price had to fall

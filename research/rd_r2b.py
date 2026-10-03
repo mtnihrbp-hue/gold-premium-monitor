@@ -1,9 +1,9 @@
-"""R2b -- trading-principle pieces that can be made objective (SP-D research, section 49).
+"""R2b -- trading-principle pieces that can be made objective (SP-D research, SP_D_HANDOFF.md section 4).
 
 1. LEVELS against a baseline. A support "holds" if, within 20 trading days, 18K never
    closes 2% or more below it. A level 0-2% below the price holds fairly often by chance,
    so every level type is compared with a level at the SAME distance below the price
-   that has no history behind it. Types: swing lows (section 46.1) and time-at-price
+   that has no history behind it. Types: swing lows (SP_D_HANDOFF.md section 1.1) and time-at-price
    zones (the Volume Profile proxy: where 18K's daily closes clustered over a year).
 2. FAILED BREAKOUT (a liquidity-sweep proxy): a new 52-week closing high that closes back
    below the prior high within 3 days.

@@ -1,4 +1,4 @@
-"""Trend legs: the long uptrend broken into rallies and corrections (SP-D research, section 49).
+"""Trend legs: the long uptrend broken into rallies and corrections (SP-D research, SP_D_HANDOFF.md section 4).
 
 A ZigZag over daily closes: a rally ends when the price falls REVERSAL_PCT from its peak,
 a correction ends when it rises REVERSAL_PCT from its trough. The last swing is still

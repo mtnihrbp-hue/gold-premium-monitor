@@ -367,7 +367,7 @@ CREATE TABLE IF NOT EXISTS market_daily_candles (
 -- The DIRECTION panel, computed by the first scheduled run from 06:00 and from 13:00
 -- Tehran, with the forecasts it showed and their outcomes against tgju candles.
 -- A panel is never rewritten; only outcomes and resolved_at are filled in later.
--- Migration: sql/neon_migration_direction.sql (SP_C_HANDOFF.md section 49).
+-- Migration: sql/neon_migration_direction.sql (SP_D_HANDOFF.md section 4).
 
 CREATE TABLE IF NOT EXISTS direction_snapshots (
     id SERIAL PRIMARY KEY,

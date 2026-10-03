@@ -8,7 +8,7 @@ are about honesty:
 - nothing uses the future: a swing counts once confirmed, a leg once the reversal
   happened, an outcome once it happened, and today's live price never enters a
   historical count;
-- the stall clock and the rally end are the tested definitions (section 49);
+- the stall clock and the rally end are the tested definitions (SP_D_HANDOFF.md section 4);
 - every forecast shown is stored before its outcome, resolved against tgju's candles
   only, and demoted when its live record stops beating the plain base rate;
 - Direction is evidence: no BUY/SELL authority; /Direction reads a stored panel and
@@ -164,7 +164,7 @@ class KPIDirection(unittest.TestCase):
 
     def test_09_the_stall_clock_is_the_tested_definition(self):
         source = inspect.getsource(d.build_panel)
-        self.assertIn("s50[j] > s200[j]", source, "the stall clock counts major-uptrend days (section 49)")
+        self.assertIn("s50[j] > s200[j]", source, "the stall clock counts major-uptrend days (SP_D_HANDOFF.md section 4)")
         self.assertIn("record_at[j] * (1 - RALLY_REVERSAL)", source, "ended = 8% below the 52-week high")
         p = _panel()
         for band in p.rally["ladder"]:
@@ -292,7 +292,7 @@ class KPIDirection(unittest.TestCase):
         alarms = ledger.apply_gate(p, ledger.assess(demoted))
         self.assertTrue(alarms)
         text = re.sub(r"<[^>]+>", "", build_direction_message(p))
-        self.assertNotIn("New high            93%", text)
+        self.assertNotIn("93 in 100", text)
         self.assertIn("base rate", text)
         self.assertIn("⚠", text)
 
@@ -303,14 +303,40 @@ class KPIDirection(unittest.TestCase):
         p = _panel(live=None)
         p.convert.update({"cheapest": "Milli", "cheapest_price": 100.0, "most_expensive_price": 101.0,
                           "spread_pct": 1.0})
-        text = re.sub(r"<[^>]+>", "", build_direction_message(p))
+        html = build_direction_message(p)
+        text = re.sub(r"</?[bi]>", "", html)
         for word in BANNED:
             self.assertNotIn(word, text.lower())
-        self.assertLess(len(text), 4096, "one Telegram message")
+        self.assertLess(len(text), 1500, "read on a phone: a short message (owner, 2026-10-03)")
         self.assertIn("System", text)
         self.assertIn("Analyst", text)
         self.assertIn("heavily discounted", VALUATION_WORDS["CHEAP"])
         self.assertNotIn("CHEAP", text, "the internal valuation state is never shown raw")
+
+    def test_23b_the_message_is_telegram_safe_html(self):
+        # A raw "<" broke the v5 draft: Telegram rejects an unknown tag, and the line
+        # after it vanished. Only <b> and <i> are used; "<", ">" and "&" never appear bare.
+        from alerts.telegram_direction import build_direction_message
+        html = build_direction_message(_panel())
+        bare = re.sub(r"</?[bi]>", "", html)
+        for char in "<>&":
+            self.assertNotIn(char, bare)
+
+    def test_23c_the_ema_cross_is_reported_with_its_measured_risk(self):
+        import talib
+        p = _panel()
+        ema = p.position["ema"]
+        close = np.array(_cycles(1200))
+        self.assertEqual(ema["above"], bool(talib.EMA(close, 20)[-1] > talib.EMA(close, 50)[-1]))
+        self.assertIsNotNone(ema["since_date"])
+        self.assertGreater(ema["death_cross_cases"], 0)
+        self.assertIsNotNone(ema["base_drop_pct"], "a conditional figure carries its base rate")
+
+    def test_23d_trading_days_skip_friday(self):
+        saturday = date(2026, 10, 3)
+        self.assertEqual(d.trading_date(saturday, 5), date(2026, 10, 8), "Sun..Thu")
+        self.assertEqual(d.trading_date(saturday, 6), date(2026, 10, 10), "Friday skipped")
+        self.assertEqual(d.trading_date(saturday, 20), date(2026, 10, 26))
 
     def test_24_no_panel_yet_says_so(self):
         from alerts.telegram_direction import build_direction_message

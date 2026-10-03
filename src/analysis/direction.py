@@ -2,7 +2,7 @@
 
 The owner's question (2026-10-03): "if I know the up trend, I will transform my rial into
 gold and maintain my money value" -- convert now, or wait? Built only from what passed the
-SP-D R&D (SP_C_HANDOFF.md sections 46-49), every part causal and every figure a count over
+SP-D R&D (SP_D_HANDOFF.md sections 1-4), every part causal and every figure a count over
 completed history:
 
 - RALLY     the current 8% leg of the trend, the price that would end it, and the stall
@@ -23,7 +23,7 @@ completed history:
 
 "Now" is the live platform price when one is given: a provisional close for today, which
 tgju's daily candle confirms the next morning. Up/down is not forecast: no tested signal
-beat the base rate (section 46.1).
+beat the base rate (SP_D_HANDOFF.md section 1.1).
 """
 
 from bisect import bisect_right
@@ -49,6 +49,7 @@ GAP_MAX_WAIT = 120
 GAP_BANDS = {"SMA20": ((3, 6), (6, 9), (9, 1e9)), "SMA50": ((5, 10), (10, 15), (15, 1e9))}
 ZONE_MAX_PCT = 10.0        # time-at-price zones farther than this are not shown
 DIP_PCT = 3.0
+DROP_PCT = 5.0             # the drop a death cross is measured against
 MIN_HISTORY_DAYS = 400
 QUANTILES = (0.1, 0.5, 0.9)
 STALL_BANDS = ((0, 0), (1, 4), (5, 9), (10, 19), (20, 39), (40, 250))
@@ -128,6 +129,20 @@ def _waited(close, j, dip_pct=DIP_PCT, window=HORIZON):
     return _pct(close[j + window], close[j])
 
 
+def trading_date(start, days, closed=None):
+    """The calendar date `days` trading days after `start`, skipping 18K's closed weekday
+    as tgju publishes it (Friday). Holidays are not known, so the date is approximate."""
+    from datetime import timedelta
+    from collector.tgju import CLOSED_WEEKDAYS
+    closed = CLOSED_WEEKDAYS["geram18"] if closed is None else closed
+    day = start
+    while days > 0:
+        day += timedelta(days=1)
+        if day.weekday() not in closed:
+            days -= 1
+    return day
+
+
 def _completed_legs(direction, start, dates, since_year=2014):
     """[(kind, start_index, end_index)] of the finished ZigZag legs; the open one excluded."""
     legs = []
@@ -189,7 +204,7 @@ def build_panel(gold, usd, live_price=None, live_at=None, markets=None, system=N
     fwd[:done - HORIZON] = (c[HORIZON:done] / c[:done - HORIZON] - 1) * 100
     record_at = np.array([c[max(0, j - HIGH_LOOKBACK_DAYS + 1):j + 1].max() for j in range(n)])
 
-    # the stall clock as tested (section 49): days in a major uptrend (50-day above the
+    # the stall clock as tested (SP_D_HANDOFF.md section 4): days in a major uptrend (50-day above the
     # 200-day); "resumed" is a new 52-week closing high within 20 days, "ended" a close 8%
     # or more below that high without one
     major = np.array([not np.isnan(s200[j]) and s50[j] > s200[j] for j in range(n)])
@@ -218,7 +233,8 @@ def build_panel(gold, usd, live_price=None, live_at=None, markets=None, system=N
     rallies = [(b - a, _pct(c[b], c[a])) for kind, a, b in legs if kind == "rally"]
     corrections = [(b - a, _pct(c[b], c[a])) for kind, a, b in legs if kind == "correction"]
     depths = [x[1] for x in corrections]
-    rally = {"in_rally": bool(in_rally), "days_since_high": int(since[i]), "record_high": float(record_at[i]),
+    rally = {"in_rally": bool(in_rally), "as_of": str(gd[i]), "days_since_high": int(since[i]),
+             "record_high": float(record_at[i]),
              "ladder": ladder, "band": band,
              "past": {"rallies": len(rallies),
                       "median_days": float(median(x[0] for x in rallies)) if rallies else None,
@@ -287,6 +303,21 @@ def build_panel(gold, usd, live_price=None, live_at=None, markets=None, system=N
                 "closed_pct": len(waits) / len(idx) * 100, "median_days": float(median(waits)),
                 "by_fall_pct": float(np.mean([m < 0 for m in moves]) * 100),
                 "median_move_at_touch": float(median(moves))}
+    # EMA 20/50: the state, since when, and what a fresh death cross was followed by.
+    # The state did not hold out of sample as a direction signal (2014-2023 +12 pp,
+    # 2024-2026 -7 pp); after a death cross a 5% drop within 20 days came about 1 in 3
+    # times in both periods, against about 1 in 5 (research/rd_ema_cross.py)
+    ema_up = np.array([not np.isnan(e50[j]) and e20[j] > e50[j] for j in range(n)])
+    crossed = [j for j in range(51, n) if ema_up[j] != ema_up[j - 1]]
+    drop = lambda j: bool((c[j + 1:j + HORIZON + 1] <= c[j] * (1 - DROP_PCT / 100)).any())
+    fresh_death = [j for j in pool if not ema_up[j] and any(j - 4 <= k <= j for k in crossed)]
+    position["ema"] = {
+        "above": bool(ema_up[i]), "gap_pct": _pct(e20[i], e50[i]),
+        "since_date": str(gd[crossed[-1]]) if crossed else None,
+        "days": int(i - crossed[-1]) if crossed else None,
+        "death_cross_cases": len(fresh_death),
+        "death_cross_drop_pct": float(np.mean([drop(j) for j in fresh_death]) * 100) if fresh_death else None,
+        "base_drop_pct": float(np.mean([drop(j) for j in pool]) * 100)}
     panel.position = position
 
     # STANCE: the rulebook, its triggers, and what followed it before

@@ -1472,7 +1472,7 @@ def save_daily_candles(session, source, instrument, unit, candles, collected_at)
     return inserted, revised
 
 
-# -- DIRECTION (SP-D, section 49) ----------------------------------------------------
+# -- DIRECTION (SP-D, SP_D_HANDOFF.md section 4) ------------------------------------------------
 
 def direction_snapshot_exists(session, local_day, slot):
     from database.models import DirectionSnapshot

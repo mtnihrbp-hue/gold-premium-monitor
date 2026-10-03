@@ -416,7 +416,7 @@ def _direction_slot(now):
 
 def _direction_precompute(markets, signal_state, now):
     """Compute and store the DIRECTION panel once per slot, after resolving the forecasts
-    whose horizon has passed (SP-D, section 49). Never raises: Direction is evidence,
+    whose horizon has passed (SP-D, SP_D_HANDOFF.md section 4). Never raises: Direction is evidence,
     and a failure here must not cost the run its push or recap."""
     slot = _direction_slot(now)
     if slot is None:

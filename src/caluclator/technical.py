@@ -98,7 +98,7 @@ def split_levels(levels, price):
     return supports, resistances
 
 
-# -- trend legs, levels by time at price, and the clocks (SP-D, section 49) ----------
+# -- trend legs, levels by time at price, and the clocks (SP-D, SP_D_HANDOFF.md section 4) ---
 
 RALLY_REVERSAL = 0.08          # a rally ends 8% below its peak; a correction ends 8% above its trough
 HIGH_LOOKBACK_DAYS = 250       # a "new high" is a new 52-week closing high

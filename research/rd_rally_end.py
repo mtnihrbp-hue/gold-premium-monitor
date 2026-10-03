@@ -1,4 +1,4 @@
-"""When does a rally end? Conditional survival of 8%-ZigZag rallies (SP-D research, section 49)."""
+"""When does a rally end? Conditional survival of 8%-ZigZag rallies (SP-D research, SP_D_HANDOFF.md section 4)."""
 import json, os
 from datetime import date
 from statistics import median

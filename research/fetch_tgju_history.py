@@ -2,7 +2,7 @@
 
 Writes research/data/tgju_history.json (not committed: it is data, and the runner stores
 the same candles in market_daily_candles). Every research script here reads that file, so
-the R&D reproduces without a database connection. SP_C_HANDOFF.md sections 46-47.
+the R&D reproduces without a database connection. SP_D_HANDOFF.md sections 1-2.
 """
 import json
 import os

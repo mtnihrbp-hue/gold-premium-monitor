@@ -1,4 +1,4 @@
-"""Does a mature rally predict its end? Causal ZigZag legs (SP-D research, section 49).
+"""Does a mature rally predict its end? Causal ZigZag legs (SP-D research, SP_D_HANDOFF.md section 4).
 
 At day i the open rally began at the last trough CONFIRMED by day i (the price had risen
 REVERSAL above it by then). Its gain is ranked against rallies completed before day i.

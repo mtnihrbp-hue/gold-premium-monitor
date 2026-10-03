@@ -1,4 +1,4 @@
-"""DIRECTION's forecast ledger: did what it said happen? (SP-D, section 49).
+"""DIRECTION's forecast ledger: did what it said happen? (SP-D, SP_D_HANDOFF.md section 4).
 
 The owner's condition for letting the system learn from itself (2026-10-03): "do we catch
 proper things to evaluate and avoid mistakes?" The safeguards, in order:

@@ -1,8 +1,8 @@
-"""R3 -- probability models for 18K, walk-forward (SP-D research; SP_C_HANDOFF.md 48).
+"""R3 -- probability models for 18K, walk-forward (SP-D research; SP_D_HANDOFF.md section 3).
 
 Questions: how much will 18K move in 20/60 trading days (10/50/90% range), will it make
 a new 52-week high within 20 days, will it fall 5% on the way. Inputs are the anchors of
-section 47 plus the dollar's and world gold's own trends, every one causal: day i uses
+SP_D_HANDOFF.md section 2 plus the dollar's and world gold's own trends, every one causal: day i uses
 data up to i (world gold up to the day before, its close comes after Tehran's).
 
 Each year from 2017 is predicted by models fitted only on earlier years whose outcomes

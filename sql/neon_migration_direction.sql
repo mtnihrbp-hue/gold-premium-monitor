@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS direction_snapshots (
 COMMENT ON TABLE direction_snapshots IS
     'The DIRECTION panel, computed by the scheduled run from 06:00 and from 13:00 Tehran, '
     'with the forecasts it showed and their outcomes against tgju candles. computed_at and '
-    'resolved_at are UTC, local_date is the Tehran day (SP_C_HANDOFF.md section 49).';
+    'resolved_at are UTC, local_date is the Tehran day (SP_D_HANDOFF.md section 4).';
 
 -- --------------------------------------------------------------------------
 -- Verification

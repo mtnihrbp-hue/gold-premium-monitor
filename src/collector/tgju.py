@@ -42,7 +42,7 @@ INSTRUMENTS = {
     "price_dollar_rl": "TGJU_USD_IRR",
     # World gold, USD per ounce, from 1979 (12,156 days on 2026-10-02). 18K in toman is
     # world gold x the dollar x the premium; the SP-D R&D needs each leg's own trend
-    # (SP_C_HANDOFF.md section 47).
+    # (SP_D_HANDOFF.md section 2).
     "ons": "TGJU_XAU_USD",
 }
 
