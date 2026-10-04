@@ -350,6 +350,23 @@ class KPIDirection(unittest.TestCase):
             self.assertIn(key, p.position["risk"], "every watched break carries what followed it")
         self.assertIsNotNone(p.position["risk"]["base_drop_pct"])
 
+    def test_23f_a_series_that_stops_short_is_unknown_not_zero(self):
+        # 2026-10-04: world gold was still being backfilled and ended in 2010; both dates
+        # landed on its last close and the panel printed "world gold +0%".
+        from alerts.telegram_direction import build_direction_message
+        gold = _series(_cycles(1200))
+        short = tuple(x[:300] for x in _series([1500.0 + k for k in range(1200)]))
+        now = datetime.combine(gold[0][-1] + timedelta(days=1), datetime.min.time()) + timedelta(hours=9)
+        p = d.build_panel(gold, _usd(), live_at=now, now=now, xau=short)
+        self.assertIsNone(p.rally["xau_since_start"])
+        self.assertIsNotNone(p.rally["usd_since_start"])
+        text = re.sub(r"</?[bi]>", "", build_direction_message(p))
+        self.assertNotIn("world gold +0%", text)
+        self.assertIn("world gold: not available", text)
+        self.assertIsNone(d._move_between(short, date(2020, 1, 1), date(2020, 2, 1)))
+        weekend = d._move_between(_series([1.0, 2.0, 3.0], start=date(2026, 10, 1)), date(2026, 10, 1), date(2026, 10, 5))
+        self.assertAlmostEqual(weekend, 200.0, msg="a close two days back is still the close")
+
     def test_23d_trading_days_skip_friday(self):
         saturday = date(2026, 10, 3)
         self.assertEqual(d.trading_date(saturday, 5), date(2026, 10, 8), "Sun..Thu")

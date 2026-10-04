@@ -81,6 +81,8 @@ def _trend(p):
             source = ("the dollar" if usd >= DOLLAR_SHARE * r["gain_pct"]
                       else "world gold" if xau >= DOLLAR_SHARE * r["gain_pct"] else "the dollar and world gold")
             lines.append(f"Driven by {source}: dollar {_signed(usd)}, world gold {_signed(xau)}")
+        elif usd is not None:
+            lines.append(f"Dollar {_signed(usd)} over the same days; world gold: not available")
     else:
         lines.append(f"In a correction: {_signed((p.price / r['record_high'] - 1) * 100)} from the "
                      f"{_m(r['record_high'])} record")

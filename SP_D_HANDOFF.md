@@ -575,3 +575,37 @@ The owner, on v6: "much better, go ahead with the tag and push".
 
 **To verify:** the first post-merge ANALYZE run logs `DIRECTION: 13:00 panel 1 stored`
 and writes one row to `direction_snapshots`; then `/Direction` after the worker deploy.
+
+## 8. Health check 2026-10-04 10:15, and a stale-series fix
+
+**Since the merge** (2026-10-03 18:35 to 2026-10-04 10:15 Tehran): 9 scheduled ANALYZE
+runs, all successful, 6-9 minutes each as before; one market snapshot and one analysis
+snapshot per run; 36 outcomes, 350 news items, 153 price observations. The worker is
+deployed: `/Direction` at 18:36 and 18:47 answered "No panel computed yet" (the first
+panel came at 19:01), at 08:32 it sent panel 2. Verified as designed:
+
+- `direction_snapshots`: panel 1 (10-03, slot 13:00, stored 19:01), panel 2 (10-04, slot
+  06:00, stored 06:01); both STRONG BULLISH, 4 forecasts each, none due yet.
+- tgju: the 10-03 candles for 18K (26.23M) and the dollar (267,900) collected at 06:02.
+- Two BUY candidates held by the confirmation, both correctly: 10-03 18:50 (`/Update`,
+  only Milli showed the discount; MioGold not heavily discounted on its own record) and
+  10-04 10:01 (the dollar had not updated today; Taline confirmed the discount). The
+  10:01 discount was real: every platform's price decreased 0.5-1.0% together while the
+  dollar and world gold were unchanged (weekend).
+- Known and unchanged: Daric 403 to the runner (their side); one MioGold timeout (21:00);
+  Taline discarded once by its 1% band (09:01, -1.22%) an hour before every platform
+  moved the same way -- likely a leading price, not a stale one; one case, noted.
+
+**Defect: world gold "+0%".** World gold's tgju history (`ons`, 12,156 days from 1979) is
+backfilled oldest first, 1,000 days per run; on 10-04 10:02 it reached 2010-11-23. Both
+dates of the rally landed on that last close, so `xau_since_start` was 0.0 in panels 1
+and 2 and `/Direction` at 08:32 printed "Driven by the dollar: dollar +73%, world gold
++0%". The real figure is about -4%. The dollar part and the tag were right.
+
+Fix (`hotfix-direction-stale-series`, cut from `main`): `_move_between` returns None
+when the series has no close within 5 days of either date (a weekend or a holiday run
+fits; a backfill does not), the dollar's move uses the same function, and the message
+prints "world gold: not available" rather than a number. Fail-safe law: unknown, not
+fabricated. `kpi_direction.test_23f`; 35/35; full suite 29/29, exit 0. Against the real
+data: with world gold as stored now, unknown; with the full history, -4.4% (dollar
++66.8% either way). The backfill completes around 15:00 on 10-04 by itself.

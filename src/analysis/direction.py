@@ -154,14 +154,21 @@ def _completed_legs(direction, start, dates, since_year=2014):
 
 # -- the panel -------------------------------------------------------------------------
 
-def _move_between(series, start, end):
+MAX_SERIES_GAP_DAYS = 5   # a weekend or a holiday run; more means the series stops short
+
+
+def _move_between(series, start, end, max_gap_days=MAX_SERIES_GAP_DAYS):
     """Percent move of a (dates, high, low, close) series between the last closes on or
-    before `start` and `end`, or None without the series."""
+    before `start` and `end`, or None when the series has no close within `max_gap_days`
+    of either date. A series still being backfilled ended in 2010 on 2026-10-03, and both
+    dates landed on its last close: world gold "+0%" was printed instead of "unknown"."""
     if not series or not series[0]:
         return None
     dates, close = list(series[0]), series[3]
     a, b = bisect_right(dates, start) - 1, bisect_right(dates, end) - 1
-    return _pct(close[b], close[a]) if a >= 0 and b >= 0 else None
+    if a < 0 or b < 0 or (start - dates[a]).days > max_gap_days or (end - dates[b]).days > max_gap_days:
+        return None
+    return _pct(close[b], close[a])
 
 
 def build_panel(gold, usd, live_price=None, live_at=None, markets=None, system=None, now=None, xau=None):
@@ -268,7 +275,7 @@ def build_panel(gold, usd, live_price=None, live_at=None, markets=None, system=N
             "larger_than": int(sum(x[1] < gain for x in rallies)),
             # where the rise came from: 18K is world gold times the dollar, give or take
             # the platforms' discount
-            "usd_since_start": _pct(uc[uidx[i]], uc[uidx[a]]) if uidx[a] >= 0 else None,
+            "usd_since_start": _move_between(usd, gd[a], gd[i]),
             "xau_since_start": _move_between(xau, gd[a], gd[i])})
     panel.rally = rally
 
