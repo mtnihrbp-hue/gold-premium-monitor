@@ -177,7 +177,7 @@
       "reason": "Google News and percent-encoded Persian links exceed 500 characters; such items failed to save entirely (45 unique in six runs). SP_C_HANDOFF.md section 40."
     },
     "direction_snapshots": "APPLIED to production 2026-10-03 about 17:20 Tehran (owner's authorization): 14 columns, uq_direction_snapshots_slot, 0 rows until the merged precompute runs; verified first on temp branch temp-direction-test, since deleted",
-    "paper_portfolio": "PENDING: sql/neon_migration_paper.sql verified on temp branch temp-paper-test (br-noisy-union-agpgixj6) 2026-10-04; not applied to production"
+    "paper_portfolio": "APPLIED to production 2026-10-04 (owner's authorization): paper_accounts (8 columns), paper_activity (13 columns, one-trade and one-report partial unique indexes), 0 rows until the merged code runs"
   },
   "architecture_wings": {
     "live_wing": "collect -> validate -> calculate -> current deterministic state -> Telegram",
@@ -304,7 +304,7 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "Owner deploys src/worker/data-relay.js (Cloudflare) with RELAY_TOKEN; probe Daric and TSETMC from Cloudflare's side; then GitHub secrets RELAY_URL/RELAY_TOKEN, the TSETMC collector, the paper migration (authorization), the continuity server (decision), safe tag and merge (SP_D_HANDOFF.md section 10).",
+  "next_gate": "Owner: which analyst pushes (quant engine or v1 brave); the news leg R&D; the Iranian server for Daric/TSETMC (Cloudflare relay refused 2026-10-04); then relay secrets, safe tag and merge (SP_D_HANDOFF.md section 12).",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
