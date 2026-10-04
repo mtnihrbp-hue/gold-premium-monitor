@@ -953,3 +953,83 @@ an LLM classification of our headlines; (3) level-based swing targets (sell at
 resistance or the value area's high, buy back at support or its low) against v1's fixed
 ones; (4) intraday entry timing on the fair-value gap; (5) TSETMC flows, live, through
 the relay.
+
+## 12. The relay tested, branches cleaned, paper tables live, and the quant analyst (2026-10-04)
+
+**The relay** (`gold-data-relay.mtnihrbp.workers.dev`, deployed by the owner; token as
+proposed). The worker runs and accepts the token, but from Cloudflare's side on
+2026-10-04 Daric answered 403 (0.4 s) and TSETMC 522, connection timed out (40-58 s) --
+the same refusals as GitHub's runner. Cloudflare is not treated more kindly, on this
+day at least; Daric's block varies by day, so the relay can still help on open days.
+`/probe` checks sources one after another and outlived a 60 s client timeout behind
+TSETMC; single `?url=` requests are the test to use. A reliable route for Daric and
+TSETMC needs a server inside Iran (section 10's continuity server). The GitHub secrets
+RELAY_URL/RELAY_TOKEN wait for the merge. (Local note: Windows uses Psiphon as its
+system proxy here, so a "direct" request from this machine goes through Psiphon unless
+the session ignores the environment.)
+
+**Branches.** The nine `hotfix-*` branches, every one already contained in `main` and
+referenced by nothing (cron-job.org and the worker dispatch `main`), were deleted from
+GitHub and locally at the owner's request. Left: `main`, `SP-D`, `sp-d-paper` (active);
+`SP-B`, `SP-C`, `safezone-v1.2`, `sp-d-direction` (all contained in `main`); `sp1` (one
+commit of 2026-08-04 not in `main`).
+
+**Paper tables in production** (owner: "yes the paper tables should come to alive in the
+db"): `paper_accounts` (8 columns) and `paper_activity` (13 columns, the one-trade and
+one-report partial unique indexes) created 2026-10-04 afternoon, 0 rows; existing tables
+unchanged (700 market snapshots, 3 Direction panels). The code that writes them arrives
+with the merge.
+
+**The quant analyst** (`research/rd_quant.py`, `research/rd_quant_drivers.py`). The owner:
+"the goal is to maximize the money it has at the beginning of the period vs the last
+day ... maybe going back to more statistical and mathematical science ... slopes,
+integrals". Maximizing end-of-period money, over many periods, is maximizing expected
+log wealth (Kelly / Merton): the growth-optimal share in gold is f* = clip(mu/sigma^2, 0,
+1) with cash at 0 and no borrowing or shorting, and with a cost c a no-trade band of
+half-width (3/2 c f*^2 (1-f*)^2)^(1/3) around it (Davis-Norman). The analyst's whole job
+becomes the drift mu, the slope of log 18K. Four estimates, fitted only on earlier years
+(refitted every year 2016-2026) and filtered forward, never smoothed; sigma^2 the EWMA of
+squared daily returns; Daric's 0.30% round trip:
+
+```text
+                                  2016-2023          2024-2026        2026 drop        01-29 -> 10-01
+holding                           x26.19             x9.91            x0.79            x1.29
+A Kalman slope (MLE)              x24.13             x9.91            x0.79            x1.29
+B slope + its 10-day change       x22.68             x9.91            x0.79            x1.29
+C dollar + world gold slopes      x10.39             x4.30            x0.84            x1.29
+  + pull of the fair gap (OU)
+D 18K's two regimes (Markov)      x30.91 (+18%)      x9.84            x0.79            x1.28
+E dollar's + world gold's regimes x18.33             x9.92            x0.77            x1.25
+  (each on its own trading days)
+full Kelly; half Kelly lower everywhere but the 2026 drop (D: x0.80, E: x0.78)
+```
+
+What the mathematics says. The estimated drift is about +37% a year and almost never
+negative (A: 1% of days), and against a daily variance near 0.06-0.09 a year mu/sigma^2
+comes to 4-6, far above 1: the growth-optimal share is 100% nearly always. That is why
+every timing rule of sections 9-11 trailed holding. D, the only estimate to beat holding
+out of sample (+18% over 2016-2023), owes all of it to one year: 2018, the currency
+crisis (x2.77 against x2.37, 119 trades, 140 days under 90% in gold); every other year it
+trailed by about 0.3%. Its two regimes are calm and storm, both rising (+19% and +85% a
+year): D is a volatility brake -- when swings explode, f* = mu/sigma^2 itself falls --
+not a direction call. World gold's own two regimes, fitted properly on its own trading
+days, are calm and volatile too, both rising (+10.8% and +8.6% a year); through 2026
+its estimated drift never went below +8.6% a year. No estimate from returns -- slopes,
+their change, regimes, the drivers' sum -- foresaw the 2026 fall, which began at world
+gold's peak, a global turning point.
+
+So the growth-optimal analyst is fully invested except in a volatility storm, and an
+edge beyond that has to come from a better drift estimate, from information returns do
+not hold: news, the funds' flows, world gold's turn. The framework prices it: any
+signal that moves mu moves the grams through f* = mu/sigma^2, and its worth is the
+growth it adds after costs. (Fitted on the first try with aligned calendars, world
+gold's second "regime" was the Iranian weekend itself, zero variance and zero drift;
+`native()` fits each driver on its own trading days.)
+
+**The stale-series fix in production:** the 13:00 panel of 2026-10-04 (id 3) has world
+gold's move as null, where panels 1 and 2 carried 0.0. World gold's tgju history had
+reached 2022-05-31 (11,000 rows) and completes with the next two runs.
+
+**Open:** which analyst pushes (the quant engine, or v1 with the quant engine as a
+shadow); the news leg (GDELT history, an event classification); the Iranian server; the
+GitHub relay secrets and the merge after the safe tag.
