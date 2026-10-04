@@ -1,17 +1,20 @@
 """KPI -- SP-D PAPER portfolio: the owner's contract, held in code and in the database.
 
-The owner's scenario (2026-10-04): the analyst trades a hypothetical 100,000,000 toman in
-whole grams of 18K, at most once a day at any run, reports at 21:00 and is reviewed per
-Persian quarter. The load-bearing properties are the contract's clauses:
+The owner's scenario (2026-10-04): the analyst trades a hypothetical 135,000,000 toman in
+whole grams of 18K, at most once a day at any run, on Daric then Goldika then Ayyareh,
+reports at 21:00 and is reviewed per Persian quarter. It is a brave trader: a held core
+and a swing part sold at +5% and bought back 2% lower or within 5 trading days. The
+load-bearing properties are the contract's clauses:
 
 - whole grams only, the residue stays as cash; no borrowing, no short selling;
 - at most one trade per account per Tehran day, held by the engine AND by the database;
-- no trade without a fresh venue price with both sides;
-- one report per day from 21:00, valued at the venue's sell price, against the
-  quarter's first day; quarters are Persian seasons;
+- no trade without a fresh two-sided quote on some venue of the chain;
+- one report per day from 21:00, valued at a sell price, against the quarter's first
+  day; quarters are Persian seasons;
 - every analyst run is logged with its inputs, UNDECIDED where the signals conflict;
 - messages are labelled PAPER, keep the vocabulary and are Telegram-safe;
-- the account never decides for the system: it reads final_decision, never makes one.
+- the account never decides for the system: it reads final_decision, never makes one;
+- collection keeps both sides of a quote, and a refused source can go through the relay.
 """
 
 import inspect
@@ -31,10 +34,12 @@ import timeutil as t
 BANNED = ("widening", "widened", "narrowing", "grew", "smaller", "falling", "dearer", "dearest",
           "deepening", "cheap")
 BUY, SELL = 266_035_936.0, 259_726_784.0          # Goldika, 2026-10-04 10:35 (rial)
+Q = p.Quote("Goldika", BUY, SELL)
+DAY = date(2026, 10, 4)
 
 
-def _markets(buy=BUY, sell=SELL, status="OK"):
-    return {"Goldika": {"price": buy, "buy": buy, "sell": sell, "status": status},
+def _markets(buy=BUY, sell=SELL, status="OK", venue="Goldika"):
+    return {venue: {"price": buy, "buy": buy, "sell": sell, "status": status},
             "Milli": {"price": buy * 0.98, "status": "OK"}}
 
 
@@ -60,6 +65,7 @@ class KPIPaper(unittest.TestCase):
         for g, j in pairs.items():
             self.assertEqual(t.to_jalali(date.fromisoformat(g)), j, g)
             self.assertEqual(t.from_jalali(*j), date.fromisoformat(g), j)
+        self.assertEqual(t.persian_day(DAY, year=True), "12 Mehr 1405")
 
     def test_02_every_day_round_trips(self):
         day = t.from_jalali(1390, 1, 1)
@@ -69,67 +75,89 @@ class KPIPaper(unittest.TestCase):
 
     def test_03_quarters_are_persian_seasons(self):
         # owner, 2026-10-04: "ends in 30 of Azar, next starts at 1st of Dey, ends 29 Esfand"
-        self.assertEqual(t.persian_quarter(date(2026, 10, 4)), (date(2026, 9, 23), date(2026, 12, 21), "1405 Q3"))
+        self.assertEqual(t.persian_quarter(DAY), (date(2026, 9, 23), date(2026, 12, 21), "1405 Q3"))
         self.assertEqual(t.persian_quarter(date(2026, 12, 22)), (date(2026, 12, 22), date(2027, 3, 20), "1405 Q4"))
         self.assertEqual(t.persian_quarter(date(2027, 3, 21))[2], "1406 Q1")
         self.assertEqual(t.to_jalali(date(2026, 12, 21)), (1405, 9, 30))
         self.assertEqual(t.to_jalali(date(2027, 3, 20)), (1405, 12, 29))
 
-    # -- the contract in the engine --------------------------------------------------
+    # -- the contract ------------------------------------------------------------------
 
-    def test_04_whole_grams_and_the_residue_stays_cash(self):
-        book = p.Book(p.START_CASH_IRR, 0)
-        d = p.decide(book, 1.0, (BUY, SELL), traded_today=False)
-        self.assertEqual(d.action, "BUY")
-        self.assertEqual(d.grams, math.floor(p.START_CASH_IRR / BUY))
-        self.assertIsInstance(d.grams, int)
-        after = p.apply(book, d)
-        self.assertAlmostEqual(after.cash, p.START_CASH_IRR - d.grams * BUY)
-        self.assertGreater(after.cash, 0, "the residue stays in the account")
-        self.assertLess(after.cash, BUY, "no whole gram was left unbought")
+    def test_04_capital_leaves_a_small_residue(self):
+        # owner: "a number that the residue is around 1 to 2%"
+        self.assertEqual(p.START_CASH_IRR, 1_350_000_000)
+        for buy in (264_615_960.0, BUY, 267_682_964.0):   # Daric's offer, Goldika's buy (10-04)
+            grams = int(p.START_CASH_IRR // buy)
+            self.assertEqual(grams, 5)
+            self.assertLess((p.START_CASH_IRR - grams * buy) / p.START_CASH_IRR, 0.021)
 
-    def test_05_no_borrowing_and_no_short_selling(self):
-        poor = p.Book(BUY * 0.9, 0)
-        self.assertEqual(p.decide(poor, 1.0, (BUY, SELL), False).action, "HOLD", "cash below one gram")
-        empty = p.Book(p.START_CASH_IRR, 0)
-        self.assertEqual(p.decide(empty, 0.0, (BUY, SELL), False).action, "HOLD", "nothing to sell")
-        held = p.Book(0.0, 3)
-        sold = p.decide(held, 0.0, (BUY, SELL), False)
-        self.assertEqual((sold.action, sold.grams), ("SELL", 3))
-        self.assertGreaterEqual(p.apply(held, sold).grams, 0)
-
-    def test_06_one_trade_a_day_and_a_fresh_price(self):
-        book = p.Book(p.START_CASH_IRR, 0)
-        self.assertEqual(p.decide(book, 1.0, (BUY, SELL), traded_today=True).action, "HOLD")
-        self.assertEqual(p.decide(book, 1.0, None, traded_today=False).action, "HOLD")
+    def test_05_the_venue_chain(self):
+        both = {**_markets(venue="Goldika"), **_markets(buy=BUY * 0.99, sell=BUY * 0.987, venue="Daric")}
+        self.assertEqual(p.venue_quote(both).venue, "Daric", "Daric first")
+        self.assertEqual(p.venue_quote(_markets(venue="Goldika")).venue, "Goldika")
+        self.assertEqual(p.venue_quote(_markets(venue="Ayyareh")).venue, "Ayyareh")
+        self.assertIsNone(p.venue_quote({"Milli": {"price": BUY, "status": "OK"}}), "both sides or nothing")
         self.assertIsNone(p.venue_quote(_markets(status="ERROR: 403")))
-        self.assertIsNone(p.venue_quote({"Goldika": {"price": BUY, "status": "OK"}}), "both sides or nothing")
         self.assertIsNone(p.venue_quote(_markets(buy=SELL, sell=BUY)), "a sell above the buy is not a quote")
-        self.assertEqual(p.venue_quote(_markets()), (BUY, SELL))
 
-    def test_07_buys_at_the_buy_price_and_sells_at_the_sell_price(self):
-        self.assertEqual(p.decide(p.Book(p.START_CASH_IRR, 0), 1.0, (BUY, SELL), False).price, BUY)
-        self.assertEqual(p.decide(p.Book(0.0, 3), 0.0, (BUY, SELL), False).price, SELL)
-        self.assertEqual(p.Book(10.0, 3).value(SELL), 10.0 + 3 * SELL, "valued at what selling would pay")
+    def test_06_whole_grams_no_borrowing_no_short(self):
+        d = p.brave(p.Book(p.START_CASH_IRR, 0), Q, {}, DAY, False)
+        self.assertEqual((d.action, d.grams, d.price), ("BUY", 5, BUY))
+        after = p.apply(p.Book(p.START_CASH_IRR, 0), d)
+        self.assertAlmostEqual(after.cash, p.START_CASH_IRR - 5 * BUY)
+        self.assertGreater(after.cash, 0, "the residue stays in the account")
+        self.assertEqual(d.swing["grams"], 1, "a fifth of 5 g is traded")
+        self.assertEqual(p.brave(p.Book(BUY * 0.5, 0), Q, {}, DAY, False).action, "HOLD", "no borrowing")
+        self.assertEqual(p.decide(p.Book(p.START_CASH_IRR, 0), 0.0, Q, False).action, "HOLD", "nothing to sell")
+        self.assertEqual(p.decide(p.Book(0.0, 3), 0.0, Q, False).grams, 3)
 
-    def test_08_analyst_v0_is_out_only_on_a_confirmed_break(self):
+    def test_07_one_trade_a_day_and_a_fresh_price(self):
+        self.assertEqual(p.brave(p.Book(p.START_CASH_IRR, 0), Q, {}, DAY, traded_today=True).action, "HOLD")
+        self.assertEqual(p.brave(p.Book(p.START_CASH_IRR, 0), None, {}, DAY, False).action, "HOLD")
+        self.assertEqual(p.decide(p.Book(p.START_CASH_IRR, 0), 1.0, Q, traded_today=True).action, "HOLD")
+
+    # -- the brave analyst -----------------------------------------------------------
+
+    def test_08_takes_its_profit_at_plus_five(self):
+        swing = {"grams": 1, "entry": BUY, "sold_at": None, "sold_day": None}
+        book = p.Book(10_000_000.0, 5)
+        below = p.Quote("Daric", BUY * 1.05, BUY * 1.049)
+        self.assertEqual(p.brave(book, below, swing, DAY, False).action, "HOLD", "+4.9% is not +5%")
+        hit = p.Quote("Daric", BUY * 1.053, BUY * 1.051)
+        d = p.brave(book, hit, swing, DAY, False)
+        self.assertEqual((d.action, d.grams, d.price), ("SELL", 1, BUY * 1.051), "sold at the sell price")
+        self.assertEqual(d.swing["sold_at"], BUY * 1.051)
+        self.assertIn("buy 1 g back", d.plan)
+
+    def test_09_buys_back_two_percent_lower_or_within_five_days(self):
+        sold = {"grams": 1, "entry": BUY, "sold_at": BUY, "sold_day": "2026-10-04"}
+        book = p.Book(BUY * 1.2, 4)
+        flat = p.Quote("Daric", BUY * 0.99, BUY * 0.988)
+        self.assertEqual(p.brave(book, flat, sold, date(2026, 10, 5), False).action, "HOLD")
+        lower = p.Quote("Daric", BUY * 0.979, BUY * 0.976)
+        d = p.brave(book, lower, sold, date(2026, 10, 5), False)
+        self.assertEqual((d.action, d.grams), ("BUY", 1))
+        self.assertIsNone(d.swing["sold_at"])
+        # five trading days later (Friday skipped): back in whatever the price
+        late = p.brave(book, p.Quote("Daric", BUY * 1.03, BUY * 1.028), sold, date(2026, 10, 10), False)
+        self.assertEqual(late.action, "BUY", "a rising market is not missed for long")
+        early = p.brave(book, p.Quote("Daric", BUY * 1.03, BUY * 1.028), sold, date(2026, 10, 8), False)
+        self.assertEqual(early.action, "HOLD", "four trading days: still waiting")
+
+    def test_10_stays_fully_invested_when_cash_covers_a_gram(self):
+        swing = {"grams": 1, "entry": BUY, "sold_at": None, "sold_day": None}
+        d = p.brave(p.Book(BUY * 1.5, 5), Q, swing, DAY, False)
+        self.assertEqual((d.action, d.grams), ("BUY", 1))
+
+    def test_11_conflicts_are_named_and_v0_still_runs(self):
+        held = {"grams": 1, "entry": BUY, "sold_at": None, "sold_day": None}
+        self.assertEqual(p.conflicts(1, "WAIT", held), [])
+        self.assertIn("analyst stance bearish while the swing is held", p.conflicts(-2, "WAIT", held))
         ok = {"broke": False, "back": False, "rally_started": False}
-        self.assertEqual(p.analyst_target(ok, was_out=False)[:2], (1.0, False))
-        broke = dict(ok, broke=True)
-        self.assertEqual(p.analyst_target(broke, was_out=False)[:2], (0.0, True))
-        self.assertEqual(p.analyst_target(ok, was_out=True)[:2], (0.0, True), "no recovery yet: still out")
-        self.assertEqual(p.analyst_target(dict(ok, back=True), was_out=True)[:2], (1.0, False))
-        rising = p.signals(_uptrend())
-        self.assertFalse(rising["broke"])
-        crash = _uptrend(300) + [_uptrend(300)[-1] * 0.995 ** k for k in range(1, 40)]
-        self.assertTrue(p.signals(crash)["broke"], "8% off the peak and below the 50-day")
+        self.assertEqual(p.analyst_target(dict(ok, broke=True), was_out=False)[:2], (0.0, True))
+        self.assertFalse(p.signals(_uptrend())["broke"])
 
-    def test_09_conflicts_are_named(self):
-        self.assertEqual(p.conflicts(1.0, 1, "WAIT"), [])
-        self.assertIn("analyst stance bearish while v0 stays invested", p.conflicts(1.0, -2, "WAIT"))
-        self.assertIn("system BUY while v0 is out", p.conflicts(0.0, 0, "BUY"))
-
-    def test_10_the_account_reads_the_system_decision_and_never_makes_one(self):
+    def test_12_the_account_reads_the_system_decision_and_never_makes_one(self):
         source = inspect.getsource(p)
         for name in ("build_signal_state", "save_market_state", "send_buy_signal", "resolve_signal_confirmation"):
             self.assertNotIn(name, source)
@@ -170,51 +198,52 @@ class KPIPaper(unittest.TestCase):
             main.get_session = self._orig
             tp.send_paper = self._orig_send
 
-    def test_11_a_day_of_runs(self):
+    def test_13_a_day_of_runs(self):
         from database.models import PaperAccount, PaperActivity
         main, Session = self._db()
         utc = lambda hh, mm=30: datetime(2026, 10, 4, hh, mm)          # Tehran = UTC + 3:30
-        main._paper_run({}, _State(), utc(2, 31))                       # 06:01, Goldika missing
+        main._paper_run({}, _State(), utc(2, 31))                       # 06:01, no venue price
         main._paper_run(_markets(), _State(), utc(3, 31))               # 07:01
         main._paper_run(_markets(), _State(), utc(4, 31))               # 08:01
         s = Session()
         accounts = {a.name: a for a in s.query(PaperAccount)}
-        self.assertEqual(set(accounts), {p.ANALYST, p.HOLD, p.SYSTEM})
-        trades = s.query(PaperActivity).filter(PaperActivity.kind == "TRADE").all()
+        self.assertEqual(set(accounts), {p.ANALYST, p.CAUTIOUS, p.HOLD, p.SYSTEM})
         by = {accounts[name].id: name for name in accounts}
-        self.assertEqual(sorted(by[x.account_id] for x in trades), sorted([p.HOLD, p.ANALYST]),
-                         "analyst and hold buy at the first fresh price; the system account waits for a BUY")
+        trades = s.query(PaperActivity).filter(PaperActivity.kind == "TRADE").all()
+        self.assertEqual(sorted(by[x.account_id] for x in trades), sorted([p.ANALYST, p.CAUTIOUS, p.HOLD]),
+                         "three buy at the first fresh price; the system account waits for a BUY")
         for x in trades:
-            self.assertEqual((x.action, x.grams), ("BUY", 3))
-            self.assertAlmostEqual(float(x.cash), p.START_CASH_IRR - 3 * BUY, places=0)
+            self.assertEqual((x.action, x.grams), ("BUY", 5))
             self.assertEqual(x.at, utc(3, 31), "not at 06:01, which had no fresh price")
-        evals = s.query(PaperActivity).filter(PaperActivity.kind == "EVAL").order_by(PaperActivity.id).all()
-        self.assertEqual(len(evals), 2, "the analyst logs every run it does not trade")
-        self.assertIn("no fresh Goldika", evals[0].reason)
-        self.assertIn("already traded today", evals[1].reason)
+            self.assertEqual(x.inputs["quote"]["venue"], "Goldika")
+        analyst_evals = (s.query(PaperActivity).filter(PaperActivity.kind == "EVAL",
+                                                         PaperActivity.account_id == accounts[p.ANALYST].id)
+                         .order_by(PaperActivity.id).all())
+        self.assertEqual(len(analyst_evals), 2, "the analyst logs every run it does not trade")
+        self.assertIn("no fresh buy and sell price", analyst_evals[0].reason)
+        self.assertIn("already traded today", analyst_evals[1].reason)
+        self.assertEqual(analyst_evals[1].inputs["swing"]["grams"], 1, "the swing state carries over")
         self.assertEqual(len([m for m in self.sent if "PAPER BUY" in m]), 1, "only the analyst pushes")
 
         main._paper_run(_markets(), _State(), utc(17, 31))              # 21:01
         main._paper_run(_markets(), _State(), utc(17, 45))              # a second run after 21:00
         reports = s.query(PaperActivity).filter(PaperActivity.kind == "REPORT").all()
-        self.assertEqual(len(reports), 3, "one report per account per day")
+        self.assertEqual(len(reports), 4, "one report per account per day")
         report = [m for m in self.sent if "GOLDPremium: PAPER</b> ·" in m]
         self.assertEqual(len(report), 1)
         text = re.sub(r"</?[bi]>", "", report[0])
-        self.assertIn("12 Mehr 1405, 21:00", text)
-        self.assertIn("Gold: 3 g", text)
-        self.assertIn("Total:", text)
-        self.assertIn("This quarter (since 12 Mehr):", text)
-        self.assertIn("Holding from the start instead:", text)
+        for part in ("12 Mehr 1405, 21:00", "Gold: 5 g", "Total:", "This quarter (since 12 Mehr):",
+                     "Bought on day 1, never traded:", "Today: bought 5 g", "on Goldika", "Plan: sell 1 g"):
+            self.assertIn(part, text)
         s.close()
 
-    def test_12_the_database_refuses_a_second_trade_a_day(self):
+    def test_14_the_database_refuses_a_second_trade_a_day(self):
         from sqlalchemy.exc import IntegrityError
         from database.repository import ensure_paper_accounts, save_paper_activity
         main, Session = self._db()
         s = Session()
-        acct = ensure_paper_accounts(s, p.ACCOUNTS, p.START_CASH_IRR, p.VENUE, datetime(2026, 10, 4, 3))[p.ANALYST]
-        row = dict(account_id=acct.id, at=datetime(2026, 10, 4, 3), local_date=date(2026, 10, 4), kind="TRADE",
+        acct = ensure_paper_accounts(s, p.ACCOUNTS, p.START_CASH_IRR, "chain", datetime(2026, 10, 4, 3))[p.ANALYST]
+        row = dict(account_id=acct.id, at=datetime(2026, 10, 4, 3), local_date=DAY, kind="TRADE",
                    action="BUY", grams=1, price=BUY, cash=0, holding=1)
         save_paper_activity(s, **row)
         with self.assertRaises(IntegrityError):
@@ -222,21 +251,20 @@ class KPIPaper(unittest.TestCase):
         s.rollback()
         s.close()
 
-    def test_13_the_quarter_base_is_its_first_day(self):
+    def test_15_the_quarter_base_is_its_first_day(self):
         from database.repository import ensure_paper_accounts, paper_value_before, save_paper_activity
         main, Session = self._db()
         s = Session()
-        acct = ensure_paper_accounts(s, p.ACCOUNTS, p.START_CASH_IRR, p.VENUE, datetime(2026, 10, 4, 3))[p.ANALYST]
-        for day, value in ((date(2026, 12, 20), 1.05e9), (date(2026, 12, 21), 1.10e9), (date(2026, 12, 22), 1.20e9)):
+        acct = ensure_paper_accounts(s, p.ACCOUNTS, p.START_CASH_IRR, "chain", datetime(2026, 10, 4, 3))[p.ANALYST]
+        for day, value in ((date(2026, 12, 20), 1.40e9), (date(2026, 12, 21), 1.45e9), (date(2026, 12, 22), 1.50e9)):
             save_paper_activity(s, account_id=acct.id, at=datetime.combine(day, datetime.min.time()), local_date=day,
                                 kind="REPORT", cash=value, holding=0, value=value)
         first = t.persian_quarter(date(2026, 12, 25))[0]
-        self.assertEqual(first, date(2026, 12, 22))
-        self.assertEqual(paper_value_before(s, acct.id, first), 1.10e9, "Q4 is measured from 30 Azar's close")
-        self.assertIsNone(paper_value_before(s, acct.id, date(2026, 10, 4)), "the first quarter from the start cash")
+        self.assertEqual(paper_value_before(s, acct.id, first), 1.45e9, "Q4 is measured from 30 Azar's close")
+        self.assertIsNone(paper_value_before(s, acct.id, DAY), "the first quarter from the start cash")
         s.close()
 
-    def test_14_the_run_never_raises(self):
+    def test_16_the_run_never_raises(self):
         import main
         orig = main.get_session
 
@@ -257,14 +285,14 @@ class KPIPaper(unittest.TestCase):
 
     # -- messages ---------------------------------------------------------------------
 
-    def test_15_messages_are_paper_plain_and_telegram_safe(self):
+    def test_17_messages_are_paper_plain_and_telegram_safe(self):
         from alerts.telegram_paper import build_report_message, build_trade_message
-        trade = build_trade_message("BUY", 3, BUY, "Goldika", datetime(2026, 10, 4, 2, 31),
-                                    "uptrend intact: no confirmed break", 3, 1e9 - 3 * BUY, SELL)
-        sig = p.signals(_uptrend())
-        report = build_report_message(date(2026, 10, 4), "Goldika", SELL, "", (3, 1e9 - 3 * BUY, 1e9),
-                                      (3, 1e9 - 3 * BUY, 1e9), date(2026, 10, 4), [("BUY", 3, BUY, "06:01")],
-                                      sig, False)
+        trade = build_trade_message("SELL", 1, 278_000_000.0, "Daric", datetime(2026, 10, 7, 10, 31),
+                                    "+5.1% over its 26.46M cost: profit taken", 4, 300_000_000.0, 277_000_000.0,
+                                    "buy 1 g back at 27.24M or less, or on 22 Mehr at the latest")
+        report = build_report_message(DAY, "Daric", 263_937_350.0, "", (5, 27_000_000.0, 1.35e9),
+                                      (5, 27_000_000.0, 1.35e9), DAY, [("BUY", 5, 264_615_960.0, "Daric", "11:01")],
+                                      "sell 1 g if a venue pays 27.78M or more (+5% over its cost)")
         for html in (trade, report):
             self.assertIn("PAPER", html)
             bare = re.sub(r"</?[bi]>", "", html)
@@ -272,33 +300,87 @@ class KPIPaper(unittest.TestCase):
                 self.assertNotIn(char, bare)
             for word in BANNED:
                 self.assertNotIn(word, bare.lower())
-        self.assertIn("Bought 3 g at 26.60M (Goldika) · 12 Mehr 06:01", re.sub(r"</?[bi]>", "", trade))
+        plain = re.sub(r"</?[bi]>", "", trade)
+        self.assertIn("Sold 1 g at 27.80M on Daric · 15 Mehr 14:01", plain)
+        self.assertIn("Next: buy 1 g back", plain)
         self.assertLess(len(re.sub(r"</?[bi]>", "", report)), 900, "read on a phone")
 
-    # -- data and storage -------------------------------------------------------------
+    # -- data, the relay and storage ----------------------------------------------------
 
-    def test_16_both_sides_survive_collection(self):
+    def test_18_both_sides_survive_collection(self):
         from collector import iran
         name, info = iran._run_collector(lambda: {"platform": "Goldika", "price": BUY, "buy": BUY, "sell": SELL})
         self.assertEqual((info["buy"], info["sell"]), (BUY, SELL))
-        import collector.daric as daric
+        import collector.relay as relay
 
         class _R:
+            def __init__(self, data):
+                self.data = data
+
             def raise_for_status(self):
                 pass
 
             def json(self):
-                return {"Data": {"BestBuyPrice": "26393735", "BestSellPrice": "26461596"}}
-        orig = daric.requests.get
-        daric.requests.get = lambda *a, **k: _R()
+                return self.data
+        orig = relay.requests.get
         try:
-            q = daric.get_daric_price()
+            relay.requests.get = lambda *a, **k: _R({"Data": {"BestBuyPrice": "26393735", "BestSellPrice": "26461596"}})
+            from collector.daric import get_daric_price
+            q = get_daric_price()
+            self.assertEqual((q["buy"], q["sell"]), (264615960.0, 263937350.0),
+                             "a buyer pays the lowest offer, a seller gets the highest bid")
         finally:
-            daric.requests.get = orig
-        self.assertEqual((q["buy"], q["sell"]), (264615960.0, 263937350.0),
-                         "a buyer pays the lowest offer, a seller gets the highest bid")
+            relay.requests.get = orig
+        import collector.ayyareh as ayyareh
+        orig = ayyareh.requests.get
+        try:
+            ayyareh.requests.get = lambda *a, **k: _R({"goldPrice": 26677000, "sellWageValue": 0.01, "buyWageValue": 0.01})
+            q = ayyareh.get_ayyareh_price()
+        finally:
+            ayyareh.requests.get = orig
+        self.assertEqual(q["price"], 266770000.0, "the published price is unchanged for every other consumer")
+        self.assertAlmostEqual(q["buy"], 266770000.0 * 1.01)
+        self.assertAlmostEqual(q["sell"], 266770000.0 * 0.99)
 
-    def test_17_the_migration_matches_the_models_and_is_additive(self):
+    def test_19_a_refused_source_goes_through_the_relay(self):
+        import requests
+        import collector.relay as relay
+        calls = []
+
+        def fake_get(url, headers=None, timeout=None):
+            calls.append((url, dict(headers or {})))
+            if "relay.example" in url:
+                class _OK:
+                    def raise_for_status(self):
+                        pass
+
+                    def json(self):
+                        return {"Data": {"BestBuyPrice": "1", "BestSellPrice": "2"}}
+                return _OK()
+            raise requests.exceptions.ConnectionError("refused")
+        orig, env = relay.requests.get, dict(os.environ)
+        try:
+            relay.requests.get = fake_get
+            os.environ.pop("RELAY_URL", None)
+            os.environ.pop("RELAY_TOKEN", None)
+            with self.assertRaises(requests.exceptions.ConnectionError):
+                relay.get_json("https://apisc.daric.gold/x")
+            os.environ.update(RELAY_URL="https://relay.example", RELAY_TOKEN="secret")
+            self.assertEqual(relay.get_json("https://apisc.daric.gold/x")["Data"]["BestSellPrice"], "2")
+            self.assertEqual(calls[-1][1]["X-Relay-Token"], "secret")
+            self.assertIn("url=https%3A%2F%2Fapisc.daric.gold%2Fx", calls[-1][0])
+        finally:
+            relay.requests.get = orig
+            os.environ.clear()
+            os.environ.update(env)
+        root = os.path.join(os.path.dirname(__file__), "..")
+        wf = open(os.path.join(root, ".github", "workflows", "gold-monitor.yml"), encoding="utf-8").read()
+        self.assertIn("RELAY_URL: ${{ secrets.RELAY_URL }}", wf)
+        worker = open(os.path.join(root, "src", "worker", "data-relay.js"), encoding="utf-8").read()
+        self.assertIn("X-Relay-Token", worker)
+        self.assertIn("apisc\\.daric\\.gold", worker, "an allowlist, not an open proxy")
+
+    def test_20_the_migration_matches_the_models_and_is_additive(self):
         from database.models import PaperAccount, PaperActivity
         root = os.path.join(os.path.dirname(__file__), "..", "sql")
         sql = open(os.path.join(root, "neon_migration_paper.sql"), encoding="utf-8").read()
@@ -312,10 +394,9 @@ class KPIPaper(unittest.TestCase):
         executable = "\n".join(line for line in sql.splitlines() if not line.lstrip().startswith("--"))
         self.assertNotRegex(executable, r"(?i)\b(ALTER|DROP|DELETE|UPDATE|INSERT)\b")
 
-    def test_18_wired_into_the_scheduled_run_only(self):
+    def test_21_wired_into_the_scheduled_run_only(self):
         import main
         source = inspect.getsource(main.main)
-        self.assertIn("_paper_run(markets, signal_state, now)", source)
         scheduled = source.index("if is_scheduled:")
         self.assertGreater(source.index("_paper_run(markets, signal_state, now)"), scheduled)
 

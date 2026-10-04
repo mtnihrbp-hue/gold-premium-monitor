@@ -126,6 +126,13 @@ jobs:
 
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
+          # The data relay (src/worker/data-relay.js): Daric and TSETMC refuse GitHub's
+          # runner, so collectors fall back to the relay when both are set. Unset, they
+          # behave exactly as before (SP_D_HANDOFF.md section 10).
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+
+          RELAY_TOKEN: ${{ secrets.RELAY_TOKEN }}
+
         run: |
 
           python src/main.py

@@ -1,20 +1,12 @@
-import requests
+from collector.relay import get_json
 
 URL = "https://apisc.daric.gold/loan/api/v1/User/Collateral/GetGoldlPrice"
 
 
 def get_daric_price():
-    response = requests.get(
-        URL,
-        timeout=15,
-        headers={
-            "User-Agent": "Mozilla/5.0"
-        }
-    )
-
-    response.raise_for_status()
-
-    data = response.json()
+    # Direct first; through the data relay when Daric refuses the runner (it answered 403
+    # to foreign addresses on 4 of the 10 days to 2026-10-04; SP_D_HANDOFF.md section 10).
+    data = get_json(URL, timeout=(5, 12))
 
     # Daric is an order book: BestSellPrice is the lowest offer (what a buyer pays),
     # BestBuyPrice the highest bid (what a seller is paid). Toman, hence x10.

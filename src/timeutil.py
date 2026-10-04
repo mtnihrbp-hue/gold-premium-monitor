@@ -118,6 +118,16 @@ def to_jalali(value):
     return jy, 7 + k // 30, k % 30 + 1
 
 
+PERSIAN_MONTHS = ("Farvardin", "Ordibehesht", "Khordad", "Tir", "Mordad", "Shahrivar",
+                  "Mehr", "Aban", "Azar", "Dey", "Bahman", "Esfand")
+
+
+def persian_day(value, year=False):
+    """A Gregorian date as the reader says it: "12 Mehr" or "12 Mehr 1405"."""
+    jy, jm, jd = to_jalali(value)
+    return f"{jd} {PERSIAN_MONTHS[jm - 1]}" + (f" {jy}" if year else "")
+
+
 def persian_quarter(value):
     """(first day, last day, label) of the Persian season containing Gregorian date `value`,
     e.g. (2026-09-23, 2026-12-21, "1405 Q3"): seasons start on 1 Farvardin, Tir, Mehr, Dey."""

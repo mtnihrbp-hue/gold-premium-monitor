@@ -742,3 +742,111 @@ what Goldika would pay for it. With 100M and a gram near 26.8M, whole grams allo
 **Open:** the owner's review of the two messages; the production migration
 (authorization); the temporary branch's deletion (authorization); the capital and the
 3 g granularity; the Iranian relay for Daric and TSETMC (where to host it).
+
+## 10. A brave trader, a venue chain, a relay, and continuity (2026-10-04)
+
+**The owner's review of section 9.** Venues: Daric preferred, Goldika and Ayyareh as
+backups; try a Cloudflare route for Daric ("the Iran geo-IP blocking is kinder to
+Cloudflare than to GitHub"). Continuity: "if the internet goes Iran-access-only, there
+should be a continuity resolution". The benchmark line "Holding from the start instead"
+was not clear. The analyst was too strict: "maybe today it buys at 26.77 and sells at
+27.00 and then buys back at 26.500 ... the system trader is a brave one, not a
+conservative person". The GitHub libraries for TSETMC: "give it a hard try in a test
+environment, or via Cloudflare". Capital: strict numbers with a residue of 1-2%.
+Temporary resources may be deleted freely once used, and reported (a standing rule).
+
+**From GitHub's runner** (a temporary push-triggered workflow on a temporary branch, no
+secrets, no database, 2026-10-04 11:57; both deleted): runner in the US (Azure).
+Goldika, Ayyareh, Milli, WallGold and tgju answered. Daric: 403. TSETMC: every endpoint
+(cdn.tsetmc.com, old.tsetmc.com, members.tsetmc.com) timed out at connect, so the
+runner's addresses are refused outright; `tsetmc-api` (mahs4d) installed and failed the
+same way; `tsetmc` (5j9) did not import on 3.12 or 3.13. Navasan answers (needs a key).
+Ayyareh's fee was 0.01 a side at 11:57 against 0.02 at 10:35: it moves, so it is read
+each run.
+
+**The brave analyst (v1).** Evidence (`research/rd_swing_hourly.py`,
+`rd_fair_lag_daily.py`, `rd_swing_daily.py`, `rd_swing_targets.py`):
+
+```text
+hourly, 62 days (610 readings): after fair value moved >= 1%, platforms kept moving that
+  way by +0.3-0.4% over the next ~9 readings (a day) -- a lag inside the day
+daily, 12 years: no lag at all (today's fair-vs-18K gap against tomorrow's move:
+  correlation +0.01 in 2014-2023, +0.04 in 2024-2026): 18K absorbs fair moves the same day
+core + swing on stretches over EMA20 (Daric's cost): about -1.0 pp a quarter in-sample
+the owner's example as a rule, core 80% + swing 20% (whole account; continuous shares):
+                                     2014-2023                       2024-2026 holdout
+  buy and hold (Daric's cost)        x25.94                          x10.04
+  v0, out on a confirmed break       x19.65                          x9.83
+  swing at +5%, back -2% or 5 days   x25.89 (q 8-7, -0.1 pp, 10/yr)  x9.36 (q 1-9, -0.8 pp, 22/yr)
+  the same at Goldika's cost         x21.70 best (-0.6 pp)           -1.0 to -2.5 pp a quarter
+```
+
+The swing rule is the first active rule that keeps pace with holding at Daric's cost;
+v0's exit on a confirmed break is the costly part (x19.65 against x25.94), so v1 never
+sells its core on technicals. v1: on day one it buys every whole gram the cash covers and
+marks about a fifth (1 of 5) as its swing; it sells the swing once a venue pays +5% over
+its cost, buys it back 2% under the sale or after 5 trading days at the latest, and buys
+more whenever the cash covers another gram. Prices are checked at every run, so a +5%
+inside the day is taken (the backtest used closes only). v0 continues as the shadow
+account "cautious"; four accounts start together: analyst (v1, pushes), cautious (v0),
+buy-and-hold, system.
+
+**Capital: 135,000,000 toman.** At 2026-10-04's prices 5 g leave 2.0% at Daric's offer
+(26.46M) and 0.85% at Goldika's buy (26.77M); 110M leaves 2.7-3.8% (4 g), 120M and 150M
+about 11%. The residue changes with the price and with every trade.
+
+**Venue chain:** Daric, then Goldika, then Ayyareh; each trade runs on the first venue
+with a fresh two-sided quote and records it. Ayyareh's sides are its published price
+plus its buy fee and minus its sell fee (`collector/ayyareh.py`; its `price` is
+unchanged for every other consumer).
+
+**The relay** (`src/worker/data-relay.js`, a separate Cloudflare Worker; not deployed):
+read-only GETs to an allowlist (Daric's price API and three TSETMC endpoints), guarded by
+a token, with `/probe` reporting each source's status from Cloudflare's side.
+`collector/relay.get_json` tries a source directly and, when it is refused and
+`RELAY_URL`/`RELAY_TOKEN` are set (GitHub secrets, passed by `gold-monitor.yml`), asks the
+relay. Unset, collectors behave as before. Daric uses it now; a TSETMC collector follows
+once the relay is shown to reach it.
+
+**Continuity if the internet becomes Iran-only** (a design for the owner, not built): in
+a national-only cut the runner abroad reaches no Iranian platform, Neon (Frankfurt) and
+Telegram are unreachable from inside Iran, and world gold stops at its last price. One
+small server inside Iran (Liara, ArvanCloud or a VPS) would serve two roles. Normally it
+is the relay for Daric and TSETMC. In a cut, when the runner has reached no Iranian
+platform for several runs, it becomes the collector: the same code, with Iranian sources
+(platforms, tgju's dollar and its world-gold page while tgju updates it, else the last
+price, flagged), a local database, and messages through Bale's bot API (Telegram-
+compatible, domestic). One writer at a time, through a lease, so the account never trades
+twice. When the cut ends, its rows are merged into Neon and the runner is primary again;
+the one-trade-a-day indexes refuse a duplicate.
+
+`kpi_paper` 21/21; full suite 30/30 files, exit 0. Rendered from Daric's live quote
+(266.90M buy, 265.88M sell, 0.38% apart, 2026-10-04 13:00):
+
+```text
+GOLDPremium: PAPER BUY
+Bought 5 g at 26.69M on Daric · 12 Mehr 13:01
+Why: opening: 5 g, 1 g of them to trade
+Now: 5 g gold + 1.55M cash = 134.49M
+Next: sell 1 g if a venue pays 28.02M or more (+5% over its cost)
+
+GOLDPremium: PAPER · 12 Mehr 1405, 21:00
+Gold: 5 g = 132.94M (Daric pays 26.59M a gram)
+Cash: 1.55M
+Total: 134.49M
+This quarter (since 12 Mehr): −0.38%
+Bought on day 1, never traded: 134.49M (−0.38%)
+Today: bought 5 g at 26.69M on Daric (13:01)
+Plan: sell 1 g if a venue pays 28.02M or more (+5% over its cost)
+
+GOLDPremium: PAPER SELL           (an illustration: Daric at +5.5% three days later)
+Sold 1 g at 28.16M on Daric · 15 Mehr 14:01
+Why: +5.5% over its 26.69M cost: profit taken
+Now: 4 g gold + 29.71M cash = 142.34M
+Next: buy 1 g back at 27.60M or less, or on 21 Mehr at the latest
+```
+
+**Open:** the owner deploys the relay worker and sets its token; the relay probe from
+Cloudflare's side; then the GitHub secrets, the TSETMC collector, the production
+migration (authorization), the continuity server (a decision), and the merge after the
+safe tag.

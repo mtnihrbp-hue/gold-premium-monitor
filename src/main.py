@@ -454,10 +454,10 @@ def _direction_precompute(markets, signal_state, now):
 
 
 def _paper_run(markets, signal_state, now):
-    """The PAPER portfolio's run (SP-D, SP_D_HANDOFF.md section 9): evaluate the three
-    accounts, trade where the contract allows, push the analyst's trades, and from 21:00
-    write the day's report. Never raises: a hypothetical account must not cost the run its
-    push, recap or history."""
+    """The PAPER portfolio's run (SP-D, SP_D_HANDOFF.md sections 9-10): evaluate the four
+    accounts, trade where the contract allows, push the brave analyst's trades, and from
+    21:00 write the day's report. Never raises: a hypothetical account must not cost the
+    run its push, recap or history."""
     from analysis import paper
     from analysis.direction import GOLD, load_series
     from alerts.telegram_paper import build_trade_message, send_paper
@@ -469,7 +469,7 @@ def _paper_run(markets, signal_state, now):
     if session is None:
         return
     try:
-        accounts = ensure_paper_accounts(session, paper.ACCOUNTS, paper.START_CASH_IRR, paper.VENUE, now)
+        accounts = ensure_paper_accounts(session, paper.ACCOUNTS, paper.START_CASH_IRR, ">".join(paper.VENUES), now)
         day = local_date(now)
         quote = paper.venue_quote(markets)
         close = load_series(session, GOLD)[3]
@@ -477,48 +477,51 @@ def _paper_run(markets, signal_state, now):
         final = getattr(signal_state, "final_decision", None)
         panel_row = latest_direction_snapshot(session)
         stance_score = ((panel_row.panel or {}).get("stance") or {}).get("score") if panel_row else None
-        quote_json = {"buy": quote[0], "sell": quote[1]} if quote else None
+        quote_json = {"venue": quote.venue, "buy": quote.buy, "sell": quote.sell} if quote else None
 
         for name, account in accounts.items():
             last = paper_latest(session, account.id)
             book = (paper.Book(float(last.cash), last.holding) if last
                     else paper.Book(float(account.start_cash), 0))
-            share = book.share(quote[1]) if quote else None
-            out = None
-            if name == paper.ANALYST:
-                prev = paper_latest(session, account.id, kinds=("EVAL", "TRADE"))
-                was_out = bool((prev.inputs or {}).get("out")) if prev is not None else False
-                if sig is None:
-                    target, out, why = (share or 0.0), was_out, "not enough tgju history"
-                else:
-                    target, out, why = paper.analyst_target(sig, was_out)
-            elif name == paper.HOLD:
-                target, why = 1.0, "buy and hold"
-            else:
-                target, why = paper.system_target(final, share or 0.0)
             traded = bool(paper_rows_on(session, account.id, day, "TRADE"))
-            decision = paper.decide(book, target, quote, traded)
+            prev = paper_latest(session, account.id, kinds=("EVAL", "TRADE"))
+            state = (prev.inputs or {}) if prev is not None else {}
+            found, out, swing = [], None, None
+            if name == paper.ANALYST:
+                decision = paper.brave(book, quote, state.get("swing"), day, traded)
+                why, swing = decision.reason, decision.swing
+                found = paper.conflicts(stance_score, final, swing)
+            else:
+                share = book.share(quote.sell) if quote else 0.0
+                if name == paper.CAUTIOUS:
+                    was_out = bool(state.get("out"))
+                    target, out, why = (paper.analyst_target(sig, was_out) if sig is not None
+                                        else (share, was_out, "not enough tgju history"))
+                elif name == paper.HOLD:
+                    target, why = 1.0, "buy and hold"
+                else:
+                    target, why = paper.system_target(final, share)
+                decision = paper.decide(book, target, quote, traded)
             after = paper.apply(book, decision)
-            found = paper.conflicts(target, stance_score, final) if name == paper.ANALYST else []
-            inputs = {"policy": account.policy, "venue": account.venue, "quote": quote_json, "signals": sig,
-                      "target": target, "share_before": share, "out": out, "final_decision": final,
+            inputs = {"policy": account.policy, "quote": quote_json, "signals": sig, "final_decision": final,
                       "valuation": getattr(signal_state, "valuation", None), "stance_score": stance_score,
-                      "conflicts": found}
-            value = after.value(quote[1]) if quote else None
+                      "conflicts": found, "out": out, "swing": swing, "plan": decision.plan}
+            value = after.value(quote.sell) if quote else None
             if decision.action in ("BUY", "SELL"):
                 save_paper_activity(session, account_id=account.id, at=now, local_date=day, kind="TRADE",
                                     action=decision.action, grams=decision.grams, price=decision.price,
                                     cash=after.cash, holding=after.grams, value=value, reason=why, inputs=inputs)
-                print(f"PAPER {name}: {decision.action} {decision.grams} g at {decision.price:,.0f} ({why})")
+                print(f"PAPER {name}: {decision.action} {decision.grams} g at {decision.price:,.0f} on {quote.venue} ({why})")
                 if account.pushes:
-                    send_paper(build_trade_message(decision.action, decision.grams, decision.price, account.venue,
-                                                   now, why, after.grams, after.cash, quote[1]))
-            elif name == paper.ANALYST:
+                    send_paper(build_trade_message(decision.action, decision.grams, decision.price, quote.venue,
+                                                   now, why, after.grams, after.cash, quote.sell, decision.plan))
+            elif name in (paper.ANALYST, paper.CAUTIOUS):
                 action = "UNDECIDED" if found else "HOLD"
+                reason = why if name == paper.ANALYST else f"{why}; {decision.reason}"
                 save_paper_activity(session, account_id=account.id, at=now, local_date=day, kind="EVAL",
                                     action=action, cash=book.cash, holding=book.grams, value=value,
-                                    reason=f"{why}; {decision.reason}", inputs=inputs)
-                print(f"PAPER {name}: {action} ({why}; {decision.reason})" + (f" -- {found}" if found else ""))
+                                    reason=reason, inputs=inputs)
+                print(f"PAPER {name}: {action} ({reason})" + (f" -- {found}" if found else ""))
 
         if local_now(now).hour >= paper.REPORT_HOUR:
             _paper_report(session, accounts, day, quote, sig, now)
@@ -540,11 +543,14 @@ def _paper_report(session, accounts, day, quote, sig, now):
     analyst = accounts[paper.ANALYST]
     if paper_rows_on(session, analyst.id, day, "REPORT"):
         return
-    sell, note = (quote[1], "") if quote else (None, "")
+    venue, sell, note = (quote.venue, quote.sell, "") if quote else (None, None, "")
     if sell is None:
-        for row in reversed(paper_rows_on(session, analyst.id, day, "EVAL") + paper_rows_on(session, analyst.id, day, "TRADE")):
-            if (row.inputs or {}).get("quote"):
-                sell, note = row.inputs["quote"]["sell"], f", last price at {to_tehran(row.at):%H:%M}"
+        rows = sorted(paper_rows_on(session, analyst.id, day, "EVAL") + paper_rows_on(session, analyst.id, day, "TRADE"),
+                      key=lambda r: r.id)
+        for row in reversed(rows):
+            q = (row.inputs or {}).get("quote")
+            if q:
+                venue, sell, note = q["venue"], q["sell"], f", last price at {to_tehran(row.at):%H:%M}"
                 break
     if sell is None:
         print("PAPER report: no venue price today; skipped")
@@ -560,15 +566,15 @@ def _paper_report(session, accounts, day, quote, sig, now):
                             action=None, price=sell, cash=cash, holding=holding, value=cash + holding * sell,
                             reason=None, inputs={"base": base, "base_day": str(base_day), "sell_note": note})
         lines[name] = (holding, cash, base, base_day)
-    trades = [(t.action, t.grams, float(t.price), f"{to_tehran(t.at):%H:%M}")
-              for t in paper_rows_on(session, analyst.id, day, "TRADE")]
+    trades = [(t.action, t.grams, float(t.price), ((t.inputs or {}).get("quote") or {}).get("venue"),
+               f"{to_tehran(t.at):%H:%M}") for t in paper_rows_on(session, analyst.id, day, "TRADE")]
     prev = paper_latest(session, analyst.id, kinds=("EVAL", "TRADE"))
-    out = bool((prev.inputs or {}).get("out")) if prev is not None else False
+    plan = (prev.inputs or {}).get("plan") if prev is not None else None
     holding, cash, base, base_day = lines[paper.ANALYST]
     hold = lines.get(paper.HOLD)
-    send_paper(build_report_message(day, analyst.venue, sell, note, (holding, cash, base),
-                                    hold[:3] if hold else None, base_day, trades, sig, out))
-    print(f"PAPER report sent: {holding} g + {cash:,.0f} cash at {sell:,.0f}")
+    send_paper(build_report_message(day, venue, sell, note, (holding, cash, base),
+                                    hold[:3] if hold else None, base_day, trades, plan))
+    print(f"PAPER report sent: {holding} g + {cash:,.0f} cash at {sell:,.0f} ({venue})")
 
 
 def _send_direction_report():

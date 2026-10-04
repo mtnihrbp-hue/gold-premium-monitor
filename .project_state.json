@@ -304,7 +304,7 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "Owner's review of the PAPER messages and v0; authorization for sql/neon_migration_paper.sql (verified on temp branch br-noisy-union-agpgixj6) and that branch's deletion; capital/granularity; the Iranian relay for Daric and TSETMC; then safe tag and merge (SP_D_HANDOFF.md section 9).",
+  "next_gate": "Owner deploys src/worker/data-relay.js (Cloudflare) with RELAY_TOKEN; probe Daric and TSETMC from Cloudflare's side; then GitHub secrets RELAY_URL/RELAY_TOKEN, the TSETMC collector, the paper migration (authorization), the continuity server (decision), safe tag and merge (SP_D_HANDOFF.md section 10).",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
@@ -332,10 +332,10 @@
     "assertions_signal_confirmation": 46,
     "assertions_direction": 35,
     "assertions_tgju_candles": 15,
-    "assertions_paper": 18
+    "assertions_paper": 21
   },
   "open_decisions": [
-    "SP-D PAPER portfolio (SP_D_HANDOFF.md section 9): contract agreed 2026-10-04 (100M toman, whole grams, one trade a day at any run, Goldika now / Daric via an Iranian relay later, 21:00 report, Persian quarters from go-live to 30 Azar 1405); analyst v0 = invested, out on a confirmed break (no tested rule beat holding); shadow accounts buy-and-hold and follow-final-decision; paper_accounts/paper_activity verified on a temp branch, NOT applied to production; built on sp-d-paper, not merged.",
+    "SP-D PAPER portfolio (SP_D_HANDOFF.md sections 9-10): 135M toman, whole grams, one trade a day at any run, venue chain Daric > Goldika > Ayyareh; analyst v1 'brave' (core 4 g + swing 1 g: sell at +5%, buy back -2% or within 5 trading days) with shadows cautious v0, buy-and-hold, system; data relay (Cloudflare worker) written, not deployed; continuity plan for an Iran-only internet designed (one Iranian server: relay normally, collector in a cut); paper tables NOT applied to production; on sp-d-paper, not merged.",
     "SP-D Direction (SP_D_HANDOFF.md sections 4-6): MERGED to main 2026-10-03 (safe tag v1.4safe = main before); v6 plain-language message (1,467 chars: VIEW, TREND with the source of the rise, MOVING AVERAGES (EMA), NEXT MONTH, WATCH) awaiting the owner's polish; forecast ledger with resolver and promotion gate; direction_snapshots APPLIED to production 2026-10-03; /Direction read-only mode; precompute at the first scheduled run from 06:00 and 13:00 Tehran. SP-C closed: SP-D is recorded in SP_D_HANDOFF.md.",
     "SP-D R&D R3/R4 done (SP_D_HANDOFF.md section 3): predictive -- new 52-week high (+3.2%), dollar and 18K breaking their 50-day averages, the chance of a new high within 20 days (skill +26%, shown as its calibrated band rate), the cost of waiting for a dip; calibrated -- the volatility-scaled 10/50/90% range of 20/60-day moves; dropped -- up/down and pullback odds, candle patterns. A DIRECTION message is drafted for the owner's review; implementation follows the approved draft; then safe tag, then merge to main (owner: no merge before that).",
     "SP-D Direction (SP_D_HANDOFF.md section 1): the first deliverable, on the owner's request -- trend, support/resistance, odds over similar past days beside the base rate, and entry timing (convert now or wait for a dip). Built on sp-d-direction (caluclator/technical.py with TA-Lib, analysis/direction.py, kpi_direction 17/17); the ANALYZE section is a draft awaiting the owner's layout approval. Next: walk-forward check that the conditional odds beat the base rate out of sample; a split-conversion option.",
