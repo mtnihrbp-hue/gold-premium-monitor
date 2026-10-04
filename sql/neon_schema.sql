@@ -418,11 +418,14 @@ CREATE TABLE IF NOT EXISTS paper_activity (
     holding INTEGER NOT NULL,
     value NUMERIC(20, 2),
     reason TEXT,
-    inputs JSONB
+    inputs JSONB,
+    trade_no SMALLINT,
+    CONSTRAINT ck_paper_trade_no CHECK (kind <> 'TRADE' OR trade_no IN (1, 2))
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_paper_one_trade_a_day
-    ON paper_activity (account_id, local_date) WHERE kind = 'TRADE';
+-- At most two trades a day (owner, 2026-10-04): sql/neon_migration_paper_two_trades.sql.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_paper_trade_slot
+    ON paper_activity (account_id, local_date, trade_no) WHERE kind = 'TRADE';
 CREATE UNIQUE INDEX IF NOT EXISTS uq_paper_one_report_a_day
     ON paper_activity (account_id, local_date) WHERE kind = 'REPORT';
 CREATE INDEX IF NOT EXISTS ix_paper_activity_account_at

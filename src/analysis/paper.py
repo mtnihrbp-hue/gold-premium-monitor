@@ -9,7 +9,7 @@ The owner's scenario and contract (2026-10-04, SP_D_HANDOFF.md sections 9-10):
    on the first venue whose quote is fresh, buying at its buy price and selling at its
    sell price from the same reading, and records which. The grams are one holding.
 3. Units: whole grams, at least 1 g a trade; the residue stays as cash.
-4. At most one trade per Tehran day, at any scheduled run (06:00-21:00).
+4. At most two trades per Tehran day (owner, 2026-10-04; one until then), at any scheduled run.
 5. No borrowing and no short selling.
 6. No trade without a fresh quote with both sides on some venue of the chain.
 7. A report at 21:00: gold, cash, total, and the profit or loss against the quarter's
@@ -45,8 +45,9 @@ import numpy as np
 START_CASH_IRR = 1_350_000_000            # 135,000,000 toman
 VENUES = ("Daric", "Goldika", "Ayyareh")
 SWING_SHARE = 0.2                         # the part of the grams the brave analyst trades
-TAKE_PCT = 5.0                            # sell the swing at +5% over what it cost
-RE_BUY_PCT = 2.0                          # buy it back 2% under the sale price ...
+TAKE_PCT = 3.0                            # sell the swing at +3% over what it cost (owner: faster)
+RE_BUY_PCT = 1.5                          # buy it back 1.5% under the sale price ...
+MAX_TRADES_PER_DAY = 2                    # owner, 2026-10-04: up to two trades a Tehran day
 MAX_OUT_DAYS = 5                          # ... or after 5 trading days at the latest
 BAND = 0.2                                # v0: trade only this far off its target
 REPORT_HOUR = 21                          # the first run from 21:00 Tehran reports the day
@@ -117,8 +118,8 @@ def brave(book, quote, swing, today, traded_today, cap=1.0):
     {"grams", "entry", "sold_at", "sold_day"} -- or {} before its first trade. `cap`: the
     quant engine's growth-optimal share f*, the most of the account it holds in gold."""
     swing = dict(swing or {})
-    if traded_today:
-        return Decision("HOLD", 0, None, "one trade a day: already traded today", swing, plan(swing))
+    if int(traded_today) >= MAX_TRADES_PER_DAY:
+        return Decision("HOLD", 0, None, f"{MAX_TRADES_PER_DAY} trades a day: already made today", swing, plan(swing))
     if quote is None:
         return Decision("HOLD", 0, None, "no fresh buy and sell price on any venue", swing, plan(swing))
     cap = 1.0 if cap is None else float(cap)
@@ -223,8 +224,8 @@ def system_target(final_decision, current_share):
 
 def decide(book, target, quote, traded_today, band=BAND):
     """The trade a target-share account (v0, hold, system) makes this run, or a HOLD."""
-    if traded_today:
-        return Decision("HOLD", 0, None, "one trade a day: already traded today")
+    if int(traded_today) >= MAX_TRADES_PER_DAY:
+        return Decision("HOLD", 0, None, f"{MAX_TRADES_PER_DAY} trades a day: already made today")
     if quote is None:
         return Decision("HOLD", 0, None, "no fresh buy and sell price on any venue")
     value, share = book.value(quote.sell), book.share(quote.sell)

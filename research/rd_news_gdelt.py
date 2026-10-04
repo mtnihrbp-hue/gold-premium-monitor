@@ -49,8 +49,8 @@ def news(theme):
     from the GDELT days up to and including the day before (no same-day look-ahead)."""
     vol = {datetime.strptime(r[0], "%Y%m%d").date(): (r[1] / r[2] if r[2] else np.nan) for r in G[theme]["volume"]}
     tone = {datetime.strptime(r[0], "%Y%m%d").date(): r[1] for r in G[theme]["tone"]}
-    days = sorted(vol)
-    share = np.array([vol[d] for d in days])
+    days = sorted(set(vol) | set(tone))
+    share = np.array([vol.get(d, np.nan) for d in days])
     tones = np.array([tone.get(d, np.nan) for d in days])
     z = np.full(len(days), np.nan)
     for k in range(60, len(days)):
@@ -75,7 +75,7 @@ def fwd(a, h):
 
 
 F = {name: (fwd(a, 5), fwd(a, 20)) for name, a in (("dollar", usd), ("world gold", xau), ("18K", gc))}
-themes = [t for t in G if G[t]["volume"]]
+themes = [t for t in G if G[t]["volume"] or G[t]["tone"]]
 NEWS = {t: news(t) for t in themes}
 
 print("1. EVENT STUDY: the next 5 / 20 trading days, mean move (all days in brackets)")
@@ -83,7 +83,7 @@ base = {k: (np.nanmean(v[0]), np.nanmean(v[1])) for k, v in F.items()}
 print("   all days:      " + "   ".join(f"{k} {b[0]:+.2f} / {b[1]:+.2f}%" for k, b in base.items()))
 for t in themes:
     z, dt = NEWS[t]
-    lo_tone = np.nanquantile(dt, 0.05)
+    lo_tone = np.nanquantile(dt, 0.05) if np.isfinite(dt).any() else -np.inf
     for label, mask in ((f"{t}: coverage jump (z>=3)", z >= 3), (f"{t}: tone falls (bottom 5%)", dt <= lo_tone)):
         idx = [i for i in range(n - 20) if mask[i]]
         if len(idx) < 8:
@@ -107,7 +107,7 @@ def dist(a, p):
 
 PRICE = [ret(gc, 5), ret(gc, 20), ret(gc, 60), dist(gc, 20), dist(gc, 50), dist(gc, 200),
          ret(usd, 5), ret(usd, 20), ret(usd, 60), dist(usd, 50), ret(xau, 5), ret(xau, 20), ret(xau, 60), dist(xau, 50)]
-NEWSF = [x for t in themes for x in NEWS[t]]
+NEWSF = [x for t in themes for x in NEWS[t] if np.isfinite(x).sum() > 100]
 H = 20
 drop = np.full(n, np.nan)
 for i in range(n - H):

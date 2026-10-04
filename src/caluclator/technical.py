@@ -203,3 +203,64 @@ def volume_profile(high, low, close, volume, upto, lookback=VOLUME_PROFILE_DAYS,
             lo_k -= 1
             area += mass[lo_k]
     return {"poc": float(mids[poc]), "val": float(mids[lo_k]), "vah": float(mids[hi_k])}
+
+
+TRENDLINE_LOOKBACK = 120       # trading days the trend lines are drawn from
+TRENDLINE_TOLERANCE = 0.005    # a close may pierce the line by 0.5% and it still stands
+FIB_RATIOS = (0.236, 0.382, 0.5, 0.618)
+
+
+def _pivots(values, upto, window, find_high, usable=None, lookback=TRENDLINE_LOOKBACK):
+    first = max(window, upto - lookback)
+    out = []
+    for j in range(first, upto - window + 1):
+        if usable is not None and not usable[j]:
+            continue
+        span = values[j - window:j + window + 1]
+        if (find_high and values[j] >= max(span)) or (not find_high and values[j] <= min(span)):
+            out.append(j)
+    return out
+
+
+def trendlines(high, low, close, upto, window=SWING_WINDOW, lookback=TRENDLINE_LOOKBACK, usable=None):
+    """The support line joining two confirmed swing lows and the resistance line joining two
+    confirmed swing highs, as a chartist draws them: of every pair whose line no later close
+    crosses (beyond TRENDLINE_TOLERANCE), the support is the one closest under today's
+    close and the resistance the one closest over it. Returns {"support", "resistance"},
+    each None or {"i1", "y1", "i2", "y2", "slope_pct_per_day", "at": the line's value at
+    `upto`}. Causal: a swing counts only once its `window` confirming days have passed."""
+    c = np.asarray(close, dtype=float)
+    now = c[upto]
+    result = {}
+    for kind, values, sign in (("support", np.asarray(low, dtype=float), 1),
+                               ("resistance", np.asarray(high, dtype=float), -1)):
+        piv = _pivots(values, upto, window, find_high=(sign < 0), usable=usable, lookback=lookback)
+        best = None
+        for b_ in range(1, len(piv)):
+            for a_ in range(b_):
+                i1, i2 = piv[a_], piv[b_]
+                slope = (values[i2] - values[i1]) / (i2 - i1)
+                line = values[i1] + slope * (np.arange(i1, upto + 1) - i1)
+                closes = c[i1:upto + 1]
+                at = line[-1]
+                if sign > 0:
+                    valid = np.all(closes >= line * (1 - TRENDLINE_TOLERANCE)) and at <= now
+                    better = best is None or at > best[3]
+                else:
+                    valid = np.all(closes <= line * (1 + TRENDLINE_TOLERANCE)) and at >= now
+                    better = best is None or at < best[3]
+                if valid and better:
+                    best = (i1, i2, slope, at)
+        if best:
+            i1, i2, slope, at = best
+            y1 = float(values[i1])
+            result[kind] = {"i1": int(i1), "y1": y1, "i2": int(i2), "y2": float(values[i2]),
+                            "slope_pct_per_day": float(slope / y1 * 100), "at": float(at)}
+        else:
+            result[kind] = None
+    return result
+
+
+def fibonacci(swing_low, swing_high, ratios=FIB_RATIOS):
+    """Retracement levels of a move from `swing_low` up to `swing_high`: [(ratio, price)]."""
+    return [(r, float(swing_high - (swing_high - swing_low) * r)) for r in ratios]

@@ -111,29 +111,35 @@ class KPIPaper(unittest.TestCase):
         self.assertEqual(p.decide(p.Book(p.START_CASH_IRR, 0), 0.0, Q, False).action, "HOLD", "nothing to sell")
         self.assertEqual(p.decide(p.Book(0.0, 3), 0.0, Q, False).grams, 3)
 
-    def test_07_one_trade_a_day_and_a_fresh_price(self):
-        self.assertEqual(p.brave(p.Book(p.START_CASH_IRR, 0), Q, {}, DAY, traded_today=True).action, "HOLD")
-        self.assertEqual(p.brave(p.Book(p.START_CASH_IRR, 0), None, {}, DAY, False).action, "HOLD")
-        self.assertEqual(p.decide(p.Book(p.START_CASH_IRR, 0), 1.0, Q, traded_today=True).action, "HOLD")
+    def test_07_two_trades_a_day_and_a_fresh_price(self):
+        # owner, 2026-10-04: "expand the buy sell window from one daily to max 2 daily"
+        self.assertEqual(p.MAX_TRADES_PER_DAY, 2)
+        self.assertEqual(p.brave(p.Book(p.START_CASH_IRR, 0), Q, {}, DAY, traded_today=1).action, "BUY",
+                         "a second trade the same day is allowed")
+        self.assertEqual(p.brave(p.Book(p.START_CASH_IRR, 0), Q, {}, DAY, traded_today=2).action, "HOLD")
+        self.assertEqual(p.brave(p.Book(p.START_CASH_IRR, 0), None, {}, DAY, 0).action, "HOLD")
+        self.assertEqual(p.decide(p.Book(p.START_CASH_IRR, 0), 1.0, Q, traded_today=2).action, "HOLD")
 
     # -- the brave analyst -----------------------------------------------------------
 
-    def test_08_takes_its_profit_at_plus_five(self):
+    def test_08_takes_its_profit_at_plus_three(self):
+        # owner, 2026-10-04: "faster is better"
+        self.assertEqual((p.TAKE_PCT, p.RE_BUY_PCT), (3.0, 1.5))
         swing = {"grams": 1, "entry": BUY, "sold_at": None, "sold_day": None}
         book = p.Book(10_000_000.0, 5)
-        below = p.Quote("Daric", BUY * 1.05, BUY * 1.049)
-        self.assertEqual(p.brave(book, below, swing, DAY, False).action, "HOLD", "+4.9% is not +5%")
-        hit = p.Quote("Daric", BUY * 1.053, BUY * 1.051)
-        d = p.brave(book, hit, swing, DAY, False)
-        self.assertEqual((d.action, d.grams, d.price), ("SELL", 1, BUY * 1.051), "sold at the sell price")
-        self.assertEqual(d.swing["sold_at"], BUY * 1.051)
+        below = p.Quote("Daric", BUY * 1.03, BUY * 1.029)
+        self.assertEqual(p.brave(book, below, swing, DAY, 0).action, "HOLD", "+2.9% is not +3%")
+        hit = p.Quote("Daric", BUY * 1.033, BUY * 1.031)
+        d = p.brave(book, hit, swing, DAY, 0)
+        self.assertEqual((d.action, d.grams, d.price), ("SELL", 1, BUY * 1.031), "sold at the sell price")
+        self.assertEqual(d.swing["sold_at"], BUY * 1.031)
         self.assertIn("buy 1 g back", d.plan)
 
-    def test_09_buys_back_two_percent_lower_or_within_five_days(self):
+    def test_09_buys_back_lower_or_within_five_days(self):
         sold = {"grams": 1, "entry": BUY, "sold_at": BUY, "sold_day": "2026-10-04"}
         book = p.Book(BUY * 1.2, 4)
         flat = p.Quote("Daric", BUY * 0.99, BUY * 0.988)
-        self.assertEqual(p.brave(book, flat, sold, date(2026, 10, 5), False).action, "HOLD")
+        self.assertEqual(p.brave(book, flat, sold, date(2026, 10, 5), False).action, "HOLD", "-1% is not -1.5%")
         lower = p.Quote("Daric", BUY * 0.979, BUY * 0.976)
         d = p.brave(book, lower, sold, date(2026, 10, 5), False)
         self.assertEqual((d.action, d.grams), ("BUY", 1))
@@ -222,7 +228,7 @@ class KPIPaper(unittest.TestCase):
                          .order_by(PaperActivity.id).all())
         self.assertEqual(len(analyst_evals), 2, "the analyst logs every run it does not trade")
         self.assertIn("no fresh buy and sell price", analyst_evals[0].reason)
-        self.assertIn("already traded today", analyst_evals[1].reason)
+        self.assertIn("waiting for +3%", analyst_evals[1].reason, "a second trade is allowed; it simply has no reason yet")
         self.assertEqual(analyst_evals[1].inputs["swing"]["grams"], 1, "the swing state carries over")
         self.assertEqual(len([m for m in self.sent if "PAPER BUY" in m]), 1, "only the analyst pushes")
 
@@ -289,7 +295,28 @@ class KPIPaper(unittest.TestCase):
         finally:
             tg._send_photo, tp._send = orig_photo, orig_send
 
-    def test_14_the_database_refuses_a_second_trade_a_day(self):
+    def test_13e_trend_lines_and_fibonacci(self):
+        import numpy as np
+        from caluclator.technical import fibonacci, trendlines
+        # a rising zigzag: lows rise, highs rise
+        k = np.arange(160)
+        close = 100 + 0.2 * k + 3 * np.sin(k / 6)
+        high, low = close * 1.004, close * 0.996
+        t = trendlines(high, low, close, upto=159)
+        sup, res = t["support"], t["resistance"]
+        self.assertIsNotNone(sup)
+        self.assertIsNotNone(res)
+        self.assertGreater(sup["slope_pct_per_day"], 0, "rising lows give a rising support line")
+        self.assertLessEqual(sup["at"], close[159])
+        self.assertGreaterEqual(res["at"], close[159])
+        line = sup["y1"] + (sup["y2"] - sup["y1"]) / (sup["i2"] - sup["i1"]) * (np.arange(sup["i1"], 160) - sup["i1"])
+        self.assertTrue(np.all(close[sup["i1"]:] >= line * 0.995), "no close crosses its support line")
+        self.assertTrue(sup["i2"] <= 159 - 5, "a swing counts only once confirmed")
+        levels = dict(fibonacci(100.0, 200.0))
+        self.assertAlmostEqual(levels[0.382], 161.8)
+        self.assertAlmostEqual(levels[0.618], 138.2)
+
+    def test_14_the_database_refuses_a_third_trade_a_day(self):
         from sqlalchemy.exc import IntegrityError
         from database.repository import ensure_paper_accounts, save_paper_activity
         main, Session = self._db()
@@ -297,11 +324,26 @@ class KPIPaper(unittest.TestCase):
         acct = ensure_paper_accounts(s, p.ACCOUNTS, p.START_CASH_IRR, "chain", datetime(2026, 10, 4, 3))[p.ANALYST]
         row = dict(account_id=acct.id, at=datetime(2026, 10, 4, 3), local_date=DAY, kind="TRADE",
                    action="BUY", grams=1, price=BUY, cash=0, holding=1)
-        save_paper_activity(s, **row)
-        with self.assertRaises(IntegrityError):
-            save_paper_activity(s, **row)
-        s.rollback()
+        save_paper_activity(s, **row, trade_no=1)
+        save_paper_activity(s, **row, trade_no=2)
+        for bad in (2, 3):                                  # a duplicate number, and a third trade
+            with self.assertRaises(IntegrityError):
+                save_paper_activity(s, **row, trade_no=bad)
+            s.rollback()
         s.close()
+
+    def test_14b_the_two_trade_migration_matches_the_model(self):
+        from database.models import PaperActivity
+        root = os.path.join(os.path.dirname(__file__), "..", "sql")
+        sql = open(os.path.join(root, "neon_migration_paper_two_trades.sql"), encoding="utf-8").read()
+        schema = open(os.path.join(root, "neon_schema.sql"), encoding="utf-8").read()
+        self.assertIn("trade_no", PaperActivity.__table__.columns)
+        for part in ("ADD COLUMN IF NOT EXISTS trade_no SMALLINT", "DROP INDEX IF EXISTS uq_paper_one_trade_a_day",
+                     "uq_paper_trade_slot", "ON paper_activity (account_id, local_date, trade_no) WHERE kind = 'TRADE'",
+                     "CHECK (kind <> 'TRADE' OR trade_no IN (1, 2))"):
+            self.assertIn(part, sql)
+        self.assertIn("uq_paper_trade_slot", schema)
+        self.assertNotIn("uq_paper_one_trade_a_day\n    ON", schema, "the target schema holds the new index only")
 
     def test_15_the_quarter_base_is_its_first_day(self):
         from database.repository import ensure_paper_accounts, paper_value_before, save_paper_activity
@@ -436,10 +478,12 @@ class KPIPaper(unittest.TestCase):
         from database.models import PaperAccount, PaperActivity
         root = os.path.join(os.path.dirname(__file__), "..", "sql")
         sql = open(os.path.join(root, "neon_migration_paper.sql"), encoding="utf-8").read()
+        later = open(os.path.join(root, "neon_migration_paper_two_trades.sql"), encoding="utf-8").read()
         schema = open(os.path.join(root, "neon_schema.sql"), encoding="utf-8").read()
         for model in (PaperAccount, PaperActivity):
             for column in model.__table__.columns:
-                self.assertRegex(sql, rf"(?m)^\s+{column.name} ", f"{model.__tablename__}.{column.name}")
+                self.assertRegex(sql + later, rf"(?m)(^\s+|ADD COLUMN IF NOT EXISTS ){column.name} ",
+                                 f"{model.__tablename__}.{column.name}")
             self.assertIn(f"CREATE TABLE IF NOT EXISTS {model.__tablename__}", schema)
         self.assertIn("WHERE kind = 'TRADE'", sql)
         self.assertIn("WHERE kind = 'REPORT'", sql)

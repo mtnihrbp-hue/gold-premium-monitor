@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, Numeric, Date, DateTime, ForeignKey, Text, JSON, Index, UniqueConstraint, Boolean, text
+from sqlalchemy import Column, Integer, SmallInteger, String, Numeric, Date, DateTime, ForeignKey, Text, JSON, Index, UniqueConstraint, Boolean, CheckConstraint, text
 from sqlalchemy.sql import func
 
 from database.connection import Base
@@ -423,8 +423,8 @@ class PaperActivity(Base):
     `cash` and `holding` are the account's state after the row, so the latest row is the
     account. TRADE carries the grams and the price paid or received; REPORT the value at
     the venue's sell price at 21:00; EVAL the analyst's decision at a run with its inputs.
-    The database itself holds two clauses of the contract: one trade and one report per
-    account per Tehran day.
+    The database itself holds two clauses of the contract: at most two trades (trade_no 1
+    or 2, owner 2026-10-04) and one report per account per Tehran day.
     """
 
     __tablename__ = "paper_activity"
@@ -442,10 +442,12 @@ class PaperActivity(Base):
     value = Column(Numeric(20, 2), nullable=True)
     reason = Column(Text, nullable=True)
     inputs = Column(JSON, nullable=True)
+    trade_no = Column(SmallInteger, nullable=True)
 
     __table_args__ = (
-        Index("uq_paper_one_trade_a_day", "account_id", "local_date", unique=True,
+        Index("uq_paper_trade_slot", "account_id", "local_date", "trade_no", unique=True,
               postgresql_where=text("kind = 'TRADE'"), sqlite_where=text("kind = 'TRADE'")),
+        CheckConstraint("kind <> 'TRADE' OR trade_no IN (1, 2)", name="ck_paper_trade_no"),
         Index("uq_paper_one_report_a_day", "account_id", "local_date", unique=True,
               postgresql_where=text("kind = 'REPORT'"), sqlite_where=text("kind = 'REPORT'")),
         Index("ix_paper_activity_account_at", "account_id", "at"),

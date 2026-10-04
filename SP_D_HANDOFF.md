@@ -1113,3 +1113,67 @@ saves after every theme and uploads whatever it has. `research/rd_news_gdelt.py`
 written for the result: an event study of coverage jumps and tone falls against the
 dollar's, world gold's and 18K's next 5 and 20 days, and the walk-forward drop detector
 with and without news.
+
+## 14. Faster, two trades a day, trend lines, GDELT's answer (2026-10-04)
+
+**The owner.** "Faster is better, I can even expand the buy sell window from one daily to
+max 2 daily; but I know this doesn't help that much." The chart needs trend lines (lows
+joined to lows, highs to highs) and other tools. "Parking in dollars" needed explaining.
+
+**Faster, and two trades a day.** The brave trader now takes its profit at +3% and buys
+back 1.5% under the sale (5 trading days at the latest), under the same brake; at most
+two trades per Tehran day for every account (`MAX_TRADES_PER_DAY`). Measured cost, from
+section 13's grid: +3% / -1.5% with the brake came to +6.1% over 2016-2023 and -12.1% over
+2024-2026 against holding (+5% / -2%: +11.2% and -7.0%). The owner's call, recorded.
+The database held one trade a day with a partial unique index; `trade_no` (1 or 2) now
+numbers each day's trades, `uq_paper_trade_slot` replaces `uq_paper_one_trade_a_day`, and
+`ck_paper_trade_no` refuses a third (`sql/neon_migration_paper_two_trades.sql`). Verified
+on the temporary branch temp-two-trades-test (since deleted): two trades accepted, a
+third refused by the check, a duplicate number by the index. Not yet applied to
+production.
+
+**Trend lines and Fibonacci** (`caluclator/technical.trendlines`, `fibonacci`): of every
+pair of confirmed swing lows (highs) whose line no later close crosses by more than 0.5%,
+the support is the one closest under today's close and the resistance the one closest
+over it -- as a chartist draws them. On 2026-10-01: support through the 06-17 and 07-26
+lows, +0.50% a day, 21.99M today and 22.76M in ten days; resistance through the 07-18 and
+09-10 highs, +0.63% a day, 26.55M and 27.77M. Fibonacci retracements of the current rally
+(15.65M on 06-16 to 25.69M): 23.32 / 21.86 / 20.67 / 19.49M. The 21:00 chart draws both
+lines from their first swing, projected ten days ahead (dotted), and the Fibonacci levels.
+These are the chartist's tools, not tested signals; their edge is a matter for the
+quarterly record.
+
+**Parking in dollars, measured.** When the brake sells gold, the cash sits in toman. Held
+in dollars instead (valued at tgju's dollar), the brake-only policy would have made x23.41
+over 2016-2023 against x29.62 in toman (holding: x26.27), and x2.13 against x2.73 in 2018.
+The brake fires in storms, and Iran's storms are dollar spikes that then correct: in 2018
+it sold near the peak, and toman kept the correction that dollars would have taken. The
+parking stays in toman.
+
+**GDELT's answer** (`research/rd_news_gdelt.py`; fetched from GitHub's runner in one request
+per theme, 2017-01-01 -> 2026-10-02, 3,530 days; some modes missing to rate limits):
+
+```text
+next 20 trading days after...            dollar     world gold   18K
+all days                                 +3.58%     +1.05%       +4.60%
+Iran military coverage jump (117 days)   +1.19%     +1.59%       +2.50%
+Iran nuclear talks jump (122)            +2.15%     +0.80%       +2.42%
+Iran coverage jump (118)                 +1.51%     +1.60%       +2.60%
+Federal Reserve coverage jump (41)       +3.29%     +2.16%       +5.50%
+drop detector (8%+ in 20 days), walk-forward: AUC 0.55 / 0.51 on prices alone,
+0.53 / 0.54 with the news features (2019-2023 / 2024-2026)
+```
+
+Spikes in Iran coverage came near local peaks: 18K's next month was about 2 pp weaker than
+usual. The counts and tone add nothing to the drop detector. Headline classification by an
+LLM is the stronger form of the news leg; it can only be judged going forward, recorded
+live and scored after a quarter.
+
+**Routes.** Tunnels and proxies to get around the platforms' geo-blocking are not
+pursued. The route that remains is a collector on a device the owner has inside Iran,
+where the sources are normally reachable, writing to Neon over HTTPS (section 13).
+
+**Temporary resources deleted:** the git branch probe-gdelt (its data kept locally,
+git-ignored), the Neon branch temp-two-trades-test.
+
+`kpi_paper` 26/26; full suite 30/30 files, exit 0.

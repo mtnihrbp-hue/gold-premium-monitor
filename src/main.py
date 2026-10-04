@@ -485,7 +485,7 @@ def _paper_run(markets, signal_state, now):
             last = paper_latest(session, account.id)
             book = (paper.Book(float(last.cash), last.holding) if last
                     else paper.Book(float(account.start_cash), 0))
-            traded = bool(paper_rows_on(session, account.id, day, "TRADE"))
+            traded = len(paper_rows_on(session, account.id, day, "TRADE"))
             prev = paper_latest(session, account.id, kinds=("EVAL", "TRADE"))
             state = (prev.inputs or {}) if prev is not None else {}
             found, out, swing = [], None, None
@@ -521,7 +521,8 @@ def _paper_run(markets, signal_state, now):
             if decision.action in ("BUY", "SELL"):
                 save_paper_activity(session, account_id=account.id, at=now, local_date=day, kind="TRADE",
                                     action=decision.action, grams=decision.grams, price=decision.price,
-                                    cash=after.cash, holding=after.grams, value=value, reason=why, inputs=inputs)
+                                    cash=after.cash, holding=after.grams, value=value, reason=why, inputs=inputs,
+                                    trade_no=traded + 1)
                 print(f"PAPER {name}: {decision.action} {decision.grams} g at {decision.price:,.0f} on {quote.venue} ({why})")
                 if account.pushes:
                     send_paper(build_trade_message(decision.action, decision.grams, decision.price, quote.venue,
@@ -622,7 +623,7 @@ def _paper_chart(session, analyst, live_sell):
         import talib
         from alerts.chart import render
         from analysis.direction import GOLD
-        from caluclator.technical import split_levels, swing_levels
+        from caluclator.technical import fibonacci, rally_legs, split_levels, swing_levels, trendlines
         from database.models import MarketDailyCandle, PaperActivity
         from timeutil import to_tehran
 
@@ -638,9 +639,12 @@ def _paper_chart(session, analyst, live_sell):
         trades = [(to_tehran(t.at).date(), t.action, float(t.price)) for t in
                   session.query(PaperActivity).filter(PaperActivity.account_id == analyst.id,
                                                       PaperActivity.kind == "TRADE").all()]
+        trend = trendlines(h, l, c, upto=len(c) - 1, usable=usable)
+        direction, start = rally_legs(c)
+        fib = fibonacci(c[start[-1]], c[start[-1]:].max()) if direction[-1] == "up" else []
         return render(dates, o, h, l, c, ema20=talib.EMA(c, 20), ema50=talib.EMA(c, 50),
                       supports=[x["price"] for x in supports[:3]], resistances=[x["price"] for x in resistances[:2]],
-                      trades=trades, live=live_sell, title="18K daily · PAPER analyst")
+                      trades=trades, live=live_sell, title="18K daily · PAPER analyst", trend=trend, fib=fib)
     except Exception as e:
         print(f"PAPER chart unavailable: {e}")
         return None

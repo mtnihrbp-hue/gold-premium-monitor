@@ -13,13 +13,15 @@ import numpy as np
 
 RIAL_PER_M_TOMAN = 1e7
 COLORS = {"up": "#2e7d32", "down": "#c62828", "ema20": "#1565c0", "ema50": "#ef6c00", "support": "#2e7d32",
-          "resistance": "#c62828", "value_area": "#9e9e9e", "live": "#6a1b9a", "grid": "#e0e0e0"}
+          "resistance": "#c62828", "value_area": "#9e9e9e", "live": "#6a1b9a", "grid": "#e0e0e0", "fib": "#8d6e63"}
 
 
 def render(dates, opens, highs, lows, closes, ema20=None, ema50=None, supports=(), resistances=(),
-           value_area=None, trades=(), live=None, title="18K", days=120):
+           value_area=None, trades=(), live=None, title="18K", days=120, trend=None, fib=(), project=10):
     """PNG bytes. `supports`/`resistances`: prices (rial); `value_area`: {"val","vah","poc"};
-    `trades`: (date, "BUY"|"SELL", price); `live`: today's price, drawn after the last candle."""
+    `trades`: (date, "BUY"|"SELL", price); `live`: today's price, drawn after the last candle;
+    `trend`: caluclator.technical.trendlines() on the same arrays, drawn from their first
+    swing and projected `project` days ahead (dotted); `fib`: [(ratio, price)] retracements."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -45,6 +47,23 @@ def render(dates, opens, highs, lows, closes, ema20=None, ema50=None, supports=(
         ax.axhspan(value_area["val"] / RIAL_PER_M_TOMAN, value_area["vah"] / RIAL_PER_M_TOMAN,
                    color=COLORS["value_area"], alpha=0.12, label="value area (volume)")
         ax.axhline(value_area["poc"] / RIAL_PER_M_TOMAN, color=COLORS["value_area"], linewidth=0.8, linestyle=":")
+    last = len(c) - 1
+    for kind, line in (trend or {}).items():
+        if not line:
+            continue
+        slope = (line["y2"] - line["y1"]) / (line["i2"] - line["i1"])
+        start = max(line["i1"], k)
+        xs = np.arange(start, k + last + 1)
+        ys = (line["y1"] + slope * (xs - line["i1"])) / RIAL_PER_M_TOMAN
+        ax.plot(xs - k, ys, color=COLORS[kind], linewidth=1.4, label=f"{kind} trend line")
+        ahead = np.array([k + last, k + last + project])
+        ya = (line["y1"] + slope * (ahead - line["i1"])) / RIAL_PER_M_TOMAN
+        ax.plot(ahead - k, ya, color=COLORS[kind], linewidth=1.2, linestyle=":")
+        ax.text(last + project + 0.3, ya[-1], f"{ya[-1]:.2f}", color=COLORS[kind], fontsize=7, va="center")
+    for ratio, price in fib:
+        y = price / RIAL_PER_M_TOMAN
+        ax.axhline(y, color=COLORS["fib"], linewidth=0.7, linestyle=(0, (1, 3)), alpha=0.9)
+        ax.text(0.5, y, f"Fib {ratio * 100:.1f}% {y:.2f}", color=COLORS["fib"], fontsize=7, va="bottom")
     right = len(c) + 1.5
     for price, kind in [(p, "support") for p in supports] + [(p, "resistance") for p in resistances]:
         y = price / RIAL_PER_M_TOMAN
@@ -64,7 +83,7 @@ def render(dates, opens, highs, lows, closes, ema20=None, ema50=None, supports=(
     ticks = list(range(0, len(c), max(1, len(c) // 6)))
     ax.set_xticks(ticks)
     ax.set_xticklabels([ds[t].strftime("%m-%d") for t in ticks], fontsize=8)
-    ax.set_xlim(-1, len(c) + 4)
+    ax.set_xlim(-1, len(c) + 13)
     ax.tick_params(axis="y", labelsize=8)
     ax.set_ylabel("M toman", fontsize=8)
     ax.set_title(title, fontsize=10, loc="left")
