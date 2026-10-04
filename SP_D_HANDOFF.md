@@ -1470,3 +1470,79 @@ the LLM's place: one vote, with the reasons in words; it never computes a number
 ```
 
 Not built; the owner's decision. `kpi_paper` and the suite unchanged.
+
+## 18. Weights for the stronger members, extrapolation, smart money, and ArvanCloud (2026-10-04)
+
+**The owner.** "From these committee members there are some who tend to be stronger; let's
+give them a heavier weight, and later on we can adjust, as we learn and see the quality of
+decisions." "Something I like to see is extrapolation, and bringing the money flow and smart
+money insight in." ArvanCloud's free offer: arvancloud.ir/fa/products/vps/free and
+/en/pricing/free.
+
+**ArvanCloud.** Both pages, and docs.arvancloud.ir, answer every client that is not a full
+browser with a JavaScript check ("Transferring to the website..."): from Anthropic's fetcher
+and from this machine in Iran alike. It was not bypassed. Public sources give paid plans
+(eco-small2: 1 vCPU, 2 GB, 25 GB SSD, about 6 EUR a month) and mention a free offer without
+its terms. What decides its use here, for the owner to read off the page: free for good or
+for a trial (a trial that ends is a paid server, the red line); size (1 vCPU, 1 GB and Linux
+are enough); identity checks (the owner's call); whether it reaches Neon abroad, and what it
+does when international traffic is cut; whether Daric and TSETMC treat its address as
+Iranian. Its role: a collector that reads Daric, TSETMC (the funds' flows, their NAV, Afran)
+and writes its own readings to Neon under a role that may only insert into its tables -- not
+a relay for GitHub's requests. Its tables are a schema change (migration, temporary branch,
+authorization).
+
+**Weights.** Measured strength (sections 12, 16, 17) sets the starting weights; nothing was
+strong in both eras, and weights chosen from the whole record flatter any replay of them, so
+their test is forward. Proposed:
+
+```text
+member                          weight   evidence
+the brake (volatility)          2.0      the only member to beat holding out of sample (2018)
+fair gap (18K / fair value)     1.5      2021-2026 sideways days: IC -0.27 (20d), luck 0%
+real dollar (dollar / cost      1.5      2021-2026 sideways days: IC -0.43 (60d), luck 0%
+  of money)
+market state (sideways, trend)  1.5      sideways days earn about fixed income; a new high in
+                                         a trend +7.4% in 20 days against +3.7%
+dollar's momentum (20 days)     1.0      2016-2020: IC +0.33, luck 0%; weak since
+the LLM                         1.0      no record yet
+world gold (60 days)            0.5      weak; the 2026 fall began with it
+money flow (gold funds)         0.5      no lead once 18K's own moves are removed (section 15)
+```
+
+The swing leaves gold when the members favouring fixed income hold at least 60% of the
+weight, the LLM among them, and returns when they hold 30% or less. At each quarter's end
+every weight is multiplied by (1 + its score), the score its share of right calls minus 50%,
+bounded 0.25-3; the new weights apply from the next quarter, like every rule change.
+
+**Extrapolation** (`research/rd_extrapolation.py`, walk-forward 2016-2026). A direction cannot
+be called 95% of the time; a band can be built to hold the price 95% of the time:
+
+```text
+held the price (80% band | 95% band)   2016-2020            2021-2026            95% band, about
+bell curve           5 days             77% | 90%            80% | 91%            +/- 7.6%
+                    20 days             73% | 90%            73% | 89%            +/-15.8%
+18K's own history    5 days             78% | 95%            80% | 95%            +/- 9.5%
+                    20 days             79% | 93%            79% | 95%            +/-19.9%
+                    60 days             68% | 86%            81% | 95%            +/-49.9%
+```
+
+The band from 18K's own past moves (filtered historical simulation) holds what it says at 5
+and 20 days; the bell curve does not (18K's tails are fat). The centre line: extrapolating
+the quant drift misses by a little less than "no change" at 20 days (3.9% / 4.3% typical
+miss in 2016-2020, 5.3% / 5.7% in 2021-2026) and by more at 60; extrapolating the 60-day
+line is worse at every horizon, and its direction is right 58-65% of the time against
+18K's 68-75% of rising. From 1405/07/09 (25.69M): in 20 trading days the centre is 26.85M,
+80% between 24.58 and 31.05M, 95% between 23.31 and 32.89M; in 60, 95% between 23.24 and
+46.83M. A preview with the cone: research/data/extrapolation_preview.png (the 21:00 chart is
+unchanged).
+
+**Smart money.** The funds' premium over their NAV is the hot-money reading (units bought
+faster than the gold under them). TSETMC publishes today's NAV only: on 2026-10-04 Ayyar's
+redemption NAV was 716,994 rial against its close of 746,487 the day before, about +4%. A proxy
+from prices (the funds' close against 18K the day before, against their own 60 days) showed
+nothing (IC +0.00 at 5 and 20 days, luck 81-89%) and read -7.1% on 2026-09-30: it does not
+measure the premium. The real premium's record has to be built from now on, daily, by a
+collector in Iran; the funds' flows were tested in section 15 (no lead). Proposed: the
+premium, individuals' net money into the gold funds and buyer power as one line in the 21:00
+message and as the money-flow member (weight 0.5), scored as its record grows.

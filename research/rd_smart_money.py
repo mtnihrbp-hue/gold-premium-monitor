@@ -165,3 +165,49 @@ for name in ("power", "inflow5", "surge"):
             null.append(np.corrcoef(residual(rs[idx], ctrl), residual(rr, ctrl))[0, 1])
         p = np.mean(np.abs(null) >= abs(partial))
         print(f"   {name:8} {h:2}d: IC {ic:+.2f}, after 18K's own moves {partial:+.2f}, luck would give this {p * 100:.0f}% of the time")
+
+# 5. hot money: the funds' premium (their price against the gold they hold), by proxy
+# TSETMC publishes a fund's NAV for today only (Fund/GetETFByInsCode: on 2026-10-04 Ayyar's
+# redemption NAV 716,994 against a close of 746,487 the day before, about +4%). Without its
+# history, the premium is proxied: a fund's close against 18K's close of the day before (the
+# funds follow 18K by a day, section 3), against its own last 60 days' median, averaged over
+# the funds by value traded. High = units bought faster than the gold under them rose.
+prem_w = defaultdict(float)
+prem_v = defaultdict(float)
+for fund in F.values():
+    pr = sorted(fund["prices"], key=lambda p: p["date"])
+    ds = [date(int(p["date"][:4]), int(p["date"][4:6]), int(p["date"][6:])) for p in pr]
+    raw = []
+    for k, p in zip(ds, pr):
+        i = gix.get(k)
+        if i is None or i < 1 or p["close"] <= 0:
+            raw.append(np.nan)
+            continue
+        raw.append(np.log(p["close"] / gc[i - 1]))
+    raw = np.array(raw)
+    for j in range(60, len(raw)):
+        w = raw[j - 60:j]
+        w = w[np.isfinite(w)]
+        if np.isfinite(raw[j]) and len(w) >= 40 and pr[j]["value"] > 0:
+            prem_w[ds[j]] += (raw[j] - np.median(w)) * pr[j]["value"]
+            prem_v[ds[j]] += pr[j]["value"]
+premium = np.array([prem_w[k] / prem_v[k] * 100 if prem_v.get(k) else np.nan for k in days])
+print("\n5. HOT MONEY: the funds' premium by proxy (their price against yesterday's 18K, against their own 60 days)")
+print(f"   {np.isfinite(premium).sum()} days; the latest: {days[-1]} {premium[-1]:+.2f}%")
+for h in (5, 20, 60) if 60 in R else (5, 20):
+    pass
+for h in (5, 20):
+    r = R[h]
+    ok = np.isfinite(premium) & np.isfinite(r) & np.isfinite(P1) & np.isfinite(P5) & np.isfinite(P20) \
+        & np.array([k >= date(2019, 1, 1) for k in days])
+    rs, rr = rankdata(premium[ok]) / ok.sum(), rankdata(r[ok]) / ok.sum()
+    ctrl = [rankdata(x[ok]) / ok.sum() for x in (P1, P5, P20)]
+    ic = np.corrcoef(rs, rr)[0, 1]
+    partial = np.corrcoef(residual(rs, ctrl), residual(rr, ctrl))[0, 1]
+    m = ok.sum()
+    null = [np.corrcoef(residual(rs[(np.arange(m) + boot.integers(60, m - 60)) % m], ctrl), residual(rr, ctrl))[0, 1]
+            for _ in range(500)]
+    top, bot = np.quantile(premium[ok], 0.9), np.quantile(premium[ok], 0.1)
+    print(f"   {h:2}d, 2019-2026: IC {ic:+.2f}, after 18K's own moves {partial:+.2f}, luck {np.mean(np.abs(null) >= abs(partial)) * 100:.0f}%;"
+          f"  18K after the top 10% of days {np.mean(r[ok][premium[ok] >= top]):+.2f}%, the bottom 10% "
+          f"{np.mean(r[ok][premium[ok] <= bot]):+.2f}% (all {np.mean(r[ok]):+.2f}%)")
