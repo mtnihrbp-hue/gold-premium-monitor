@@ -1381,3 +1381,92 @@ bottom quarter, all in outside it) lost far less than the brave trader in 2024-2
   PAPER goes live, not mid-quarter.
 - The sideways state, its 60-day range and any break go into the trader's evidence as
   facts with their measured record, not as rules.
+
+## 17. The convergent front office, parking the sale in fixed income, and the way back to gold (2026-10-04)
+
+**The owner.** "The front office can be a convergent decision made at back office,
+including the llm; explore the idea." The contract: the system buys 5 grams, sells 2 and
+holds 3; the 2 grams' cash goes directly into fixed income; when it wants to buy, it pulls
+the money out, buys, and adds to the 3 grams. On the sideways market: "understanding the
+move is a key; we have to find a proper answer to this, to take the money out of fixed
+income and buy gold. This is one of the key questions."
+
+**The question, made precise.** With cash in fixed income the growth-optimal share in gold
+is f* = (mu - r) / sigma^2, r the fixed-income return; section 12 had r = 0, so f* was 100%
+nearly always. Taking the money out of fixed income is a call that gold will beat fixed
+income from here. Target: 18K over the fixed-income index over the next 20 and 60 trading
+days. Gold beat fixed income over 60 days on 57% of days in 2018-07 -> 2023, 71% in
+2024-2026, 29% inside the 1405 channel and its jump; over 2018-07 -> 2023, 1 toman became
+x10.48 in gold and x3.50 in fixed income, over 2024-2026 x9.91 and x2.17.
+
+**The candidates** (`research/rd_rebuy.py`; rank correlation with gold over fixed income,
+and how often a circular shift that keeps the autocorrelation does as well):
+
+```text
+on sideways days                      2016-2020 20d / 60d          2021-2026 20d / 60d
+real dollar (dollar / fixed income    -0.00 (100%) / -0.01 (99%)   -0.20 (8%) / -0.43 (0%)
+  against its 500 days; low = behind)
+fair gap (18K to world gold x dollar) +0.13 (43%) / +0.06 (76%)    -0.27 (0%) / -0.22 (1%)
+dollar's last 20 days                 +0.35 (0%) / +0.32 (10%)     +0.01 (93%) / +0.09 (49%)
+real gold, world gold 60 days, quiet, sideways age: no consistent sign
+```
+
+Inside sideways markets in 2021-2026, gold beat fixed income by +8.4% over 60 days in the
+fifth of days with the dollar furthest behind the cost of money, against -1.9% in the fifth
+with it furthest ahead; nothing of the kind in 2016-2020, when the dollar's own momentum led
+instead. What says gold will beat fixed income changes with the era.
+
+**The committee** (`research/rd_committee.py`; the members above, z-scored on their own 500
+days; weights from outcomes known at the time). VOTE averages the members with the sign of
+their record, RECORD weights them by it, RIDGE regresses gold over fixed income on all of
+them. Out of sample: no skill in 2018-2023 (IC -0.02 to -0.07, the sign right 49-51%), a
+little in 2024-2026 (IC +0.05 to +0.09). The records reverse with the era: the dollar ahead
+of the cost of money pointed to gold at +0.76 in 2018 and away from it at -0.56 from 2021,
+so a record-weighted committee follows the last era's lesson and is wrong at the turns.
+
+**The contract, as the owner set it** (a core in gold and a swing that sits in gold or in
+fixed income; sales go to fixed income and buys come out of it, at once -- lag 0 -- or in
+2 trading days each way; Daric's 0.30% and fixed income's 0.10%):
+
+```text
+against holding gold                      2018-07 -> 2023     2024-2026          1405 channel and jump
+lag 0 | lag 2
+core 60%, swing always in fixed income    -28.6% | -27.5%     -42.6% | -42.8%    -4.4% | -9.6%
+swing by RIDGE                            -15.1% | -14.9%      -2.6% |  -6.7%    +2.4% | -10.9%
+all or nothing by RIDGE                   -36.9% | -43.2%      -9.5% | -12.6%    +6.0% | -11.0%
+consensus to leave, doubt to return (the swing leaves on 4 of 5 members with economic
+  signs, returns when 1 or none remain)   +14.1% | +16.5%      -1.9% |  -6.6%    +1.7% | -8.1%
+  the same with signs from the record     -19.8% | -17.5%      -8.7% | -10.1%   +10.5% | +4.9%
+```
+
+Every variant trails holding in at least one period; the best, consensus on economic signs,
+beat it over 2018-2023 and trailed over 2024-2026, and it is the best of twelve variants,
+so the number flatters it. In the 1405 channel RIDGE said "gold" throughout, while fixed
+income beat gold by 3-13% over 60 days. A 2-day transfer costs 8-13 pp in a market moving
+like 1405.
+
+**So, on the key question.** The system can see a sideways market (section 16). Nothing in
+prices, the dollar, world gold, the fair gap, the funds' flows or the age of the range says
+when the jump out of it begins, consistently across eras. The jumps on record (1397, 1399,
+1404, 1405) were the dollar's, after political and economic events; the one member that
+could see such events coming is the news, read live by an LLM and scored forward.
+
+**The convergent front office, proposed:**
+
+```text
+back office (each logs its view at every run, scored against what follows):
+  the brake (volatility), the market state (sideways or trend, the range), the drivers
+  (real dollar, fair gap, world gold, the dollar's momentum, each with its economic sign),
+  the LLM (the headlines and everything above), holding (the bar)
+front office, one decision:
+  default: the grams stay in gold, since gold beat fixed income by x3 over 2018-2026
+  sell part (the 2 of 5 grams) only on consensus: a supermajority of members, the LLM among them
+  the money goes straight to fixed income (Afran)
+  bring it back as soon as the consensus breaks: leaving gold is the expensive mistake,
+  returning the cheap one
+  equal weights, since the records reverse with the era; the records kept and shown, so
+  the owner sees who has been right
+the LLM's place: one vote, with the reasons in words; it never computes a number
+```
+
+Not built; the owner's decision. `kpi_paper` and the suite unchanged.
