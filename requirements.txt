@@ -26,3 +26,7 @@ scikit-learn==1.9.1
 # SP-D Direction: standard indicators and, later, candle patterns. Ships binary wheels
 # with the C library bundled (Linux py3.12 on the runner, Windows py3.13 locally).
 TA-Lib==0.8.1
+# SP-D PAPER: the quant engine's regime model (analysis/quant.py) and the analyst's chart
+# (alerts/chart.py, Agg backend, no display).
+statsmodels==0.14.4
+matplotlib==3.10.3

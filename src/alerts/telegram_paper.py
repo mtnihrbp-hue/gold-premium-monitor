@@ -36,9 +36,9 @@ def build_trade_message(action, grams, price, venue, at_utc, reason, holding, ca
     return "\n".join(lines)
 
 
-def build_report_message(day, venue, sell, sell_note, analyst, hold, base_day, trades, plan):
-    """`analyst`/`hold`: (holding, cash, quarter base value); `trades`: today's analyst
-    trades as (action, grams, price, venue, local HH:MM)."""
+def build_report_message(day, venue, sell, sell_note, analyst, hold, base_day, trades, plan, quant=None):
+    """`analyst`/`hold`/`quant`: (holding, cash, quarter base value); `trades`: today's
+    analyst trades as (action, grams, price, venue, local HH:MM)."""
     holding, cash, base = analyst
     total = cash + holding * sell
     lines = [f"<b>GOLDPremium: PAPER</b> · {persian_day(day, year=True)}, 21:00",
@@ -46,10 +46,11 @@ def build_report_message(day, venue, sell, sell_note, analyst, hold, base_day, t
              f"Cash: {_m(cash)}",
              f"<b>Total: {_m(total)}</b>",
              f"This quarter (since {persian_day(base_day)}): {_signed((total / base - 1) * 100)}"]
-    if hold is not None:
-        h_holding, h_cash, h_base = hold
-        h_total = h_cash + h_holding * sell
-        lines.append(f"Bought on day 1, never traded: {_m(h_total)} ({_signed((h_total / h_base - 1) * 100)})")
+    for label, other in (("Bought on day 1, never traded", hold), ("Quant engine, same money", quant)):
+        if other is not None:
+            o_holding, o_cash, o_base = other
+            o_total = o_cash + o_holding * sell
+            lines.append(f"{label}: {_m(o_total)} ({_signed((o_total / o_base - 1) * 100)})")
     if trades:
         for action, grams, price, trade_venue, clock in trades:
             lines.append(f"Today: {'bought' if action == 'BUY' else 'sold'} {grams} g at {_m(price)}"
@@ -62,4 +63,17 @@ def build_report_message(day, venue, sell, sell_note, analyst, hold, base_day, t
 
 
 def send_paper(text):
+    _send(text)
+
+
+CAPTION_LIMIT = 1024                     # Telegram's caption limit, in characters of text
+
+
+def send_paper_report(text, png=None):
+    """The 21:00 report: the chart with the report as its caption, or the text alone when
+    there is no chart, the caption is too long, or the photo fails."""
+    import re
+    from alerts.telegram import _send_photo
+    if png and len(re.sub(r"</?[bi]>", "", text)) <= CAPTION_LIMIT and _send_photo(png, text):
+        return
     _send(text)

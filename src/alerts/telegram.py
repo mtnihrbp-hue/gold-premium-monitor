@@ -43,6 +43,23 @@ def _send(text: str):
         print(f"TELEGRAM ERROR: {e}", file=sys.stderr)
 
 
+def _send_photo(png: bytes, caption: str = ""):
+    """A PNG with an HTML caption (Telegram allows 1,024 characters of caption)."""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print("TELEGRAM SKIP: token or chat not set", file=sys.stderr)
+        return False
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
+    try:
+        response = requests.post(url, data={"chat_id": TELEGRAM_CHAT_ID, "caption": caption, "parse_mode": "HTML"},
+                                 files={"photo": ("chart.png", png, "image/png")}, timeout=30)
+        response.raise_for_status()
+        print(f"TELEGRAM OK: photo sent to chat {TELEGRAM_CHAT_ID}")
+        return True
+    except Exception as e:
+        print(f"TELEGRAM PHOTO ERROR: {e}", file=sys.stderr)
+        return False
+
+
 def _money(value):
     if value is None:
         return "N/A"

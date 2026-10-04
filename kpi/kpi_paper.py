@@ -186,9 +186,10 @@ class KPIPaper(unittest.TestCase):
         self._orig = main.get_session
         main.get_session = Session
         import alerts.telegram_paper as tp
-        self._orig_send = tp.send_paper
-        self.sent = []
+        self._orig_send, self._orig_report = tp.send_paper, tp.send_paper_report
+        self.sent, self.charts = [], []
         tp.send_paper = self.sent.append
+        tp.send_paper_report = lambda text, png=None: (self.sent.append(text), self.charts.append(png))
         return main, Session
 
     def tearDown(self):
@@ -196,7 +197,7 @@ class KPIPaper(unittest.TestCase):
             import main
             import alerts.telegram_paper as tp
             main.get_session = self._orig
-            tp.send_paper = self._orig_send
+            tp.send_paper, tp.send_paper_report = self._orig_send, self._orig_report
 
     def test_13_a_day_of_runs(self):
         from database.models import PaperAccount, PaperActivity
@@ -207,7 +208,7 @@ class KPIPaper(unittest.TestCase):
         main._paper_run(_markets(), _State(), utc(4, 31))               # 08:01
         s = Session()
         accounts = {a.name: a for a in s.query(PaperAccount)}
-        self.assertEqual(set(accounts), {p.ANALYST, p.CAUTIOUS, p.HOLD, p.SYSTEM})
+        self.assertEqual(set(accounts), {p.ANALYST, p.QUANT, p.CAUTIOUS, p.HOLD, p.SYSTEM})
         by = {accounts[name].id: name for name in accounts}
         trades = s.query(PaperActivity).filter(PaperActivity.kind == "TRADE").all()
         self.assertEqual(sorted(by[x.account_id] for x in trades), sorted([p.ANALYST, p.CAUTIOUS, p.HOLD]),
@@ -228,14 +229,65 @@ class KPIPaper(unittest.TestCase):
         main._paper_run(_markets(), _State(), utc(17, 31))              # 21:01
         main._paper_run(_markets(), _State(), utc(17, 45))              # a second run after 21:00
         reports = s.query(PaperActivity).filter(PaperActivity.kind == "REPORT").all()
-        self.assertEqual(len(reports), 4, "one report per account per day")
+        self.assertEqual(len(reports), 5, "one report per account per day")
         report = [m for m in self.sent if "GOLDPremium: PAPER</b> ·" in m]
         self.assertEqual(len(report), 1)
         text = re.sub(r"</?[bi]>", "", report[0])
         for part in ("12 Mehr 1405, 21:00", "Gold: 5 g", "Total:", "This quarter (since 12 Mehr):",
-                     "Bought on day 1, never traded:", "Today: bought 5 g", "on Goldika", "Plan: sell 1 g"):
+                     "Bought on day 1, never traded:", "Quant engine, same money:", "Today: bought 5 g",
+                     "on Goldika", "Plan: sell 1 g"):
             self.assertIn(part, text)
+        self.assertTrue(self.charts and self.charts[0][1:4] == b"PNG", "the report carries its chart")
         s.close()
+
+    def test_13b_the_quant_engine(self):
+        from analysis import quant
+        self.assertEqual(quant.growth_share(0.002, 0.0004), 1.0, "mu/sigma^2 = 5, capped at 1")
+        self.assertAlmostEqual(quant.growth_share(0.0002, 0.0004), 0.5)
+        self.assertEqual(quant.growth_share(-0.001, 0.0004), 0.0, "no short selling")
+        self.assertEqual(quant.cost_band(1.0, 0.30), 0.0, "no band at the edge")
+        self.assertAlmostEqual(quant.cost_band(0.5, 0.30), (1.5 * 0.003 * 0.25 * 0.25) ** (1 / 3))
+        rng = __import__("numpy").random.default_rng(3)
+        calm = rng.normal(0.0015, 0.008, 700)
+        storm = rng.normal(0.001, 0.06, 60)
+        close = list(150_000_000 * __import__("numpy").exp(__import__("numpy").cumsum(__import__("numpy").concatenate([calm, storm]))))
+        view = quant.assess(close)
+        self.assertIsNotNone(view)
+        self.assertLess(view["f_star"], 0.6, "in a storm the growth-optimal share falls: the brake")
+        self.assertIsNone(quant.assess(close[:300]), "too little history is no answer")
+
+    def test_13c_the_brake_sells_down_in_a_storm(self):
+        swing = {"grams": 1, "entry": BUY, "sold_at": None, "sold_day": None}
+        d = p.brave(p.Book(10_000_000.0, 5), Q, swing, DAY, False, cap=0.5)
+        self.assertEqual(d.action, "SELL")
+        self.assertEqual(d.grams, 5 - int((10_000_000.0 + 5 * SELL) * 0.5 // SELL))
+        self.assertIn("volatility brake", d.reason)
+        opening = p.brave(p.Book(p.START_CASH_IRR, 0), Q, {}, DAY, False, cap=0.6)
+        self.assertEqual(opening.grams, int(p.START_CASH_IRR * 0.6 // BUY), "it buys only up to the brake")
+        self.assertEqual(p.brave(p.Book(p.START_CASH_IRR, 0), Q, {}, DAY, False, cap=None).grams, 5)
+
+    def test_13d_the_report_goes_out_with_its_chart(self):
+        import alerts.telegram as tg
+        import alerts.telegram_paper as tp
+        from alerts.chart import render
+        days = [date(2026, 5, 1) + timedelta(days=k) for k in range(150)]
+        close = _uptrend(150)
+        png = render(days, close, [x * 1.005 for x in close], [x * 0.995 for x in close], close,
+                     supports=[close[-30]], trades=[(days[-1], "BUY", close[-1])], live=close[-1] * 1.01)
+        self.assertEqual(png[:8], b"\x89PNG\r\n\x1a\n")
+        sent = {}
+        orig_photo, orig_send = tg._send_photo, tp._send
+        try:
+            tg._send_photo = lambda png_, caption: sent.update(photo=len(png_), caption=caption) or True
+            tp._send = lambda text: sent.update(text=text)
+            tp.send_paper_report("<b>GOLDPremium: PAPER</b> report", png)
+            self.assertIn("photo", sent)
+            self.assertNotIn("text", sent, "the report is the photo's caption")
+            sent.clear()
+            tp.send_paper_report("<b>GOLDPremium: PAPER</b> report", None)
+            self.assertIn("text", sent, "no chart: the text alone")
+        finally:
+            tg._send_photo, tp._send = orig_photo, orig_send
 
     def test_14_the_database_refuses_a_second_trade_a_day(self):
         from sqlalchemy.exc import IntegrityError

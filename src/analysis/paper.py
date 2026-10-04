@@ -19,19 +19,20 @@ The owner's scenario and contract (2026-10-04, SP_D_HANDOFF.md sections 9-10):
 9. Every run is logged with its inputs, UNDECIDED where the signals conflict.
 10. Rules change only at a quarter boundary, under a new version name.
 
-ANALYST v1, "brave" (owner: "the system trader is a brave one, not a conservative
-person"; research/rd_swing_targets.py). It holds a core and trades a swing part: about a
-fifth of its grams (1 of 5). It sells the swing grams once the venue pays TAKE_PCT over
-what they cost, buys them back RE_BUY_PCT under the sale price or after MAX_OUT trading
-days at the latest, so a rising market is never missed for long, and buys more whenever
-the cash covers another gram. On 2014-2023 at Daric's cost this matched holding (x25.89
-against x25.94, better in 8 quarters and worse in 7, about 10 trades a year); on the
-2024-2026 holdout it trailed by 0.8 pp a quarter. At Goldika's cost it trails by 0.6-2.5
-pp. Selling the whole core on a confirmed break (v0) cost far more (x19.65 against
-x25.94), so v1 never sells its core on technicals; v0 runs beside it as a shadow.
+ANALYST v1.1, "brave" (owner: "the system trader is a brave one"; "reverse one, let it
+trade more", 2026-10-04). It trades a swing part, about a fifth of its grams: sells it
+once a venue pays TAKE_PCT over its cost, buys it back RE_BUY_PCT under the sale or
+after MAX_OUT trading days at the latest, and buys more whenever the cash covers a gram.
+Over it sits the quant engine's volatility brake (analysis/quant.py): the gold share
+never exceeds the growth-optimal f* = mu/sigma^2, so in a storm the brake sells down.
+At Daric's cost (research/rd_trade_more.py): swing + brake x29.13 against holding's
+x26.19 on 2016-2023 (+11.2%, 26 trades a year), x9.22 against x9.91 on 2024-2026
+(-7.0%); the swing alone +0.7% and -6.5%. Trading more measurably costs more: a +3%
+target or a 40% swing lost 12-25% against holding on 2024-2026, so the target stays +5%.
 
-Shadow accounts, silent, for the quarterly review: v0 ("cautious"), buy-and-hold, and the
-system's own final BUY/SELL.
+Shadow accounts, silent, for the quarterly review: the quant engine alone ("quant": the
+growth-optimal share inside its Davis-Norman band, +13.1% / -0.7% against holding), v0
+("cautious"), buy-and-hold, and the system's own final BUY/SELL.
 """
 
 import math
@@ -49,9 +50,10 @@ RE_BUY_PCT = 2.0                          # buy it back 2% under the sale price 
 MAX_OUT_DAYS = 5                          # ... or after 5 trading days at the latest
 BAND = 0.2                                # v0: trade only this far off its target
 REPORT_HOUR = 21                          # the first run from 21:00 Tehran reports the day
-ANALYST, CAUTIOUS, HOLD, SYSTEM = "analyst", "cautious", "buy_and_hold", "system"
+ANALYST, QUANT, CAUTIOUS, HOLD, SYSTEM = "analyst", "quant", "cautious", "buy_and_hold", "system"
 ACCOUNTS = (                              # (name, policy version, pushes to Telegram)
-    (ANALYST, "analyst-v1-brave", True),
+    (ANALYST, "analyst-v1.1-brave-braked", True),
+    (QUANT, "quant-v1-growth-optimal", False),
     (CAUTIOUS, "analyst-v0-cautious", False),
     (HOLD, "buy-and-hold", False),
     (SYSTEM, "follow-final-decision", False),
@@ -110,15 +112,22 @@ def _trading_days_since(start, today):
     return days
 
 
-def brave(book, quote, swing, today, traded_today):
+def brave(book, quote, swing, today, traded_today, cap=1.0):
     """The brave analyst's decision this run. `swing`: its state from the last run --
-    {"grams", "entry", "sold_at", "sold_day"} -- or {} before its first trade."""
+    {"grams", "entry", "sold_at", "sold_day"} -- or {} before its first trade. `cap`: the
+    quant engine's growth-optimal share f*, the most of the account it holds in gold."""
     swing = dict(swing or {})
     if traded_today:
         return Decision("HOLD", 0, None, "one trade a day: already traded today", swing, plan(swing))
     if quote is None:
         return Decision("HOLD", 0, None, "no fresh buy and sell price on any venue", swing, plan(swing))
-    affordable = int(book.cash // quote.buy)
+    cap = 1.0 if cap is None else float(cap)
+    value = book.value(quote.sell)
+    allowed = int(math.floor(cap * value / quote.sell))
+    if book.grams > allowed:                                  # the brake: a storm, sell down
+        return Decision("SELL", book.grams - allowed, quote.sell,
+                        f"volatility brake: the growth-optimal share is {cap:.0%}", swing, plan(swing))
+    affordable = max(0, min(int(book.cash // quote.buy), int(math.floor(cap * value / quote.buy)) - book.grams))
 
     if not swing:                                         # day one: all in, a fifth to trade
         if affordable < 1:
@@ -219,7 +228,7 @@ def decide(book, target, quote, traded_today, band=BAND):
     if quote is None:
         return Decision("HOLD", 0, None, "no fresh buy and sell price on any venue")
     value, share = book.value(quote.sell), book.share(quote.sell)
-    if abs(target - share) < band:
+    if abs(target - share) <= band:
         return Decision("HOLD", 0, None, "on target")
     if target > share:
         want = int(math.floor(target * value / quote.buy))

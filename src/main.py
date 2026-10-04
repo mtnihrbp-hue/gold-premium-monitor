@@ -478,6 +478,8 @@ def _paper_run(markets, signal_state, now):
         panel_row = latest_direction_snapshot(session)
         stance_score = ((panel_row.panel or {}).get("stance") or {}).get("score") if panel_row else None
         quote_json = {"venue": quote.venue, "buy": quote.buy, "sell": quote.sell} if quote else None
+        engine = _quant_view(session, accounts, close, day)
+        f_star = engine.get("f_star") if engine else None
 
         for name, account in accounts.items():
             last = paper_latest(session, account.id)
@@ -488,12 +490,20 @@ def _paper_run(markets, signal_state, now):
             state = (prev.inputs or {}) if prev is not None else {}
             found, out, swing = [], None, None
             if name == paper.ANALYST:
-                decision = paper.brave(book, quote, state.get("swing"), day, traded)
+                decision = paper.brave(book, quote, state.get("swing"), day, traded, cap=f_star)
                 why, swing = decision.reason, decision.swing
                 found = paper.conflicts(stance_score, final, swing)
             else:
                 share = book.share(quote.sell) if quote else 0.0
-                if name == paper.CAUTIOUS:
+                band = paper.BAND
+                if name == paper.QUANT:
+                    from analysis.quant import cost_band
+                    target = share if f_star is None else f_star
+                    why = ("no quant view: hold" if f_star is None
+                           else f"growth-optimal share {f_star:.0%} (drift {engine['mu'] * 300 * 100:+.0f}%/yr, "
+                                f"volatility {(engine['variance'] * 300) ** 0.5 * 100:.0f}%/yr)")
+                    band = cost_band(target, (quote.buy - quote.sell) / quote.buy * 100) if quote else 0.0
+                elif name == paper.CAUTIOUS:
                     was_out = bool(state.get("out"))
                     target, out, why = (paper.analyst_target(sig, was_out) if sig is not None
                                         else (share, was_out, "not enough tgju history"))
@@ -501,11 +511,12 @@ def _paper_run(markets, signal_state, now):
                     target, why = 1.0, "buy and hold"
                 else:
                     target, why = paper.system_target(final, share)
-                decision = paper.decide(book, target, quote, traded)
+                decision = paper.decide(book, target, quote, traded, band=band)
             after = paper.apply(book, decision)
             inputs = {"policy": account.policy, "quote": quote_json, "signals": sig, "final_decision": final,
                       "valuation": getattr(signal_state, "valuation", None), "stance_score": stance_score,
-                      "conflicts": found, "out": out, "swing": swing, "plan": decision.plan}
+                      "conflicts": found, "out": out, "swing": swing, "plan": decision.plan,
+                      "quant": engine}
             value = after.value(quote.sell) if quote else None
             if decision.action in ("BUY", "SELL"):
                 save_paper_activity(session, account_id=account.id, at=now, local_date=day, kind="TRADE",
@@ -515,7 +526,7 @@ def _paper_run(markets, signal_state, now):
                 if account.pushes:
                     send_paper(build_trade_message(decision.action, decision.grams, decision.price, quote.venue,
                                                    now, why, after.grams, after.cash, quote.sell, decision.plan))
-            elif name in (paper.ANALYST, paper.CAUTIOUS):
+            elif name in (paper.ANALYST, paper.QUANT, paper.CAUTIOUS):
                 action = "UNDECIDED" if found else "HOLD"
                 reason = why if name == paper.ANALYST else f"{why}; {decision.reason}"
                 save_paper_activity(session, account_id=account.id, at=now, local_date=day, kind="EVAL",
@@ -532,11 +543,34 @@ def _paper_run(markets, signal_state, now):
         session.close()
 
 
+def _quant_view(session, accounts, close, day):
+    """The quant engine's view this run: its regime model fitted once per Persian quarter
+    (the contract changes rules only at a quarter boundary) and filtered on the completed
+    candles. The fitted parameters live in the quant account's last row. None on failure."""
+    from analysis import paper, quant
+    from database.repository import paper_latest
+    from timeutil import persian_quarter
+
+    try:
+        quarter = persian_quarter(day)[2]
+        prev = paper_latest(session, accounts[paper.QUANT].id, kinds=("EVAL", "TRADE"))
+        stored = ((prev.inputs or {}).get("quant") or {}) if prev is not None else {}
+        fitted = stored.get("fitted") if stored.get("quarter") == quarter else None
+        view = quant.assess(close, fitted)
+        if view is None:
+            return None
+        view["quarter"] = quarter
+        return view
+    except Exception as e:
+        print(f"PAPER quant view unavailable: {e}")
+        return None
+
+
 def _paper_report(session, accounts, day, quote, sig, now):
     """The day's REPORT rows and the analyst's 21:00 message, once per Tehran day. The value
     is at the venue's sell price; without a fresh quote at this run, the day's last one."""
     from analysis import paper
-    from alerts.telegram_paper import build_report_message, send_paper
+    from alerts.telegram_paper import build_report_message, send_paper_report
     from database.repository import paper_latest, paper_rows_on, paper_value_before, save_paper_activity
     from timeutil import local_date, persian_quarter, to_tehran
 
@@ -571,10 +605,45 @@ def _paper_report(session, accounts, day, quote, sig, now):
     prev = paper_latest(session, analyst.id, kinds=("EVAL", "TRADE"))
     plan = (prev.inputs or {}).get("plan") if prev is not None else None
     holding, cash, base, base_day = lines[paper.ANALYST]
-    hold = lines.get(paper.HOLD)
-    send_paper(build_report_message(day, venue, sell, note, (holding, cash, base),
-                                    hold[:3] if hold else None, base_day, trades, plan))
-    print(f"PAPER report sent: {holding} g + {cash:,.0f} cash at {sell:,.0f} ({venue})")
+    hold, engine = lines.get(paper.HOLD), lines.get(paper.QUANT)
+    text = build_report_message(day, venue, sell, note, (holding, cash, base), hold[:3] if hold else None,
+                                base_day, trades, plan, quant=engine[:3] if engine else None)
+    png = _paper_chart(session, analyst, sell)
+    send_paper_report(text, png)
+    print(f"PAPER report sent: {holding} g + {cash:,.0f} cash at {sell:,.0f} ({venue}), chart {'yes' if png else 'no'}")
+
+
+def _paper_chart(session, analyst, live_sell):
+    """The analyst's chart for the 21:00 report: tgju's last 120 daily candles, EMA20 and
+    EMA50, the swing supports and resistances, the analyst's trades and the live price.
+    None on failure: the report then goes out as text."""
+    try:
+        import numpy as np
+        import talib
+        from alerts.chart import render
+        from analysis.direction import GOLD
+        from caluclator.technical import split_levels, swing_levels
+        from database.models import MarketDailyCandle, PaperActivity
+        from timeutil import to_tehran
+
+        rows = (session.query(MarketDailyCandle).filter(MarketDailyCandle.source == "tgju",
+                                                        MarketDailyCandle.instrument == GOLD)
+                .order_by(MarketDailyCandle.trade_date.asc()).all())
+        if len(rows) < 260:
+            return None
+        dates = [r.trade_date for r in rows]
+        o, h, l, c = (np.array([float(getattr(r, k)) for r in rows]) for k in ("open", "high", "low", "close"))
+        usable = [r.source_quality == "COMPLETE" and not (o[j] == h[j] == l[j] == c[j]) for j, r in enumerate(rows)]
+        supports, resistances = split_levels(swing_levels(h, l, upto=len(c) - 1, usable=usable), live_sell)
+        trades = [(to_tehran(t.at).date(), t.action, float(t.price)) for t in
+                  session.query(PaperActivity).filter(PaperActivity.account_id == analyst.id,
+                                                      PaperActivity.kind == "TRADE").all()]
+        return render(dates, o, h, l, c, ema20=talib.EMA(c, 20), ema50=talib.EMA(c, 50),
+                      supports=[x["price"] for x in supports[:3]], resistances=[x["price"] for x in resistances[:2]],
+                      trades=trades, live=live_sell, title="18K daily · PAPER analyst")
+    except Exception as e:
+        print(f"PAPER chart unavailable: {e}")
+        return None
 
 
 def _send_direction_report():
