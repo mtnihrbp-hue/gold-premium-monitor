@@ -157,3 +157,49 @@ def time_at_price_zones(close, upto, lookback=LEVEL_LOOKBACK_DAYS, bin_pct=ZONE_
     order = np.argsort(counts)[::-1][:top]
     return [{"price": float((edges[k] + edges[k + 1]) / 2), "days": int(counts[k])}
             for k in order if counts[k] > 0]
+
+
+VOLUME_PROFILE_DAYS = 120      # about six months of trading days
+VALUE_AREA = 0.70              # the share of the traded value the value area holds
+
+
+def volume_profile(high, low, close, volume, upto, lookback=VOLUME_PROFILE_DAYS, bin_pct=1.0):
+    """Volume at price over the `lookback` days to `upto`: each day's volume spread evenly
+    across its low..high range, in `bin_pct` bins. Returns {"poc", "val", "vah"} (the most
+    traded price and the value area's low and high edge), or None without volume.
+
+    No platform publishes volume; the gold funds on the Tehran exchange do (TSETMC). Their
+    value traded spread over 18K's own daily range is the volume this uses. On 2019-2026
+    the value-area edges held as support/resistance 5-18 pp more often than a level with
+    no history; the POC alone did not (-19 / +11 pp): SP_D_HANDOFF.md section 11.
+    """
+    first = max(0, upto - lookback + 1)
+    lo_p, hi_p = np.log(np.min(low[first:upto + 1])), np.log(np.max(high[first:upto + 1]))
+    step = np.log1p(bin_pct / 100)
+    edges = np.arange(lo_p, hi_p + step, step)
+    if len(edges) < 3:
+        return None
+    mass = np.zeros(len(edges) - 1)
+    for j in range(first, upto + 1):
+        if not volume[j] or volume[j] <= 0:
+            continue
+        a, b = np.log(min(low[j], close[j])), np.log(max(high[j], close[j]))
+        ka = int(np.clip(np.searchsorted(edges, a) - 1, 0, len(mass) - 1))
+        kb = int(np.clip(np.searchsorted(edges, b) - 1, ka, len(mass) - 1))
+        mass[ka:kb + 1] += volume[j] / (kb - ka + 1)
+    if mass.sum() <= 0:
+        return None
+    mids = np.exp((edges[:-1] + edges[1:]) / 2)
+    poc = int(np.argmax(mass))
+    lo_k = hi_k = poc
+    area = mass[poc]
+    while area < VALUE_AREA * mass.sum():
+        down = mass[lo_k - 1] if lo_k > 0 else -1.0
+        up = mass[hi_k + 1] if hi_k < len(mass) - 1 else -1.0
+        if up >= down:
+            hi_k += 1
+            area += mass[hi_k]
+        else:
+            lo_k -= 1
+            area += mass[lo_k]
+    return {"poc": float(mids[poc]), "val": float(mids[lo_k]), "vah": float(mids[hi_k])}

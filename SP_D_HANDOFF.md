@@ -850,3 +850,106 @@ Next: buy 1 g back at 27.60M or less, or on 21 Mehr at the latest
 Cloudflare's side; then the GitHub secrets, the TSETMC collector, the production
 migration (authorization), the continuity server (a decision), and the merge after the
 safe tag.
+
+## 11. Toward a senior analyst: the drivers, the data, the evidence (2026-10-04)
+
+**The owner's review of section 10.** "It's not buying 5 grams, hold 4, trade 1; maybe you
+trade 2 or 3; it depends on the comprehensive analysis." The analyst must compute the
+chart and its support and resistance; volume profile, LIT and AMD may come alive with
+TSETMC's data; the news leg: the analyst can see the news; in a downtrend like 20 -> 15
+"buying it even in sprinkle mode was a bad idea"; "so far it has been so weak R&D"; the
+analyst "is so junior". The owner is building the Cloudflare relay meanwhile.
+
+**New data: the gold funds on the Tehran exchange** (`research/fetch_tsetmc_gold_funds.py`,
+from an Iranian connection; research/data, git-ignored). 20 commodity funds, of which 19
+hold gold (سافرون is saffron): daily OHLC, volume, value traded and trade count, and the
+money flow split between individuals and institutions -- طلا 2,239 days (from 2017), زر
+2,160, گوهر 2,119, عیار 2,001, كهربا 1,252, سافرون excluded, and 14 younger funds.
+
+**What drove the 2026 drop** (`research/rd_downtrend_2026.py`): world gold, not the
+dollar. 2026-01-29 -> 06-16: 18K -24.1%, world gold -19.7% ($5,278 in February ->
+$4,013 in June), the dollar -2.2%. The rally after it was the dollar (+67% to 10-03,
+world gold -4%). The stance and v0 read 18K's own trend and the dollar's; neither read
+world gold's. Individuals bought a net 39,268 billion toman of gold funds in May, in the
+middle of the fall.
+
+**The comprehensive model** (`research/rd_analyst_model.py`): 18K's trend, momentum and
+range position; the dollar's and world gold's trends and drawdowns; 18K's gap to fair
+value; the gold funds' net individual flow and value traded (2019 onward). Gradient
+boosting refitted each year on earlier years only, scored on the next:
+
+```text
+                              2016-2023 (2019-23 with funds)      2024-2026
+drop 8%+ within 20 days   18K+dollar  AUC 0.64                    AUC 0.66
+                          all prices  AUC 0.64                    AUC 0.56
+                          + funds     AUC 0.79 (556 days)         AUC 0.58
+rise 8%+ / higher in 20d  AUC 0.45-0.60 throughout: no skill
+Brier skill against the base rate: negative everywhere (probabilities too extreme)
+```
+
+Drop risk can be ranked a little; rises cannot. As a policy (the share in gold from
+P(rise) - P(drop), five steps, Daric's cost) it halved the 2026 drop (x0.90 against
+holding's x0.80) and ended level with holding from 01-29 to 10-01 (x1.30 / x1.29), but
+trailed it over 2016-2023 (x17.1 / x22.3) and 2024-2026 (x8.5 / x9.9), trading about 40
+times a year. As a risk switch (cut to 50% or out when the drop risk is in its top band)
+it protected the 2026 drop (x0.90-1.00) and cost far more elsewhere (x11.7 / x22.3).
+
+**Sizing by the drivers** (`research/rd_driver_regimes.py`: the share in gold by how many
+of the dollar, world gold and 18K are in a confirmed downtrend): worse than holding in
+every span, the 2026 drop included (x0.72 / x0.80). A trend confirmed down is a fall
+already made, and the rebound after it is missed.
+
+So: every price-based timing approach tested -- single rules (sections 9-10), the full
+model, the risk switch, driver regimes -- trails holding after costs over the long run;
+only the swing rule keeps pace (section 10). On the owner's question: buying into the
+2026 drop looks bad in hindsight, but no price signal of the time separated it from the
+dips that recovered, and the signals that would have kept the account out of it also
+kept it out of the rebounds. What did change first was world gold, a global event; an
+earlier warning has to come from information prices do not hold yet.
+
+**Support and resistance with real volume** (`research/rd_volume_profile.py`): the gold
+funds' value traded spread over 18K's daily range, 120 days, 1% bins. A support holds
+when 18K never closes 2% below it within 20 days, against a level with no history:
+
+```text
+                        2019-2023 support / resistance     2024-2026 support / resistance
+value area low          +6 pp / +7 pp                      +15 pp (6 days) / +18 pp (8 days)
+value area high         +11 pp / -11 pp                    +5 pp / -4 pp
+POC                     -19 pp / -2 pp                     +11 pp / -1 pp
+HVN                     -16 pp / +10 pp                    +1 pp / +3 pp
+```
+
+The value area's edges carry a modest edge; the POC and HVNs are inconsistent. Today
+(10-01, 18K 25.69M) the 120-day value area spans 18.65-25.64M, POC 23.91M.
+`caluclator/technical.volume_profile` computes it.
+
+**The chart** (`alerts/chart.py`, a draft, not sent by any message yet): 120 daily candles,
+EMA20 and EMA50, the swing supports and resistances with their prices, the value area
+where volume exists, the PAPER trades, and the live price; PNG for Telegram's sendPhoto
+(matplotlib, to be pinned in requirements.txt when it is wired). `research/chart_preview.py`
+renders it from the stored history.
+
+**The news leg as stored:** 6,928 headlines from 2026-08-24, 10 sources (دنیای اقتصاد,
+تجارت نیوز, Tehran Times, Google News queries on the gold price, the rial and Middle East
+strikes, investing.com and others). Classified by keywords only: impact UNKNOWN on 88%,
+gold direction RISING 696 against FALLING 34, topic empty on every row -- a degenerate
+classifier of the kind CLAUDE.md lists. Six weeks cannot be tested. A real news leg needs
+an event classification (an LLM may classify and summarise headlines; it never computes
+prices or decides) and a long history to test against (GDELT's event database covers
+Iran from 2015).
+
+**The senior analyst, as designed (not built):** the grams it holds, from 0 to all, set by
+an assessment of every leg, each leg weighted by its measured evidence and logged:
+world gold's and the dollar's regimes (the drivers); the drop-risk model as a risk
+overlay; 18K's gap to fair value inside the day for the entry time (the +0.3-0.4%
+follow-through, section 10); support, resistance and the value area for the targets,
+in place of the fixed +5% and -2%; the gold funds' flows once the relay brings TSETMC;
+news once it is classified and tested. It goes live only after it beats v1 in a replay,
+and is then judged live by the quarter.
+
+**Next R&D, in order:** (1) world gold's own early warning (its trend, momentum and
+drawdown against 18K's next 20-60 days); (2) the news leg: GDELT's Iran event history and
+an LLM classification of our headlines; (3) level-based swing targets (sell at
+resistance or the value area's high, buy back at support or its low) against v1's fixed
+ones; (4) intraday entry timing on the fair-value gap; (5) TSETMC flows, live, through
+the relay.
