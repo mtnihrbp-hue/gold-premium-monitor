@@ -1033,3 +1033,83 @@ reached 2022-05-31 (11,000 rows) and completes with the next two runs.
 **Open:** which analyst pushes (the quant engine, or v1 with the quant engine as a
 shadow); the news leg (GDELT history, an event classification); the Iranian server; the
 GitHub relay secrets and the merge after the safe tag.
+
+## 13. The brave trader under the brake, the chart in the report, free routes (2026-10-04)
+
+**The owner's decisions.** (1) The brave trader pushes and trades; the quant engine runs
+silently beside it. "With a good trading routine, instead of gaining 30 percent, user can
+gain 50%; that's the key to beat the inflation." (2) "The core under this whole system is
+being free: buying a server is a red line." (3) Start the news leg with GDELT. (4) Keep
+the remaining branches for now. The efficient frontier and the chart in the message were
+raised; the initial decision matrix (the system's own BUY/WAIT/SELL) is legacy and is not
+to be touched -- the analyst/trader with the paper money is the new, separate thing. An
+LLM through Groq may come in "if it helps; no help, no add".
+
+**Trading more** (`research/rd_trade_more.py`, Daric's cost, against holding):
+
+```text
+                                         2016-2023                 2024-2026
+volatility brake alone (quant engine)    +13.1%, 16 trades/yr      -0.7%, 4/yr
+swing 20%, +5%, -2% or 5d, + brake       +11.2%, 26/yr             -7.0%, 25/yr
+the same swing without the brake         +0.7%, 12/yr              -6.5%, 22/yr
+swing 20%, +3%, -1.5% or 5d, + brake     +6.1%, 31/yr              -12.1%, 27/yr
+swing 40%, +3%, -2% or 5d, + brake       -11.8%, 31/yr             -24.7%, 26/yr
+```
+
+The brake adds about 10 pp over 2016-2023 (2018's storm) for 0.5 pp over 2024-2026;
+trading more -- a tighter target, a larger swing -- measurably costs more, because in a
+steady rise every swing sold is gold that keeps rising. So the pushing trader is v1.1:
+the +5% / -2% / 5-day swing under the quant engine's brake.
+
+**Built** (`analysis/quant.py`, `analysis/paper.py`, `main.py`): the quant engine sizes at
+f* = clip(mu/sigma^2, 0, 1), mu from 18K's two regimes (fitted once per Persian quarter,
+the fitted parameters kept in the quant account's rows, filtered each run: 3.5 s to fit,
+instant to filter), sigma^2 the EWMA variance, inside the Davis-Norman band for the
+venue's own buy/sell gap. Its f* caps the brave trader's gold: above the cap the brake
+sells down ("volatility brake: the growth-optimal share is 60%"), and buys stop at it.
+Five accounts: analyst (v1.1, pushes), quant, cautious (v0), buy-and-hold, system. The
+21:00 report gains "Quant engine, same money: ..." and goes out as the chart with the
+report as its caption (353 characters against Telegram's 1,024), the text alone if the
+chart fails. statsmodels 0.14.4 and matplotlib 3.10.3 pinned. On 2026-10-04's data the
+engine reads a drift of +67% a year at 29% volatility: f* = 1.00, fully invested.
+`kpi_paper` 24/24; full suite 30/30 files, exit 0.
+
+**The efficient frontier, gold and the dollar** (tgju, 2014-2023): log drift 38% against
+32% a year, volatility 30% against 36%, correlation 0.51; the growth-maximizing mix is
+100% gold (x28.1 against x24.5 at 50/50 and x16.8 all dollar; 2024-2026 x10.2 / x7.4 /
+x5.1). The dollar held up in the 2026 drop (x0.97 against x0.78). Under the contract
+(gold or toman cash) the frontier is the Kelly line already used; a dollar sleeve -- the
+brake parking in dollars rather than toman -- would be a contract change, the owner's
+call.
+
+**Free routes around the geo-blocking.** Measured: Daric refuses foreign addresses on
+some days (GitHub's and Cloudflare's alike), TSETMC on all of them; GDELT is filtered
+from Iran; and this machine, on an Iranian address, reaches Neon over plain HTTPS
+(Neon's SQL-over-HTTP endpoint answered in 5.3 s, 2026-10-04), so no Postgres port is
+needed. The options, all free:
+
+```text
+1  an Iran-side node on a device the owner already has and keeps on (an office or home
+   PC, or an old Android phone with Termux): every hour it fetches Daric and TSETMC and
+   writes them to Neon over HTTPS; the runner reads them from Neon. It is also the
+   continuity node: in an Iran-only cut it keeps collecting into a local file and sends
+   through Bale's bot API (domestic), and syncs to Neon when the link returns.
+2  the same device as a GitHub self-hosted runner (free): workflows, or their Iran-only
+   steps, run on it.
+3  the Cloudflare relay, already deployed: Daric on the days it lets foreign addresses in.
+4  free tiers of Iranian platforms (Liara, Hamravesh, ArvanCloud): to be checked; free
+   credit is not the same as free forever.
+```
+
+The strongest is 1 (with 2 as its extension): it is free, it reaches every Iranian
+source, and it is the continuity plan of section 10 without a rented server. It needs a
+device that stays on and online.
+
+**GDELT** (the news leg). Filtered from Iran; through Psiphon's shared exit it answers 429.
+From GitHub's runner, one request per theme and year took 90 minutes for two and a half
+themes (429s and slow answers) and was cancelled before its artifact step: nothing was
+kept. The fetch now asks for 2017-2026 in one request per theme and mode, 10 s apart,
+saves after every theme and uploads whatever it has. `research/rd_news_gdelt.py` is
+written for the result: an event study of coverage jumps and tone falls against the
+dollar's, world gold's and 18K's next 5 and 20 days, and the walk-forward drop detector
+with and without news.
