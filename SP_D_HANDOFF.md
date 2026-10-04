@@ -1177,3 +1177,102 @@ where the sources are normally reachable, writing to Neon over HTTPS (section 13
 git-ignored), the Neon branch temp-two-trades-test.
 
 `kpi_paper` 26/26; full suite 30/30 files, exit 0.
+
+## 15. A second trade, the chart's accuracy, Fibonacci, smart money; the LLM trader defined (2026-10-04)
+
+**The owner.** The trader should act like a human expert, with no fixed rule: "I am setting
+up a system and giving everything the system needs and then see what the system does."
+How accurate is the chart, and how can its accuracy be locked above 95%? Does a second
+trade a day (a maximum, not a must) increase profit significantly? Does Fibonacci help
+the trader decide, or is it only drawn? Parking in dollars is not possible in reality:
+dropped. Smart money and hot money in the gold funds (Ayyar and the like: volume
+profile, LIT) would be a better call than the news alone. Groq runs from GitHub; first
+define what we want from an LLM.
+
+**A second trade a day** (`research/rd_two_trades.py`, production's hourly readings,
+2026-08-04 -> 10-04; Daric's own series has 32 of the 62 days, the runner was refused on
+the rest). The swing rules of sections 10-14, replayed at every reading, came to the same
+money with one or two trades allowed (Daric 184.5-185.3M with either, Goldika
+181.0-182.5M; holding 187.3M and 186.4M): the second slot fired on at most one day. The
+ceiling is a trader who knew every coming price, all in or all out:
+
+```text
+end value from 135M toman              hold     1 a day   2 a day   the second adds
+Daric, its own 32 days                 188.1M   226.3M    229.4M    +1.4%
+median platform, Daric's 0.30%, 62 d   195.2M   264.7M    280.8M    +6.1%
+median platform, Goldika's 2.37%       191.2M   207.7M    207.7M     0.0%
+```
+
+The money is in being right about the direction, not in trading more often; even perfect
+foresight gains 1-6% from the second slot over two months, and nothing at Goldika's cost.
+The maximum stays at two: it costs nothing when unused.
+
+**The chart's accuracy** (`research/rd_chart_accuracy.py`, tgju daily 2014-2026, every
+line drawn as the 21:00 chart draws it, from the days before only). Each line against a
+CONTROL: the same kind of line at a distance from the price taken from another day, so it
+carries no information about this day's swings.
+
+```text
+                         10-day projection held   bounced at the first touch (3% off before 2% through)
+trend line, support      79.0%  (control 78.8%)   34.6% of 335  (control 48.2%)
+trend line, resistance   67.2%  (control 67.2%)   20.0% of 489  (control 27.8%)
+swing level, support     81.7%  (control 76.2%)   56.0% of 350  (control 54.7%)
+swing level, resistance  57.1%  (control 55.8%)   20.9% of 479  (control 24.9%)
+
+a line with no history, 10-day projection held:
+support     1% away 60%, 2% 73%, 3% 81%, 5% 90%, 8% 95%, 10% 97%
+resistance  1% away 39%, 2% 49%, 3% 59%, 5% 74%, 8% 86%, 10% 90%
+```
+
+A line's "accuracy" is set by its distance from the price: any support 8% under the price
+holds 95% of ten-day spans. 95% can therefore be had by drawing lines far away, and it would
+say nothing. What counts is the edge over the control, and on 18K the trend lines and swing
+levels have none; at the touch, trend lines did worse than the control. The value-area
+edges of the volume profile remain the only level with a measured edge (section 11).
+
+**Fibonacci** is drawn, not used, and the record does not argue for using it: inside a
+rally (8% ZigZag), the first touch of a retracement from above bounced 61.0% of 292 times
+at 23.6/38.2/50/61.8% against 63.8% of 475 at 15/30/44/56/70%.
+
+**Smart money and hot money** (`research/rd_smart_money.py`; 19 gold funds, 1,665 days,
+2017-06 -> 2026-09; entry one trading day after the flow is public). Individuals' net
+inflow, buyer power (individuals' value per buyer over value per seller) and value-traded
+surges, against 18K's next 1, 5 and 20 days. Buyer power was the one signal with the same
+sign in both periods (top against bottom 10% of days, 5 days on: +1.44% / -0.31% in
+2019-2022, +1.66% / +0.35% in 2023-2026). It does not survive the checks: removing 18K's
+own last 1/5/20 days and a circular-shift bootstrap that keeps the autocorrelation, its
+IC falls to +0.05 (5 days) and +0.06 (20 days), which luck matches 28% and 37% of the time;
+5-day inflow +0.09, 13%. The funds follow 18K (18K yesterday against the funds today +0.42;
+the funds today against 18K tomorrow -0.01). Daily flows carry no usable lead; intraday
+flows (the order book, LIT's sweeps) have no history to test, and TSETMC refuses the
+runner.
+
+**What the LLM is for: the discretionary trader, defined.** No single tool has an edge on
+18K over twelve years -- lines, levels, Fibonacci, news counts, fund flows -- and the
+owner's experiment is the one that remains: give a judge everything, and record what it
+does. Proposed, not built:
+
+```text
+account     llm-analyst-v1, a sixth PAPER account, same contract and money
+when        each scheduled run (06:00-21:00 Tehran), one request; well inside Groq's free tier
+input       an evidence brief the system computes, never the model: both sides per venue,
+            the book, trades left today, 18K's last 120 days in summary, levels, trend lines,
+            Fibonacci, value area, dollar and world gold, the quant engine's share, news
+            headlines, the measured reliability of each input (this section), the quarter's
+            goal and its result so far
+output      JSON only: action BUY/SELL/HOLD, whole grams, confidence, reasons naming the
+            inputs, what would change its mind
+checks      the contract decides: cash, grams, two a day, a fresh two-sided quote; a malformed
+            or impossible answer is HOLD with the reason logged; every answer stored in the
+            EVAL row's inputs, with the model name
+scope       PAPER only; never final_decision, the alerts, or the legacy matrix
+judged      forward only, at the quarter's end against holding, the brave trader and the
+            quant engine; a backtest is contaminated, because the model has read the history
+```
+
+`CLAUDE.md`'s rule that an LLM never acquires BUY/SELL authority is about the system's
+decisions; this account would be an explicit, owner-approved exception confined to PAPER.
+No schema change: accounts are rows and the EVAL row's `inputs` is JSON.
+
+**Routes.** Unchanged from section 14: no tunnels or proxies around the sources'
+geo-blocking.
