@@ -609,3 +609,136 @@ prints "world gold: not available" rather than a number. Fail-safe law: unknown,
 fabricated. `kpi_direction.test_23f`; 35/35; full suite 29/29, exit 0. Against the real
 data: with world gold as stored now, unknown; with the full history, -4.4% (dollar
 +66.8% either way). The backfill completes around 15:00 on 10-04 by itself.
+
+The owner approved the fix ("go ahead with the fix push"): `v1.5safe` tagged `main` at
+3a93300 and was pushed, then `main` and `SP-D` were fast-forwarded to b1e61eb at 10:37;
+`kpi-suite.yml` passed on `main` (run 37184855090).
+
+## 9. The PAPER portfolio: the scenario, the contract, v0 and its harness (2026-10-04)
+
+**The scenario** (owner, 2026-10-04): give the system a hypothetical 100,000,000 toman;
+it buys and sells whole grams of 18K on one platform, at most once a day, holds what it
+buys, pushes every trade, reports every evening, and is reviewed per Persian quarter on
+the money it ends with. "Even in such an economy there are buy sell decisions to be
+made": 18K went from 20.61M (2026-01-29) to 15.65M (2026-06-16), -24.1% over 113 trading
+days, before rising 69%. The analyst is to decide from all the data and history, the
+news included, and the runs where it cannot decide are what it learns from.
+
+**The contract** (agreed 2026-10-04; `analysis/paper.py` holds it):
+
+```text
+ 1  capital        100,000,000 toman cash on the start day (go-live)
+ 2  venue          one platform: buy at its buy price, sell at its sell price, one reading
+                   (Goldika now; Daric from a quarter boundary once an Iranian route works)
+ 3  units          whole grams, at least 1 g a trade; the residue stays as cash
+ 4  frequency      at most one trade per Tehran day, at ANY scheduled run (06:00-21:00)
+ 5  no borrowing, no short selling
+ 6  fresh price    no trade without a venue quote that passed validation, with both sides
+ 7  report         21:00: gold (grams, value at the sell price), cash, total, and the
+                   profit or loss against the quarter's first day
+ 8  push           every trade, labelled PAPER (the system's own BUY alert keeps its
+                   authority; this account reports what it did)
+ 9  log            every analyst run with its inputs; UNDECIDED where signals conflict
+10  quarters       Persian seasons: 1 Farvardin, Tir, Mehr, Dey. The first runs from
+                   go-live to 30 Azar 1405 (2026-12-21); the next 1 Dey (2026-12-22) to
+                   29 Esfand (2027-03-20)
+11  rule changes   only at a quarter boundary, under a new policy version
+```
+
+**Venues, measured 2026-10-04.** Of the collectors, Daric, Ayyareh, Goldika, Milli and
+WallGold read an API (Invi a page's embedded JSON); HoorGold, Parasteh, Taline, MioGold
+and Eligold scrape pages. Both sides: Daric (order book: best bid 26.39M, best offer
+26.46M, 0.26% apart) and Goldika (buy 26.76M, sell 26.13M, 2.37% apart, with a source
+time stamp). Ayyareh: one price plus `buyWageValue`/`sellWageValue` 0.02 (likely a 2%
+fee each way). WallGold: the same price for `side=buy` and `side=sell`. Milli: one price.
+Both sides were fetched for Goldika and dropped by `collector/iran._run_collector`, so
+Goldika's BUY/SELL observations and candles (which `intelligence/candles.py` was built
+to expect) were never written; both sides now pass through, and Daric returns its bid
+and offer. Daric from the runner: 93-100% of runs answered until 09-24, then 0% on
+09-25, 09-26, 10-02 and 10-04 and 6% on 09-27 and 10-03; through Psiphon (a foreign
+address) it answered 403 on 10-04. Daric blocks foreign addresses on some days, so a
+Cloudflare route, also foreign, is unlikely to be reliable: the route is a relay inside
+Iran.
+
+**The evidence for v0** (`research/rd_paper_v0.py`; whole grams, 100M, one trade a day,
+signal at day i's close, trade at day i+1's close, Persian quarters against holding):
+
+```text
+                          2014-2023 x / quarters better-worse   2024-2026 x / better-worse
+Goldika's cost (2.37% round trip)
+buy and hold              x25.40                                x9.67
+stance 1/1/.5/0/0         x 5.38   9-30                         x4.42  3-9
+out on a confirmed break  x12.71   6-13                         x8.15  1-7
+Daric's cost (0.30%)
+buy and hold              x25.92                                x10.01
+stance 1/1/.5/0/0         x12.10  11-27                         x5.59  3-9
+out on a confirmed break  x19.63   7-12                         x9.76  3-6
+2026-01-29 -> 06-16 at Daric's cost: hold -24.1%, stance -11.1% (then +26.6% to 10-01
+against hold's +64.1%), confirmed break -18.5% (then +46.8%)
+```
+
+No tested rule beat holding. Exposure from the stance halves the drop and misses the
+recovery; the costs of a platform decide how much an active analyst can do at all (the
+same stance rule: x5.4 at Goldika's cost, x12.1 at Daric's). v0 is therefore "invested
+by default, out on a confirmed break" -- the baseline the R&D has to beat, not a claim
+of an edge. Signals use completed tgju candles only.
+
+**The harness.**
+- `timeutil`: the Persian calendar (`to_jalali`, `from_jalali`, `persian_quarter`), the
+  jalaali algorithm, checked against all 13,549 Persian dates tgju publishes beside its
+  candles (1979-2026, 0 mismatches) and 54,787 consecutive days round-tripped.
+- `analysis/paper.py`: the contract, `analyst_target` (v0), `decide` (whole grams, the
+  band, one trade a day, a fresh two-sided quote), the shadow accounts (buy-and-hold,
+  and the system's own final BUY/SELL), and the conflicts logged as UNDECIDED.
+- `paper_accounts` and `paper_activity` (`sql/neon_migration_paper.sql`, additive). The
+  database holds two clauses itself: one TRADE and one REPORT per account per Tehran
+  day (partial unique indexes).
+- `main._paper_run` in every scheduled run after the Direction precompute; the first run
+  from 21:00 writes the REPORT rows and sends the analyst's report. Never raises.
+- `alerts/telegram_paper.py`: the trade push and the 21:00 report (drafts, below).
+- `kpi_paper` 18/18; full suite 30/30 files, runner exit 0.
+- Verified on the temporary branch `temp-paper-test` (br-noisy-union-agpgixj6) with
+  Goldika's live quote and production's candles: analyst and buy-and-hold bought 3 g at
+  26.77M at the first run, the system account held cash (WAIT), later runs logged
+  "already traded today", the 21:00 run wrote one report per account and one message,
+  a second evening run none. 13.8 s a run through the tunnel.
+
+```text
+GOLDPremium: PAPER BUY
+Bought 3 g at 26.77M (Goldika) · 12 Mehr 11:36
+Why: uptrend intact: no confirmed break
+Now: 3 g gold + 19.70M cash = 98.10M
+
+GOLDPremium: PAPER · 12 Mehr 1405, 21:00
+Gold: 3 g = 78.40M (Goldika pays 26.13M a gram)
+Cash: 19.70M
+Total: 98.10M
+This quarter (since 12 Mehr): −1.90%
+Holding from the start instead: 98.10M (−1.90%)
+Today: bought 3 g at 26.77M (11:36)
+Analyst: invested; sells only on a confirmed break (below 24.13M and the 50-day average, now 22.19M)
+```
+
+The day-one -1.90% is the venue's buy/sell gap, not a market move: the gold is valued at
+what Goldika would pay for it. With 100M and a gram near 26.8M, whole grams allow 3 g
+(about 80%); about 19.7M stays in cash whatever the analyst decides, in the benchmark too.
+
+**Data for a sharper analyst** (research, not built):
+- TSETMC (the Tehran exchange's data site) publishes, for each gold fund, daily prices
+  and volume (عیار, Mofid's gold fund: 2,000 days) and the money flow split between
+  individuals and institutions (1,704 days from 2018-06-09; on 10-03 individuals bought
+  a net 134 billion toman of عیار). This is the money flow PROJECT_MEMORY lists under
+  Tindex; Tindex itself publishes no API. Gold funds found: عیار (34144395039913458),
+  طلا (46700660505281786), کهربا (25559236668122210), زر (33254899395816171), گوهر
+  (12390706505809150). Libraries: `5j9/tsetmc` (async, needs Python 3.13) and
+  `mahs4d/tsetmc-api`; the JSON API (cdn.tsetmc.com/api) is simple enough to read
+  directly. TSETMC does not answer foreign addresses (timed out through Psiphon): it
+  needs the same Iranian relay as Daric.
+- Navasan (api.navasan.tech) answers foreign addresses; it needs an API key.
+- News: ingested, but `high_impact_count` is still a constant (SP_C_HANDOFF.md 33.3).
+- Charts: rendering a chart into the report is straightforward; deciding from chart
+  patterns needs testing (the candle patterns failed in section 2).
+
+**Open:** the owner's review of the two messages; the production migration
+(authorization); the temporary branch's deletion (authorization); the capital and the
+3 g granularity; the Iranian relay for Daric and TSETMC (where to host it).

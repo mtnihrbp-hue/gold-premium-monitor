@@ -1533,3 +1533,59 @@ def save_direction_outcomes(session, row, outcomes, complete, now):
     if complete:
         row.resolved_at = now
     session.commit()
+
+
+# -- PAPER portfolio (SP-D, SP_D_HANDOFF.md section 9) -------------------------------
+
+def ensure_paper_accounts(session, accounts, start_cash, venue, now):
+    """The paper accounts by name, creating any that do not exist yet (the first run after
+    go-live starts them all together). `accounts`: (name, policy, pushes) tuples."""
+    from database.models import PaperAccount
+
+    existing = {a.name for a in session.query(PaperAccount.name).all()}
+    for name, policy, pushes in accounts:
+        if name not in existing:
+            session.add(PaperAccount(name=name, policy=policy, venue=venue, start_cash=start_cash,
+                                     started_at=now, pushes=pushes, status="ACTIVE"))
+    session.commit()
+    return {a.name: a for a in session.query(PaperAccount).all()}
+
+
+def paper_latest(session, account_id, kinds=None):
+    """The account's latest activity row (of `kinds`, when given), or None."""
+    from database.models import PaperActivity
+
+    query = session.query(PaperActivity).filter(PaperActivity.account_id == account_id)
+    if kinds:
+        query = query.filter(PaperActivity.kind.in_(kinds))
+    return query.order_by(PaperActivity.id.desc()).first()
+
+
+def paper_rows_on(session, account_id, local_day, kind):
+    from database.models import PaperActivity
+
+    return (session.query(PaperActivity)
+            .filter(PaperActivity.account_id == account_id, PaperActivity.local_date == local_day,
+                    PaperActivity.kind == kind)
+            .order_by(PaperActivity.id.asc()).all())
+
+
+def paper_value_before(session, account_id, day):
+    """The account's last reported value before Tehran day `day`, or None."""
+    from database.models import PaperActivity
+
+    row = (session.query(PaperActivity)
+           .filter(PaperActivity.account_id == account_id, PaperActivity.kind == "REPORT",
+                   PaperActivity.local_date < day)
+           .order_by(PaperActivity.local_date.desc(), PaperActivity.id.desc()).first())
+    return float(row.value) if row is not None and row.value is not None else None
+
+
+def save_paper_activity(session, **fields):
+    from database.models import PaperActivity
+
+    row = PaperActivity(**fields)
+    session.add(row)
+    session.commit()
+    return row.id
+

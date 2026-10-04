@@ -64,6 +64,13 @@ def _run_collector(collector):
         # a quote whose stamp is too old (SP_C_HANDOFF.md section 44).
         if result.get("quoted_at") is not None:
             info["quoted_at"] = result["quoted_at"]
+        # Both sides, where the platform publishes them: "buy" is what a reader pays,
+        # "sell" what a reader is paid. They were dropped here until 2026-10-04, so
+        # Goldika's BUY/SELL observations and candles were never written (SP_D_HANDOFF.md
+        # section 9), and the paper portfolio needs both to trade.
+        for side in ("buy", "sell"):
+            if result.get(side) is not None:
+                info[side] = result[side]
         return result["platform"], info
     except Exception as e:
         name = collector.__name__.replace("get_", "").replace("_price", "").title()

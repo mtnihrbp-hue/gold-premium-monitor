@@ -388,6 +388,47 @@ CREATE TABLE IF NOT EXISTS direction_snapshots (
 );
 
 -- ============================================================
+-- 13. PAPER PORTFOLIO (SP-D, 2026-10-04)
+-- ============================================================
+-- Hypothetical accounts trading whole grams of 18K under the owner's contract: one
+-- trade and one 21:00 report per account per Tehran day (partial unique indexes).
+-- Money in rial. Migration: sql/neon_migration_paper.sql (SP_D_HANDOFF.md section 9).
+
+CREATE TABLE IF NOT EXISTS paper_accounts (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(32) NOT NULL UNIQUE,
+    policy VARCHAR(40) NOT NULL,
+    venue VARCHAR(20) NOT NULL,
+    start_cash NUMERIC(20, 2) NOT NULL,
+    started_at TIMESTAMP NOT NULL,
+    pushes BOOLEAN NOT NULL DEFAULT FALSE,
+    status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE'
+);
+
+CREATE TABLE IF NOT EXISTS paper_activity (
+    id SERIAL PRIMARY KEY,
+    account_id INTEGER NOT NULL REFERENCES paper_accounts(id),
+    at TIMESTAMP NOT NULL,
+    local_date DATE NOT NULL,
+    kind VARCHAR(12) NOT NULL,
+    action VARCHAR(12),
+    grams INTEGER,
+    price NUMERIC(20, 2),
+    cash NUMERIC(20, 2) NOT NULL,
+    holding INTEGER NOT NULL,
+    value NUMERIC(20, 2),
+    reason TEXT,
+    inputs JSONB
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_paper_one_trade_a_day
+    ON paper_activity (account_id, local_date) WHERE kind = 'TRADE';
+CREATE UNIQUE INDEX IF NOT EXISTS uq_paper_one_report_a_day
+    ON paper_activity (account_id, local_date) WHERE kind = 'REPORT';
+CREATE INDEX IF NOT EXISTS ix_paper_activity_account_at
+    ON paper_activity (account_id, at);
+
+-- ============================================================
 -- 9. VERIFICATION
 -- ============================================================
 
@@ -407,7 +448,9 @@ WHERE table_schema = 'public'
       'outcome_evaluations',
       'platform_candles',
       'market_daily_candles',
-      'direction_snapshots'
+      'direction_snapshots',
+      'paper_accounts',
+      'paper_activity'
   )
 ORDER BY table_name;
 

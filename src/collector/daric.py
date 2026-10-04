@@ -16,7 +16,13 @@ def get_daric_price():
 
     data = response.json()
 
+    # Daric is an order book: BestSellPrice is the lowest offer (what a buyer pays),
+    # BestBuyPrice the highest bid (what a seller is paid). Toman, hence x10.
+    ask = float(data["Data"]["BestSellPrice"]) * 10
+    bid = float(data["Data"]["BestBuyPrice"]) * 10
     return {
         "platform": "Daric",
-        "price": float(data["Data"]["BestSellPrice"]) * 10
+        "price": ask,
+        "buy": ask,
+        "sell": bid,
     }

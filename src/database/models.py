@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, Numeric, Date, DateTime, ForeignKey, Text, JSON, Index, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Numeric, Date, DateTime, ForeignKey, Text, JSON, Index, UniqueConstraint, Boolean, text
 from sqlalchemy.sql import func
 
 from database.connection import Base
@@ -394,4 +394,59 @@ class DirectionSnapshot(Base):
 
     __table_args__ = (
         UniqueConstraint("local_date", "slot", name="uq_direction_snapshots_slot"),
+    )
+
+
+class PaperAccount(Base):
+    """A hypothetical account trading whole grams of 18K under the owner's contract.
+
+    SP-D (SP_D_HANDOFF.md section 9). Three accounts start together: the analyst (pushes
+    its trades and the 21:00 report), buy-and-hold and the system's own final BUY/SELL
+    (both silent, for the quarterly review). Money is in rial, as everywhere else.
+    """
+
+    __tablename__ = "paper_accounts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(32), nullable=False, unique=True)
+    policy = Column(String(40), nullable=False)
+    venue = Column(String(20), nullable=False)
+    start_cash = Column(Numeric(20, 2), nullable=False)
+    started_at = Column(DateTime, nullable=False)
+    pushes = Column(Boolean, nullable=False, default=False)
+    status = Column(String(16), nullable=False, default="ACTIVE")
+
+
+class PaperActivity(Base):
+    """One evaluation, trade or daily report of a paper account.
+
+    `cash` and `holding` are the account's state after the row, so the latest row is the
+    account. TRADE carries the grams and the price paid or received; REPORT the value at
+    the venue's sell price at 21:00; EVAL the analyst's decision at a run with its inputs.
+    The database itself holds two clauses of the contract: one trade and one report per
+    account per Tehran day.
+    """
+
+    __tablename__ = "paper_activity"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    account_id = Column(Integer, ForeignKey("paper_accounts.id"), nullable=False)
+    at = Column(DateTime, nullable=False)
+    local_date = Column(Date, nullable=False)
+    kind = Column(String(12), nullable=False)
+    action = Column(String(12), nullable=True)
+    grams = Column(Integer, nullable=True)
+    price = Column(Numeric(20, 2), nullable=True)
+    cash = Column(Numeric(20, 2), nullable=False)
+    holding = Column(Integer, nullable=False)
+    value = Column(Numeric(20, 2), nullable=True)
+    reason = Column(Text, nullable=True)
+    inputs = Column(JSON, nullable=True)
+
+    __table_args__ = (
+        Index("uq_paper_one_trade_a_day", "account_id", "local_date", unique=True,
+              postgresql_where=text("kind = 'TRADE'"), sqlite_where=text("kind = 'TRADE'")),
+        Index("uq_paper_one_report_a_day", "account_id", "local_date", unique=True,
+              postgresql_where=text("kind = 'REPORT'"), sqlite_where=text("kind = 'REPORT'")),
+        Index("ix_paper_activity_account_at", "account_id", "at"),
     )

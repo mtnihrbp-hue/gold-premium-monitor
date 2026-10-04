@@ -453,6 +453,124 @@ def _direction_precompute(markets, signal_state, now):
         session.close()
 
 
+def _paper_run(markets, signal_state, now):
+    """The PAPER portfolio's run (SP-D, SP_D_HANDOFF.md section 9): evaluate the three
+    accounts, trade where the contract allows, push the analyst's trades, and from 21:00
+    write the day's report. Never raises: a hypothetical account must not cost the run its
+    push, recap or history."""
+    from analysis import paper
+    from analysis.direction import GOLD, load_series
+    from alerts.telegram_paper import build_trade_message, send_paper
+    from database.repository import (ensure_paper_accounts, latest_direction_snapshot, paper_latest,
+                                     paper_rows_on, save_paper_activity)
+    from timeutil import local_date, local_now
+
+    session = get_session()
+    if session is None:
+        return
+    try:
+        accounts = ensure_paper_accounts(session, paper.ACCOUNTS, paper.START_CASH_IRR, paper.VENUE, now)
+        day = local_date(now)
+        quote = paper.venue_quote(markets)
+        close = load_series(session, GOLD)[3]
+        sig = paper.signals(close) if len(close) >= 260 else None
+        final = getattr(signal_state, "final_decision", None)
+        panel_row = latest_direction_snapshot(session)
+        stance_score = ((panel_row.panel or {}).get("stance") or {}).get("score") if panel_row else None
+        quote_json = {"buy": quote[0], "sell": quote[1]} if quote else None
+
+        for name, account in accounts.items():
+            last = paper_latest(session, account.id)
+            book = (paper.Book(float(last.cash), last.holding) if last
+                    else paper.Book(float(account.start_cash), 0))
+            share = book.share(quote[1]) if quote else None
+            out = None
+            if name == paper.ANALYST:
+                prev = paper_latest(session, account.id, kinds=("EVAL", "TRADE"))
+                was_out = bool((prev.inputs or {}).get("out")) if prev is not None else False
+                if sig is None:
+                    target, out, why = (share or 0.0), was_out, "not enough tgju history"
+                else:
+                    target, out, why = paper.analyst_target(sig, was_out)
+            elif name == paper.HOLD:
+                target, why = 1.0, "buy and hold"
+            else:
+                target, why = paper.system_target(final, share or 0.0)
+            traded = bool(paper_rows_on(session, account.id, day, "TRADE"))
+            decision = paper.decide(book, target, quote, traded)
+            after = paper.apply(book, decision)
+            found = paper.conflicts(target, stance_score, final) if name == paper.ANALYST else []
+            inputs = {"policy": account.policy, "venue": account.venue, "quote": quote_json, "signals": sig,
+                      "target": target, "share_before": share, "out": out, "final_decision": final,
+                      "valuation": getattr(signal_state, "valuation", None), "stance_score": stance_score,
+                      "conflicts": found}
+            value = after.value(quote[1]) if quote else None
+            if decision.action in ("BUY", "SELL"):
+                save_paper_activity(session, account_id=account.id, at=now, local_date=day, kind="TRADE",
+                                    action=decision.action, grams=decision.grams, price=decision.price,
+                                    cash=after.cash, holding=after.grams, value=value, reason=why, inputs=inputs)
+                print(f"PAPER {name}: {decision.action} {decision.grams} g at {decision.price:,.0f} ({why})")
+                if account.pushes:
+                    send_paper(build_trade_message(decision.action, decision.grams, decision.price, account.venue,
+                                                   now, why, after.grams, after.cash, quote[1]))
+            elif name == paper.ANALYST:
+                action = "UNDECIDED" if found else "HOLD"
+                save_paper_activity(session, account_id=account.id, at=now, local_date=day, kind="EVAL",
+                                    action=action, cash=book.cash, holding=book.grams, value=value,
+                                    reason=f"{why}; {decision.reason}", inputs=inputs)
+                print(f"PAPER {name}: {action} ({why}; {decision.reason})" + (f" -- {found}" if found else ""))
+
+        if local_now(now).hour >= paper.REPORT_HOUR:
+            _paper_report(session, accounts, day, quote, sig, now)
+    except Exception as e:
+        session.rollback()
+        print(f"PAPER failed: {e}")
+    finally:
+        session.close()
+
+
+def _paper_report(session, accounts, day, quote, sig, now):
+    """The day's REPORT rows and the analyst's 21:00 message, once per Tehran day. The value
+    is at the venue's sell price; without a fresh quote at this run, the day's last one."""
+    from analysis import paper
+    from alerts.telegram_paper import build_report_message, send_paper
+    from database.repository import paper_latest, paper_rows_on, paper_value_before, save_paper_activity
+    from timeutil import local_date, persian_quarter, to_tehran
+
+    analyst = accounts[paper.ANALYST]
+    if paper_rows_on(session, analyst.id, day, "REPORT"):
+        return
+    sell, note = (quote[1], "") if quote else (None, "")
+    if sell is None:
+        for row in reversed(paper_rows_on(session, analyst.id, day, "EVAL") + paper_rows_on(session, analyst.id, day, "TRADE")):
+            if (row.inputs or {}).get("quote"):
+                sell, note = row.inputs["quote"]["sell"], f", last price at {to_tehran(row.at):%H:%M}"
+                break
+    if sell is None:
+        print("PAPER report: no venue price today; skipped")
+        return
+    quarter_first = persian_quarter(day)[0]
+    lines = {}
+    for name, account in accounts.items():
+        last = paper_latest(session, account.id)
+        holding, cash = (last.holding, float(last.cash)) if last else (0, float(account.start_cash))
+        base_day = max(quarter_first, local_date(account.started_at))
+        base = paper_value_before(session, account.id, base_day) or float(account.start_cash)
+        save_paper_activity(session, account_id=account.id, at=now, local_date=day, kind="REPORT",
+                            action=None, price=sell, cash=cash, holding=holding, value=cash + holding * sell,
+                            reason=None, inputs={"base": base, "base_day": str(base_day), "sell_note": note})
+        lines[name] = (holding, cash, base, base_day)
+    trades = [(t.action, t.grams, float(t.price), f"{to_tehran(t.at):%H:%M}")
+              for t in paper_rows_on(session, analyst.id, day, "TRADE")]
+    prev = paper_latest(session, analyst.id, kinds=("EVAL", "TRADE"))
+    out = bool((prev.inputs or {}).get("out")) if prev is not None else False
+    holding, cash, base, base_day = lines[paper.ANALYST]
+    hold = lines.get(paper.HOLD)
+    send_paper(build_report_message(day, analyst.venue, sell, note, (holding, cash, base),
+                                    hold[:3] if hold else None, base_day, trades, sig, out))
+    print(f"PAPER report sent: {holding} g + {cash:,.0f} cash at {sell:,.0f}")
+
+
 def _send_direction_report():
     """Answer the Telegram Direction command from the stored panel. Reads only."""
     from alerts.telegram_direction import send_direction
@@ -841,6 +959,7 @@ def main():
             print(f"News ingestion failed: {e}")
         _collect_tgju_candles()
         _direction_precompute(markets, signal_state, now)
+        _paper_run(markets, signal_state, now)
         if snapshot_id is not None:
             try:
                 analysis_snapshot_id = build_analysis_snapshot(config=config)
