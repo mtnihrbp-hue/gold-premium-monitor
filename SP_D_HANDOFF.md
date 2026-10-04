@@ -1276,3 +1276,108 @@ No schema change: accounts are rows and the EVAL row's `inputs` is JSON.
 
 **Routes.** Unchanged from section 14: no tunnels or proxies around the sources'
 geo-blocking.
+
+## 16. Groq checked, one front office, sideways markets, fixed-income parking (2026-10-04)
+
+**The owner.** GROQ_API_KEY is added. The owner will look into an Arvan or Liara service
+personally. One trader faces the owner: "the front office is one person buying, holding or
+selling"; a BUY or SELL is pushed, a HOLD appears in the 21:00 message with a summary, and
+any other decision makers stay in the back office. Can the system understand a sideways
+market ("for a long time the price was in 18m channel, up down side, then it jumped up up
+up ... knowing the side and the start of the new jump is a key decision")? And park cash
+in a fixed-income ETF such as Afran.
+
+**Groq, from GitHub's runner** (temporary branch probe-groq, since deleted; the key never
+printed). The key answers. Text models offered: openai/gpt-oss-120b, openai/gpt-oss-20b,
+qwen/qwen3.8-27b (131k context). Free-tier limits on gpt-oss-120b: 1,000 requests a day,
+8,000 tokens a minute. All three returned a valid decision under a strict JSON schema;
+gpt-oss-120b needs room to reason (600 completion tokens failed, 4,000 with medium
+reasoning used 1,287 in 2.1 s). Its answer was sound (HOLD: the cash could not cover a whole
+gram) but named Daric's sell price as its buy price: the contract, not the model, has to
+check every number.
+
+**One front office.** Already so in code: only the analyst account pushes, and the 21:00
+report shows its book with two comparison lines (holding, the quant engine). The other
+accounts are the back office: the yardsticks that say whether the front office is any good,
+with buy-and-hold the bar to beat. The owner's rule recorded: the front office pushes BUY
+and SELL; HOLD and its reason go into the 21:00 message.
+
+**Fixed income** (`research/fetch_tsetmc_fixed_income.py`, from Iran, direct; 21 funds;
+`research/rd_sideways.py` section 1; a distribution counted at the fund's usual accrual):
+
+```text
+            2016   2017   2018   2019   2020   2021   2022   2023   2024   2025   2026*
+index      23.1%  23.2%  20.6%  23.2%  38.9%  19.5%  22.2%  25.9%  29.1%  33.6%  26.2%
+18K        18.0%  21.2% 139.8%  43.5% 141.4%  12.0%  43.4%  36.5% 105.0% 171.4%  81.0%
+Afran                                  46.6%  22.1%  23.6%  27.7%  31.5%  36.1%  27.8%
+* to 2026-10-03. Afran over the last 12 months: 38.5%.
+```
+
+Fixed income beat 18K in 3 of 11 years (2016, 2017, 2021). TSETMC refuses GitHub's runner,
+so Afran's daily price can reach production only from an Iranian connection.
+
+**Sideways, measured** (`rd_sideways.py` section 2). Kaufman's efficiency ratio (net move /
+total movement) against a random walk's 1/sqrt(N); the main definition, 60 days under a
+random walk (0.13), was fixed before any policy was run. A fixed range cap misses 1405, when
+18K moved 2-3% a day: the owner's channel spans 19-23% over 40 days.
+
+```text
+since 2014, next 20 / 60 days         18K               fixed income
+all days                              +3.70% / +11.59%  +1.61% / +4.95%
+sideways (37% of days)                +1.70% /  +7.81%
+other days                            +4.93% / +14.04%
+the 1405 channel (2026-02-01 -> 08-17): 74% of its days flagged sideways
+18K beat fixed income over the next 60 days on 54% of sideways days
+```
+
+In 1405 the detector flagged the channel from 1404/12/28, called a break down on 1405/03/25
+at 16.3M (false: 60 days later +36%) and a break up on 1405/05/20 at 19.2M (+20% in 20
+days). Since 1393, a break out of a sideways market is followed by an ordinary month:
+
+```text
+                                  events  next 20 days   next 60 days   back through the middle in 20 days
+up out of a range                 20      +3.58% (+3.70)  +11.75% (+11.59)  15%
+down out of a range               16      +4.18%          +11.14%           38%
+new 60-day high, no range         24      +7.39%          +13.56%            0%
+```
+
+The system can see a sideways market, and in it 18K has earned about what fixed income
+earns (+1.7% against +1.6% over 20 days). It cannot tell the start of the jump from a false
+break: up-breaks average the same as any day, and down-breaks are mostly false in toman. What
+carries forward is a new high inside a trend (+7.4% over 20 days): selling into strength,
+as the brave trader's +3% take-profit does, sells into the strongest stretch.
+
+**Policies with the parking** (signal at day i, trade at day i+1's close, Daric's 0.30%; a
+sale's cash reaches the fund 2 trading days later and comes back 2 days after it is called;
+the fund's round trip 0.10%):
+
+```text
+against holding               2016-2023 (x26.19)          2024-2026 (x9.91)           1405 channel and jump (x1.43)
+cash: idle | parked | parked after 5 idle days
+brake only                    +12.6% | +4.0% | +17.5%     -0.6% | -1.3% | -1.0%       -0.6% | -0.9% | -0.9%
+brave + brake                  -2.0% | -8.1% |  -0.7%    -16.1% |-17.0% |-16.4%       -0.1% | -0.7% | -0.5%
+sideways: 50% out             -23.4% | -4.1% |  -9.1%    -15.1% | -7.4% | -7.0%      -10.4% | -6.6% | -4.2%
+sideways: 100% out            -43.7% |-12.5% | -20.0%    -29.0% |-16.3% |-15.2%      -20.7% |-14.5% | -9.8%
+trade the channel (40%)        -8.6% | -6.1% |  -9.3%     -4.5% | -3.1% | -4.6%       -2.6% | -0.4% | -0.8%
+```
+
+Parking idle cash in fixed income helps every policy that leaves cash out for weeks (the
+brake: +12.6% to +17.5% against holding over 2016-2023), and costs those that trade within
+days (the 2-day transfers). Leaving gold for fixed income because the market is sideways
+lost in every period: the jump comes without warning, and toman's sideways markets end up
+more often than down. Trading the channel (selling in its top quarter, buying back in its
+bottom quarter, all in outside it) lost far less than the brave trader in 2024-2026.
+
+**Proposed, for the owner's decision:**
+
+- The front office is the LLM trader of section 15, the one that weighs everything; the
+  brave trader, the quant engine and the system's own decision go to the back office;
+  buy-and-hold stays the bar. The 21:00 message: the trader's day (what it did, or HOLD and
+  why), the book against the quarter's start, and one line for holding.
+- Cash idle 5 trading days goes to fixed income (Afran), 2 days each way, 0.10% the round
+  trip. Afran's price needs an Iranian connection: until the Iran-side collector exists,
+  the parked cash accrues at Afran's last published 12-month return, marked as an estimate,
+  and is settled when the real price arrives. Not built; the contract changes before
+  PAPER goes live, not mid-quarter.
+- The sideways state, its 60-day range and any break go into the trader's evidence as
+  facts with their measured record, not as rules.
