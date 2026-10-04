@@ -1546,3 +1546,54 @@ measure the premium. The real premium's record has to be built from now on, dail
 collector in Iran; the funds' flows were tested in section 15 (no lead). Proposed: the
 premium, individuals' net money into the gold funds and buyer power as one line in the 21:00
 message and as the money-flow member (weight 0.5), scored as its record grows.
+
+## 19. NEoWave, the other tools for this market, and where tomorrow starts (2026-10-04)
+
+**The owner.** For the record, to close the day: does the NEoWave method help us? Are there
+other techniques that help in this market, or to equip the committee of experts?
+
+**NEoWave** (Glenn Neely's rule-bound extension of Elliott waves) labels each swing as a
+wave and reads the next one from the count, the waves' price ratios (Fibonacci) and their
+time ratios. Its pieces were measured here: the swings (ZigZag legs, section 4), Fibonacci
+retracements (no edge, 61.0% against 63.8% at other depths, section 15), the levels drawn from
+swings (no edge over a control, section 15). The count itself is discretionary: two
+practitioners count the same chart differently, and a count is revised once the next swing
+shows it wrong, so a replay of it is hindsight. No published out-of-sample test known to us
+shows Elliott or NEoWave beating a simple benchmark. It does not join the committee. A
+mechanical version (ZigZag swings, Neely's rules as code, a call made only on confirmed
+swings) could be tested like any member; it ranks below the candidates that follow.
+
+**Candidates for the committee, in the order proposed for testing** (data: R = reachable from
+GitHub's runner now, I = needs the collector in Iran):
+
+```text
+1  dollar in Tether (USDT/IRR on Iranian exchanges, 24/7)   I   leads the bazaar's dollar on nights, Fridays and
+                                                                holidays: the first sign of a dollar jump
+2  the coin's bubble (Emami coin over its 7.32 g of gold)   R   tgju's coin prices; the Iranian market's own fear
+                                                                and demand gauge, years of history
+3  the dollar's gap to the official rates (exchange        R   tgju; devaluation pressure building before the
+   centre, NIMA)                                                free market moves
+4  change-point detection (Bayesian online, Adams-MacKay)   R   math on the prices we have: the end of a sideways
+                                                                market, faster than a fixed 60-day window
+5  the money's rotation: Tehran stock index against gold    R/I money leaving one market for the other
+6  bond yields (government bills on TSETMC): expected      I   the market's own inflation expectation; rising
+   inflation                                                    yields, a weaker rial ahead
+7  the scheduled-event calendar (talks, IAEA boards,        R   known in advance; the LLM keeps it; Iran coverage
+   sanctions deadlines), read by the LLM                        spikes came near local peaks (section 14)
+8  the platforms' order book (Daric's best bid and ask,     I   the physical market's own order flow, the LIT/AMD
+   their spread and depth)                                      idea on 18K itself; forward record only
+9  meta-labelling (a second model judges whether to trust  R   on the committee's own calls once their record exists
+   a member's call)
+```
+
+For the decision layer the mathematics already in place stays: the growth-optimal share with
+fixed income as the bar (sections 12, 17), the bands from 18K's own history (section 18), and
+weights moved by each member's record at the quarter's end (section 18).
+
+**Where tomorrow starts.** Open for the owner: the weights and the 60% / 30% rule (section
+18); the cone on the 21:00 chart and its line (section 18); ArvanCloud's terms (section 18);
+the two-trades migration on production (section 14); the merge after the owner's review,
+with a safe tag first. Research first: candidates 2, 3 and 4 above, all testable from
+GitHub's runner's data. Build after the owner's answers: the committee members' logging,
+the LLM member on Groq (openai/gpt-oss-120b, section 16), fixed-income parking (lag 0, Afran's
+price an estimate until the collector), and the 21:00 message.

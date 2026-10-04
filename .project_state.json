@@ -304,7 +304,7 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "Owner: which analyst pushes (quant engine or v1 brave); the news leg R&D; the Iranian server for Daric/TSETMC (Cloudflare relay refused 2026-10-04); then relay secrets, safe tag and merge (SP_D_HANDOFF.md section 12).",
+  "next_gate": "Owner (SP_D_HANDOFF.md sections 16-19): the convergent front office's weights and 60%/30% rule; the extrapolation cone on the 21:00 chart; ArvanCloud's free terms for the Iran-side collector; the two-trades migration on production; then build (committee logging, LLM member on Groq, fixed-income parking, the 21:00 message), the owner's review, a safe tag, and the merge. Research next: the coin's bubble, the dollar's gap to the official rates, change-point detection (section 19).",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
@@ -332,10 +332,10 @@
     "assertions_signal_confirmation": 46,
     "assertions_direction": 35,
     "assertions_tgju_candles": 15,
-    "assertions_paper": 21
+    "assertions_paper": 26
   },
   "open_decisions": [
-    "SP-D PAPER portfolio (SP_D_HANDOFF.md sections 9-10): 135M toman, whole grams, one trade a day at any run, venue chain Daric > Goldika > Ayyareh; analyst v1 'brave' (core 4 g + swing 1 g: sell at +5%, buy back -2% or within 5 trading days) with shadows cautious v0, buy-and-hold, system; data relay (Cloudflare worker) written, not deployed; continuity plan for an Iran-only internet designed (one Iranian server: relay normally, collector in a cut); paper tables NOT applied to production; on sp-d-paper, not merged.",
+    "SP-D PAPER portfolio (SP_D_HANDOFF.md sections 9-19, branch sp-d-paper, not merged): 135M toman, whole grams, at most two trades a Tehran day at any run, venue chain Daric > Goldika > Ayyareh; built: the brave trader under the quant engine's brake, the quant/cautious/hold/system shadows, the 21:00 report with the chart (trend lines, Fibonacci), paper tables live in production (two-trades migration verified on a temp branch, NOT applied). Proposed, awaiting the owner: one front office, the convergent decision of a weighted committee (brake 2.0; fair gap, real dollar, market state 1.5; dollar momentum, LLM 1.0; world gold, money flow 0.5; leave gold at 60% of the weight with the LLM among them, return at 30%; weights moved quarterly by record); a sale's cash parked in fixed income (Afran); the LLM member on Groq (key added and verified 2026-10-04); the extrapolation cone. Research: no price, driver, flow or committee rule times the return from fixed income to gold across both eras (sections 15-18).",
     "SP-D Direction (SP_D_HANDOFF.md sections 4-6): MERGED to main 2026-10-03 (safe tag v1.4safe = main before); v6 plain-language message (1,467 chars: VIEW, TREND with the source of the rise, MOVING AVERAGES (EMA), NEXT MONTH, WATCH) awaiting the owner's polish; forecast ledger with resolver and promotion gate; direction_snapshots APPLIED to production 2026-10-03; /Direction read-only mode; precompute at the first scheduled run from 06:00 and 13:00 Tehran. SP-C closed: SP-D is recorded in SP_D_HANDOFF.md.",
     "SP-D R&D R3/R4 done (SP_D_HANDOFF.md section 3): predictive -- new 52-week high (+3.2%), dollar and 18K breaking their 50-day averages, the chance of a new high within 20 days (skill +26%, shown as its calibrated band rate), the cost of waiting for a dip; calibrated -- the volatility-scaled 10/50/90% range of 20/60-day moves; dropped -- up/down and pullback odds, candle patterns. A DIRECTION message is drafted for the owner's review; implementation follows the approved draft; then safe tag, then merge to main (owner: no merge before that).",
     "SP-D Direction (SP_D_HANDOFF.md section 1): the first deliverable, on the owner's request -- trend, support/resistance, odds over similar past days beside the base rate, and entry timing (convert now or wait for a dip). Built on sp-d-direction (caluclator/technical.py with TA-Lib, analysis/direction.py, kpi_direction 17/17); the ANALYZE section is a draft awaiting the owner's layout approval. Next: walk-forward check that the conditional odds beat the base rate out of sample; a split-conversion option.",
