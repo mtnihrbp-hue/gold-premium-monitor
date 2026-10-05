@@ -2126,3 +2126,47 @@ The 21:00 message keeps the chart of section 13, with the room's trades on it. O
 drafts' review; the two-trades migration; then the safe tag and the merge. Next: the news leg (an LLM
 reading the headlines live), Tether as a member once its record exists, the Iran-side collector for
 money flow, Daric and fipiran.
+
+## 28. Go-live: the migration, the merge, two defects found by the first runs (2026-10-05)
+
+**The owner.** "Go ahead, authorized." And: "when does the room sit? On a daily basis based on the
+analyze schedule, or what?"
+
+**The two-trades migration, applied** (`sql/neon_migration_paper_two_trades.sql`, one transaction,
+15:50 Tehran): paper_activity held 0 rows; after it `trade_no SMALLINT`, `uq_paper_trade_slot`
+(account, day, trade number, TRADE rows) in place of `uq_paper_one_trade_a_day`, and
+`ck_paper_trade_no` (1 or 2); no other table touched (720 market snapshots, unchanged).
+
+**The merge.** `v1.6safe` tags `main` at b1e61eb, pushed first; `main` and `SP-D` fast-forwarded to
+2957699 (sp-d-paper, 20 commits) at 15:57 Tehran.
+
+**Two defects, found by the first runs, both failing safe:**
+
+- *The KPI suite failed on `main`* (run 37309647298): GitHub's runner resolved the newest scipy and
+  pandas, which statsmodels 0.14.4 is not compatible with (`scipy._lib._util._lazywhere`, removed in
+  scipy 1.16; pandas 3's `deprecate_kwarg`). This machine runs scipy 1.15.1 and pandas 2.2.3, so the
+  suite passed here. In production the quant engine reported itself unavailable: the brake member read
+  "gold" and the quant account held. Fix: `scipy==1.15.3` and `pandas==2.2.3` pinned with statsmodels.
+- *The first live PAPER run failed* (16:00 Tehran, run 37310024426): `paper_accounts.venue` is
+  VARCHAR(20) and ">".join(VENUES) is "Daric>Goldika>Ayyareh", 21 characters, since the venue chain was
+  set on 2026-10-04; the tests run on SQLite, which does not enforce lengths. Nothing was written and
+  nothing sent; the room's inputs before it were stored (AFRAN_LAST 54,490, TSE_TEDPIX 7,790,017).
+  Fix: `paper.VENUE_LABEL` "Daric>Goldika>Ayyar"; `kpi_paper.test_29` checks every text the PAPER and
+  room code writes against its column's length in the models.
+
+Both on `hotfix-scipy-pin` (cut from `main`): the KPI suite green on GitHub (run 37311429313, 3fbcdfd)
+and here (30/30; kpi_paper 34/34). Awaiting the owner's review for the fast-forward, with a safe tag on
+`main` (2957699) first.
+
+**At Goldika's cost.** Daric refuses the runner, so PAPER trades on Goldika (2.37% between buying and
+selling) until the Iran-side collector. Replayed at that cost (`research/rd_room_cost.py`): median +1.3
+to +3.1% against holding per two years (against +4.0 to +5.7% at Daric's 0.30%), ahead in 67-83% of
+windows, worst -4.6%, the last two years +7.1%. Daric is where most of the room's edge is.
+
+**When the room sits.** It reads at every scheduled ANALYZE run, hourly 06:00-21:00 Tehran
+(cron-job.org), and logs its view each time. Its evidence is the completed daily candles, so the view
+moves once a day, at the first run of the morning when yesterday's candle arrives. It decides on a
+review day, every 10 trading days from its first day (about every two weeks); between reviews only the
+sharp eye acts: back to gold on the first morning the stock index turns up after a sale. A trade runs at
+the first scheduled run that day with a fresh two-sided quote (normally 06:00-07:00); the 21:00 run
+reports, with the next review's date.

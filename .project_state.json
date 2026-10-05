@@ -177,7 +177,13 @@
       "reason": "Google News and percent-encoded Persian links exceed 500 characters; such items failed to save entirely (45 unique in six runs). SP_C_HANDOFF.md section 40."
     },
     "direction_snapshots": "APPLIED to production 2026-10-03 about 17:20 Tehran (owner's authorization): 14 columns, uq_direction_snapshots_slot, 0 rows until the merged precompute runs; verified first on temp branch temp-direction-test, since deleted",
-    "paper_portfolio": "APPLIED to production 2026-10-04 (owner's authorization): paper_accounts (8 columns), paper_activity (13 columns, one-trade and one-report partial unique indexes), 0 rows until the merged code runs"
+    "paper_portfolio": "APPLIED to production 2026-10-04 (owner's authorization): paper_accounts (8 columns), paper_activity (13 columns, one-trade and one-report partial unique indexes), 0 rows until the merged code runs",
+    "paper_two_trades_migration": {
+      "file": "sql/neon_migration_paper_two_trades.sql",
+      "applied": "2026-10-05",
+      "authorised_by_user": true,
+      "rows_before": 0
+    }
   },
   "architecture_wings": {
     "live_wing": "collect -> validate -> calculate -> current deterministic state -> Telegram",
@@ -304,7 +310,7 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "Owner (SP_D_HANDOFF.md section 27): review the room's message drafts; authorise the two-trades migration (section 14) before the merge; then a safe tag (v1.6safe) and the merge of sp-d-paper. Next: the news leg (LLM headlines), Tether as a member once recorded, the Iran-side collector (money flow, Daric, fipiran).",
+  "next_gate": "Owner (SP_D_HANDOFF.md section 28): review hotfix-scipy-pin (scipy/pandas pins for statsmodels; the venue label that fits VARCHAR(20)); then tag main (2957699) as v1.7safe and fast-forward. Then watch the first live PAPER runs. Next: the news leg, Tether as a member, the Iran-side collector (Daric, money flow, fipiran).",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
@@ -332,7 +338,7 @@
     "assertions_signal_confirmation": 46,
     "assertions_direction": 35,
     "assertions_tgju_candles": 15,
-    "assertions_paper": 33
+    "assertions_paper": 34
   },
   "open_decisions": [
     "SP-D PAPER (SP_D_HANDOFF.md sections 9-27, branch sp-d-paper, not merged): the front office is THE ROOM (analysis/room.py): seven members (brake 2.0; market state, fair gap, real dollar 1.5; dollar 20d, chartist 1.0; world gold 0.5; money flow waits for TSETMC), the committee's view at 60%/30%, a review every 10 trading days, no sale while the stock index rises and back early on a new turn up; posture ALL_GOLD or SWING_OUT (40% of the grams into Afran in whole units). Inputs from the runner: tgju, tablokhani, etfbaz; seeds in src/seed. Replayed: median +4.0 to +5.7% against holding per two years, ahead in 83-100% of windows, worst -3.3%. Back office: the brave analyst, quant, cautious, hold, system. Drafts awaiting the owner; the two-trades migration still unapplied.",
