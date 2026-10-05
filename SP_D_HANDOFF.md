@@ -1679,3 +1679,68 @@ breakout was followed by -5.1% against fixed income over 60 days in 2016-2020 an
 2021-2026). As a decision maker alone it never beat holding in any two-year window (section 22).
 Its place: the describer of the chart for the owner and for the LLM chair, and a light
 member of the committee.
+
+## 22. The committee room replayed: who should decide (2026-10-05)
+
+**The owner.** "Back testing the committee room for the last two years and see which one
+could be a better judge and DM to call on buy sell."
+
+**The replay** (`research/rd_committee_2y.py`). The owner's contract: 135M toman on 1403/07/14
+(2024-10-05), whole grams of 18K at tgju's close with Daric's 0.30% round trip, all in gold on
+day one; the swing is 40% of the grams (the owner's 2 of 5); a sale's cash goes straight into
+Afran at its own daily total return and comes back for the next buy (0.10% in and out); to
+1405/07/09. 18K rose 520% over the two years, Afran 86%. The members' leans (+1 gold, -1 fixed
+income, 0 none), all causal: the brake (f* under 0.9), the market state (sideways without a new
+60-day high; a new 60-day high), the fair gap, the real dollar, the dollar's 20 days, world
+gold's 60 days, the gold funds' buyer power (20-day mean), the chartist (section 21). The
+engine agrees with hand calculations (holding 825.2M against 835.1M by hand, the difference
+the whole grams; 60/40 throughout 591.7M against 603.1M).
+
+**The last two years**, each decision maker acting daily: market state alone +6.4% against
+holding (878.1M against 825.2M, 21 trades, 6 of 10 exits right), the channel trader +2.9%, the
+brake -1.2%, the committee with the proposed weights -1.7% (7 trades; it read +3.9% before the
+chartist's channel was corrected -- one window's number moves 5-6 points on one member's
+detail), equal weights -3.6%, learned weights -10.6%, each member alone -7% to -22%, the brave
+trader -23.1%. The quarters show where: being out in 1405 Q1 (world gold's fall, +6.5 to
++9.6 points) and out at the start of the jump in 1405 Q2 (-7 to -12 points).
+
+**As judges, against the base rate** (gold beat fixed income over 20 days on 69% of the two
+years' days): when it said fixed income, fixed income won -- money flow 53% (87 days), market
+state 44% (180), dollar 20d 42%, real dollar 35%, fair gap 34%, chartist 26%, world gold 25%
+(the last two below a coin's 31%).
+
+**Every two-year window** (18 windows starting each Persian quarter, 1399 Q2 -> 1403 Q3, Afran;
+consecutive windows share most of their days, so they amount to about three independent
+periods): acting daily, the committee with the proposed weights +1.9% median against holding
+(56% of windows), the channel trader +0.4% (67%), every member alone below holding (market
+state -7.1%, chartist -5.0% and never ahead), learned weights -6.7%, follow-the-leader -7.7%.
+Leave-one-out (`rd_committee_ablation.py`): without the market state the committee falls to
+-2.2% (17% of windows), without the fair gap -1.3%, without money flow -1.4%; without the
+chartist +2.2%, without the dollar's 20 days +1.2% (they add nothing); without the brake +4.5%
+but its worst window -9.2% and the last two years -10.6% (the brake is insurance).
+
+**The finding: act on the consensus every two to four weeks, not every day**
+(`rd_committee_cadence.py`, `rd_committee_cadence2.py`; the committee's view moves every day,
+the swing moves only on the decision day; every offset of each cadence run):
+
+```text
+median gain over holding (range over offsets) | windows beating holding | worst window
+                         Afran windows from 2020 (18)            fixed-income index from 2018 (27)
+proposed, every day      +1.9%          56%        -5.2%         +1.9%          63%        -9.2%
+proposed, every 5 days   +5.8 to +7.6%  78-94%     -3.4%         +5.7 to +7.8%  81-93%    -15.3%
+proposed, every 10 days  +6.7 to +9.0%  94-100%    -2.9%         +5.5 to +8.9%  85-93%    -21.2%
+proposed, every 20 days  +7.6 to +9.7%  89-100%    -3.3%         +7.2 to +8.6%  85-89%    -13.9%
+equal,    every 10 days  +4.5 to +7.7%  67-100%    -6.5%         +4.7 to +8.1%  70-93%    -21.7%
+equal,    every 20 days  +4.2 to +8.6%  72-100%    -9.1%         +6.7 to +8.1%  74-89%    -16.7%
+leave every 10 days, back at once (proposed)
+                         +4.6 to +7.3%  83-94%     -6.0%         +3.7 to +5.9%  85-96%    -12.0%
+```
+
+The daily committee flickers around its thresholds; checked every two to four weeks it stays
+on the slow moves and trades less. The result holds at every offset, with equal weights
+(so not only through the hindsight in the proposed weights) and from 2018 with the index.
+Its tail is real: a window that began before 2018's currency spike lost 21% against holding,
+out of gold during the jump. Coming back to gold at once when the consensus breaks halves
+that tail (-12%) for 2-3 points of median.
+
+**The LLM chair**: in progress (section 23).
