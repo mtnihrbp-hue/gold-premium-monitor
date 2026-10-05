@@ -1743,4 +1743,37 @@ Its tail is real: a window that began before 2018's currency spike lost 21% agai
 out of gold during the jump. Coming back to gold at once when the consensus breaks halves
 that tail (-12%) for 2-3 points of median.
 
-**The LLM chair**: in progress (section 23).
+**The LLM chair**: section 23.
+
+## 23. The LLM as the committee's chair, replayed (2026-10-05)
+
+**Why it can be replayed.** openai/gpt-oss-120b's knowledge ends in mid-2024 by its model
+card; the window starts in October 2024. The briefs (`research/rd_llm_judge.py build`) also
+carry no dates and no price levels: 18K, the dollar and world gold appear as indexes (today =
+100) and changes. One brief every 5 trading days (115), about 870 tokens: the contract (the
+40% swing, gold or fixed income, for the next 5 trading days), the position it chose last
+(fed back on the runner), 18K's path and moves, volatility, fixed income's yield, the dollar,
+world gold, the fair gap, the chartist's reading, and each member's lean with its record so
+far against the base rate. Run on GitHub's runner (temporary branch probe-llm-judge,
+`probe/llm_judge.py`), strict JSON, reasoning effort low: 115 of 115 valid, no rate-limit
+stop, about 1,470 tokens a decision (free tier: 1,000 requests a day, 8,000 tokens a minute).
+
+**gpt-oss-120b as chair**, the last two years, the same contract (`rd_llm_judge.py score`,
+`rd_llm_quarters.py`):
+
+```text
+                                        1403Q3 1403Q4 1404Q1 1404Q2 1404Q3 1404Q4 1405Q1 1405Q2 1405Q3  2 years
+holding's quarter                       +17.6  +64.9  -16.2  +37.8  +45.4  +29.1   -8.3  +47.8   +7.3   825.2M
+LLM chair (gpt-oss-120b), weekly         +0.0   +0.0   +1.3   -0.4   -0.8   -0.5   +7.2  -12.5   -0.1    -1.1%
+committee, acting weekly, same days      +0.0   -3.3   +4.1   +0.1   +0.1   -0.4   +6.6   -7.4   -0.1    +4.4%
+(points against holding's quarter)
+```
+
+It chose gold 96 times and fixed income 19, 17 trades, 5 of 8 exits right; when it chose fixed
+income, fixed income won 32% of the time over the next 20 days (the base rate 31%); median
+confidence 0.71. Its reasons are mostly the committee's count ("4 of 7 active members favour
+fixed income", "all eight members ... favour FIXED_INCOME") and fixed income's yield; once it
+miscounted ("fixed-income supporters (~51%) exceed those of gold supporters (~60%)"). It
+read the 2026 fall like the committee (+7.2 points in 1405 Q1) and stayed out longer at the
+jump (-12.5 in 1405 Q2): 5.5 points behind the committee on the same days. Only this one
+window is clean of its training data, so it cannot be run on the earlier windows.
