@@ -1991,3 +1991,43 @@ A high premium came before a stronger 18K in 2019-2022, the opposite of the cont
 fixed in advance (in that era hot money was momentum), and weakly since; the real money in and out
 of the gold and fixed-income funds leads nothing. Not re-signed after the fact. fipiran's premium and
 flows belong in the evidence -- how hot the crowd is, where the money is going -- not in the vote.
+
+## 26. The owner's common-sense room, the runner and the Iranian sites, and what is wrong (2026-10-05)
+
+**The owner.** No to the room as proposed: "the room should have a common sense, like a human. I am not
+calling to always park an amount in fixed income: if the trend is bullish, all out to gold; if
+sideways, it should be able to extrapolate and sell some gold into fixed income and keep the rest, and
+keep a sharp eye to rebuy the sold gold back." Yes to the early return on the stock index. Is the
+Iran-side server resolved by fipiran, tablokhani and etfbaz? "Still the room isn't ready to give it
+the paper money, and what you have done so far is not satisfying; there is something wrong, and I
+don't know what. What's your call?"
+
+**From GitHub's runner** (temporary branch probe-iran-sites, deleted): tablokhani 200 (0.9-1.3 s:
+market indices, smart-money averages), etfbaz 200 (1.7 s: the landing prices); fipiran timeout,
+TSETMC timeout, Nobitex refused, Daric 403. tablokhani and etfbaz serve the runner; fipiran, TSETMC,
+Nobitex and Daric still need the Iran-side collector.
+
+**The owner's room, as written** (`research/rd_room_human.py`; the chartist's phase as known each day:
+MARKUP all in gold; ACCUMULATION / DISTRIBUTION keep 60%, the 40% swing to fixed income in the box's
+upper part (at or over 60%), back in its lower part (30% or less), on a break upward or when the stock
+index rises; MARKDOWN held, or the swing out; acted on daily):
+
+```text
+against holding           2016-2023        2024-2026       last 2 years    two-year windows (18, Afran)
+downtrend held            -4.7%            -3.3%           -2.2%           median -2.9%, 11% ahead, worst -5.3%
+downtrend out             -17.3%           -8.9%           -6.2%           median -6.3%, 6% ahead, worst -10.1%
+the committee, 10 days    +7.1%            +5.9%           +10.7%          median +8.5%, 94% ahead, worst -0.3%
+by phase, points against holding (downtrend held / out): 2016-2023 sideways -4.4 / -3.1, downtrend
+-0.1 / -13.1; 2024-2026 sideways -0.6 / -2.9, downtrend -0.1 / -4.1
+```
+
+**What is wrong.** The rules are a trader's; the phase they are fed is late. A chart's phase is known
+only from confirmed swings: a sideways market is recognised after part of the range has passed, a
+downtrend after the fall (the exit sells low), a bull after the jump (the return buys high). Selling
+the box's top in toman sells before the break up more often than before the break down (section 16).
+A human's sense of the phase comes ahead of the chart, from what prices do not yet hold: the news, the
+dollar's mood, the bazaar. The committee does better not by reading the phase from the chart but
+because several of its members (the fair gap, the real dollar, money flow, the market state's
+valuation) are partly ahead of the price, and it acts slowly. It is the owner's room with the phase
+read from the evidence: all in gold by default, 40% to fixed income only when most of the evidence
+favours it, back when that breaks.
