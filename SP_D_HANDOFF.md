@@ -1597,3 +1597,85 @@ with a safe tag first. Research first: candidates 2, 3 and 4 above, all testable
 GitHub's runner's data. Build after the owner's answers: the committee members' logging,
 the LLM member on Groq (openai/gpt-oss-120b, section 16), fixed-income parking (lag 0, Afran's
 price an estimate until the collector), and the 21:00 message.
+
+## 20. Health check 2026-10-05 10:15, made a routine
+
+**The routine** is now `PROJECT_OPERATIONS.md` section 15: runs, freshness, platforms, why a
+platform is missing (the run log), decisions and the degenerate check, daily candles, PAPER,
+a one-line verdict.
+
+**Since the last check** (2026-10-04 10:15 to 2026-10-05 10:15 Tehran): every scheduled
+ANALYZE ran and succeeded, 16 on 10-04 (06:00-21:00) and 06:00-10:00 on 10-05, 5-10 minutes
+each; the owner's UPDATE at 10:24, 13:35 and 15:51 and DIRECTION at 13:37. In the last 24
+hours: 19 market snapshots and market states, 16 analysis snapshots, 48 outcomes, 214 price
+observations, 458 news items; Direction panels for 10-04 06:00 and 13:00 and 10-05 06:00;
+tgju's 18K and dollar candles to 10-04 (collected 06:03), world gold to 10-03 (the
+weekend). `paper_activity` 0 rows, as expected before the merge.
+
+**Platforms.** Nine of eleven in every reading. **Daric**: 403 on every run since
+2026-10-03 18:50 (its side, refusing the runner); PAPER's first venue, so PAPER falls to
+Goldika. **Taline**: in 6 of 19 readings; the other 13 discarded by its 1% band ("stale copy
+suspected", -1.15% to -2.43% from the median, 10-04 07:00-17:00 and 10-05 07:00). On 10-05 it
+reported 263,855,000 at 06:01, 08:01 and 09:01 while the others moved: the frozen copy the
+Iranian CDN serves the runner. The band caught it at 07:00; the 06:01, 08:01 and 09:01 copies
+were within 1% (-0.23% to -0.31%) and were stored. Small, noted, not fixed: the repeat rule
+defers a repeat only beyond 1.0 pp from its usual position, by design. **Goldika**:
+discarded once (10-04 07:00, priced 19 hours earlier by its own time stamp), otherwise in.
+
+**Decisions.** WAIT on every reading; one BUY candidate (10-04 10:01, heavily discounted,
+held by the confirmation: the dollar was not yet today's, section 8). `final_decision` WAIT
+637, BUY 4 since the start; `structure_state` DISCOUNT_DOMINANT throughout (registered).
+
+**Verdict:** healthy. Open: Daric refused from the runner (the Iran-side collector);
+Taline's frozen copies within the band.
+
+## 21. The chartist (2026-10-05)
+
+**The owner.** "We are missing a chartist in the committee room, the one who can read
+charts, identify trends, sideways and so on. Explore this idea: a system that can see
+channels, and technically analyze the chart."
+
+**What it reads** (`research/chartist.py`, causal; `research/rd_chartist.py` tests it):
+swings from a ZigZag whose threshold is 3 x ATR(14) as a share of the price (bounded 3-15%,
+so a swing means the same in a calm year and in 1405; 6-14 swings a year); Dow structure
+from the last two swing highs and lows (UP, DOWN, CONTRACTING, EXPANDING, RANGE); ADX and
+the 50-day EMA's slope; the channel of the current leg (from the last confirmed swing:
+slope, R^2, the price's place in it); the sideways box; patterns -- breakout and breakdown,
+Wyckoff's spring and upthrust (against the box as it stood that day), bear and bull traps
+(a close through the last swing, back within 10 days), double top and bottom, squeeze,
+divergence with RSI, a flag; the phase (MARKUP, MARKDOWN, ACCUMULATION, DISTRIBUTION, by the
+leg into the range; a breakout carried by a rising EMA50 is MARKUP before its swing
+confirms). The view: a textbook chartist's score, fixed before the test (phase +/-0.5 or
+0.25, breakout and spring +0.5, breakdown and upthrust -0.5, the rest +/-0.25, clipped to
++/-1). Three corrections after reading its own charts, before scoring: the phase rule (the
+leg into the range, not 120 days back), the spring's box (that day's), and the channel's
+start (the current leg, not the one before).
+
+**1405 as it read it:** markup through the winter; a breakdown and double top at the
+1404/12/24 gap (20.12M to 16.92M); markdown in Farvardin; a breakout in Ordibehesht that
+failed; a breakdown on 1405/03/25 at 16.30M and a bear trap on 1405/04/07; the box 15.7-20.3M;
+the break on 1405/05/31 at 21.04M read as MARKUP, score +1.00, held since; today a rising
+channel from the 15.65M low, +0.55% a day, the price at 0.64 of it
+(research/data/chartist_preview.png).
+
+**What it is worth** (gold over fixed income in the next 20 / 60 days):
+
+```text
+                      2016-2020          2021-2026          last 2 years (2024-10-05 -> 2026-10-01)
+all days              +2.02 / +5.90      +2.15 / +6.28      +4.20 / +12.06
+after a breakout      -0.91 / -5.11 (12) +3.27 / +10.86 (15) +7.75 / +17.07 (5)
+after a flag          +5.15 / +16.33 (11) -0.05 / +4.90 (10) +2.52 / +6.14 (5)
+after a bear trap     -5.55 / -2.81 (6)  +1.42 / +1.48 (13) +2.56 / +2.56 (6)
+after a squeeze       -4.59 / -2.03 (10) -1.53 / +1.41 (18) +4.49 / +17.65 (4)
+days in ACCUMULATION  -3.81 / -2.64      -1.49 / +1.90      +1.69 / -0.94
+the view's rank correlation: +0.04 / +0.12 (luck 81% / 56%), +0.10 / +0.10 (38% / 57%), +0.00 / +0.01
+at swing thresholds of 2, 4 and 5 x ATR: +0.03 to +0.22 over 2016-2026, -0.14 to +0.18 in the
+last two years
+```
+
+It reads a chart coherently and in a chartist's words, and its view leans the right way over
+ten years at every threshold tried, weakly; no pattern keeps its sign across the eras (a
+breakout was followed by -5.1% against fixed income over 60 days in 2016-2020 and +10.9% in
+2021-2026). As a decision maker alone it never beat holding in any two-year window (section 22).
+Its place: the describer of the chart for the owner and for the LLM chair, and a light
+member of the committee.

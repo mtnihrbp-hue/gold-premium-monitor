@@ -491,3 +491,38 @@ When a run is cancelled:
    `HTTPS_PROXY=http://127.0.0.1:<port> gh run view <id> -R mtnihrbp-hue/gold-premium-monitor --log`
    (`-R` is needed when not inside the repo). The last `World Gold` or platform line
    printed names the call that was still running.
+
+## 15. The routine health check (2026-10-05)
+
+Run it at the start of a working session, and after any merge. Report every time in
+Tehran time. Read-only throughout: no query below writes.
+
+1. **Runs.** `gh run list -R mtnihrbp-hue/gold-premium-monitor --limit 60` since the last
+   check: one ANALYZE per hour 06:00-21:00 Tehran, each `success`, normally 5-10 minutes;
+   the owner's UPDATE / DIRECTION / REPORT dispatches in between. A missing hour is
+   cron-job.org; a failure or a 20-minute kill follows "When a run is cancelled" above.
+2. **Freshness** (Neon, production): rows and latest time in the last 24 hours for
+   `market_snapshots`, `analysis_snapshots`, `market_states`, `outcome_evaluations`,
+   `price_observations`, `platform_prices`, `news_events`, `direction_snapshots`,
+   `market_daily_candles`. Expected: one market snapshot, one market state and one
+   analysis snapshot per scheduled run (plus one snapshot and state per UPDATE), about 3
+   outcomes per run, two Direction panels a day (06:00 and 13:00 slots).
+3. **Platforms.** `platform_prices` per `platform_name`, last 24 and 72 hours. Eleven
+   platforms; fewer readings than runs means a failure or a discard.
+4. **Why a platform is missing.** The run log through the Psiphon HTTP proxy (above):
+   `Discarded <platform>: <reason>` per run. Reasons on record: Daric `403` (its side,
+   refusing GitHub's runner), `stale, priced ... ago` (the source's own time), `stale copy
+   suspected, -x% from the other platforms' median` (Taline's 1% band), the repeat and
+   jump rules. A price that repeats over readings while the others move is a frozen copy
+   from the runner's side (CLAUDE.md, stale platform quotes).
+5. **Decisions.** `market_states` of the last 24 hours: valuation, momentum, premium
+   direction, structure, candidate and final decision, reason. Every BUY or SELL
+   candidate: did the confirmation hold it, and was the hold right? Then the degenerate
+   check: `SELECT final_decision, COUNT(*) FROM market_states GROUP BY 1` and the same for
+   any categorical column reported; `structure_state` is a registered constant.
+6. **Daily candles.** `market_daily_candles` per `instrument`: 18K and the dollar to
+   yesterday's Tehran day, world gold to its last weekday.
+7. **PAPER** (once merged): one REPORT row a day at 21:00, at most two TRADE rows a day
+   per account, an EVAL row per run for each evaluated account.
+8. **Verdict** in one line, the open defects named, then the record in the sprint's
+   handoff.
