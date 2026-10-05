@@ -740,3 +740,125 @@ source and compare its answer with a source you trust, in the same minute, befor
 shipping. A unit test written from the parser's own assumptions ("the first item is
 the price") passes against the fixture it was written for. The first draft of this
 fix's own test did exactly that: a one-metal event, no symbol, and it passed.
+
+## 20. A line's accuracy is its distance
+
+**The pattern.** A chart line "holds" most of the time because the price rarely travels far in a
+few days, not because the line knows anything. Any accuracy figure for a line, a level or a band
+is set by how far it sits from the price.
+
+**Where it happened.** The owner asked how to lock the chart's accuracy above 95% (SP-D, 2026-10-04).
+On 18K 2014-2026 a support line with no history, drawn 8% under the price, held over ten days 95%
+of the time; 3% under, 81%. The chart's real trend lines held 79% -- and a control line at the same
+distance from the price also held 79% (`SP_D_HANDOFF.md` section 15).
+
+**The measurement.** Every line against a control at the same distance, its distance taken from
+another day. The edge over the control is the line's worth; the raw hold rate is not. What can
+honestly be locked at 95% is a band's coverage: a band from 18K's own past moves held the price
+93-95% of the time at 5 and 20 days (section 18).
+
+## 21. A good predictor can be a bad member
+
+**The pattern.** A signal that correlates with the future does not, for that reason, improve a
+decision built from several signals. A committee acts on a few states -- here, the rare consensus
+to leave gold -- and a member is worth what it adds there.
+
+**Where it happened.** The Tehran stock index led 18K's next 20 days at +0.20 to +0.26 (luck 0%) and
+the gold funds' volume profile at up to +0.29 (luck 0%); added to the committee as voters, vetoes
+or early-return triggers, both lowered its median gain over holding, except the stock index as an
+early return, which bought a smaller tail for 1-2 points of median (`SP_D_HANDOFF.md` sections 24,
+25). Both lead gold on the way up, when the room is already in gold; their votes to leave fall in
+dips that recover in toman.
+
+**The rule.** Test a candidate inside the decision it would join, on every window and offset, and
+score it by the calls the decision uses (here: when it says fixed income, how often fixed income
+wins, against the base rate), never by its correlation alone.
+
+## 22. One window's number is not a result
+
+**The pattern.** A backtest over one period answers for that period's handful of turns. Small
+changes elsewhere move it by more than the effect being measured.
+
+**Where it happened.** The committee's two-year result read +3.9% against holding, then -1.7%
+after one member's channel was drawn from the right swing; deciding weekly instead of daily moved
+it from -1.7% to -2.1% in one construction and +4.4% in another. The market-state member led the
+last two years (+6.4%) and trailed holding in 78% of the two-year windows (`SP_D_HANDOFF.md`
+section 22).
+
+**The rule.** Every two-year window, every offset of the decision day, and the median, the share of
+windows beating the bar and the worst window, reported together. Windows that overlap are not
+independent: eighteen quarterly-started two-year windows are about three periods.
+
+## 23. The sample that flatters
+
+**The pattern.** A result on a sample, chosen for convenience, is a draw. The first draw of a
+signal that will later be tested on everything is the most flattering one people see.
+
+**Where it happened.** The gold fund's closing-hour order-book imbalance correlated +0.34 with 18K's
+next five days on 65 sampled sessions; on all 696 it was +0.07 (luck 10%). Buyer power in the gold
+funds showed the same sign in two periods and vanished after 18K's own moves were removed
+(`SP_D_HANDOFF.md` sections 15 and 24).
+
+**The rule.** Before reporting a signal: its own moves removed (18K's last 1, 5 and 20 days at
+least), a circular-shift bootstrap that keeps the autocorrelation, and the full data, not the sample
+that suggested it.
+
+## 24. A pattern needs a shuffled baseline
+
+**The pattern.** Patterns defined on a price path (AMD, liquidity sweeps, traps) happen by chance at
+some rate. Counting how often they happen says nothing until it is compared with the same paths
+shuffled.
+
+**Where it happened.** In the gold funds' sessions (Ayyar and Tala, 1,400 sessions), AMD days were
+0.3-1.6% of days against 4.5-5.4% in the same days with their minutes shuffled -- rarer than
+chance: market makers hold the funds inside their opening range (56% of days against 35-37%
+shuffled). Runs beyond yesterday's high or low that closed back inside came at exactly the shuffled
+rate, 12.6% (`SP_D_HANDOFF.md` section 25).
+
+## 25. Learning the weights chases the last era
+
+**The pattern.** Weighting the members by their record works when the relations are stable. In this
+market they reverse between eras, so a record-weighted committee follows the last era's lesson and
+is wrong at the turns.
+
+**Where it happened.** The dollar ahead of the cost of money pointed to gold at +0.76 in 2018 and
+away from it at -0.56 from 2021. Learned weights (each quarter, by the record) trailed holding by
+6.7% in the median two-year window; following the best member so far, by 7.7%; fixed weights led
+(`SP_D_HANDOFF.md` sections 17 and 22).
+
+**The rule.** Weights change at the quarter's review, by judgement, slowly; not automatically.
+
+## 26. A model cannot be tested on what it has read
+
+**The pattern.** A language model asked to decide on history it was trained on recognises the
+history. Its replay measures memory, not judgement.
+
+**Where it happened.** The LLM chair (gpt-oss-120b, knowledge to mid-2024) was replayed only on
+2024-10 -> 2026-10, with no dates and prices as indexes. It trailed holding by 1.1% and the
+committee on the same days by 5.5 points; its calls to leave gold were right 32% of the time
+against a 31% base rate, its reasons the committee's vote count, once miscounted (`SP_D_HANDOFF.md`
+section 23). Earlier windows cannot be used at all.
+
+## 27. A unit that moves by powers of ten
+
+**The pattern.** An exchange can change the unit an instrument is quoted in. The series stays
+continuous in shape and jumps by a power of ten in level.
+
+**Where it happened.** The bank-vault coin certificates' price, against the gold a coin holds, read
+near +10,000% before 2021, +1,000% before 2025 and +5-14% since (`SP_D_HANDOFF.md` section 24).
+
+**The check.** Every price against its intrinsic value; a ratio near a power of ten is a unit, not
+a market.
+
+## 28. In toman, leaving gold is the expensive mistake
+
+**The pattern.** When the asset's drift is large and the alternative's is smaller, the two errors
+are not equal: being out when it rises costs far more than being in when it pauses.
+
+**Where it happened.** Over 2018-2023, 1 toman became x10.5 in 18K and x3.5 in fixed income; over
+2024-2026, x9.9 and x2.2. Every timing rule that left gold often -- the swing traders, the
+sideways switch, the members alone -- trailed holding; the only robust gain came from leaving on a
+broad consensus, slowly (every two to four weeks), and its tail came from being out at a jump
+(2018: -21% in the worst window) (`SP_D_HANDOFF.md` sections 16, 17 and 22).
+
+**The rule.** The default is gold. Leaving needs agreement; coming back needs only doubt.

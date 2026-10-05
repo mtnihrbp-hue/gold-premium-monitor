@@ -1877,3 +1877,117 @@ is the candidate for an early return to gold (a choice of tail against median, t
 volume profile and the funds' flows belong in the evidence the owner and the LLM read (levels, hot
 money, the coin's bubble, today's NAV premium) rather than in the vote. Every TSETMC input waits for
 the Iran-side collector; TEDPIX and the funds' daily data are the cheapest to collect.
+
+## 25. Lessons registered, the websites, AMD, and how to shape the room (2026-10-05)
+
+**The owner.** A summary to close and register the lessons; what is good, why, and how it helps;
+fipiran, tablokhani and etfbaz for Iran's gold ETFs; session liquidity and AMD; "how to shape the room
+to get the most of it. Buying and holding is the easiest; what's the hard and more beneficial piece?
+For example, gold enters a sideways channel for a while, so the room should transfer a part of the
+gold into the fixed-income ETF, and then, understanding the next move, add the gold back."
+
+**Lessons registered:** `LESSONS_LEARNED.md` sections 20-28 (a line's accuracy is its distance; a good
+predictor can be a bad member; one window's number is not a result; the sample that flatters; a
+pattern needs a shuffled baseline; learning the weights chases the last era; a model cannot be tested
+on what it has read; a unit that moves by powers of ten; in toman, leaving gold is the expensive
+mistake).
+
+**The websites** (from Iran, direct; each site's own calls, read from its scripts):
+
+```text
+fipiran.ir   POST /services/fund/fundcompare {"date"}: every fund on that day -- issue / redemption /
+             statistical NAV, net assets, units outstanding; from 2019 at least (Ayyar 95.6 M units
+             on 2019-10-05, 5,100 M on 2026-10-03). GET /services/fund/fundlistbrief (567 funds),
+             /services/efficiency/fundefficiencychart?regNos= (daily NAV returns), /fund/fundlistissue
+             (today's issue and redemption NAV). Open, no key. Fetched daily 2019 -> 2026-10 for the
+             gold (type 5) and fixed-income (type 4) funds: research/fetch_fipiran.py.
+tablokhani   api.tablokhani.com/public/: smart-money-averages (every symbol: individuals' 10-day per-
+             capita buy and sell, buyer and seller counts, RSI14, MA20), volume-averages,
+             market-indices, fund-categories, symbol-names -- today's values, open; everything else
+             behind a login and a paid plan.
+etfbaz       api.etfbaz.com: /instrument/landing (world gold, 18K, the union's cash quote for melted
+             gold), /instrument/category/{id}, /instrument/search (the funds and ready-made "bubble"
+             instruments: Ayyar's, 18K's); its history cards (the funds' bubble, net inflow, average
+             bubble) load from code a script cannot reach without the browser's session -- not pursued.
+```
+
+fipiran is the one that matters: units outstanding are the money that really entered or left the
+gold ETFs, and the exchange price against the redemption NAV is the premium -- the hot-money record
+TSETMC does not keep. A collector needs one request a day.
+
+**AMD and session liquidity** (`research/rd_amd.py`; Ayyar 698 and Tala 702 sessions, the first hour
+as the accumulation, a break of one side as the manipulation, a close beyond the other as the
+distribution; against the same days with their minutes shuffled):
+
+```text
+                      Ayyar real / shuffled     Tala real / shuffled
+AMD (either way)      1.3% / 9.9%               2.3% / 9.6%
+continuation          42.4% / 53.0%             41.5% / 55.3%
+inside the first hour 56.3% / 37.1%             56.3% / 35.1%
+ran yesterday's high (low), closed back inside: 12.6% / 12.6% (12.8% / 13.2%); Tala the same
+```
+
+AMD is rarer than chance: market makers hold the funds' price to its NAV, inside the opening range.
+Liquidity sweeps come at chance. In our own market (production's hourly readings, 62 days of a
+rising 2026-08 -> 10), the platforms' median price at 06:00-13:00 sat 0.2-0.65% under the same
+day's evening price (07:00 -0.65%), 14:00-21:00 within +/-0.3% of it: the morning dollar carried
+from the day before and the day's drift. If it holds over a longer record, buying in the morning and
+selling in the late afternoon is worth about Daric's whole round trip; to be measured as production
+collects.
+
+**What the room did in the owner's example** (`rd_room_1405.py`; every 10 trading days): on
+1405/01/05 at 17.55M seven of eight members favoured fixed income and 40% of the grams went to
+fixed income; they stayed there through the channel (the dip to 15.65M missed) and came back on
+1405/05/31 at 21.04M, after the break from 19.2M. Over 1404/11/01 -> 1405/07/09: +58.1% against
+holding's +61.8%; over the two years, +10.4% against holding. With the early return on the stock
+index it churned (six round trips) for +59.4%. An early return on the dollar's 20-day momentum was
+worse everywhere (median +3.5 to +5.9%, worst -14%).
+
+**What is good, why, and how it helps:**
+
+```text
+fixed income for idle cash        cash earns 20-39% a year instead of nothing; the brake policy
+                                  went from +12.6% to +17.5% against holding over 2016-2023
+the room, slow                    leaving gold on a broad consensus, acted on every 10-20 trading
+                                  days: median +5.5 to +9.7% against holding per two years, ahead in
+                                  85-100% of windows, at every offset, with equal weights too; why:
+                                  it leaves only when most of the evidence agrees and does not
+                                  flicker; it earns in falls like 1405 Q1 and pays at jumps
+the early return on stocks        halves the worst window (-21% -> -13%) for 1-2 points of median
+the bands                         18K's own past moves give a range that holds 93-95% at 5-20 days:
+                                  the honest "95%", for the plan and the targets
+the brake                         insurance in storms; leaving it out raises the median and deepens
+                                  the worst window to -9% and the last two years to -11%
+the volume profile, fipiran's     evidence for the owner and the LLM (levels, hot money, the premium),
+premium and flows, the chartist   not votes; each must earn a vote inside the room first
+execution: mornings to buy        about 0.3-0.6% a round trip if it holds; being measured
+```
+
+**The hard piece.** Buying and holding takes the inflation drift (18K x6.2 in two years). Leaving
+gold for fixed income in a sideways market is the part the room already does well. The hard,
+valuable piece is the return: coming back at the start of the next move, not after it. In 1405 the
+room returned one breakout late, and that alone cost it 3.7 points against holding over the episode.
+No price, chart, flow or LLM reading has called the start of a jump; the stock index helps the tail.
+fipiran's real money into the gold ETFs is the next candidate (below).
+
+**fipiran's money and premium, tested** (`research/rd_fipiran_flows.py`; units outstanding daily to
+2020-02 and weekly after, 762 dates; each gold fund's daily NAV rebuilt from its NAV-return history
+and anchored to the reported redemption NAV; 18 gold funds, 168 fixed-income funds):
+
+```text
+the gold funds' premium over NAV (by net assets): 2019 +1.1%, 2020 +9.3% (to +27.8%), 2021-2026
+-0.6% to -1.6%; their 28-day net creations, median +0.2% (2021) to +5.7% (2024) of assets
+after 18K's own moves               2019-2022                        2023-2026
+premium -> 18K 5 / 20 days          +0.20 (luck 0%) / +0.31 (0%)     +0.09 (13%) / +0.02 (84%)
+gold inflow 7 days -> 18K 5 days    +0.11 (9%)                       +0.03 (63%)
+gold inflow 28 days, fixed-income inflow, gold vs safety: |IC| 0.13 or less, luck 24-99%
+in the room (14 two-year windows from 1400 Q1, every 10 days): as it is +6.1 to +9.4%; with the
+premium (leaning fixed income when high, fixed in advance) +3.0 to +5.9%; with the gold inflow
++4.4 to +9.6%; with the safety inflow +1.6 to +3.7%; all three -1.0 to +2.3%; the safety inflow as
+the early return +1.1 to +3.7%
+```
+
+A high premium came before a stronger 18K in 2019-2022, the opposite of the contrarian direction
+fixed in advance (in that era hot money was momentum), and weakly since; the real money in and out
+of the gold and fixed-income funds leads nothing. Not re-signed after the fact. fipiran's premium and
+flows belong in the evidence -- how hot the crowd is, where the money is going -- not in the vote.
