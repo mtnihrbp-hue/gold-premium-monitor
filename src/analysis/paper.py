@@ -52,6 +52,7 @@ import numpy as np
 
 START_CASH_IRR = 1_350_000_000            # 135,000,000 toman
 VENUES = ("Daric", "Goldika", "Ayyareh")
+VENUE_LABEL = "Daric>Goldika>Ayyar"      # paper_accounts.venue is VARCHAR(20): ">".join(VENUES) is 21
 SWING_SHARE = 0.2                         # the part of the grams the brave analyst trades
 TAKE_PCT = 3.0                            # sell the swing at +3% over what it cost (owner: faster)
 RE_BUY_PCT = 1.5                          # buy it back 1.5% under the sale price ...

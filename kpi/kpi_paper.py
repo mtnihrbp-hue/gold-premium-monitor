@@ -651,6 +651,34 @@ class KPIPaper(unittest.TestCase):
         self.assertGreater(fi["afran_scale"], 0)
         self.assertEqual(main.ROOM_INPUTS["AFRAN_LAST"], ("tablokhani", "IRR"))
 
+    def test_29_every_text_fits_its_column(self):
+        # SQLite, which these tests run on, does not enforce VARCHAR lengths; production's Postgres
+        # does. The first live run on 2026-10-05 failed on paper_accounts.venue, VARCHAR(20), given
+        # "Daric>Goldika>Ayyareh" (21). Every text the PAPER and room code writes, against its column.
+        import main
+        from collector.tgju import INSTRUMENTS, UNITS
+        from database.models import MarketDailyCandle, PaperAccount, PaperActivity
+        length = lambda model, col: model.__table__.c[col].type.length
+        for name, policy, _ in p.ACCOUNTS:
+            self.assertLessEqual(len(name), length(PaperAccount, "name"), name)
+            self.assertLessEqual(len(policy), length(PaperAccount, "policy"), policy)
+        self.assertLessEqual(len(p.VENUE_LABEL), length(PaperAccount, "venue"))
+        self.assertLessEqual(len("ACTIVE"), length(PaperAccount, "status"))
+        for kind in ("TRADE", "EVAL", "REPORT"):
+            self.assertLessEqual(len(kind), length(PaperActivity, "kind"))
+        for action in ("BUY", "SELL", "HOLD", "UNDECIDED"):
+            self.assertLessEqual(len(action), length(PaperActivity, "action"))
+        for instrument, (source, unit) in main.ROOM_INPUTS.items():
+            self.assertLessEqual(len(instrument), length(MarketDailyCandle, "instrument"), instrument)
+            self.assertLessEqual(len(source), length(MarketDailyCandle, "source"), source)
+            self.assertLessEqual(len(unit), length(MarketDailyCandle, "unit"), unit)
+        for instrument in INSTRUMENTS.values():
+            self.assertLessEqual(len(instrument), length(MarketDailyCandle, "instrument"))
+        for unit in UNITS.values():
+            self.assertLessEqual(len(unit), length(MarketDailyCandle, "unit"))
+        self.assertLessEqual(len("LAST_KNOWN"), length(MarketDailyCandle, "source_quality"))
+        self.assertLessEqual(len("1405/07/13"), length(MarketDailyCandle, "trade_date_jalali"))
+
     def test_28_the_brake_path_matches_the_engine(self):
         import numpy as np
         from analysis import quant

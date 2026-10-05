@@ -29,7 +29,9 @@ TA-Lib==0.8.1
 # SP-D PAPER: the quant engine's regime model (analysis/quant.py) and the analyst's chart
 # (alerts/chart.py, Agg backend, no display).
 statsmodels==0.14.4
-# statsmodels 0.14.4 imports scipy._lib._util._lazywhere, which scipy 1.16 removed: an unpinned scipy
-# broke the quant engine on GitHub's runner on 2026-10-05 (SP_D_HANDOFF.md section 28)
+# Its own dependencies, pinned where the runner's latest broke it on 2026-10-05 (SP_D_HANDOFF.md section 28):
+# statsmodels 0.14.4 imports scipy._lib._util._lazywhere, which scipy 1.16 removed, and calls pandas'
+# deprecate_kwarg with the signature pandas 3 changed. The versions the suite passes on locally:
 scipy==1.15.3
+pandas==2.2.3
 matplotlib==3.10.3

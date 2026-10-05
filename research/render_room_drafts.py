@@ -40,7 +40,7 @@ s.add(MarketDailyCandle(source="tablokhani", instrument="AFRAN_LAST", trade_date
                         low=54490, close=54490, unit="IRR", source_quality="LAST_KNOWN", collected_at=datetime(2026, 10, 5)))
 s.commit()
 start_utc = datetime(2024, 10, 5, 3, 31)
-accounts = ensure_paper_accounts(s, paper.ACCOUNTS, paper.START_CASH_IRR, ">".join(paper.VENUES), start_utc)
+accounts = ensure_paper_accounts(s, paper.ACCOUNTS, paper.START_CASH_IRR, paper.VENUE_LABEL, start_utc)
 close = [float(r["close"]) for r in T["geram18"]]
 quant = main._quant_view(s, accounts, close, date(2026, 10, 5))
 state = main._room_state(s, accounts[paper.ROOM], quant)

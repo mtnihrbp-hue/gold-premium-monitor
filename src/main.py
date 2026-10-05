@@ -521,7 +521,7 @@ def _paper_run(markets, signal_state, now):
     if session is None:
         return
     try:
-        accounts = ensure_paper_accounts(session, paper.ACCOUNTS, paper.START_CASH_IRR, ">".join(paper.VENUES), now)
+        accounts = ensure_paper_accounts(session, paper.ACCOUNTS, paper.START_CASH_IRR, paper.VENUE_LABEL, now)
         day = local_date(now)
         quote = paper.venue_quote(markets)
         close = load_series(session, GOLD)[3]
