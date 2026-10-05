@@ -1777,3 +1777,103 @@ miscounted ("fixed-income supporters (~51%) exceed those of gold supporters (~60
 read the 2026 fall like the committee (+7.2 points in 1405 Q1) and stayed out longer at the
 jump (-12.5 in 1405 Q2): 5.5 points behind the committee on the same days. Only this one
 window is clean of its training data, so it cannot be run on the earlier windows.
+
+**gpt-oss-20b**, the same 115 briefs (23 rate-limit waits, 1 decision missing): 3.0% behind
+holding (1405 Q1 +2.5, Q2 -3.4 points); its fixed-income calls right 36% against the 31% base;
+it agreed with gpt-oss-120b on 101 of 115 decisions. Neither LLM chair beat the committee acting on
+the same days (+4.4%). The temporary branch probe-llm-judge is deleted.
+
+## 24. TSETMC, with access assumed: volume profile, LIT, the order book, smart money (2026-10-05)
+
+**The owner.** The Iran-side server is the owner's to provide; for the R&D, read TSETMC from this
+machine and see how its data can polish the model: "the volume profile, lit and so on are back in
+game."
+
+**What TSETMC gives** (cdn.tsetmc.com/api, direct from Iran; probed on Ayyar, 2026-10-04):
+
+```text
+every trade            Trade/GetTradeHistory/{ins}/{day}/false   224,204 trades (45 MB) on 10-04
+intraday snapshots     ClosingPrice/GetClosingPriceHistory/...    19,896 a day (4 MB): price, cumulative
+                                                                  volume, value and trades
+the order book         BestLimits/{ins}/{day}                     89,020 changes of the top five levels
+the flow               ClientType/GetClientTypeHistory            individuals / institutions, daily
+holders, the NAV       Shareholder/{ins}/{day}, Fund/GetETFByInsCode   the big holders; today's NAV only
+the index              Index/GetIndexB2History/32097828799138957  TEDPIX daily from 2008
+coin certificates      the bank-vault tamam sekeh certificates on the commodity exchange, daily, 2018 ->
+                       1404/12 (none liquid since)
+```
+
+History reaches at least 2020 for trades and the book, lighter in earlier years (22,220 trades on
+2024-10-05). The funds' session runs 12:00-18:00 Tehran now (12:00-15:00 in 1403). A fund's
+`zTitad` is its registered unit ceiling, raised in steps (Ayyar 1.15 bn units in 2024-05, 5.365 bn
+on 2026-10-04), not its daily creations. Fetched (`research/fetch_tsetmc_intraday.py`,
+`fetch_tsetmc_book.py`, condensed as they arrive, git-ignored): one-minute bars for Ayyar and Tala
+on 703 sessions each (2023-10-01 -> 2026-10-04), trades by ticket size and the book every 8th
+session, the book's daily summary on every session, the coin certificates daily.
+
+**Inside the session** (`rd_fund_intraday.py`, Ayyar 698 sessions and Tala 703; after 18K's own
+last 1, 5 and 20 days and the fund's own day; circular-shift luck):
+
+```text
+                                  Ayyar                         Tala
+close vs VWAP -> 18K tonight      +0.09 (luck 3%)               +0.06 (12%)
+close vs its 20-day POC -> 18K    20 days +0.16 (8%)            20 days +0.29 (0%), 5 days +0.19 (0%),
+                                  gold-FI 60 days +0.19 (0%)    from tomorrow 5 days +0.21 (0%)
+LIT sweep (beyond yesterday's high or low, back inside): -0.01 to +0.04, nothing
+trend day, last hour, POC migration, volume surge: |IC| under 0.10
+the fund's last hour -> the platforms' next hour: +0.06 (53 hours, 2026-08 -> 10)
+```
+
+The session's shape tells 18K's close the same evening, not the days after. The volume profile --
+the funds' close against the point of control of their last 20 sessions' minute volume -- leads
+18K's next 5-20 days on both funds, after 18K's own moves. Built from daily data instead (each
+day's value over its low..high, all gold funds, 2017 on: `rd_vp_member.py`) it tracks the minute
+version (correlation +0.87, the same sign on 87% of days).
+
+**The order book and the big tickets** (`rd_fund_book.py`, `rd_book_close.py`): within the session,
+bids far deeper than asks were followed by +0.034% over 30 minutes and the opposite by -0.028%
+(15,012 book minutes; the book also echoes the last 10 minutes, +0.11) -- far under any cost. The
+closing hour's imbalance, +0.34 against 18K's next 5 days on the first 65 sampled days, is +0.07
+(luck 10%) on all 696 sessions; the whole session's imbalance +0.10 (luck 2%). Big tickets (over 1B
+toman a trade) carry 4% of the value on a median day.
+
+**The coin and the stock market** (`rd_coin_bubble.py`, `rd_tedpix.py`): the coin's bubble over its
+7.32 g of gold (the certificates' price unit moved by powers of ten, normalised) ran about +20% in
+2018, +3-5% in 2020-21, +20-23% in 2023-24, +11% in 2025; in 2022-2026 a high bubble came before a
+weaker 18K (-0.17 over 20 days, luck 10%), nothing in 2018-2021. TEDPIX's last 20-60 days led 18K's
+next 20 days in 2020-2026 at +0.20 to +0.26 and gold over fixed income at +0.26 to +0.28 (luck 0-7%)
+after 18K's, the dollar's and world gold's own moves; strongest in 2020-2022 (+0.25 to +0.41),
+weaker since 2023 (+0.12 to +0.21, luck 27-75%); nothing in 2014-2019.
+
+**In the committee room** (`rd_committee_stocks.py`, `rd_vp_member.py`, `rd_committee_veto.py`,
+`rd_committee_reentry.py`; the committee acting every 10 / 20 days, every offset; median gain over
+holding, windows beating it, worst window):
+
+```text
+                                   Afran windows from 2020 (18)          index windows from 2018 (27)
+the room as it is, every 10 days   +6.7 to +9.0%   94-100%   -2.9%        +5.5 to +8.9%  85-93%  -21.2%
+   + stocks as a voter             +3.0 to +5.8%   83-94%    -4.1%        +3.3 to +5.5%  78-89%  -26.1%
+   + volume profile as a voter     +3.3 to +7.8%   67-100%   -5.7%        +5.7 to +8.2%  70-89%  -21.0%
+   volume profile as a veto        +6.0 to +7.8%   89-100%   -3.1%        +5.0 to +6.9%  81-89%  -20.9%
+   back early when stocks rise     +5.1 to +8.0%   83-100%   -4.6%        +4.8 to +7.6%  78-96%  -12.6%
+   back early when the profile is strong  +3.8 to +6.0%  67-94%  -11.4%   +3.4 to +5.5%  74-89%  -17.5%
+every 20 days: as it is +7.6 to +9.7% / -3.3% and +7.2 to +8.6% / -13.9%; back early when stocks
+rise +5.9 to +8.2% / -2.4% and +5.0 to +7.3% / -9.3%; the last two years +0.6% to +7.2%
+```
+
+What a member is worth to the room is its calls to leave gold, not its correlation with gold's
+future. When each member said fixed income, fixed income won over the next 20 days (base rate 40%
+in 2018-2021, 39% in 2022-2026): market state 58% / 51%, dollar 20d 55% / 51%, fair gap 51% / 42%,
+volume profile 46% / 55%, money flow 40% / 54%, world gold 47% / 42%, stocks 43% / 48%, brake 44% /
+-, real dollar 32% / 41%, chartist 39% / 26% (`rd_exit_skill.py`). The volume profile and the stock
+index lead gold mostly on the way up -- the room is already in gold then -- and their votes for
+fixed income come in dips that recover in toman. As voters and as vetoes they lower the room's
+result; the stock index earns a place as the way back: coming back to gold as soon as it rises keeps
+the median within 1-2 points and shrinks the 2018 tail from -21% to -13% (every 10 days) and from
+-14% to -9% (every 20).
+
+**For the model, then:** the room stays as it is, acting every two to four weeks; the stock index
+is the candidate for an early return to gold (a choice of tail against median, the owner's); the
+volume profile and the funds' flows belong in the evidence the owner and the LLM read (levels, hot
+money, the coin's bubble, today's NAV premium) rather than in the vote. Every TSETMC input waits for
+the Iran-side collector; TEDPIX and the funds' daily data are the cheapest to collect.
