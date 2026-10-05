@@ -214,11 +214,12 @@ class KPIPaper(unittest.TestCase):
         main._paper_run(_markets(), _State(), utc(4, 31))               # 08:01
         s = Session()
         accounts = {a.name: a for a in s.query(PaperAccount)}
-        self.assertEqual(set(accounts), {p.ANALYST, p.QUANT, p.CAUTIOUS, p.HOLD, p.SYSTEM})
+        self.assertEqual(set(accounts), {p.ROOM, p.ANALYST, p.QUANT, p.CAUTIOUS, p.HOLD, p.SYSTEM})
+        self.assertEqual({a.name for a in accounts.values() if a.pushes}, {p.ROOM}, "one front office")
         by = {accounts[name].id: name for name in accounts}
         trades = s.query(PaperActivity).filter(PaperActivity.kind == "TRADE").all()
-        self.assertEqual(sorted(by[x.account_id] for x in trades), sorted([p.ANALYST, p.CAUTIOUS, p.HOLD]),
-                         "three buy at the first fresh price; the system account waits for a BUY")
+        self.assertEqual(sorted(by[x.account_id] for x in trades), sorted([p.ROOM, p.ANALYST, p.CAUTIOUS, p.HOLD]),
+                         "four buy at the first fresh price; the system account waits for a BUY")
         for x in trades:
             self.assertEqual((x.action, x.grams), ("BUY", 5))
             self.assertEqual(x.at, utc(3, 31), "not at 06:01, which had no fresh price")
@@ -230,18 +231,25 @@ class KPIPaper(unittest.TestCase):
         self.assertIn("no fresh buy and sell price", analyst_evals[0].reason)
         self.assertIn("waiting for +3%", analyst_evals[1].reason, "a second trade is allowed; it simply has no reason yet")
         self.assertEqual(analyst_evals[1].inputs["swing"]["grams"], 1, "the swing state carries over")
-        self.assertEqual(len([m for m in self.sent if "PAPER BUY" in m]), 1, "only the analyst pushes")
+        pushes = [m for m in self.sent if "PAPER" in m and "21:00" not in m]
+        self.assertEqual(len(pushes), 1, "only the room pushes")
+        self.assertIn("PAPER · the room", pushes[0])
+        self.assertIn("Bought 5 g at", pushes[0])
+        room_evals = (s.query(PaperActivity).filter(PaperActivity.kind == "EVAL",
+                                                      PaperActivity.account_id == accounts[p.ROOM].id).all())
+        self.assertEqual(len(room_evals), 2, "the room logs every run it does not trade")
+        self.assertIn("no room view: the default, all in gold", room_evals[-1].reason,
+                      "without enough history the room holds its default: gold")
 
         main._paper_run(_markets(), _State(), utc(17, 31))              # 21:01
         main._paper_run(_markets(), _State(), utc(17, 45))              # a second run after 21:00
         reports = s.query(PaperActivity).filter(PaperActivity.kind == "REPORT").all()
-        self.assertEqual(len(reports), 5, "one report per account per day")
+        self.assertEqual(len(reports), 6, "one report per account per day")
         report = [m for m in self.sent if "GOLDPremium: PAPER</b> ·" in m]
         self.assertEqual(len(report), 1)
         text = re.sub(r"</?[bi]>", "", report[0])
-        for part in ("12 Mehr 1405, 21:00", "Gold: 5 g", "Total:", "This quarter (since 12 Mehr):",
-                     "Bought on day 1, never traded:", "Quant engine, same money:", "Today: bought 5 g",
-                     "on Goldika", "Plan: sell 1 g"):
+        for part in ("12 Mehr 1405, 21:00", "Posture: all in gold · 5 g", "Total:", "this quarter",
+                     "Holding instead:", "Today: bought 5 g", "on Goldika", "The room: no view yet"):
             self.assertIn(part, text)
         self.assertTrue(self.charts and self.charts[0][1:4] == b"PNG", "the report carries its chart")
         s.close()
@@ -495,6 +503,164 @@ class KPIPaper(unittest.TestCase):
         source = inspect.getsource(main.main)
         scheduled = source.index("if is_scheduled:")
         self.assertGreater(source.index("_paper_run(markets, signal_state, now)"), scheduled)
+
+    # -- the room, the front office (SP_D_HANDOFF.md section 27) ------------------------------
+
+    def test_22_the_room_replays_its_posture(self):
+        import numpy as np
+        from analysis import room
+        n = 40
+        out_members = ("brake", "market state", "fair gap", "real dollar")    # 6.5 of 9 weight: over 60%
+        leans = {m: np.zeros(n, dtype=int) for m in room.WEIGHTS}
+        for m in room.WEIGHTS:
+            if m in out_members:
+                leans[m][3:25] = -1
+            else:
+                leans[m][:] = 1
+        stocks = np.zeros(n, dtype=int)
+        path = room.replay(leans, stocks, 0, n - 1)
+        self.assertTrue(path[3]["inner"], "the committee's view moves the day the weight crosses 60%")
+        self.assertEqual(path[3]["posture"], room.ALL_GOLD, "the posture waits for a review day")
+        self.assertEqual(path[10]["posture"], room.SWING_OUT, "the review on day 10 follows the view")
+        self.assertFalse(path[25]["inner"], "back at 30% or less")
+        self.assertEqual(path[25]["posture"], room.SWING_OUT, "and the posture waits for the next review")
+        self.assertEqual(path[30]["posture"], room.ALL_GOLD, "the review on day 30 brings it back")
+        stocks[12:] = 1                                                    # a new turn up after the sale
+        path = room.replay(leans, stocks, 0, n - 1)
+        self.assertEqual(path[12]["posture"], room.ALL_GOLD)
+        self.assertTrue(path[12]["early"], "the sharp eye: back to gold early on a new turn up")
+        stocks[:] = 1                                                      # a standing rise at the review
+        path = room.replay(leans, stocks, 0, n - 1)
+        self.assertEqual(path[10]["posture"], room.ALL_GOLD, "no sale while the stock index leans to gold")
+        self.assertTrue(path[10]["vetoed"])
+        self.assertEqual(room.share_for_fixed_income({m: np.array([1]) for m in room.WEIGHTS}, 0)[0], 0.0)
+
+    def test_23_the_room_trades_whole_grams_and_parks_in_afran(self):
+        from analysis.room import ALL_GOLD, SWING_OUT
+        fund = 54_490.0
+        d, b = p.room_trade(p.Book(p.START_CASH_IRR, 0), Q, ALL_GOLD, fund, 0)
+        self.assertEqual((d.action, d.grams, b.units), ("BUY", 5, 0.0), "the default: all in gold")
+        d, b2 = p.room_trade(b, Q, SWING_OUT, fund, 0)
+        self.assertEqual((d.action, d.grams, b2.grams), ("SELL", 2, 3), "the owner's 2 of 5")
+        self.assertEqual(b2.units, math.floor((b.cash + 2 * SELL) / fund), "the cash goes straight into Afran")
+        self.assertLess(b2.cash, fund, "whole units, the residue as cash")
+        self.assertAlmostEqual(b2.value(SELL, fund), b.value(SELL), delta=1, msg="moving money is not making it")
+        self.assertEqual(p.room_trade(b2, Q, SWING_OUT, fund, 0)[0].action, "HOLD", "already out: nothing to do")
+        d, b3 = p.room_trade(b2, Q, ALL_GOLD, fund * 1.01, 0)
+        self.assertEqual((d.action, b3.units), ("BUY", 0.0), "back to gold: every unit comes out")
+        self.assertEqual(b3.grams, 3 + int((b2.cash + b2.units * fund * 1.01) // BUY))
+        self.assertEqual(p.room_trade(b, Q, SWING_OUT, None, 0)[0].action, "HOLD", "no Afran price: no sale")
+        self.assertEqual(p.room_trade(b, Q, SWING_OUT, fund, p.MAX_TRADES_PER_DAY)[0].action, "HOLD")
+        self.assertEqual(p.room_trade(b, None, SWING_OUT, fund, 0)[0].action, "HOLD", "no fresh quote: no trade")
+        d, b4 = p.room_trade(p.Book(p.START_CASH_IRR, 0), Q, SWING_OUT, fund, 0)
+        self.assertEqual((d.action, d.grams), ("BUY", 3), "opening while out: the core only, the rest in Afran")
+        self.assertGreater(b4.units, 0)
+
+    def test_24_the_room_is_seven_members_and_plain_words(self):
+        from analysis import room
+        self.assertEqual(set(room.WEIGHTS), {"brake", "market state", "fair gap", "real dollar", "dollar 20d",
+                                             "world gold 60d", "chartist"},
+                         "money flow waits for TSETMC through the Iran-side collector")
+        self.assertEqual((room.LEAVE, room.BACK, room.REVIEW_EVERY, room.SWING), (0.60, 0.30, 10, 0.40))
+        for text in room.WHY.values():
+            for word in BANNED:
+                self.assertNotIn(word, text.lower())
+
+    def test_25_the_room_messages(self):
+        from alerts.telegram_paper import build_room_report_message, build_room_trade_message
+        from analysis.room import SWING_OUT
+        view = {"posture": SWING_OUT, "reasons": ["the market is moving sideways", "the dollar decreased over 20 days"],
+                "next_review": "2026-10-19", "members": {k: 0 for k in range(7)}, "for_fixed_income": [1, 2, 3, 4, 5],
+                "for_gold": [6], "phase_line": "sideways after a rise (distribution), down from 26.10M on 5 Mehr",
+                "band20": [240_000_000, 290_000_000, 230_000_000, 300_000_000, 265_000_000]}
+        after = p.Book(7_150.0, 3, 9_965.0)
+        sell = build_room_trade_message("SELL", 2, SELL, "Goldika", datetime(2026, 10, 5, 5, 31), view, after, 54_490.0,
+                                        False, SELL, (p.START_CASH_IRR, DAY))
+        back = build_room_trade_message("BUY", 2, BUY, "Daric", datetime(2026, 10, 19, 3, 31),
+                                        dict(view, reasons=["the stock index turned up: back to gold early"]),
+                                        p.Book(1_000_000.0, 5, 0.0), 55_000.0, True, SELL, (p.START_CASH_IRR, DAY), 9_965.0)
+        report = build_room_report_message(DAY, "Goldika", SELL, "", 3, 9_965.0, 54_490.0, False,
+                                           3 * SELL + 9_965 * 54_490.0, p.START_CASH_IRR, DAY, (1.40e9, 1.35e9), [], view)
+        for html in (sell, back, report):
+            self.assertIn("PAPER", html)
+            bare = re.sub(r"</?[bi]>", "", html)
+            for char in "<>&":
+                self.assertNotIn(char, bare)
+            for word in BANNED:
+                self.assertNotIn(word, bare.lower())
+            self.assertLessEqual(max(len(x) for x in bare.splitlines()), 110, "short lines, read on a phone")
+        plain = re.sub(r"</?[bi]>", "", sell)
+        for part in ("Sold 2 g at", "Moved to Afran (fixed income):", "Kept in gold: 3 g",
+                     "Back to gold: when the stock index turns up, or at the review on 27 Mehr"):
+            self.assertIn(part, plain)
+        self.assertIn("an estimate", back, "an old Afran price says so")
+        self.assertIn("Paid from Afran", back)
+        plain = re.sub(r"</?[bi]>", "", report)
+        for part in ("Phase: sideways after a rise", "Posture: 3 g in gold,", "in Afran (fixed income)",
+                     "Next 20 trading days: most likely", "The room: 5 of 7 lean to fixed income, 1 to gold"):
+            self.assertIn(part, plain)
+
+    def test_26_the_collectors_never_raise_and_read_their_pages(self):
+        import requests
+        import collector.etfbaz as eb
+        import collector.tablokhani as tk
+
+        class _R:
+            def __init__(self, data):
+                self.data = data
+
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return self.data
+        pages = {
+            "market-indices": {"success": True, "data": {"bourse": {"state": "closed", "index": "7,790,017.18"}}},
+            "smart-money-averages": {"success": True, "data": {tk.AFRAN: {"closing_1d_ago": 54490},
+                                                               tk.GOLD_FUNDS[0]: {"avg_per_capita_buy_10d": 184.05}}},
+        }
+        landing = [{"items": [{"symbol": "USDT", "price": 2685890.0}, {"symbol": "USD", "price": 2692100.0}]}]
+        orig = requests.get
+        try:
+            requests.get = lambda url, **k: _R(pages[url.rsplit("/", 1)[-1]]) if "tablokhani" in url else _R(landing)
+            t = tk.collect()
+            self.assertEqual((t["tedpix"], t["tse_state"], t["afran_close"]), (7790017.18, "closed", 54490.0))
+            self.assertIn(tk.GOLD_FUNDS[0], t["funds"])
+            e = eb.collect()
+            self.assertEqual(e["ETFBAZ_USDT_IRR"], 2685890.0, "Tether, the dollar at night, from the runner")
+            self.assertEqual(e["ETFBAZ_USD_IRR"], 2692100.0)
+
+            def boom(*a, **k):
+                raise requests.exceptions.ConnectionError("refused")
+            requests.get = boom
+            self.assertEqual(len(tk.collect()["errors"]), 2)
+            self.assertEqual(eb.collect(), {"errors": ["landing: ConnectionError"]})
+        finally:
+            requests.get = orig
+
+    def test_27_the_room_is_wired_with_its_seeds(self):
+        import json as _json
+        import main
+        source = inspect.getsource(main.main)
+        self.assertGreater(source.index("_collect_room_inputs(now)"), source.index("_collect_tgju_candles()"))
+        self.assertLess(source.index("_collect_room_inputs(now)"), source.index("_paper_run(markets, signal_state, now)"))
+        ted = _json.load(open(os.path.join(SRC_DIR, "seed", "tedpix.json")))
+        fi = _json.load(open(os.path.join(SRC_DIR, "seed", "fixed_income.json")))
+        self.assertGreater(len(ted), 4000)
+        self.assertGreater(len(fi["level"]), 2500)
+        self.assertGreater(fi["afran_scale"], 0)
+        self.assertEqual(main.ROOM_INPUTS["AFRAN_LAST"], ("tablokhani", "IRR"))
+
+    def test_28_the_brake_path_matches_the_engine(self):
+        import numpy as np
+        from analysis import quant
+        rng = np.random.default_rng(5)
+        close = list(150_000_000 * np.exp(np.cumsum(rng.normal(0.0015, 0.01, 700))))
+        view = quant.assess(close)
+        f_path, mu = quant.growth_path(close, view["fitted"])
+        self.assertEqual(len(f_path), len(close))
+        self.assertAlmostEqual(f_path[-1], view["f_star"], places=9, msg="the last day is the engine's own f*")
+        self.assertAlmostEqual(mu[-1], view["mu"], places=12)
 
 
 if __name__ == "__main__":

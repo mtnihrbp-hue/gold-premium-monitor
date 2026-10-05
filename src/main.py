@@ -235,6 +235,58 @@ def _collect_tgju_candles(now=None):
             session.close()
 
 
+ROOM_INPUTS = {  # stored name -> (source, unit): the room's daily readings (SP_D_HANDOFF.md section 27)
+    "TSE_TEDPIX": ("tablokhani", "POINTS"), "AFRAN_LAST": ("tablokhani", "IRR"),
+    "ETFBAZ_USDT_IRR": ("etfbaz", "IRR"), "ETFBAZ_USD_IRR": ("etfbaz", "IRR"), "ETFBAZ_MELTED_GOLD": ("etfbaz", "IRR"),
+    "ETFBAZ_GOLD_18K": ("etfbaz", "IRR"), "ETFBAZ_XAU_USD": ("etfbaz", "USD"), "ETFBAZ_TEDPIX": ("etfbaz", "POINTS"),
+}
+
+
+def _collect_room_inputs(now=None):
+    """The room's daily readings from the sources GitHub's runner reaches: from tablokhani, Afran's
+    last close, and the stock index once the Tehran exchange has closed; from etfbaz, from 21:00,
+    the day's Tether, dollar, melted-gold quote, 18K and world gold. One row a day per instrument in
+    market_daily_candles, the first seen kept; TSETMC and fipiran wait for the Iran-side collector.
+    Never raises."""
+    from collector import etfbaz, tablokhani
+    from database.repository import save_daily_candles
+    from timeutil import local_date, local_now, to_jalali
+
+    session = get_session()
+    if session is None:
+        return
+    try:
+        now = now or datetime.utcnow()
+        day, hour = local_date(now), local_now(now).hour
+        jy, jm, jd = to_jalali(day)
+        readings = {}
+        t = tablokhani.collect()
+        if t["afran_close"]:
+            readings["AFRAN_LAST"] = t["afran_close"]
+        if t["tedpix"] and t["tse_state"] == "closed" and hour >= 13:
+            readings["TSE_TEDPIX"] = t["tedpix"]
+        errors = list(t["errors"])
+        if hour >= 21:
+            e = etfbaz.collect()
+            errors += e.pop("errors")
+            readings.update(e)
+        stored = []
+        for name, value in readings.items():
+            source, unit = ROOM_INPUTS[name]
+            inserted, _ = save_daily_candles(session, source, name, unit, [{
+                "trade_date": day, "jdate": f"{jy:04d}/{jm:02d}/{jd:02d}", "open": value, "high": value, "low": value,
+                "close": value, "quality": "LAST_KNOWN"}], now)
+            if inserted:
+                stored.append(f"{name} {value:,.0f}")
+        print("ROOM inputs: " + (", ".join(stored) if stored else "nothing new today")
+              + (f"; unavailable: {', '.join(errors)}" if errors else ""))
+    except Exception as e:
+        session.rollback()
+        print(f"ROOM inputs failed: {e}")
+    finally:
+        session.close()
+
+
 def _recent_platform_history(now):
     """Stored platform prices for the stale-quote check, or an empty list.
 
@@ -480,16 +532,29 @@ def _paper_run(markets, signal_state, now):
         quote_json = {"venue": quote.venue, "buy": quote.buy, "sell": quote.sell} if quote else None
         engine = _quant_view(session, accounts, close, day)
         f_star = engine.get("f_star") if engine else None
+        view = _room_view(session, accounts[paper.ROOM], engine, now) if paper.ROOM in accounts else None
+        fund_day, fund_price = _room_series(session)[2] if paper.ROOM in accounts else (None, None)
+        fund_estimated = bool(fund_day and (day - fund_day).days > paper.FUND_STALE_DAYS)
 
         for name, account in accounts.items():
             last = paper_latest(session, account.id)
-            book = (paper.Book(float(last.cash), last.holding) if last
+            units = float(((last.inputs or {}).get("fund") or {}).get("units") or 0) if last else 0.0
+            book = (paper.Book(float(last.cash), last.holding, units) if last
                     else paper.Book(float(account.start_cash), 0))
             traded = len(paper_rows_on(session, account.id, day, "TRADE"))
             prev = paper_latest(session, account.id, kinds=("EVAL", "TRADE"))
             state = (prev.inputs or {}) if prev is not None else {}
-            found, out, swing = [], None, None
-            if name == paper.ANALYST:
+            found, out, swing, after = [], None, None, None
+            if name == paper.ROOM:
+                from analysis.room import ALL_GOLD
+                posture = view["posture"] if view else ALL_GOLD
+                decision, after = paper.room_trade(book, quote, posture, fund_price, traded)
+                why = decision.reason
+                if view and view.get("reasons"):
+                    why = f"{'; '.join(view['reasons'])} ({decision.reason})"
+                elif not view:
+                    why = f"no room view: the default, all in gold ({decision.reason})"
+            elif name == paper.ANALYST:
                 decision = paper.brave(book, quote, state.get("swing"), day, traded, cap=f_star)
                 why, swing = decision.reason, decision.swing
                 found = paper.conflicts(stance_score, final, swing)
@@ -512,31 +577,41 @@ def _paper_run(markets, signal_state, now):
                 else:
                     target, why = paper.system_target(final, share)
                 decision = paper.decide(book, target, quote, traded, band=band)
-            after = paper.apply(book, decision)
+            after = after if after is not None else paper.apply(book, decision)
             inputs = {"policy": account.policy, "quote": quote_json, "signals": sig, "final_decision": final,
                       "valuation": getattr(signal_state, "valuation", None), "stance_score": stance_score,
                       "conflicts": found, "out": out, "swing": swing, "plan": decision.plan,
                       "quant": engine}
-            value = after.value(quote.sell) if quote else None
+            if name == paper.ROOM:
+                inputs["room"] = view
+                inputs["fund"] = {"name": paper.FUND, "units": after.units, "price": fund_price,
+                                  "as_of": str(fund_day) if fund_day else None, "estimated": fund_estimated}
+            value = after.value(quote.sell, fund_price) if quote else None
             if decision.action in ("BUY", "SELL"):
                 save_paper_activity(session, account_id=account.id, at=now, local_date=day, kind="TRADE",
                                     action=decision.action, grams=decision.grams, price=decision.price,
                                     cash=after.cash, holding=after.grams, value=value, reason=why, inputs=inputs,
                                     trade_no=traded + 1)
                 print(f"PAPER {name}: {decision.action} {decision.grams} g at {decision.price:,.0f} on {quote.venue} ({why})")
-                if account.pushes:
+                if account.pushes and name == paper.ROOM:
+                    from alerts.telegram_paper import build_room_trade_message
+                    base = _quarter_base(session, account, day)
+                    send_paper(build_room_trade_message(decision.action, decision.grams, decision.price, quote.venue,
+                                                        now, view, after, fund_price, fund_estimated, quote.sell,
+                                                        base, book.units))
+                elif account.pushes:
                     send_paper(build_trade_message(decision.action, decision.grams, decision.price, quote.venue,
                                                    now, why, after.grams, after.cash, quote.sell, decision.plan))
-            elif name in (paper.ANALYST, paper.QUANT, paper.CAUTIOUS):
+            elif name in (paper.ROOM, paper.ANALYST, paper.QUANT, paper.CAUTIOUS):
                 action = "UNDECIDED" if found else "HOLD"
-                reason = why if name == paper.ANALYST else f"{why}; {decision.reason}"
+                reason = why if name in (paper.ROOM, paper.ANALYST) else f"{why}; {decision.reason}"
                 save_paper_activity(session, account_id=account.id, at=now, local_date=day, kind="EVAL",
                                     action=action, cash=book.cash, holding=book.grams, value=value,
                                     reason=reason, inputs=inputs)
                 print(f"PAPER {name}: {action} ({reason})" + (f" -- {found}" if found else ""))
 
         if local_now(now).hour >= paper.REPORT_HOUR:
-            _paper_report(session, accounts, day, quote, sig, now)
+            _paper_report(session, accounts, day, quote, sig, now, view=view, fund=(fund_day, fund_price, fund_estimated))
     except Exception as e:
         session.rollback()
         print(f"PAPER failed: {e}")
@@ -567,20 +642,148 @@ def _quant_view(session, accounts, close, day):
         return None
 
 
-def _paper_report(session, accounts, day, quote, sig, now):
-    """The day's REPORT rows and the analyst's 21:00 message, once per Tehran day. The value
-    is at the venue's sell price; without a fresh quote at this run, the day's last one."""
-    from analysis import paper
-    from alerts.telegram_paper import build_report_message, send_paper_report
-    from database.repository import paper_latest, paper_rows_on, paper_value_before, save_paper_activity
-    from timeutil import local_date, persian_quarter, to_tehran
+SEED_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seed")
 
-    analyst = accounts[paper.ANALYST]
-    if paper_rows_on(session, analyst.id, day, "REPORT"):
+
+def _stored_daily(session, source, instrument):
+    from database.models import MarketDailyCandle
+    rows = (session.query(MarketDailyCandle.trade_date, MarketDailyCandle.close)
+            .filter(MarketDailyCandle.source == source, MarketDailyCandle.instrument == instrument)
+            .order_by(MarketDailyCandle.trade_date.asc()).all())
+    return [(r[0], float(r[1])) for r in rows]
+
+
+def _room_series(session):
+    """(TEDPIX, the cost of money, Afran's last close and its date): src/seed's history, then the
+    daily readings production stored (tablokhani; etfbaz's index as a fallback)."""
+    from datetime import date as _date
+    ted = json.load(open(os.path.join(SEED_DIR, "tedpix.json"), encoding="utf-8"))
+    ted = {_date.fromisoformat(k): v for k, v in ted.items()}
+    for source, name in (("etfbaz", "ETFBAZ_TEDPIX"), ("tablokhani", "TSE_TEDPIX")):
+        for d_, v in _stored_daily(session, source, name):
+            if d_ > max(ted):
+                ted[d_] = v
+            elif source == "tablokhani":
+                ted.setdefault(d_, v)
+    fi_seed = json.load(open(os.path.join(SEED_DIR, "fixed_income.json"), encoding="utf-8"))
+    fi = {_date.fromisoformat(k): v for k, v in fi_seed["level"].items()}
+    scale, seed_end = fi_seed["afran_scale"], max(fi)
+    afran = _stored_daily(session, "tablokhani", "AFRAN_LAST")
+    for d_, v in afran:
+        if d_ > seed_end:
+            fi[d_] = v * scale
+    last_afran = afran[-1] if afran else (seed_end, fi[seed_end] / scale)
+    return ted, fi, last_afran
+
+
+def _room_state(session, account, engine):
+    """Everything the room reads, on the completed tgju candles, with its posture replayed from the
+    account's first day (analysis/room.py); None without enough history."""
+    import numpy as np
+    from analysis import room
+    from analysis.direction import GOLD, USD, XAU, load_series
+    from analysis.quant import growth_path
+    from caluclator.chartist import Chartist
+    from database.models import MarketDailyCandle
+    from timeutil import local_date
+
+    rows = (session.query(MarketDailyCandle).filter(MarketDailyCandle.source == "tgju",
+                                                    MarketDailyCandle.instrument == GOLD)
+            .order_by(MarketDailyCandle.trade_date.asc()).all())
+    if len(rows) < 600:
+        return None
+    dates = [r.trade_date for r in rows]
+    o, h, l, c = (np.array([float(getattr(r, k)) for r in rows]) for k in ("open", "high", "low", "close"))
+    flat = (o == h) & (h == l) & (l == c)
+    usable = np.array([r.source_quality == "COMPLETE" for r in rows]) & ~flat
+    ud, _, _, uc = load_series(session, USD)
+    xd, _, _, xc = load_series(session, XAU)
+    ted, fi, afran = _room_series(session)
+    td, fd = sorted(ted), sorted(fi)
+    fitted = (engine or {}).get("fitted")
+    f_star, mu = growth_path(c, fitted) if fitted else (np.full(len(c), np.nan), np.zeros(len(c)))
+    start_day = local_date(account.started_at)
+    start = min(next((i for i, x in enumerate(dates) if x >= start_day), len(dates) - 1), len(dates) - 1)
+    chart = Chartist(h, l, c, usable=usable)
+    leans, stocks = room.member_leans(h, l, c, room.aligned(dates, ud, uc), room.aligned(dates, xd, xc),
+                                      room.aligned(dates, fd, [fi[k] for k in fd], max_gap_days=10),
+                                      room.aligned(dates, td, [ted[k] for k in td], max_gap_days=10),
+                                      f_star, flat, chartist=chart, from_index=max(0, start - 1))
+    return {"dates": dates, "close": c, "mu": mu, "chart": chart, "leans": leans, "stocks": stocks,
+            "start": start, "start_day": start_day, "path": room.replay(leans, stocks, start, len(c) - 1),
+            "fi": fi, "afran": afran}
+
+
+def _room_view_at(state, i):
+    """The room's view on day i of `state`: its posture, the evidence and the words for the messages."""
+    from analysis import room
+    from analysis.direction import trading_date
+    from caluclator.chartist import PHASE_WORDS, describe
+    from timeutil import persian_day
+
+    dates, chart, leans = state["dates"], state["chart"], state["leans"]
+    today = state["path"][i - state["start"]]
+    share, opinion = room.share_for_fixed_income(leans, i)
+    days_in = (i - state["start"]) % room.REVIEW_EVERY
+    next_review = trading_date(dates[i], room.REVIEW_EVERY - days_in)
+    read = chart.read(i)
+    label = lambda j: persian_day(dates[j])
+    known = chart.known(i)
+    phase_line = None
+    if read.get("phase") and known:
+        pivot = known[-1]
+        phase_line = (f"{PHASE_WORDS[read['phase']]}, {'up' if pivot[3] == 'L' else 'down'} from "
+                      f"{pivot[2] / 1e7:.2f}M on {label(pivot[1])}")
+    band = room.forecast_band(state["close"][:i + 1], state["mu"][:i + 1])
+    afran_day, afran_close = state["afran"]
+    return {
+        "posture": today["posture"], "review": today["review"], "early": today["early"], "inner": today["inner"],
+        "share": round(float(share), 3), "members": {m: int(leans[m][i]) for m in room.WEIGHTS},
+        "stocks": int(state["stocks"][i]), "for_fixed_income": [m for m, v in opinion.items() if v == -1],
+        "for_gold": [m for m, v in opinion.items() if v == 1],
+        "reasons": (["the stock index turned up: back to gold early"] if today["early"]
+                    else room.reasons(opinion, today["posture"])),
+        "next_review": str(next_review), "candle_date": str(dates[i]), "start_day": str(state["start_day"]),
+        "phase": read.get("phase"), "phase_line": phase_line, "chart": describe(chart, i, label),
+        "band20": [round(x) for x in band] if band else None,
+        "fund": {"name": "Afran", "price": afran_close, "as_of": str(afran_day)},
+    }
+
+
+def _room_view(session, account, engine, now):
+    """The room's posture and its evidence this run, or None without enough history."""
+    try:
+        state = _room_state(session, account, engine)
+        return _room_view_at(state, len(state["dates"]) - 1) if state else None
+    except Exception as e:
+        print(f"PAPER room view unavailable: {e}")
+        return None
+
+
+def _quarter_base(session, account, day):
+    """(the account's value at the quarter's start, that day): the start cash in its first quarter."""
+    from database.repository import paper_value_before
+    from timeutil import local_date, persian_quarter
+    base_day = max(persian_quarter(day)[0], local_date(account.started_at))
+    return paper_value_before(session, account.id, base_day) or float(account.start_cash), base_day
+
+
+def _paper_report(session, accounts, day, quote, sig, now, view=None, fund=(None, None, False)):
+    """The day's REPORT rows and the front office's 21:00 message, once per Tehran day. The value
+    is at the venue's sell price (without a fresh quote at this run, the day's last one), and the
+    room's fixed income at Afran's last close."""
+    from analysis import paper
+    from alerts.telegram_paper import build_report_message, build_room_report_message, send_paper_report
+    from database.repository import paper_latest, paper_rows_on, save_paper_activity
+    from timeutil import to_tehran
+
+    front_name = paper.ROOM if paper.ROOM in accounts else paper.ANALYST
+    front = accounts[front_name]
+    if paper_rows_on(session, front.id, day, "REPORT"):
         return
     venue, sell, note = (quote.venue, quote.sell, "") if quote else (None, None, "")
     if sell is None:
-        rows = sorted(paper_rows_on(session, analyst.id, day, "EVAL") + paper_rows_on(session, analyst.id, day, "TRADE"),
+        rows = sorted(paper_rows_on(session, front.id, day, "EVAL") + paper_rows_on(session, front.id, day, "TRADE"),
                       key=lambda r: r.id)
         for row in reversed(rows):
             q = (row.inputs or {}).get("quote")
@@ -590,28 +793,37 @@ def _paper_report(session, accounts, day, quote, sig, now):
     if sell is None:
         print("PAPER report: no venue price today; skipped")
         return
-    quarter_first = persian_quarter(day)[0]
+    fund_day, fund_price, fund_estimated = fund
     lines = {}
     for name, account in accounts.items():
         last = paper_latest(session, account.id)
         holding, cash = (last.holding, float(last.cash)) if last else (0, float(account.start_cash))
-        base_day = max(quarter_first, local_date(account.started_at))
-        base = paper_value_before(session, account.id, base_day) or float(account.start_cash)
+        units = float(((last.inputs or {}).get("fund") or {}).get("units") or 0) if last else 0.0
+        base, base_day = _quarter_base(session, account, day)
+        value = cash + holding * sell + (units * fund_price if units and fund_price else 0.0)
         save_paper_activity(session, account_id=account.id, at=now, local_date=day, kind="REPORT",
-                            action=None, price=sell, cash=cash, holding=holding, value=cash + holding * sell,
-                            reason=None, inputs={"base": base, "base_day": str(base_day), "sell_note": note})
-        lines[name] = (holding, cash, base, base_day)
+                            action=None, price=sell, cash=cash, holding=holding, value=value, reason=None,
+                            inputs={"base": base, "base_day": str(base_day), "sell_note": note,
+                                    "fund": {"units": units, "price": fund_price, "as_of": str(fund_day) if fund_day else None,
+                                             "estimated": fund_estimated} if units else None})
+        lines[name] = (holding, cash, base, base_day, units, value)
     trades = [(t.action, t.grams, float(t.price), ((t.inputs or {}).get("quote") or {}).get("venue"),
-               f"{to_tehran(t.at):%H:%M}") for t in paper_rows_on(session, analyst.id, day, "TRADE")]
-    prev = paper_latest(session, analyst.id, kinds=("EVAL", "TRADE"))
-    plan = (prev.inputs or {}).get("plan") if prev is not None else None
-    holding, cash, base, base_day = lines[paper.ANALYST]
-    hold, engine = lines.get(paper.HOLD), lines.get(paper.QUANT)
-    text = build_report_message(day, venue, sell, note, (holding, cash, base), hold[:3] if hold else None,
-                                base_day, trades, plan, quant=engine[:3] if engine else None)
-    png = _paper_chart(session, analyst, sell)
+               f"{to_tehran(t.at):%H:%M}") for t in paper_rows_on(session, front.id, day, "TRADE")]
+    holding, cash, base, base_day, units, value = lines[front_name]
+    hold = lines.get(paper.HOLD)
+    if front_name == paper.ROOM:
+        text = build_room_report_message(day, venue, sell, note, holding, units, fund_price, fund_estimated, value,
+                                         base, base_day, (hold[5], hold[2]) if hold else None, trades, view)
+    else:
+        prev = paper_latest(session, front.id, kinds=("EVAL", "TRADE"))
+        plan = (prev.inputs or {}).get("plan") if prev is not None else None
+        engine = lines.get(paper.QUANT)
+        text = build_report_message(day, venue, sell, note, (holding, cash, base), hold[:3] if hold else None,
+                                    base_day, trades, plan, quant=engine[:3] if engine else None)
+    png = _paper_chart(session, front, sell)
     send_paper_report(text, png)
-    print(f"PAPER report sent: {holding} g + {cash:,.0f} cash at {sell:,.0f} ({venue}), chart {'yes' if png else 'no'}")
+    print(f"PAPER report sent: {holding} g + {units:,.0f} {paper.FUND} units + {cash:,.0f} cash at {sell:,.0f} ({venue}), "
+          f"chart {'yes' if png else 'no'}")
 
 
 def _paper_chart(session, analyst, live_sell):
@@ -644,7 +856,7 @@ def _paper_chart(session, analyst, live_sell):
         fib = fibonacci(c[start[-1]], c[start[-1]:].max()) if direction[-1] == "up" else []
         return render(dates, o, h, l, c, ema20=talib.EMA(c, 20), ema50=talib.EMA(c, 50),
                       supports=[x["price"] for x in supports[:3]], resistances=[x["price"] for x in resistances[:2]],
-                      trades=trades, live=live_sell, title="18K daily · PAPER analyst", trend=trend, fib=fib)
+                      trades=trades, live=live_sell, title=f"18K daily · PAPER {analyst.name}", trend=trend, fib=fib)
     except Exception as e:
         print(f"PAPER chart unavailable: {e}")
         return None
@@ -1037,6 +1249,7 @@ def main():
         except Exception as e:
             print(f"News ingestion failed: {e}")
         _collect_tgju_candles()
+        _collect_room_inputs(now)
         _direction_precompute(markets, signal_state, now)
         _paper_run(markets, signal_state, now)
         if snapshot_id is not None:

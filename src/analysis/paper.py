@@ -33,6 +33,14 @@ target or a 40% swing lost 12-25% against holding on 2024-2026, so the target st
 Shadow accounts, silent, for the quarterly review: the quant engine alone ("quant": the
 growth-optimal share inside its Davis-Norman band, +13.1% / -0.7% against holding), v0
 ("cautious"), buy-and-hold, and the system's own final BUY/SELL.
+
+THE ROOM, the front office since 2026-10-05 (owner: "go ahead"; SP_D_HANDOFF.md section 27): the
+only account that pushes. analysis/room.py reads the posture from the evidence -- ALL_GOLD, or
+SWING_OUT with 40% of the grams sold into fixed income (Afran) and 60% kept -- and room_trade() makes
+the account match it: a sale's cash goes straight into Afran in whole units at its last close, a buy
+takes them all back out (the owner's contract, section 17). Afran's price comes from tablokhani; when
+it is older than FUND_STALE_DAYS the holding is valued at its last close, marked as an estimate. The
+brave analyst joins the back office.
 """
 
 import math
@@ -51,9 +59,12 @@ MAX_TRADES_PER_DAY = 2                    # owner, 2026-10-04: up to two trades 
 MAX_OUT_DAYS = 5                          # ... or after 5 trading days at the latest
 BAND = 0.2                                # v0: trade only this far off its target
 REPORT_HOUR = 21                          # the first run from 21:00 Tehran reports the day
-ANALYST, QUANT, CAUTIOUS, HOLD, SYSTEM = "analyst", "quant", "cautious", "buy_and_hold", "system"
+ROOM, ANALYST, QUANT, CAUTIOUS, HOLD, SYSTEM = "room", "analyst", "quant", "cautious", "buy_and_hold", "system"
+FUND = "Afran"                            # where the room parks a sale's cash (fixed income)
+FUND_STALE_DAYS = 4                       # an older fund price values the holding as an estimate
 ACCOUNTS = (                              # (name, policy version, pushes to Telegram)
-    (ANALYST, "analyst-v1.1-brave-braked", True),
+    (ROOM, "room-v1-committee", True),
+    (ANALYST, "analyst-v1.1-brave-braked", False),
     (QUANT, "quant-v1-growth-optimal", False),
     (CAUTIOUS, "analyst-v0-cautious", False),
     (HOLD, "buy-and-hold", False),
@@ -65,9 +76,10 @@ ACCOUNTS = (                              # (name, policy version, pushes to Tel
 class Book:
     cash: float                           # rial
     grams: int
+    units: float = 0.0                    # fixed-income units (the room only)
 
-    def value(self, sell):
-        return self.cash + self.grams * sell
+    def value(self, sell, fund_price=None):
+        return self.cash + self.grams * sell + (self.units * fund_price if self.units and fund_price else 0.0)
 
     def share(self, sell):
         value = self.value(sell)
@@ -242,6 +254,54 @@ def decide(book, target, quote, traded_today, band=BAND):
     if grams < 1:
         return Decision("HOLD", 0, None, "less than one gram to sell")
     return Decision("SELL", grams, quote.sell, "")
+
+
+# -- the room, the front office ------------------------------------------------------------
+
+def room_trade(book, quote, posture, fund_price, traded_today, swing_share=None):
+    """The trade that makes the room's account match its posture: (Decision, Book after).
+    SWING_OUT sells the swing (40% of the grams) and puts the cash into fixed income in whole units
+    at `fund_price`; ALL_GOLD takes every unit back out and buys whole grams; leftover cash that covers
+    a gram is invested while ALL_GOLD."""
+    from analysis.room import ALL_GOLD, SWING, SWING_OUT
+    swing_share = SWING if swing_share is None else swing_share
+    same = Book(book.cash, book.grams, book.units)
+    if int(traded_today) >= MAX_TRADES_PER_DAY:
+        return Decision("HOLD", 0, None, f"{MAX_TRADES_PER_DAY} trades a day: already made today"), same
+    if quote is None:
+        return Decision("HOLD", 0, None, "no fresh buy and sell price on any venue"), same
+    if posture == SWING_OUT:
+        if book.units > 0:
+            return Decision("HOLD", 0, None, f"part of the gold is in {FUND}, the rest stays in gold"), same
+        if not fund_price:
+            return Decision("HOLD", 0, None, f"no price for {FUND}: the swing stays in gold"), same
+        if book.grams == 0:                                  # day one, out: buy the core only
+            core = int(math.floor((1 - swing_share) * book.cash / quote.buy))
+            if core < 1:
+                return Decision("HOLD", 0, None, "cash below the price of one gram"), same
+            cash = book.cash - core * quote.buy
+            units = math.floor(cash / fund_price)
+            return (Decision("BUY", core, quote.buy, f"opening: {core} g in gold, the rest in {FUND}"),
+                    Book(cash - units * fund_price, core, units))
+        grams = int(round(book.grams * swing_share))
+        if grams < 1:
+            return Decision("HOLD", 0, None, "less than one gram to move"), same
+        cash = book.cash + grams * quote.sell
+        units = math.floor(cash / fund_price)
+        return (Decision("SELL", grams, quote.sell, f"{grams} g to {FUND}, {book.grams - grams} g kept in gold"),
+                Book(cash - units * fund_price, book.grams - grams, units))
+    # ALL_GOLD
+    cash = book.cash
+    if book.units > 0:
+        if not fund_price:
+            return Decision("HOLD", 0, None, f"no price for {FUND}: the units wait"), same
+        cash += book.units * fund_price
+    grams = int(cash // quote.buy)
+    if grams < 1:
+        return Decision("HOLD", 0, None, "all in gold"), Book(cash, book.grams, 0.0) if book.units else same
+    why = (f"back to gold: {grams} g bought with the money in {FUND}" if book.units > 0
+           else ("opening: all in gold" if book.grams == 0 else "cash covers another gram: all in gold"))
+    return Decision("BUY", grams, quote.buy, why), Book(cash - grams * quote.buy, book.grams + grams, 0.0)
 
 
 def apply(book, decision):

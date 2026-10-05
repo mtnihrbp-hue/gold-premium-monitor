@@ -2031,3 +2031,98 @@ because several of its members (the fair gap, the real dollar, money flow, the m
 valuation) are partly ahead of the price, and it acts slowly. It is the owner's room with the phase
 read from the evidence: all in gold by default, 40% to fixed income only when most of the evidence
 favours it, back when that breaks.
+
+## 27. The room, built: the PAPER front office (2026-10-05, sp-d-paper)
+
+**The owner.** "Go ahead. For now we park fipiran, TSETMC and so on, and use etfbaz and tablokhani;
+later on we can add the server and fill the void. If you agree, go ahead, else argue. Also, I need the
+message drafts to see."
+
+**What production can feed the room from GitHub's runner** (section 26): tgju (18K, the dollar, world
+gold, as before); tablokhani (the stock index; each fund's last close and smart-money averages --
+Afran's close values the fixed income); etfbaz (Tether USDT/IRR, the dollar, the union's melted-gold
+quote, 18K, world gold, the index). Today's values only: the histories the members need (TEDPIX from
+2008; the cost of money from 2015 -- the fixed-income index until Afran exists, Afran's price after;
+Afran is accumulating, its price is its total return) are seeds in `src/seed/`
+(`research/build_seeds.py`), and production appends one reading a day (`_collect_room_inputs`,
+`market_daily_candles` under the sources "tablokhani" and "etfbaz": new instruments in the existing
+table, the first value of a day kept). On Afran the real-dollar member leans as on the index on 96% of
+days since 2022.
+
+**Money flow waits.** Without TSETMC's client types the room loses its money-flow member: median +3.7
+to +6.2% against holding instead of +5.1 to +8.0% (`research/rd_room_prod.py`). tablokhani's 10-day
+per-capita recipe agreed with it on 51% of days and lowered the room further (+2.1 to +4.2%,
+`research/rd_flow_tablokhani.py`), so the member sits out until the Iran-side collector.
+
+**The sharp eye, with common sense.** The first drafts showed the room selling on a review day and
+buying back the next morning, four times in 1405, because the stock index was already rising. The rule
+now: no sale while the stock index's last 20 days lean to gold, and while out, back to gold early only
+on the first day they turn to gold after the sale (`research/rd_room_reentry_sense.py`):
+
+```text
+every 10 days, no money flow     Afran windows from 2020 (18)            index windows from 2018 (27)
+as first built                   +3.7 to +6.2%  78-100%  worst -6.7%     +3.8 to +6.0%  74-89%  -13.8%
+back early on a new turn only    +3.8 to +6.4%  83-100%  worst -5.2%     +4.0 to +6.4%  81-89%  -21.2%
+no sale while rising + new turn  +4.0 to +5.7%  83-100%  worst -3.3%     +3.9 to +5.6%  81-93%  -11.3%
+the last two years: +8.9% with 17 trades and 5 round trips under 3 days; +9.5% with 7 trades and none
+```
+
+**The code** (`sp-d-paper`): `src/analysis/room.py` (the seven members, the committee's 60% / 30%
+view, the review every 10 trading days from the account's start, the veto and the early return, the
+20-day range from 18K's own past moves, the reasons in plain words); `src/caluclator/chartist.py` (the
+chartist, ported); `src/collector/tablokhani.py`, `src/collector/etfbaz.py` (bounded, never raise);
+`analysis/quant.growth_path` (the brake's daily f* and the drift); `analysis/paper.py` (the ROOM
+account, the only one that pushes; `room_trade`: SWING_OUT sells 40% of the grams and puts the cash
+straight into Afran in whole units at its last close, ALL_GOLD takes every unit back out and buys whole
+grams; the units live in the activity row's `inputs`, so no schema change); `main.py`
+(`_collect_room_inputs` after tgju's candles; `_room_state`, `_room_view_at`, `_room_view`; the room's
+branch in `_paper_run`; the 21:00 report from the front office); `alerts/telegram_paper.py`
+(`build_room_trade_message`, `build_room_report_message`). Without enough history the room holds its
+default, all in gold, and says so. **NEON MIGRATION REQUIRED = NO** for the room; the two-trades
+migration of section 14 is still to be applied before the merge (the brave analyst can trade twice a
+day, and production still holds the one-trade index).
+
+**Checks.** The production room against the research room on the same data: every member, the stock
+index and the posture the same on 100% of days (`research/check_room_parity.py`). End to end through
+`_paper_run` on the real history (a scratch database): 3.8 s for the first run of the day (the
+quarter's fit), 1.9 s after; day one buys 5 g, all in gold, pushes, and reports at 21:00 with the
+chart. `kpi_paper` 33/33 (new: the replay and its rules, `room_trade`, the members and their words,
+the messages, the collectors, the wiring and the seeds, the brake's path); suite 30/30; compileall.
+
+**The drafts** (`research/render_room_drafts.py`: the room's account from 1403/07/14 on the real
+history, Daric's 0.30% around tgju's close; nothing sent). Its trades over the two years: one round
+trip in 1404 (out 1404/01/08, back 1404/01/23), two in 1405 -- out on 5 Farvardin at 17.52M, back on
+4 Khordad at 18.29M (the stock index turned up), out on 23 Tir at 17.87M, back on 15 Mordad at 18.61M,
+before the jump; 901.4M against holding's 823.3M. As it would have pushed them, and as it reports
+tonight:
+
+```text
+GOLDPremium: PAPER · the room
+Sold 14 g at 17.52M on Daric · 5 Farvardin 07:01
+Moved to Afran (fixed income): 250.13M
+Why: the market is stormy; the market is moving sideways
+Kept in gold: 21 g
+Back to gold: when the stock index turns up, or at the review on 17 Farvardin
+Total: 618.08M (this quarter −0.52%)
+
+GOLDPremium: PAPER · the room
+Bought 14 g at 18.29M on Daric · 4 Khordad 07:01
+Paid from Afran (fixed income): 264.32M
+Why: the stock index turned up: back to gold early
+Now all in gold: 35 g
+Total: 646.42M (this quarter +4.05%)
+
+GOLDPremium: PAPER · 13 Mehr 1405, 21:00
+Phase: rising (markup), up from 15.65M on 26 Khordad
+Posture: all in gold · 35 g (Daric pays 25.66M a gram)
+Today: no trade
+Total: 901.40M · this quarter +7.30%
+Holding instead: +7.31%
+Next 20 trading days: most likely 24.50M to 30.84M
+The room: 1 of 7 lean to fixed income, 4 to gold · next review 16 Mehr
+```
+
+The 21:00 message keeps the chart of section 13, with the room's trades on it. Open for the owner: the
+drafts' review; the two-trades migration; then the safe tag and the merge. Next: the news leg (an LLM
+reading the headlines live), Tether as a member once its record exists, the Iran-side collector for
+money flow, Daric and fipiran.
