@@ -66,6 +66,10 @@ before reading any failure narrative below as live.**
 | `kpi_coherence.test_27` can never fail: it searches `_code()` output for `name(`, which `_code` splits into tokens | **OPEN** | section 38.6 -- reliability phase |
 | Two stale unit tests fail on `main` (`tests/test_signal_state.py` import; `test_hysteresis_cooldown_same_alert`); CI runs only the KPI suite | **OPEN** | section 38.6 -- reliability phase |
 | News items whose link exceeds 500 characters were lost entirely (Google News and percent-encoded Persian links) | 2026-09-30 (Neon migration) | section 40 -- `news_events.url` widened to TEXT via `sql/neon_migration_news_url.sql`, verified on a temporary branch first; `kpi_coherence.test_33` keeps model and schema in line |
+| statsmodels 0.14.4 broken by the runner's newest scipy (1.16) and pandas (3): KPI suite red on `main`, the quant engine reported itself unavailable | 2026-10-05 (hotfix on main) | `SP_D_HANDOFF.md` section 28 -- `scipy==1.15.3` and `pandas==2.2.3` pinned with statsmodels |
+| First live PAPER run failed: the venue label, 21 characters, into `paper_accounts.venue` VARCHAR(20); the tests' SQLite does not enforce lengths | 2026-10-05 (hotfix on main) | `SP_D_HANDOFF.md` section 28 -- `paper.VENUE_LABEL` shortened; `kpi_paper.test_29` checks every text PAPER writes against its column |
+| Taline's frozen CDN copy is stored when it sits within its 1% band and within 1.0 pp of its usual position (six readings on 2026-10-06 09:01-14:01) | **OPEN** | `SP_D_HANDOFF.md` sections 20, 29 -- proposed first in the SP-D order |
+| `AFRAN_LAST` dated one to two sessions late: tablokhani's `closing_1d_ago` stored under the reading's day | **OPEN, small** | `SP_D_HANDOFF.md` section 29 -- with the next change to the room |
 
 
 ## 1. Documentation Authority
@@ -2323,40 +2327,36 @@ no direction or sentiment.
 
 ---
 
-## Current state (2026-09-30)
+## Current state (2026-10-06)
 
-Full record in `SP_C_HANDOFF.md` sections 29-41. Chronology for SP-C.17 and SP-C.18
-lives there and in `.project_state.json` → `corrections`.
+Full record in `SP_D_HANDOFF.md` (SP-D, sections 1-29) and `SP_C_HANDOFF.md` (SP-C and
+the pre-SP-D hotfixes, closed). The machine-readable mirror is `.project_state.json`.
 
 ```text
-branch        main is production. SP-C merged 2026-09-28 (2b7c5f8) and closed;
-              v1.3safe tags main as it was before the merge. SP-D branched from
-              main 2026-09-29; its code work opens 2026-10-03. Until then fixes land
-              on main through short-lived branches (sections 36, 38-41)
-rollout       step 1 (observe) CLOSED 2026-09-27
-              step 2 (merge) DONE 2026-09-28; merged tree identical to SP-C
-              step 3 (repoint) DONE 2026-09-28; cron-job.org and the worker send
-              ref main; first /Analyze and /Update on main succeeded
-              step 4 (broadcast) in the SP-D order (SP_C_HANDOFF 34.7)
-KPI           28/28 files, exit 0; compileall PASS (2026-09-30)
-TA data       tgju daily candles stored in market_daily_candles from 2026-09-30:
-              gold from 2013, the dollar from 2011, paged in (SP_C_HANDOFF 41.6, 43)
-reliability   world-gold chain bounded; Neon connections time out at 10 s per
-              address (SP_C_HANDOFF 42, 43)
-production    hourly ANALYZE continuous since 2026-09-14; all runs green since
-              2026-09-25 16:30Z; stored range -8.19% to +0.36%, but both positive
-              readings are most likely a stale-dollar artefact (SP_C_HANDOFF 34.3)
-decision      FAIR / WAIT / WAIT on all 109 rows since 09-22 -- the market sat above
-              its own 30-day history; BUY and the push are untested, not failed
-D gate        OPENED 2026-09-28: 207 scheduled readings over 14 settled days;
-              deep-discount level 3.50% unchanged, by design (SP_C_HANDOFF 34.1)
-CHEAP check   leg correct and reachable; the market never went there, closest
-              0.22 pp on 09-23 (34.2) -- no fix needed
+branch        main is production. main, SP-D and sp-d-paper all at 04a37e1 since
+              2026-10-05 17:07 Tehran. Safe tags before each merge: v1.3safe
+              (SP-C), v1.4safe (Direction), v1.5safe (its section 8 fix), v1.6safe
+              (PAPER), v1.7safe = 2957699 (the go-live hotfix). SP-D work lands on sp-d-* branches and reaches
+              main only after the owner's review, safe tag first
+SP-D          Direction live since 2026-10-03 (sections 1-8): 06:00 and 13:00
+              panels, /Direction; first forecasts resolve in early November.
+              PAPER live since 2026-10-05 18:01 (sections 9-28): six accounts, the
+              room is the front office and the only one that pushes
+production    hourly ANALYZE 06:00-21:00 Tehran, every run green since the
+              2026-10-05 check; cron-job.org and the worker dispatch ref main
+KPI           30/30 files, 802 assertions, exit 0 (2026-10-06, 04a37e1); CI green
+decision      FAIR / WAIT on every reading since 10-05; all time WAIT 663, BUY 4
+platforms     9 of 11: Daric 403 from the runner since 10-03; Taline's frozen copy
+              stored when inside its band (section 29)
+room inputs   tgju candles daily; tablokhani TEDPIX and Afran; etfbaz at 21:00;
+              histories before production from src/seed
+not in prod   the LLM (Groq key works, replayed in research only); GDELT (no edge);
+              the Iran-side node (Termux phone or PC, not built); broadcast
 ```
 
-**Open, found in the window.** Three runs stalled before their first write (the Kitco
-SSE read; fixed 2026-09-30 after a fourth, section 42). News dedup re-inserts items from slow feeds, and
-`high_impact_count` is a constant. The index at the top of this file lists all three.
-The owner decided on 2026-09-27 to fix them after the merge, as one reliability
-phase. On 2026-09-28 the order became: reliability, then morning-dollar research,
-then broadcast, then the basis divergence (`SP_C_HANDOFF.md` 34.7).
+**Open.** Taline's frozen copies; Daric refused from the runner, so PAPER trades on
+Goldika's 2.37% spread; `AFRAN_LAST` dated one to two sessions late. The reliability
+items in the index above (news dedup, `high_impact_count`, the outcome backfill's
+retries, `MAX_WORLD_GOLD`, the stale tests) are still open. Proposed order, for the
+owner's decision (`SP_D_HANDOFF.md` section 29): Taline's frozen copies, the Iran-side
+node, the news leg with the LLM, then broadcast.

@@ -40,8 +40,8 @@ C14C  COMPLETE — 21/21 KPI
 UPDATE v1  SURGICAL IMPLEMENTATION / VALIDATION
 SP-C.1 … SP-C.18  COMPLETE; SP-C merged into main 2026-09-28 (tag v1.3safe = main before)
 ROLLOUT    steps 1-3 done (observe, merge, repoint to main)
-SP-D       Direction built on sp-d-direction, under the owner's review (SP_D_HANDOFF.md)
-FULL SUITE  29/29 files — executed 2026-10-03 (sp-d-direction), exit 0
+SP-D       IN PROGRESS — Direction live 2026-10-03, PAPER live 2026-10-05 (SP_D_HANDOFF.md, section 29)
+FULL SUITE  30/30 files — executed 2026-10-06 (04a37e1), exit 0
 ```
 
 Current sprint state is narrated in `SP_D_HANDOFF.md` (SP-C's in `SP_C_HANDOFF.md`,

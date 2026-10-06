@@ -2156,7 +2156,8 @@ analyze schedule, or what?"
 
 Both on `hotfix-scipy-pin` (cut from `main`): the KPI suite green on GitHub (run 37311429313, 3fbcdfd)
 and here (30/30; kpi_paper 34/34). Awaiting the owner's review for the fast-forward, with a safe tag on
-`main` (2957699) first.
+`main` (2957699) first. **Done the same day:** `v1.7safe` tags 2957699; `main`, `SP-D` and `sp-d-paper`
+at 04a37e1 from 17:07 Tehran (section 29).
 
 **At Goldika's cost.** Daric refuses the runner, so PAPER trades on Goldika (2.37% between buying and
 selling) until the Iran-side collector. Replayed at that cost (`research/rd_room_cost.py`): median +1.3
@@ -2170,3 +2171,108 @@ review day, every 10 trading days from its first day (about every two weeks); be
 sharp eye acts: back to gold on the first morning the stock index turns up after a sale. A trade runs at
 the first scheduled run that day with a fresh two-sided quote (normally 06:00-07:00); the 21:00 run
 reports, with the next review's date.
+
+## 29. The lost transcript, go-live closed, health check 2026-10-06, where the threads stand (2026-10-06)
+
+**The owner.** The chat history is gone. "Check everything: the GitHub, the Neon, the cron, the
+worker, every inch of work." Housekeeping first, if safe; write section 29 and bring the documents up
+to date. "The LLM is live now; I don't know if the news, GDELT, TEDPIX or other stuff are taken care
+of." Termux on an Android device was discussed; decisions about the next steps are open: "your call,
+based on the history."
+
+**The transcript.** The Claude Code session of 2026-09-27 to 10-05 (c61d59c3, "Project status
+review", last prompt "health check report") was lost on 2026-10-06, when the local `~/.claude`
+folder was recreated at 13:13 Tehran; the disk is an SSD with TRIM, so it is not recoverable. The
+2026-09-12 to 09-25 session (535d3b29) survived in a backup and is restored. **Nothing of the project
+was lost:** every decision, measurement and rejection of those days is in this file, committed and on
+GitHub. The continuity protocol held: the repo, not the conversation, is the memory. On this
+workstation transcripts are now kept indefinitely (`cleanupPeriodDays` 36500; the default deleted them
+after 30 days) and copied daily to `D:\claude-history-backup` (task ClaudeHistoryBackup, 18:00,
+copy only, never deletes).
+
+**Go-live, closed** (section 28 ended awaiting the review). `v1.7safe` tags `main` at 2957699;
+`main`, `SP-D` and `sp-d-paper` fast-forwarded to 04a37e1, pushed 17:07 Tehran 2026-10-05; KPI Suite
+green on `main` and `SP-D` (runs 37318234182, 37318234401). The 17:00 run still ran 2957699; the first
+on the fix was 18:00 (run 37325274751): the six accounts opened at 18:01; the room, the analyst, the
+quant, the cautious account and buy-and-hold each bought 5 g at 268,196,931 on Goldika (Daric 403),
+`system` holds its cash (`final_decision` WAIT). The room's trade message went out at 18:02 and the
+21:00 report with its chart (run 37348953519). HOLD on every run since; the room reads "the market is
+calm; 18K made a new 60-day high (all in gold)". Value 1,329.9M against 1,350M: -1.5%, Goldika's
+2.37% between buying and selling, as section 28 expected.
+
+**Health check 2026-10-06 16:00 Tehran** (since 2026-10-05 10:15; `PROJECT_OPERATIONS.md` section 15):
+
+- **Runs.** Every scheduled ANALYZE ran and succeeded: 16 on 10-05 (06:00-21:00) and 06:00-16:00 on
+  10-06, 5-9 minutes each. The owner's UPDATE at 10-05 16:29 and 10-06 11:35, 11:43, 15:02; DIRECTION
+  at 08:10 and 15:02. All on `main`, which also verifies the cron job (ref `main`, mode analyze) and the
+  worker (ref `main`, `/Direction` answering: the redeploy noted as pending on 10-03 is done).
+- **Freshness** (24 hours to 16:45): 19 market snapshots and states (16 scheduled, 3 UPDATE), 16
+  analysis snapshots, 48 outcomes, 237 price observations, 521 news items, Direction panels at 06:00 and
+  13:00. `market_daily_candles`: tgju's 18K, dollar and world gold to 10-05 (collected 06:03);
+  tablokhani's TSE_TEDPIX and AFRAN_LAST for 10-06; etfbaz once, at 21:01 on 10-05 (by design: read only
+  at the 21:00 run, `main._collect_room_inputs`).
+- **Platforms.** Nine of eleven. Daric 403 on every run since 10-03 18:50. HoorGold 503 once (10-05
+  21:00). Taline in 12 of 19 readings; its band discarded the rest (-1.03% to -1.91% from the median).
+  **Taline stored 267,410,000 in six readings, 10-06 09:01 to 14:01,** while the others moved (Milli
+  264.70M to 264.21M, WallGold 266.11M to 265.27M, HoorGold 266.5M to 266.9M): the frozen copy of
+  section 20, within the 1% band and within 1.0 pp of its usual position, so the repeat rule does not
+  defer it. Second time on record; it puts stale readings into the record every such day, against the
+  owner's rule of 2026-10-02 ("it contaminates our DB").
+- **Decisions.** WAIT on every reading, valuation FAIR. The premium narrowed from -3.10% (10-05 16:01)
+  to -1.21% (10-06 09:01); -2.46% at 16:01. Since the start: `final_decision` WAIT 663, BUY 4;
+  `candidate_decision` WAIT 532, BUY 135. The push armed and below its level (gap 2.0, fire at 3.37).
+  The seven UNKNOWN valuations of 10-01 are the correction of 2026-10-03, not a fault.
+- **Direction.** Seven panels since 10-03, STRONG BULLISH on all seven (18K at a record, strong trend);
+  none resolved yet (20 trading days, the first in early November). Seven rows cannot tell a constant
+  from a trend: run the `GROUP BY` again at 30.
+- **Afran's date.** tablokhani's `closing_1d_ago` is a close from before the latest session: the row
+  stored for 10-05 (54,490, read at 16:00) equals the seed's close for 10-03
+  (`fixed_income.json` level / `afran_scale` = 54,490.0), and the row for 10-06 (54,567) was read at
+  06:01, before the market opened. Each production row carries an earlier session's close under a later
+  date, so the fixed-income member and Afran's unit value run one to two trading days behind, about
+  0.1% of value. Small; to be fixed with the next change to the room (date the value by its session).
+- **KPI.** 30/30 files, exit 0, on this machine at 04a37e1.
+- **Verdict:** healthy. Open: Taline's frozen copies stored; Daric refused from the runner; Afran's date.
+
+**Housekeeping.** Local `main` and `SP-D` fast-forwarded to 04a37e1; the merged local branches
+`docs-ta-track` and `sp-d-direction` deleted (both inside `main`; `sp-d-direction` also on origin);
+the untracked home briefing of 2026-09-27 (`HANDOFF.md`) moved out of the repo. **Left for the owner:**
+five temporary workflows (probe-gdelt, probe-groq, probe-iran-sites, probe-iran-sources,
+probe-llm-judge) are still registered as active although their files are on no branch, so they cannot
+run; disable them on the Actions page. The repository is public: no secret is exposed, but the room and
+the research can be read by anyone. Whether that is intended is the owner's call.
+
+**Where the threads stand** (the owner asked):
+
+```text
+the LLM      Groq's key works from the runner (section 16); gpt-oss-120b replayed as the committee's
+             chair (section 23): -1.1% against holding, the committee +4.4% on the same days.
+             NOT in production: src/intelligence/event_interface.py is an interface with a stub only.
+news         9 RSS sources, about 520 items a day, keyword classifier, every row KEYWORD; in no
+             message (measured, nothing found, SP_C_HANDOFF 27.7); high_impact_count still 0 (33.3)
+GDELT        researched (section 14): coverage jumps came near local peaks, nothing for the drop
+             detector; filtered from Iran, rate-limited from the runner. Not pursued
+TEDPIX       live: tablokhani daily from 2026-10-05 (from 13:00, after the close), seed from 2008,
+             etfbaz's index as a fallback; the room's early return and its sale veto read it
+Tether       etfbaz's USDT/IRR stored daily from 2026-10-05; a member once its record exists
+Termux       proposed in section 13: an old Android phone (or a PC that stays on) as the Iran-side
+             node, fetching Daric, TSETMC and fipiran hourly into Neon over HTTPS, with Bale for an
+             Iran-only cut. Not built; needs the owner's device
+broadcast    rollout step 4 (SP_C_HANDOFF 29.3): designed, not built
+```
+
+**Next, proposed from the record** (the owner decides):
+
+1. **Taline's frozen copies.** Data integrity first, by the owner's rule of 2026-10-02. Measure on the
+   record how often a platform repeats one price for three hours or more while the others' median moves,
+   propose a rule, replay it, then code. Afran's date goes in the same change.
+2. **The Iran-side node.** The largest single gain: Daric is most of the room's edge (+4.0 to +5.7%
+   against holding at its 0.30% cost, +1.3 to +3.1% at Goldika's 2.37%, section 28), and money flow,
+   fipiran and TSETMC all wait for it. The owner chooses the device; then a write-only Neon role and a
+   table for its readings (a migration, verified on a temporary branch first).
+3. **The news leg with the LLM.** Headlines classified live by gpt-oss-120b into a fixed schema, stored,
+   shown nowhere, scored after a quarter. Start early: only time builds its record. Evidence, never a
+   vote, until the record says otherwise.
+4. Then broadcast, and the queue: the ANALYZE percentages, the basis divergence.
+
+**NEON MIGRATION REQUIRED = NO** for this section: read-only queries only.

@@ -501,6 +501,8 @@ Tehran time. Read-only throughout: no query below writes.
    check: one ANALYZE per hour 06:00-21:00 Tehran, each `success`, normally 5-10 minutes;
    the owner's UPDATE / DIRECTION / REPORT dispatches in between. A missing hour is
    cron-job.org; a failure or a 20-minute kill follows "When a run is cancelled" above.
+   Every run's branch is `main`: that verifies cron-job.org (ANALYZE) and the worker
+   (UPDATE / DIRECTION) without their consoles.
 2. **Freshness** (Neon, production): rows and latest time in the last 24 hours for
    `market_snapshots`, `analysis_snapshots`, `market_states`, `outcome_evaluations`,
    `price_observations`, `platform_prices`, `news_events`, `direction_snapshots`,
@@ -508,7 +510,10 @@ Tehran time. Read-only throughout: no query below writes.
    analysis snapshot per scheduled run (plus one snapshot and state per UPDATE), about 3
    outcomes per run, two Direction panels a day (06:00 and 13:00 slots).
 3. **Platforms.** `platform_prices` per `platform_name`, last 24 and 72 hours. Eleven
-   platforms; fewer readings than runs means a failure or a discard.
+   platforms; fewer readings than runs means a failure or a discard. Then the **stored**
+   prices side by side, reading by reading: a platform that holds one price for three
+   hours or more while the others move is a frozen copy that passed every rule (Taline,
+   2026-10-06 09:01-14:01, `SP_D_HANDOFF.md` section 29).
 4. **Why a platform is missing.** The run log through the Psiphon HTTP proxy (above):
    `Discarded <platform>: <reason>` per run. Reasons on record: Daric `403` (its side,
    refusing GitHub's runner), `stale, priced ... ago` (the source's own time), `stale copy

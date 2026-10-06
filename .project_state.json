@@ -1,9 +1,9 @@
 {
   "schema_version": "1",
   "project": "Gold Premium Monitor",
-  "active_branch": "sp-d-paper (cut from SP-D 2026-10-04: the PAPER portfolio); main is production",
-  "current_phase": "Pre-SP-D hotfixes on main (sections 38-44): latest 2026-10-02, stale quotes rectified at the source and 12 contaminated readings corrected in production (section 44); before that 2026-09-30, tgju daily candles stored in market_daily_candles (new table applied 12:53 Tehran, section 41.6), then the world-gold chain bounded after the 13:00 stall (section 42), then Neon connections bounded and tgju's history paged after the 14:00 backfill timed out (section 43); SP-D code work opens 2026-10-03",
-  "current_phase_status": "SP-C.1 through SP-C.18 COMPLETE and MERGED into main 2026-09-28 (2b7c5f8; v1.3safe tags main before the merge; merged tree identical to SP-C). Production (cron-job.org and the Telegram worker) dispatches ref main. SP-D in planning: settle period on main, then SP-D branches from main. SP_C_HANDOFF.md section 35.",
+  "active_branch": "sp-d-paper (cut from SP-D 2026-10-04: the PAPER portfolio); main, SP-D and sp-d-paper all at 04a37e1 since 2026-10-05 17:07 Tehran; main is production",
+  "current_phase": "SP-D (SP_D_HANDOFF.md): Direction live on main since 2026-10-03 (sections 1-8); the PAPER portfolio, the room as its front office, live on main since 2026-10-05 18:01 (sections 9-28); health check and record 2026-10-06 (section 29). Proposed next, for the owner's decision: Taline's frozen copies, the Iran-side node, the news leg with the LLM (section 29)",
+  "current_phase_status": "SP-C CLOSED (merged 2026-09-28, 2b7c5f8; v1.3safe before). SP-D IN PROGRESS: Direction merged 2026-10-03 (v1.4safe before); PAPER merged 2026-10-05 15:57 (v1.6safe before); the go-live hotfix (scipy/pandas pins, venue label) fast-forwarded 17:07 (v1.7safe = 2957699 before). Production (cron-job.org and the Telegram worker) dispatches ref main. SP_D_HANDOFF.md sections 28-29.",
   "completed_phases": [
     "SP-B.1",
     "SP-B.2",
@@ -75,12 +75,12 @@
   },
   "latest_verified_kpi": {
     "phase": "FULL SUITE",
-    "verified_on": "2026-09-30",
-    "files_passed": 28,
-    "files_total": 28,
-    "assertions": "661 across 25 files; kpi_update_telegram_v1.py reports no count",
+    "verified_on": "2026-10-06",
+    "files_passed": 30,
+    "files_total": 30,
+    "assertions": "802 across 29 files; kpi_update_telegram_v1.py reports no count",
     "status": "PASS",
-    "evidence_source": "python kpi/run_all.py on SP-C against an isolated in-memory database, runner exit status 0; compileall PASS; also green in CI (.github/workflows/kpi-suite.yml)",
+    "evidence_source": "python kpi/run_all.py at 04a37e1 (main = SP-D = sp-d-paper) against an isolated in-memory database, runner exit status 0; also green in CI on main and SP-D (runs 37318234182, 37318234401, 2026-10-05)",
     "notes": [
       "C.2 had been failing since commit ff4496d (C.13 idempotency fix) while documentation recorded 14/14 PASS; the stale assertion was corrected on SP-C.",
       "KPI scripts print status emoji and crash with UnicodeEncodeError under the Windows console codepage after assertions pass. kpi/run_all.py forces UTF-8 for child processes.",
@@ -255,7 +255,7 @@
     "causal_explanation_requires_evidence": true
   },
   "branch_policy": {
-    "active_development_branch": "SP-D (created from main 2026-09-29; R&D and docs until code work opens 2026-10-03)",
+    "active_development_branch": "sp-d-paper, from SP-D (SP-D open since 2026-09-29; code work since 2026-10-03)",
     "main_write_allowed": "only with the product owner's review",
     "main_merge_allowed": "only with the product owner's review",
     "sp_b_status": "CLOSED — merged into main",
@@ -263,24 +263,20 @@
     "planned_merge": "DONE 2026-09-28",
     "rule": "main is production and receives work only by owner-reviewed merge. The next sprint branch is SP-D, created from main when code work begins; per skills/sprint-execution.md the user reviews the sprint branch before merge; never merge automatically.",
     "sp_c_status": "CLOSED -- merged into main 2026-09-28 (2b7c5f8); tag v1.3safe = main before the merge",
-    "sp_d_status": "OPEN for R&D and docs from 2026-09-29; code work from 2026-10-03; added to kpi-suite.yml push branches",
-    "until_2026_10_03": "Owner direction 2026-09-29: SP-D is for the next phase; anything found before 2026-10-03 is fixed on main, through a short-lived branch cut from main and fast-forwarded after owner review."
+    "sp_d_status": "IN PROGRESS: Direction merged 2026-10-03, PAPER 2026-10-05; each batch reaches main only after the owner's review, with a safe tag on main first",
+    "until_2026_10_03": "PAST. Owner direction 2026-09-29: SP-D is for the next phase; anything found before 2026-10-03 is fixed on main, through a short-lived branch cut from main and fast-forwarded after owner review.",
+    "latest_safe_tag": "v1.7safe = 2957699 (main before the go-live hotfix, 2026-10-05)"
   },
   "verified_production_state": {
-    "verified_on": "2026-09-29",
-    "method": "direct read-only queries against production Neon, and GitHub Actions run metadata",
-    "market_snapshots": "stored premium_percent -8.19% to +0.36%. Both positive readings (2026-09-24 12:01 and 2026-09-28 10:01 Tehran) were most likely a stale morning USD/IRR input, not a real premium (section 34.3).",
-    "market_states_since_2026_09_22": "109 rows, valuation FAIR / candidate WAIT / final WAIT on all; valuation percentile 53-100, none below 40",
-    "deepest_trimmed_discount_since_2026_09_22": "3.18% scheduled, 3.16% user; the push has never fired",
-    "analysis_snapshots_news_context": "268 with an evidence package; high_impact_count 0 on 268/268 (section 33.3 N2)",
-    "news_events": "3,795 rows, KEYWORD on all; 9 of 9 sources producing daily since 2026-09-22 at 386-440 rows/day; 330 of 2,294 rows since 09-22 are re-inserted duplicates (section 33.3 N1)",
-    "workflow_runs": "hourly ANALYZE continuous since 2026-09-14; every run from 2026-09-25 16:30Z to 2026-09-27 10:30Z succeeded; three runs cancelled at the 20-minute timeout with no rows written (section 33.2)",
-    "execute_step_duration": "268-440 s per scheduled run 2026-09-16 to 2026-09-27, no steady climb; 87 s on 2026-09-15",
-    "canonical_series_contamination": "History before 2026-09-14 mixes scheduled and user readings and cannot be separated; collection_mode separates them from 2026-09-14.",
-    "valuation_cheap_history": "Last CHEAP 2026-09-21 13:31Z, from the pre-SP-C.15 fixed threshold (rank 83). The shipped leg went live with c29819a at 14:08Z the same day and has returned FAIR on all 116 rows since, with no BUY candidate.",
-    "d_gate": "OPENED 2026-09-28: 207 scheduled readings, 14 settled local days; ANALYZE REPORT logged readings=328 (non-user pool).",
-    "daric": "Returned 2026-09-28 15:01 Tehran after four days of timeouts; 11 of 11 platforms since.",
-    "first_day_on_main": "Every run on main from 2026-09-28 14:11 to 2026-09-29 09:00 Tehran succeeded; the 15:00 run sent the expected one-off extra recap."
+    "verified_on": "2026-10-06 16:45 Tehran",
+    "method": "direct read-only queries against production Neon, GitHub Actions run metadata and run logs (through the Psiphon proxy). SP_D_HANDOFF.md section 29",
+    "workflow_runs": "every scheduled ANALYZE since the 2026-10-05 10:15 check succeeded: 16 on 10-05 (06:00-21:00), 06:00-16:00 on 10-06, 5-9 minutes each; the owner's UPDATE and DIRECTION dispatches succeeded; all on main (verifies cron-job.org 8179679 and the worker)",
+    "freshness_24h": "19 market snapshots and states (16 scheduled, 3 UPDATE), 16 analysis snapshots, 48 outcomes, 237 price observations, 521 news items, 2 Direction panels a day",
+    "platforms": "9 of 11. Daric 403 from the runner since 2026-10-03 18:50. Taline discarded by its 1% band in 7 of 19 readings, and stored a frozen copy (267,410,000) in six readings 10-06 09:01-14:01 that the repeat rule does not defer (within 1.0 pp of its usual position)",
+    "decisions": "WAIT on every reading since the last check, valuation FAIR; all time final_decision WAIT 663 / BUY 4, candidate WAIT 532 / BUY 135; premium -3.10% (10-05 16:01) to -1.21% (10-06 09:01)",
+    "paper": "6 accounts opened 2026-10-05 18:01 (first run on 04a37e1); 5 bought 5 g at 268,196,931 on Goldika, system holds cash; room trade message 18:02 and 21:00 report with chart sent; HOLD since; value 1,329.9M of 1,350M (Goldika's 2.37% spread)",
+    "direction": "7 panels since 2026-10-03, STRONG BULLISH on all 7, none resolved (20 trading days); re-check the GROUP BY at 30 rows",
+    "daily_candles": "tgju 18K, dollar, world gold to 2026-10-05; tablokhani TSE_TEDPIX and AFRAN_LAST daily; etfbaz once a day at the 21:00 run. AFRAN_LAST is dated one to two sessions late (closing_1d_ago)"
   },
   "continuity_protocol": {
     "orchestration_flow": [
@@ -310,7 +306,7 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "Owner (SP_D_HANDOFF.md section 28): review hotfix-scipy-pin (scipy/pandas pins for statsmodels; the venue label that fits VARCHAR(20)); then tag main (2957699) as v1.7safe and fast-forward. Then watch the first live PAPER runs. Next: the news leg, Tether as a member, the Iran-side collector (Daric, money flow, fipiran).",
+  "next_gate": "Owner (SP_D_HANDOFF.md section 29): choose the next step. Proposed order: 1 Taline's frozen copies (measure, propose a rule, replay, then code; Afran's date in the same change); 2 the Iran-side node (the owner's device: an Android phone with Termux or a PC that stays on; then a write-only Neon role and table); 3 the news leg with the LLM (gpt-oss-120b on Groq, recorded, shown nowhere, scored after a quarter); 4 broadcast, then the ANALYZE percentages and the basis divergence. Also for the owner: disable the five dead probe workflows; decide whether the repository stays public.",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
@@ -333,7 +329,7 @@
     "assertions_sp_c4": 54,
     "assertions_sp_c6": 45,
     "assertions_coherence": 29,
-    "status": "30/30 files passing (2026-10-05, sp-d-paper, runner exit 0)",
+    "status": "30/30 files passing (2026-10-06, 04a37e1, runner exit 0)",
     "note": "kpi_coherence.py checks modules against each other and carries the register of accepted divergences, now 5 entries. An entry whose divergence is fixed fails the suite, so the register cannot go stale.",
     "assertions_signal_confirmation": 46,
     "assertions_direction": 35,
@@ -341,7 +337,9 @@
     "assertions_paper": 34
   },
   "open_decisions": [
-    "SP-D PAPER (SP_D_HANDOFF.md sections 9-27, branch sp-d-paper, not merged): the front office is THE ROOM (analysis/room.py): seven members (brake 2.0; market state, fair gap, real dollar 1.5; dollar 20d, chartist 1.0; world gold 0.5; money flow waits for TSETMC), the committee's view at 60%/30%, a review every 10 trading days, no sale while the stock index rises and back early on a new turn up; posture ALL_GOLD or SWING_OUT (40% of the grams into Afran in whole units). Inputs from the runner: tgju, tablokhani, etfbaz; seeds in src/seed. Replayed: median +4.0 to +5.7% against holding per two years, ahead in 83-100% of windows, worst -3.3%. Back office: the brave analyst, quant, cautious, hold, system. Drafts awaiting the owner; the two-trades migration still unapplied.",
+    "Taline's frozen copies (SP_D_HANDOFF.md sections 20, 29): the Iranian CDN serves the runner a frozen Taline price that sits within its 1% band and within 1.0 pp of its usual position, so neither the band nor the repeat rule defers it: 267,410,000 stored in six readings on 2026-10-06 09:01-14:01 while the others moved. Against the owner's rule of 2026-10-02. Proposed first: measure, propose a rule, replay, then code.",
+    "GitHub housekeeping for the owner (section 29): five temporary workflows (probe-gdelt, probe-groq, probe-iran-sites, probe-iran-sources, probe-llm-judge) are registered as active with their files on no branch; disable them. The repository is public: no secret is exposed, but the room and the research are readable.",
+    "SP-D PAPER (SP_D_HANDOFF.md sections 9-29): MERGED to main 2026-10-05 and LIVE from 18:01. The front office is THE ROOM (analysis/room.py): seven members (brake 2.0; market state, fair gap, real dollar 1.5; dollar 20d, chartist 1.0; world gold 0.5; money flow waits for TSETMC), the committee's view at 60%/30%, a review every 10 trading days, no sale while the stock index rises and back early on a new turn up; posture ALL_GOLD or SWING_OUT (40% of the grams into Afran in whole units). Inputs from the runner: tgju, tablokhani, etfbaz; seeds in src/seed. Back office: the brave analyst, quant, cautious, hold, system. Open: trades on Goldika while Daric refuses the runner (+1.3 to +3.1% against holding instead of +4.0 to +5.7%, section 28); AFRAN_LAST dated one to two sessions late (section 29).",
     "SP-D Direction (SP_D_HANDOFF.md sections 4-6): MERGED to main 2026-10-03 (safe tag v1.4safe = main before); v6 plain-language message (1,467 chars: VIEW, TREND with the source of the rise, MOVING AVERAGES (EMA), NEXT MONTH, WATCH) awaiting the owner's polish; forecast ledger with resolver and promotion gate; direction_snapshots APPLIED to production 2026-10-03; /Direction read-only mode; precompute at the first scheduled run from 06:00 and 13:00 Tehran. SP-C closed: SP-D is recorded in SP_D_HANDOFF.md.",
     "SP-D R&D R3/R4 done (SP_D_HANDOFF.md section 3): predictive -- new 52-week high (+3.2%), dollar and 18K breaking their 50-day averages, the chance of a new high within 20 days (skill +26%, shown as its calibrated band rate), the cost of waiting for a dip; calibrated -- the volatility-scaled 10/50/90% range of 20/60-day moves; dropped -- up/down and pullback odds, candle patterns. A DIRECTION message is drafted for the owner's review; implementation follows the approved draft; then safe tag, then merge to main (owner: no merge before that).",
     "SP-D Direction (SP_D_HANDOFF.md section 1): the first deliverable, on the owner's request -- trend, support/resistance, odds over similar past days beside the base rate, and entry timing (convert now or wait for a dip). Built on sp-d-direction (caluclator/technical.py with TA-Lib, analysis/direction.py, kpi_direction 17/17); the ANALYZE section is a draft awaiting the owner's layout approval. Next: walk-forward check that the conditional odds beat the base rate out of sample; a split-conversion option.",
@@ -400,6 +398,7 @@
     "not_yet": "Routing a requester's identity through the workflow, which /Update for other readers would require. Section 29.1.",
     "post_merge_order": "Agreed by the owner 2026-09-28 (supersedes 09-27): 1 reliability phase (world-gold deadline; high_impact_count with a precision check; news dedup window and Google suffix; Daric if still down); 2 morning-dollar research, no code (second dollar source, pool/rank bias, SP-C.17 structure re-measure) ending in a fix decision; 3 broadcast (step 4); 4 basis divergence (own phase and approval); 5 ANALYZE percentages; 6 research (6h horizon, quote_side). Section 34.7.",
     "technical_analysis_track": "Agreed 2026-09-30, fully authorized (SP_C_HANDOFF.md section 41). Step 1 data research now: our daily candles are real (14-17 hourly readings a day); tgju.org publishes 13 years of daily OHLC (18K: 3,516 days from 2013; dollar: 3,964 from 2011) that tracks our platforms at 0.95 daily correlation, +0.19% median level; its terms of use for a daily fetch are the owner's call. Step 2 (after the reliability phase): support/resistance fixed and shown in ANALYZE, plus a moving-average crossing. Step 3 when history allows: 20/50/200-day averages and candle patterns with measured records. TA is evidence, never a decision, until walk-forward validated. 2026-09-30: tgju collected in log-only mode on every scheduled run (collector/tgju.py, main._log_tgju_candles; nothing stored), after a probe from abroad succeeded. Section 41.5. 2026-09-30 afternoon: stored in the new table market_daily_candles (sql/neon_migration_daily_candles.sql) on the owner's request once the 12:00 run proved the collection in production; the first run backfills the whole history per instrument, then tgju is asked about once a day; completed Tehran days only, first-seen values never overwritten, inconsistent candles flagged. Section 41.6. The single whole-history request timed out from the runner at 14:00 (tgju's answer time follows its load), so the history now arrives a page of 1,000 per run, oldest first, resuming from the stored count; section 43.",
-    "sp_d_direction_merge": "2026-10-03: v1.4safe tags main at cc9431d; CI run 37131408592 green on sp-d-direction; main and SP-D fast-forwarded; worker redeploy pending (owner)"
+    "sp_d_direction_merge": "2026-10-03: v1.4safe tags main at cc9431d; CI run 37131408592 green on sp-d-direction; main and SP-D fast-forwarded; worker redeployed (verified 2026-10-06: /Direction dispatches run on main)",
+    "sp_d_paper_merge": "2026-10-05: v1.6safe tags main at b1e61eb; main and SP-D fast-forwarded to 2957699 at 15:57; hotfix-scipy-pin reviewed, v1.7safe tags 2957699, main, SP-D and sp-d-paper at 04a37e1 from 17:07; the first PAPER run was 18:00 (SP_D_HANDOFF.md sections 28-29)"
   }
 }

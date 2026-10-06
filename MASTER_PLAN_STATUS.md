@@ -1,8 +1,8 @@
 # Gold Premium Monitor — Master Plan Status
 
-Branch: `main` (production since 2026-09-28; SP-C merged and closed; the next sprint, SP-D, branches from `main`)
+Branch: `main` (production; SP-C merged and closed 2026-09-28; SP-D in progress: Direction merged 2026-10-03, PAPER 2026-10-05; `main` = `SP-D` = `sp-d-paper` at 04a37e1, safe tag `v1.7safe`)
 
-Last reconciled: 2026-09-27.
+Last reconciled: 2026-10-06 (`SP_D_HANDOFF.md` section 29).
 
 This document is the compact continuity map of the completed architecture, verified implementation, and remaining work. It is designed for onboarding a new conversation without relying on chat history.
 
@@ -470,9 +470,21 @@ support/resistance and a moving-average crossing after the reliability phase; st
 long averages and candle patterns when history allows. TA is evidence, never a
 decision, until validated.
 
-SP-D: code work opens Saturday 2026-10-03, after a settle period on `main`; R&D
-starts with the morning dollar (agreed 2026-09-29, `SP_C_HANDOFF.md` section 36). The
-`SP-D` branch exists from 2026-09-29 for R&D records and docs.
+SP-D (record: `SP_D_HANDOFF.md`), state on 2026-10-06:
+
+```text
+Direction   LIVE on main since 2026-10-03 (sections 1-8): panels at 06:00 and
+            13:00, /Direction; forecasts resolve after 20 trading days
+PAPER       LIVE on main since 2026-10-05 18:01 (sections 9-28): six accounts,
+            the room as the front office; trades on Goldika while Daric refuses
+            the runner
+health      2026-10-06 healthy: every run green, KPI 30/30 (section 29)
+proposed    1 Taline's frozen copies  2 the Iran-side node (Termux phone or PC)
+next        3 the news leg with the LLM  4 broadcast -- the owner decides
+```
+
+The list below is the pre-SP-D order of 2026-09-28; its reliability items are still
+open (`PROJECT_MEMORY.md` resolved-defects index).
 
 After the merge, in the order agreed on 2026-09-28 (section 34.7):
 

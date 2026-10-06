@@ -34,10 +34,10 @@ SP-C                       CLOSED — merged into main 2026-09-28 (v1.3safe = ma
 ├── SP-C.1 … SP-C.18       COMPLETE
 └── production (cron-job.org and the Telegram worker) runs main since 2026-09-28
 
-SP-D                       PLANNING — settle period on main, R&D on scope
+SP-D                       IN PROGRESS — Direction (2026-10-03) and the PAPER portfolio (2026-10-05) live on main
 ```
 
-Sprint detail: `SP_C_HANDOFF.md`, latest section 35.
+Sprint detail: `SP_D_HANDOFF.md`, latest section 29 (SP-C: `SP_C_HANDOFF.md`, closed).
 
 ### Verified KPI baseline
 
