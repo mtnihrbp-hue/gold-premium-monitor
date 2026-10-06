@@ -721,6 +721,27 @@ class KPISignalConfirmation(unittest.TestCase):
         self.assertIn("corroborate(evaluate_push(", source)
         self.assertIn("gap_without_cheapest(prices, fair)", source)
 
+    # -- 10. a sanity range the market can reach is a stop, not a guard ----------------
+
+    def test_47_the_ranges_leave_room_for_the_market(self):
+        """SP_D_HANDOFF.md section 30: world gold was capped at $5,000 with gold at $4,146,
+        18K at 500M rial with 18K at 269M. Each ceiling stays at least three times the
+        market of 2026-10-06, and the floors still catch a price per gram of gold."""
+        from validation.data import (MAX_MARKET_PRICE, MAX_USD_RATE, MAX_WORLD_GOLD,
+                                     MIN_WORLD_GOLD, validate_market_prices,
+                                     validate_usd_rate, validate_world_gold)
+        world, usd, gram = 4145.70, 269_300.0, 269_207_138.0     # 2026-10-06 14:31Z
+        self.assertGreaterEqual(MAX_WORLD_GOLD, 3 * world)
+        self.assertGreaterEqual(MAX_USD_RATE, 3 * usd)
+        self.assertGreaterEqual(MAX_MARKET_PRICE, 3 * gram)
+        self.assertEqual(validate_world_gold(6000.0), 6000.0, "a rally past $5,000 is a price")
+        self.assertLess(world / 31.1035, MIN_WORLD_GOLD, "a price per gram is still refused")
+        with self.assertRaises(ValueError):
+            validate_usd_rate(usd * 10)                          # a rial slip
+        doubled = {name: {"price": 2 * gram * (1 + i / 1000.0), "status": "OK"}
+                   for i, name in enumerate(("Milli", "Invi", "WallGold", "Parasteh"))}
+        self.assertEqual(len(validate_market_prices(doubled)), 4, "18K at twice today's price is kept")
+
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(KPISignalConfirmation)
     result = unittest.TextTestRunner(verbosity=2).run(suite)

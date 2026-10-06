@@ -9,17 +9,29 @@ from statistics import median
 from timeutil import to_tehran
 
 
-# World gold price reasonable range: $1000 – $5000 USD/oz
-MIN_WORLD_GOLD = 1000.0
-MAX_WORLD_GOLD = 5000.0
+# These ranges catch garbage and unit slips, not unusual markets: a reading outside
+# them is dropped (world gold falls back to a stored price for up to 6 hours, a
+# platform is discarded). A ceiling the market can reach therefore stops the system
+# at the moment the market makes news. Until 2026-10-06 world gold's was $5,000 with
+# gold at $4,146, and 18K's 500M rial with 18K at 269M after a 70% rise in four months
+# (SP_D_HANDOFF.md section 30).
 
-# USD/IRR reasonable range: 10,000 – 1,000,000 IRR
+# World gold, USD/oz. A price per gram (about $133) falls below the floor and one per
+# kilogram (about $133,000) above the ceiling; the ceiling is 4.8 times 2026-10-06's.
+MIN_WORLD_GOLD = 1000.0
+MAX_WORLD_GOLD = 20000.0
+
+# USD sell rate, in toman (bonbast; stored as market_snapshots.usd_irr, 269,300 on
+# 2026-10-06). The ceiling also catches a rial slip (ten times the rate) for as long as
+# the rate stays above 100,000; it is 3.7 times 2026-10-06's rate. Revisit when the rate
+# passes 500,000.
 MIN_USD_RATE = 10000.0
 MAX_USD_RATE = 1000000.0
 
-# Market price reasonable range: 1M – 500M IRR per gram 18K
+# Platform price, rial per gram of 18K. The ceiling, 500M toman, is 18.6 times
+# 2026-10-06's price.
 MIN_MARKET_PRICE = 1_000_000.0
-MAX_MARKET_PRICE = 500_000_000.0
+MAX_MARKET_PRICE = 5_000_000_000.0
 
 # Minimum number of working market sources for a valid signal
 MIN_WORKING_SOURCES = 2
