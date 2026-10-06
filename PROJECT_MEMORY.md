@@ -2350,13 +2350,15 @@ platforms     9 of 11: Daric 403 from the runner since 10-03; Taline's frozen co
               stored when inside its band (section 29)
 room inputs   tgju candles daily; tablokhani TEDPIX and Afran; etfbaz at 21:00;
               histories before production from src/seed
-not in prod   the LLM (Groq key works, replayed in research only); GDELT (no edge);
-              the Iran-side node (Termux phone or PC, not built); broadcast
+not in prod   the LLM member (designed into the room, weight 1.0, SP-D 17-18; not
+              built); GDELT (tested, research only); the Iran-side node (Termux,
+              from 2026-10-07); broadcast (PARKED until the room and PAPER prove out)
 ```
 
 **Open.** Taline's frozen copies; Daric refused from the runner, so PAPER trades on
 Goldika's 2.37% spread; `AFRAN_LAST` dated one to two sessions late. The reliability
 items in the index above (news dedup, `high_impact_count`, the outcome backfill's
-retries, `MAX_WORLD_GOLD`, the stale tests) are still open. Proposed order, for the
-owner's decision (`SP_D_HANDOFF.md` section 29): Taline's frozen copies, the Iran-side
-node, the news leg with the LLM, then broadcast.
+retries, `MAX_WORLD_GOLD`, the stale tests) are still open. The owner's order
+(2026-10-06, `SP_D_HANDOFF.md` section 29): Taline's frozen copies first; the Iran-side
+node on Termux and a total revamp of the Direction message from 2026-10-07; then the
+LLM member. Broadcast is parked.

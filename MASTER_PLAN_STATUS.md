@@ -479,8 +479,9 @@ PAPER       LIVE on main since 2026-10-05 18:01 (sections 9-28): six accounts,
             the room as the front office; trades on Goldika while Daric refuses
             the runner
 health      2026-10-06 healthy: every run green, KPI 30/30 (section 29)
-proposed    1 Taline's frozen copies  2 the Iran-side node (Termux phone or PC)
-next        3 the news leg with the LLM  4 broadcast -- the owner decides
+next        1 Taline's frozen copies (agreed)  2 from 10-07: Termux node, and
+(owner)     the Direction message revamped  3 the LLM member (weight 1.0, 17-18)
+            broadcast PARKED until the room and PAPER have a record
 ```
 
 The list below is the pre-SP-D order of 2026-09-28; its reliability items are still

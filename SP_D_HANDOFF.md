@@ -2245,13 +2245,23 @@ the research can be read by anyone. Whether that is intended is the owner's call
 **Where the threads stand** (the owner asked):
 
 ```text
-the LLM      Groq's key works from the runner (section 16); gpt-oss-120b replayed as the committee's
-             chair (section 23): -1.1% against holding, the committee +4.4% on the same days.
-             NOT in production: src/intelligence/event_interface.py is an interface with a stub only.
+the LLM      DESIGNED AS A COMMITTEE MEMBER, NOT YET BUILT. Sections 17-18 give it a vote, weight
+             1.0, "the LLM among them" in the 60% / 30% consensus, reading the headlines and
+             everything the others see, never computing a number. Section 15 defined the LLM
+             trader; section 16 checked Groq from the runner; section 23 replayed gpt-oss-120b as
+             the CHAIR (it decides alone): -1.1% against holding, the committee +4.4% on the same
+             days, so the chair was not adopted. As ONE VOTE it was never replayed: only the
+             window after its training cut-off is clean. The room built in section 27 has seven
+             members and no LLM; section 27 lists it as the next build. Nothing in src/ calls
+             Groq (src/intelligence/event_interface.py is a stub); briefs and answers of the
+             replay are kept in research/data/llm_*.json.
 news         9 RSS sources, about 520 items a day, keyword classifier, every row KEYWORD; in no
              message (measured, nothing found, SP_C_HANDOFF 27.7); high_impact_count still 0 (33.3)
-GDELT        researched (section 14): coverage jumps came near local peaks, nothing for the drop
-             detector; filtered from Iran, rate-limited from the runner. Not pursued
+GDELT        the owner's choice to start the news leg (section 13); fetched 2017-2026 from the
+             runner and tested (section 14): Iran coverage jumps came near local peaks (18K about
+             2 pp weaker the next month), counts and tone add nothing to the drop detector. Kept
+             as research (research/data/gdelt.json); never in production. The finding moved the
+             news leg to the LLM reading headlines live
 TEDPIX       live: tablokhani daily from 2026-10-05 (from 13:00, after the close), seed from 2008,
              etfbaz's index as a fallback; the room's early return and its sale veto read it
 Tether       etfbaz's USDT/IRR stored daily from 2026-10-05; a member once its record exists
@@ -2270,9 +2280,16 @@ broadcast    rollout step 4 (SP_C_HANDOFF 29.3): designed, not built
    against holding at its 0.30% cost, +1.3 to +3.1% at Goldika's 2.37%, section 28), and money flow,
    fipiran and TSETMC all wait for it. The owner chooses the device; then a write-only Neon role and a
    table for its readings (a migration, verified on a temporary branch first).
-3. **The news leg with the LLM.** Headlines classified live by gpt-oss-120b into a fixed schema, stored,
-   shown nowhere, scored after a quarter. Start early: only time builds its record. Evidence, never a
-   vote, until the record says otherwise.
+3. **The LLM member** (sections 17-18, as designed): gpt-oss-120b on Groq reads the headlines and the
+   brief the system computes, and casts one vote, weight 1.0, in the room's consensus, with its reasons
+   in words. Its view logged at every run and scored like every member's. Start early: only time builds
+   its record.
 4. Then broadcast, and the queue: the ANALYZE percentages, the basis divergence.
+
+**The owner's answers, the same evening.** Taline: agreed, first. Termux: tomorrow (2026-10-07).
+Broadcast: **parked** until the committee and the PAPER trades have shown their performance. The
+Direction message: not satisfying, **to be revamped totally** (tomorrow). The LLM: the owner remembered
+it as a heavy member of the room -- the record above confirms it was designed into the room (weight 1.0)
+and not yet built; the first section-29 draft understated that, corrected here.
 
 **NEON MIGRATION REQUIRED = NO** for this section: read-only queries only.
