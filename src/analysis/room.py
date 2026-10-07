@@ -22,8 +22,11 @@ research/rd_committee_2y.py; a z-score leans beyond +/-0.5 against its own last 
   dollar 20d      1.0   the dollar's last 20 days: rising -> +1
   world gold 60d  0.5   world gold's last 60 days: rising -> +1
   chartist        1.0   caluclator/chartist.py's view: over +0.25 -> +1, under -0.25 -> -1
-  (money flow, 0.5, waits for TSETMC's client types through the Iran-side collector: tablokhani's
-   10-day recipe agreed with it on 51% of days and lowered the room, section 27)
+  money flow      0.5   the gold funds' buyer power -- individuals' value per buyer over value per
+                        seller, summed over the funds, its last 20 trading days' mean: stronger
+                        buyers -> +1. TSETMC's client types, which only an Iranian address can read:
+                        src/seed/gold_fund_flows.json to 2026-10-03, then the owner's phone (iran_node,
+                        sections 30, 33); a day counts when FLOW_MIN_FUNDS of the 19 funds have it
 
 The committee's view moves every day: it turns to fixed income when the members leaning that way
 hold 60% of the weight of those with a view (two at least), and back at 30% or less. The posture
@@ -32,7 +35,8 @@ stock index as the sharp eye (sections 24, 27): no sale while its last 20 days l
 while out, back to gold early on the first day they turn to gold after the sale -- a standing rise
 does not buy back the morning after a sale. Replayed (section 27), without money flow: median +4.0
 to +5.7% against holding per two years, ahead in 83-100% of the two-year windows since 2020, worst
--3.3% (-11.3% from 2018), seven trades in the last two years.
+-3.3% (-11.3% from 2018), seven trades in the last two years. With money flow (section 33): +5.0 to
++9.0%, ahead in 83-100%, worst -3.7% (-10.2% from 2018).
 """
 
 from bisect import bisect_right
@@ -40,7 +44,9 @@ from bisect import bisect_right
 import numpy as np
 
 WEIGHTS = {"brake": 2.0, "market state": 1.5, "fair gap": 1.5, "real dollar": 1.5, "dollar 20d": 1.0,
-           "world gold 60d": 0.5, "chartist": 1.0}
+           "world gold 60d": 0.5, "chartist": 1.0, "money flow": 0.5}
+FLOW_DAYS = 20            # the money-flow member's mean, in the funds' trading days
+FLOW_MIN_FUNDS = 15       # a day from the phone counts when this many of the 19 funds have it
 LEAVE, BACK = 0.60, 0.30
 REVIEW_EVERY = 10
 SWING = 0.40
@@ -60,6 +66,8 @@ WHY = {
     ("dollar 20d", -1): "the dollar decreased over 20 days", ("dollar 20d", 1): "the dollar increased over 20 days",
     ("world gold 60d", -1): "world gold decreased over 60 days", ("world gold 60d", 1): "world gold increased over 60 days",
     ("chartist", -1): "the chart turned down", ("chartist", 1): "the chart points up",
+    ("money flow", -1): "sellers in the gold funds are stronger than usual",
+    ("money flow", 1): "buyers in the gold funds are stronger than usual",
 }
 
 
@@ -119,9 +127,19 @@ def efficiency_sideways(close, flat, days=ER_DAYS):
     return side
 
 
-def member_leans(high, low, close, usd, xau, fi_level, tedpix, f_star, flat, chartist=None, from_index=0):
+def money_flow(dates, flow_days, power):
+    """The buyer power's mean over its last FLOW_DAYS trading days, on `dates`: NaN where the funds'
+    last day is a week or more old (as rd_committee_2y.py builds the member)."""
+    power = np.asarray(power, dtype=float)
+    power20 = np.array([np.mean(power[max(0, j - FLOW_DAYS + 1):j + 1]) for j in range(len(power))])
+    return aligned(dates, flow_days, power20, max_gap_days=6)
+
+
+def member_leans(high, low, close, usd, xau, fi_level, tedpix, f_star, flat, chartist=None, from_index=0,
+                 flow=None):
     """{member: lean array} for every day, and the stock index's lean (the early return).
-    `from_index`: the chartist reads only from this day on (it is the slow member)."""
+    `from_index`: the chartist reads only from this day on (it is the slow member). `flow`: the
+    money-flow member's input on the same days (money_flow); without it the member has no view."""
     c = np.asarray(close, dtype=float)
     n = len(c)
     lc = np.log(c)
@@ -137,6 +155,7 @@ def member_leans(high, low, close, usd, xau, fi_level, tedpix, f_star, flat, cha
         "dollar 20d": lean_from_z(zscore(back(np.log(np.asarray(usd)), 20)), +1),
         "world gold 60d": lean_from_z(zscore(back(np.log(np.asarray(xau)), 60)), +1),
         "chartist": np.zeros(n, dtype=int),
+        "money flow": (lean_from_z(zscore(flow), +1) if flow is not None else np.zeros(n, dtype=int)),
     }
     if chartist is not None:
         for i in range(max(from_index, 0), n):

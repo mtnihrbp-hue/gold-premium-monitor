@@ -230,6 +230,18 @@ def get_recent_platform_prices(session, since):
             for snapshot_id, timestamp, name, price in rows]
 
 
+def get_node_rows(session, source, since):
+    """Every OK reading of the Iran-side node from `source` observed at or after `since` (naive UTC),
+    oldest first (SP_D_HANDOFF.md section 33: TSETMC's daily money flow of the gold funds)."""
+    return (
+        session.query(IranNodeReading)
+        .filter(IranNodeReading.source == source, IranNodeReading.status == "OK",
+                IranNodeReading.observed_at >= since)
+        .order_by(IranNodeReading.observed_at.asc())
+        .all()
+    )
+
+
 def get_latest_node_reading(session, source, instrument, since):
     """The newest OK reading of the Iran-side node at or after `since` (naive UTC), or
     None. Production reads what the owner's phone in Iran inserted (SP_D_HANDOFF.md

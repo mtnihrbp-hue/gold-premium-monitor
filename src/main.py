@@ -709,6 +709,36 @@ def _room_series(session):
     return ted, fi, last_afran
 
 
+def _room_flow(session):
+    """The gold funds' buyer power by day, for the room's money-flow member (SP_D_HANDOFF.md section
+    33): src/seed's history, then the days the Iran node sent after it. A fund's latest copy of a day
+    is used, and a day counts when room.FLOW_MIN_FUNDS of the seed's funds have it."""
+    from datetime import date as _date, datetime as _dt
+    from analysis import room
+    from database.repository import get_node_rows
+    seed = json.load(open(os.path.join(SEED_DIR, "gold_fund_flows.json"), encoding="utf-8"))
+    power = {_date.fromisoformat(k): v for k, v in seed["power"].items()}
+    seed_end, funds = max(power), set(seed["funds"])
+    by_day = {}
+    for row in get_node_rows(session, "tsetmc", _dt.combine(seed_end, _dt.min.time())):
+        record, day = row.payload or {}, row.detail or ""
+        code = str(record.get("insCode") or row.instrument.replace("CLIENTTYPE_", ""))
+        if len(day) != 8 or code not in funds:
+            continue
+        day = _date(int(day[:4]), int(day[4:6]), int(day[6:]))
+        if day > seed_end:
+            by_day.setdefault(day, {})[code] = record
+    for day, records in by_day.items():
+        if len(records) < room.FLOW_MIN_FUNDS:
+            continue
+        bv, bc, sv, sc = (sum(float(r.get(k) or 0) for r in records.values())
+                          for k in ("buy_I_Value", "buy_I_Count", "sell_I_Value", "sell_I_Count"))
+        if bc and sc and sv:
+            power[day] = (bv / bc) / (sv / sc)
+    days = sorted(power)
+    return days, [power[k] for k in days]
+
+
 def _room_state(session, account, engine):
     """Everything the room reads, on the completed tgju candles, with its posture replayed from the
     account's first day (analysis/room.py); None without enough history."""
@@ -738,10 +768,15 @@ def _room_state(session, account, engine):
     start_day = local_date(account.started_at)
     start = min(next((i for i, x in enumerate(dates) if x >= start_day), len(dates) - 1), len(dates) - 1)
     chart = Chartist(h, l, c, usable=usable)
+    try:
+        flow = room.money_flow(dates, *_room_flow(session))
+    except Exception as e:
+        print(f"PAPER money flow unavailable, the member has no view: {e}")
+        flow = None
     leans, stocks = room.member_leans(h, l, c, room.aligned(dates, ud, uc), room.aligned(dates, xd, xc),
                                       room.aligned(dates, fd, [fi[k] for k in fd], max_gap_days=10),
                                       room.aligned(dates, td, [ted[k] for k in td], max_gap_days=10),
-                                      f_star, flat, chartist=chart, from_index=max(0, start - 1))
+                                      f_star, flat, chartist=chart, from_index=max(0, start - 1), flow=flow)
     return {"dates": dates, "close": c, "mu": mu, "chart": chart, "leans": leans, "stocks": stocks,
             "start": start, "start_day": start_day, "path": room.replay(leans, stocks, start, len(c) - 1),
             "fi": fi, "afran": afran}

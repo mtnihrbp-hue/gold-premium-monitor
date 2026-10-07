@@ -20,15 +20,23 @@ ted = room.aligned(R.d, td, [seed_ted[k.isoformat()] for k in td])
 fi = np.exp(fi_log)                                   # the research room's cost of money
 ch = Chartist(h, l, R.c, usable=~flat)
 first = next(i for i in range(R.n) if R.d[i] >= date(2018, 1, 1))
-leans, stocks = room.member_leans(h, l, R.c, usd, ons, fi, ted, R.F_STAR, flat, chartist=ch, from_index=first)
+seed_flow = json.load(open(os.path.join(HERE, "..", "src", "seed", "gold_fund_flows.json")))   # section 33
+fdays = sorted(date.fromisoformat(k) for k in seed_flow["power"])
+flow = room.money_flow(R.d, fdays, [seed_flow["power"][k.isoformat()] for k in fdays])
+leans, stocks = room.member_leans(h, l, R.c, usd, ons, fi, ted, R.F_STAR, flat, chartist=ch, from_index=first,
+                                  flow=flow)
 for m in room.WEIGHTS:
     a, b = np.asarray(leans[m])[first:], np.asarray(R.LEAN[m])[first:]
     print(f"   {m:15} the same lean on {np.mean(a == b) * 100:6.2f}% of days since 2018")
 a, b = np.asarray(stocks)[first:], np.asarray(R.LEAN["stocks 20d"])[first:]
 print(f"   {'stocks 20d':15} the same lean on {np.mean(a == b) * 100:6.2f}% of days since 2018")
 
-# the posture over the last two years, against the research room (no money flow, the stock return, every 10)
-from rd_room_reentry_sense import variant  # noqa: E402
+# the posture over the last two years, against the research room (with money flow since section 33,
+# the stock index's veto and early return, every 10)
+import rd_room_reentry_sense as RS  # noqa: E402
+from rd_committee_veto import BASE  # noqa: E402
+RS.NOF = dict(BASE)                    # the research room's weights with money flow at 0.5
+variant = RS.variant
 i0, i1 = next(i for i in range(R.n) if R.d[i] >= R.START), max(i for i in range(R.n) if R.d[i] <= R.END)
 idx = list(range(i0, i1 + 1))
 f = variant("veto + turn")(10, 0)(idx)

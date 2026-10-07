@@ -556,11 +556,12 @@ class KPIPaper(unittest.TestCase):
         self.assertEqual((d.action, d.grams), ("BUY", 3), "opening while out: the core only, the rest in Afran")
         self.assertGreater(b4.units, 0)
 
-    def test_24_the_room_is_seven_members_and_plain_words(self):
+    def test_24_the_room_is_eight_members_and_plain_words(self):
         from analysis import room
         self.assertEqual(set(room.WEIGHTS), {"brake", "market state", "fair gap", "real dollar", "dollar 20d",
-                                             "world gold 60d", "chartist"},
-                         "money flow waits for TSETMC through the Iran-side collector")
+                                             "world gold 60d", "chartist", "money flow"},
+                         "money flow joined through the Iran-side node (SP_D_HANDOFF.md section 33)")
+        self.assertEqual(room.WEIGHTS["money flow"], 0.5, "section 18's weight")
         self.assertEqual((room.LEAVE, room.BACK, room.REVIEW_EVERY, room.SWING), (0.60, 0.30, 10, 0.40))
         for text in room.WHY.values():
             for word in BANNED:
@@ -689,6 +690,76 @@ class KPIPaper(unittest.TestCase):
         self.assertEqual(len(f_path), len(close))
         self.assertAlmostEqual(f_path[-1], view["f_star"], places=9, msg="the last day is the engine's own f*")
         self.assertAlmostEqual(mu[-1], view["mu"], places=12)
+
+    # -- the money-flow member (SP_D_HANDOFF.md section 33) -------------------------------
+
+    def test_30_money_flow_is_the_research_member(self):
+        """The buyer power's mean over its last 20 trading days, carried to 18K's days while the funds'
+        last day is under a week old -- rd_committee_2y.py's construction, which the parity check
+        (research/check_room_parity.py) matches on 100% of days since 2018."""
+        import numpy as np
+        from analysis import room
+        fdays = [date(2026, 1, 1) + timedelta(days=k) for k in range(30)]
+        power = [1.0 + 0.01 * k for k in range(30)]
+        dates = [fdays[-1], fdays[-1] + timedelta(days=6), fdays[-1] + timedelta(days=7), fdays[10]]
+        got = room.money_flow(dates, fdays, power)
+        last20 = np.mean(power[-20:])
+        self.assertAlmostEqual(got[0], last20, places=12)
+        self.assertAlmostEqual(got[1], last20, places=12, msg="six days on, the last value stands")
+        self.assertTrue(np.isnan(got[2]), "a week or more without the funds is no view")
+        self.assertAlmostEqual(got[3], np.mean(power[:11]), places=12, msg="fewer than 20 days: their mean")
+
+    def _flow_session(self):
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from database.connection import Base
+        engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(bind=engine)
+        return sessionmaker(bind=engine, expire_on_commit=False)()
+
+    def test_31_production_appends_the_phones_days_after_the_seed(self):
+        """A day after the seed counts when 15 of the 19 funds have it; a fund's latest copy of a day is
+        the one used; days the seed holds are not replaced."""
+        import json as _json
+        import main
+        from database.models import IranNodeReading
+        seed = _json.load(open(os.path.join(SRC_DIR, "seed", "gold_fund_flows.json")))
+        funds = seed["funds"]
+        s = self._flow_session()
+
+        def add(day, code, bv, bc, sv, sc, at):
+            s.add(IranNodeReading(node="s10", source="tsetmc", instrument=f"CLIENTTYPE_{code}", observed_at=at,
+                                  status="OK", detail=day, received_at=at,
+                                  payload={"insCode": code, "recDate": int(day), "buy_I_Value": bv, "buy_I_Count": bc,
+                                           "sell_I_Value": sv, "sell_I_Count": sc}))
+        t0 = datetime(2026, 10, 7, 9, 0)
+        for code in funds:                                  # 10-04: every fund; one stale copy replaced
+            add("20261004", code, 100.0, 10, 50.0, 10, t0)
+        add("20261004", funds[0], 300.0, 10, 50.0, 10, t0 + timedelta(hours=1))
+        for code in funds[:10]:                             # 10-05: ten funds, too few
+            add("20261005", code, 100.0, 10, 50.0, 10, t0)
+        add("20261003", funds[0], 999.0, 1, 1.0, 1, t0)     # the seed's own last day: not replaced
+        s.commit()
+        days, power = main._room_flow(s)
+        got = dict(zip(days, power))
+        n = len(funds)
+        expect = ((100.0 * (n - 1) + 300.0) / (10 * n)) / ((50.0 * n) / (10 * n))
+        self.assertAlmostEqual(got[date(2026, 10, 4)], expect, places=12)
+        self.assertNotIn(date(2026, 10, 5), got, "ten of nineteen funds is not a day")
+        self.assertAlmostEqual(got[date(2026, 10, 3)], seed["power"]["2026-10-03"], places=12)
+        s.close()
+
+    def test_32_the_room_reads_the_flow_and_fails_safe(self):
+        import json as _json
+        import main
+        seed = _json.load(open(os.path.join(SRC_DIR, "seed", "gold_fund_flows.json")))
+        self.assertEqual(len(seed["funds"]), 19)
+        self.assertGreater(len(seed["power"]), 1500)
+        self.assertEqual(max(seed["power"]), "2026-10-03")
+        source = inspect.getsource(main._room_state)
+        self.assertIn("room.money_flow(dates, *_room_flow(session))", source)
+        self.assertIn("flow=flow", source)
+        self.assertIn("flow = None", source, "without the flow the member has no view; the room carries on")
 
 
 if __name__ == "__main__":

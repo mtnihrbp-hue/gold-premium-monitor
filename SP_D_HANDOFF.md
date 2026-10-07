@@ -2570,3 +2570,61 @@ section 25's ("no price, chart, flow or LLM reading has called the start of a ju
 fall, and in this market the falls are short and the drift is strong. The room's remaining open
 inputs are those that are not functions of 18K's own price: money flow (TSETMC, through the node),
 the news read by the LLM member, Tether.
+
+## 33. Money flow joins the room: TSETMC through the phone (2026-10-07)
+
+**The owner.** "Let's do the TSETMC on the phone", then: "I'm ready for the next step, adding the member
+and so on; and yes, you can seed the history from the research. Go ahead."
+
+**On the phone** (`iran_node/node.py`, 82d0dd9). TSETMC answers Iranian addresses only. The per-day
+endpoint `ClientType/GetClientTypeHistory/{insCode}/{yyyymmdd}` returns one fund's day with values in
+375 bytes (the whole history is 549 KB a fund; the "today" endpoint has volumes and counts but no
+values, and returns HTTP 500 for a day until it has closed). Once an hour (the run in the first quarter
+of the hour), for each of the last 7 days not yet fetched, the node asks for each of the 19 funds of the
+research record and sends one row per fund and day (`source` "tsetmc", `instrument`
+"CLIENTTYPE_{insCode}", `detail` the trading day, `payload` TSETMC's record); what it fetched is
+remembered in `~/.iran_node_state.json`. From this workstation in Iran the first test read 76 fund-days
+(19 funds, 10-03 to 10-06) in 14 seconds in all.
+
+**The member, measured before it was built.** Section 27's figures for money flow (+5.1 to +8.0% against
+holding) were measured on an earlier room, before the stock index's veto and its early return. On the
+room as it runs, paired window by window (`rd_trend_room.room`, all offsets):
+
+```text
+                         as built                       + money flow at 0.5             paired
+Daric,   Afran (18)      +4.0..+5.7%, worst -3.3        +5.0..+9.0%, worst -3.7         +0.83 pp; better 52%, worse 11%
+Daric,   index (27)      +3.9..+5.6%, worst -11.3       +5.6..+7.8%, worst -10.2        +1.42 pp; better 54%, worse 10%
+Goldika, Afran (18)      +1.3..+3.1%, worst -4.6        +2.5..+6.9%, worst -4.9         +0.97 pp; better 53%, worse 11%
+Goldika, index (27)      +1.1..+2.8%, worst -16.1       +2.4..+5.5%, worst -16.5        +0.67 pp; better 53%, worse 11%
+the last two years (offset 0, Daric): +9.5% either way
+```
+
+Against section 32's bar it clears the median (+0.67 to +1.42) and the worst window (within a point),
+and not the 60% of windows improved: about 36% of windows do not change at all (the member rarely tips
+a vote of eight), and improvements outnumber worsenings five to one. It is section 18's designed member
+and the owner's decision; the shortfall is recorded, not hidden.
+
+**Built** (`sp-d-trend-rd`):
+- `src/seed/gold_fund_flows.json` (`research/build_flow_seed.py`): each day's buyer power --
+  individuals' value per buyer over value per seller, summed over the funds that traded -- for 1,711
+  days, 2017-07-30 to 2026-10-03, and the 19 funds. The other seeds are untouched.
+- `analysis/room.py`: `money flow` at weight 0.5 (`WEIGHTS`), `money_flow()` (the 20-day mean over the
+  funds' days, carried to 18K's days while under a week old), `member_leans(flow=...)` (z-scored over 500
+  days, +1 above +0.5), its words in `WHY` ("buyers / sellers in the gold funds are stronger than
+  usual"); `FLOW_MIN_FUNDS` = 15, fixed before any data from the phone was seen.
+- `main._room_flow`: the seed, then the node's days after it -- a fund's latest copy of a day, a day
+  only when 15 of the 19 funds have it; `_room_state` passes it to the room and, if it cannot be built,
+  the member has no view and the room carries on with seven.
+- `repository.get_node_rows`.
+- **Parity** (`research/check_room_parity.py`, now with the flow): production's eight members match the
+  research room on 100.00% of days since 2018, money flow included, and the posture on all 575 days of
+  the last two years.
+- `kpi_paper` 37/37: test_24 (eight members, money flow at 0.5), test_30 (the research construction),
+  test_31 (the phone's days after the seed: 15 of 19, the latest copy, the seed's days kept), test_32
+  (the seed, the wiring, the fail-safe). Suite 30/30, compileall.
+
+**What the owner will see.** The room's 21:00 line counts the members, so it reads "of 8" instead of "of
+7"; when money flow is among the reasons, its words appear. No layout changes.
+
+**NEON MIGRATION REQUIRED = NO** (the node's table of section 31). Awaiting the owner's review; then a
+safe tag and the merge.
