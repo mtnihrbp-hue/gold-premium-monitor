@@ -2431,3 +2431,73 @@ Suite 30/30, compileall. **Merged** on the owner's review: `v1.8safe` tags `main
 at cf3c520 from 12:45 Tehran; KPI Suite green on both.
 
 **NEON MIGRATION REQUIRED = YES**, applied (above).
+
+**Later the same day.**
+- *The phone is live.* `node.py --setup` (0cba828) asks for a 14-character password and writes the
+  settings (typing the URL failed twice); the role's password was changed to it. The S10 has sent four
+  readings an hour without a gap since 10-06 19:28; 9 of 79 Daric readings are Daric's own failures
+  (7 connection errors, 2 empty order-book sides), stored as ERROR and never used. **The 14:00 run took
+  Daric from the phone** ("Daric: from the Iran node (s10, read 1 min ago)", 262,176,670), the first
+  since 10-03; the 13:00 run, before the phone's settings, discarded it as before.
+- *The node also reads Taline, HoorGold and MioGold* (e69d482) through the repository's collectors,
+  to set what Iran sees against what the runner is served. **The first comparison, 14:00:** the runner
+  was given Taline at about 266.86M (discarded, +1.64% from the median 262.56M) while the phone read
+  262.63-262.70M in Iran: a copy, the same value the runner stored at 07:00, 09:00 and 10:00 that
+  morning, inside the 1% band while the market stood higher. HoorGold (263.10M) and MioGold (261.95M)
+  were identical on both sides. `research/rd_frozen_copies.py` (the stored record since 09-14): HoorGold
+  held one price for 3 hours or more while the others moved in 27% of its readings, MioGold 10%, the
+  rest 0-3%; returning to an exact earlier price is common to all (4-11%; Taline 16%) and is not by
+  itself a signature. The rule waits for a day of side-by-side readings.
+- *TSETMC is not collected anywhere in production.* The money-flow member stays out of the room until
+  the node reads TSETMC's client types (sections 24, 27); the only TSETMC data are the research pulls
+  in `research/data`, copied daily to D:.
+- *Today's fall* was the dollar's (269,100 to 263,800 toman, 06:00-13:00; fair value -2.6%, the premium
+  unchanged). The room at 13:01: ALL_GOLD, 35.3% of the weight for fixed income against the 60% needed
+  on the review of 2026-10-17; its evidence ends at the 10-06 candle by design. The dollar stood 22%
+  above its 50-day average at the 10-06 close, 18K 18%: the measured warning (the dollar under its
+  50-day, section 2) is far off.
+
+## 32. Trend identification in the room: pre-registered (2026-10-07)
+
+**The owner.** The room is to replace a senior trader who identifies trends and acts promptly: follow
+the momentum of candles and price action, the distance between the price and its EMAs, the divergence
+between price peaks and MACD or RSI. "A whole heavy load R&D" -- full authority while the owner is in a
+meeting. What the record already holds is listed in section 31 (the distances, the EMA cross, MACD and
+RSI crosses, candle patterns, simple trend rules, acting daily: tested, none an edge). What it does not
+hold is tested here. **Written and committed before any of it was run.**
+
+**Candidates** (18K is tgju's daily close; fixed income is the index of `rd_rebuy.fi_log`; every
+signal causal, known at day i's close):
+
+```text
+TSMOM k        time-series momentum against the cost of money: 18K's log return over the last k
+               trading days minus fixed income's over the same days; > 0 leans gold (+1), < 0 fixed
+               income (-1). k = 63, 126, 252 (3, 6, 12 months), and the majority of the three
+RSI div        divergence at confirmed swings (the chartist's ZigZag, section 21): on the day a swing
+               high is confirmed, a higher high than the previous swing high with RSI(14) at it 2
+               points or more lower leans fixed income (-1) for 20 trading days; the mirror at swing
+               lows leans gold (+1); otherwise 0
+MACD div       the same with the MACD line (12/26/9) as a share of the price, lower at the higher high
+               (any amount), higher at the lower low
+stretch size   when the room swings out, the share sold depends on 18K's distance from its EMA50,
+               z-scored against its last 500 days: z >= +1 sells 60% of the grams, z <= 0 sells 20%,
+               otherwise 40% as now; when it swings out is unchanged
+```
+
+**Tests.**
+1. *Alone:* gold over fixed income in the next 20 trading days (`X20`) on the days each member leans
+   -1, +1, and on all days, 2016-2020 and 2021-2026 apart. For the two divergences, the 20 days after
+   each event against 1,000 shuffles of as many dates in the same era (lesson 24); outside the 5-95%
+   band of the shuffles counts as a difference.
+2. *In the room:* the production room (`rd_room_reentry_sense`, "veto + turn": reviews every 10 trading
+   days, the stock-index veto and early return, weights of section 27 without money flow) with each
+   candidate as a member at weight 1.0 -- stretch size as its sizing rule -- against the room as built,
+   window by window: the 18 Afran windows from 2020 and the 27 index windows from 2018 (two years, one
+   starting each Persian quarter), all 10 review offsets, at Daric's 0.30% and at Goldika's 2.37%.
+
+**Acceptance, fixed now.** A candidate is adopted only if, at both costs and in both sets of windows,
+its paired difference against the room as built is +0.5 points or more at the median over offsets,
+improves 60% of the windows or more, and does not lower the worst window by more than 1 point.
+Anything else is recorded and rejected. The last two years are reported, not used to decide.
+
+Research only: production unchanged. **NEON MIGRATION REQUIRED = NO.**
