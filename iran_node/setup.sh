@@ -7,6 +7,7 @@ NODE="$HOME/gold-premium-monitor/iran_node/node.py"
 echo "1/5 packages"
 command -v crond >/dev/null 2>&1 || pkg install -y cronie >/dev/null 2>&1
 python -c "import requests" 2>/dev/null || pip install -q requests
+python -c "import bs4" 2>/dev/null || pip install -q beautifulsoup4
 command -v crond >/dev/null 2>&1 && echo "    ok" || echo "    cronie missing: run 'pkg update' and this script again"
 
 echo "2/5 keep running when the screen is off"

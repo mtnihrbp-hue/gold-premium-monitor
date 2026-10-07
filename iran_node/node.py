@@ -1,10 +1,13 @@
 """The Iran-side node (SP_D_HANDOFF.md section 30).
 
 Runs on the owner's phone in Termux, from an Iranian connection, and reads what GitHub's
-runner cannot reach: Daric first (403 to the runner since 2026-10-03). Each reading goes to
-Neon's HTTPS endpoint as one row of iran_node_readings; production reads it from there.
+runner cannot reach: Daric (403 to the runner since 2026-10-03); and Taline, HoorGold and
+MioGold, whose pages the runner may be served as an old copy, to compare with production's
+(section 32). Each reading goes to Neon's HTTPS endpoint as one row of iran_node_readings;
+production reads Daric's from there.
 
-Needs only Python and requests. Settings live in ~/.iran_node.env, never in the repo:
+Needs Python, requests and beautifulsoup4 (the repository's collectors parse the three
+pages). Settings live in ~/.iran_node.env, never in the repo:
 
     NEON_URL=postgresql://iran_node:<password>@<host>/neondb?sslmode=require
     NODE=s10
@@ -17,6 +20,7 @@ international link loses nothing.
     python node.py --test    read and print; send nothing
 """
 
+import importlib
 import json
 import os
 import sys
@@ -35,6 +39,14 @@ DARIC = "https://apisc.daric.gold/loan/api/v1/User/Collateral/GetGoldlPrice"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Linux; Android 12; SM-G973F) AppleWebKit/537.36 "
                          "(KHTML, like Gecko) Chrome/128.0 Mobile Safari/537.36",
            "Accept": "application/json"}
+
+# Platforms whose page the runner may be served as an old copy (SP_D_HANDOFF.md section 32):
+# read from Iran as well, through the repository's own collectors, so production's stored value
+# can be set against what Iran saw at the same minute. Needs beautifulsoup4 on the phone.
+COMPARED = (("taline", "TALINE_18K", "collector.taline", "get_taline_price"),
+            ("hoorgold", "HOORGOLD_18K", "collector.hoorgold", "get_hoorgold_price"),
+            ("miogold", "MIOGOLD_18K", "collector.miogold", "get_miogold_price"))
+REPO_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src")
 
 COLUMNS = ("node", "source", "instrument", "observed_at", "bid", "ask", "value", "status", "detail",
            "payload")
@@ -82,6 +94,33 @@ def read_daric():
     return row
 
 
+def read_compared():
+    """Taline, HoorGold and MioGold as Iran sees them: the price in `value`, both sides where
+    the platform publishes them. One failure does not stop the others."""
+    if REPO_SRC not in sys.path:
+        sys.path.insert(0, REPO_SRC)
+    rows = []
+    for source, instrument, module, function in COMPARED:
+        row = {"source": source, "instrument": instrument, "bid": None, "ask": None, "value": None,
+               "status": "ERROR", "detail": None, "payload": None}
+        try:
+            result = getattr(importlib.import_module(module), function)()
+            row.update(value=float(result["price"]), bid=result.get("sell"), ask=result.get("buy"),
+                       status="OK")
+        except Exception as e:  # noqa: BLE001
+            row["detail"] = f"{type(e).__name__}: {e}"[:300]
+        rows.append(row)
+    return rows
+
+
+def describe(row):
+    if row["status"] != "OK":
+        return f"{row['source']} ERROR {row['detail']}"
+    if row["value"] is not None:
+        return f"{row['source']} {row['value']:,.0f}"
+    return f"{row['source']} bid {row['bid']:,.0f} ask {row['ask']:,.0f}"
+
+
 def send(row, neon_url):
     """One INSERT through Neon's HTTPS endpoint (no Postgres port needed)."""
     host = urlparse(neon_url).hostname
@@ -109,17 +148,17 @@ def save_spool(rows):
 
 def main(argv):
     cfg = settings() if os.path.exists(ENV_FILE) else {}
-    reading = dict(read_daric(), node=cfg.get("NODE", "s10"), observed_at=utc_now())
-    summary = (f"daric {reading['status']} bid {reading['bid']:,.0f} ask {reading['ask']:,.0f}"
-               if reading["status"] == "OK" else f"daric ERROR {reading['detail']}")
+    node, now = cfg.get("NODE", "s10"), utc_now()
+    readings = [dict(row, node=node, observed_at=now) for row in [read_daric()] + read_compared()]
+    summary = "; ".join(describe(row) for row in readings)
     if "--test" in argv:
         log(f"TEST {summary} (nothing sent)")
         return 0
     if "NEON_URL" not in cfg:
         log(f"no NEON_URL in {ENV_FILE}; {summary} kept in the spool")
-        save_spool(load_spool() + [reading])
+        save_spool(load_spool() + readings)
         return 1
-    queue, unsent, failure = load_spool() + [reading], [], None
+    queue, unsent, failure = load_spool() + readings, [], None
     for row in queue:
         if failure is None:
             try:
