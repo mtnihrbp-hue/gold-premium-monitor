@@ -18,6 +18,7 @@ international link loses nothing.
 
     python node.py           read and send (cron runs this every 15 minutes)
     python node.py --test    read and print; send nothing
+    python node.py --setup   ask for the node's password, write ~/.iran_node.env, send once
 """
 
 import importlib
@@ -28,6 +29,10 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 import requests
+
+# Production's pooled endpoint. Not a secret -- the password is, and the iran_node role may only
+# INSERT into iran_node_readings -- but here so the phone types a short password, not a URL.
+NEON_HOST = "ep-sweet-bread-agb1w6wg-pooler.c-2.eu-central-1.aws.neon.tech"
 
 HOME = os.path.expanduser("~")
 ENV_FILE = os.path.join(HOME, ".iran_node.env")
@@ -146,7 +151,19 @@ def save_spool(rows):
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
+def setup():
+    """Write ~/.iran_node.env from a typed password, so nothing long is typed on the phone."""
+    password = input("node password: ").strip()
+    node = input("node name [s10]: ").strip() or "s10"
+    with open(ENV_FILE, "w", encoding="utf-8") as f:
+        f.write(f"NEON_URL=postgresql://iran_node:{password}@{NEON_HOST}/neondb\nNODE={node}\n")
+    os.chmod(ENV_FILE, 0o600)
+    log(f"settings written to {ENV_FILE}; sending now")
+
+
 def main(argv):
+    if "--setup" in argv:
+        setup()
     cfg = settings() if os.path.exists(ENV_FILE) else {}
     node, now = cfg.get("NODE", "s10"), utc_now()
     readings = [dict(row, node=node, observed_at=now) for row in [read_daric()] + read_compared()]
