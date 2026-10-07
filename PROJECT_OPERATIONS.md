@@ -529,5 +529,45 @@ Tehran time. Read-only throughout: no query below writes.
    yesterday's Tehran day, world gold to its last weekday.
 7. **PAPER** (once merged): one REPORT row a day at 21:00, at most two TRADE rows a day
    per account, an EVAL row per run for each evaluated account.
-8. **Verdict** in one line, the open defects named, then the record in the sprint's
+8. **The Iran node** (from 2026-10-07): `iran_node_readings` per `node` and `status`, last
+   24 hours. The phone reads every 15 minutes, so about 96 rows a day; a gap is the phone
+   (asleep, off Wi-Fi, Termux stopped). In the run log, `Daric: from the Iran node (...)`
+   when the runner was refused and the node supplied the quote.
+9. **Verdict** in one line, the open defects named, then the record in the sprint's
    handoff.
+
+**Reaching production from the workstation** (2026-10-07). The claude.ai Neon connector
+does not survive a new session. The standing route is Neon's CLI, signed in once in the
+owner's browser:
+
+```bash
+NODE_USE_ENV_PROXY=1 npx neonctl auth                     # Neon's sign-in refuses Iranian addresses
+NODE_USE_ENV_PROXY=1 npx neonctl connection-string production --project-id wispy-glade-92753836 --pooled
+```
+
+The connection string lives in `~/.gpm_neon_url`, outside the repository and never
+printed; checks open it read-only (`psycopg2`, `set_session(readonly=True)`). The Postgres
+endpoint itself answers the workstation directly; only the CLI's sign-in and API need the
+proxy.
+
+## 16. The Iran-side node (2026-10-06)
+
+The owner's phone in Iran (Samsung S10, Termux, the home connection, no VPN) reads what
+GitHub's runner is refused -- Daric first -- and inserts each reading into
+`iran_node_readings` through Neon's HTTPS endpoint as the role `iran_node`, which may only
+INSERT (`SP_D_HANDOFF.md` sections 30-31).
+
+```text
+code        iran_node/node.py (Python + requests), iran_node/setup.sh (one-time setup)
+on phone    ~/gold-premium-monitor (git clone -b sp-d-iran-node), ~/.iran_node.env (NEON_URL, NODE)
+schedule    cronie, every 15 minutes; Termux:Boot restarts it after a reboot
+local       ~/iran_node.log; ~/iran_node_spool.jsonl holds what could not be sent
+update      cd ~/gold-premium-monitor && git pull
+production  main._daric_from_node: the newest OK reading of the last 30 minutes, when
+            Daric's own collector fails; validated like any platform
+```
+
+The role is made by SQL, never through Neon's API or console: a role made there joins
+`neon_superuser`, which reads and writes every table. Keep the phone on its charger and
+Wi-Fi, Termux's battery setting on Unrestricted, and do not tap Exit on Termux's
+notification (it stops the schedule).

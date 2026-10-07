@@ -2358,4 +2358,75 @@ read the node yet: the next change makes Daric's quote come from the node when t
 (freshness checked as for any platform), and moves PAPER back to Daric.
 
 **NEON MIGRATION REQUIRED = YES** for the node (`sql/neon_migration_iran_node.sql`), verified on a
-temporary branch, **not applied**: awaiting the owner's authorization.
+temporary branch, **not applied**: awaiting the owner's authorization. **Applied 2026-10-07** (section 31).
+
+## 31. Health check 2026-10-07, Neon access without the connector, the node in production (2026-10-07)
+
+**The owner.** The day's list: the health check as the daily routine; the Termux node; ideas for the
+room (trend identification: candle momentum, price action, the distance from the EMAs, divergence of
+price peaks against MACD or RSI) after an account of how much of the lost chat's research is recorded;
+whether the home Huawei B612 can replace the phone; which Raspberry Pi. "The Neon access is totally on
+you." Then: "go go go" -- the authorization for the node's migration and the list in order.
+
+**Health check 2026-10-07 11:00 Tehran** (since 10-06 16:00): every scheduled ANALYZE succeeded, 6 on
+10-06 (16:00-21:00) and 06:00-11:00 on 10-07, 5-9 minutes; the owner's UPDATE at 17:55. 24 hours: 20
+market snapshots and states (16 scheduled, 4 user), 16 analysis snapshots, 48 outcomes, 251 price
+observations, 488 news items, Direction at 13:00 and 06:00 (STRONG BULLISH on 8 of 8 panels, none
+resolved); candles to 10-06. Decisions FAIR / WAIT / WAIT on all 20; premium -2.46% to -1.26%. PAPER: 16
+EVAL rows per active account, a REPORT each at 21:00 (sent with its chart), no trade; 1,314.4M against
+1,350M, valued at Goldika's sell price. Platforms: Daric 403 on every run; MioGold timed out once; Taline
+discarded once and otherwise alternating between two frozen values (267.41M, the frozen value of 10-06,
+at 06:00 and 08:00; 266.85M at 07:00, 09:00, 10:00); **HoorGold 267,990,000 in all ten readings from 10-06
+17:00 to 10-07 10:00** while Milli and Ayyareh moved -- 6 distinct prices in 24 hours. Verdict: healthy;
+open: Daric (addressed below), Taline and HoorGold frozen copies (next in the list).
+
+**Neon without the connector.** The claude.ai Neon connector disconnected with the new session and
+cannot be re-attached from inside one. The route now: `neonctl` (Neon's CLI, `npx neonctl`), signed in
+once in the owner's browser. Neon's sign-in server refuses Iranian addresses (403 through Cloudflare's
+Frankfurt edge), and Node ignores the workstation's proxy unless told: `NODE_USE_ENV_PROXY=1` (Node 24)
+sends it through `HTTPS_PROXY`, the local proxy on 127.0.0.1:18080 that exits in the United States.
+Production's connection string is kept in `~/.gpm_neon_url` (outside the repository, never printed);
+the Postgres endpoint itself answers this workstation directly, and health checks open it read-only.
+
+**The research record** (the owner asked how much of the lost chat is kept): all 72 research scripts
+are committed; 65 are cited by name in this file, `SP_C_HANDOFF.md` or `LESSONS_LEARNED.md`, and the
+seven that are not carry their section in their own header and have their results in sections 1.1, 2,
+4 and 9. What exists only on this machine is `research/data` (75 MB, git-ignored); it is now copied
+daily to `D:\claude-history-backup\gold-premium-research-data`. On the owner's trend ideas the record
+already holds: the distances to the SMA/EMA 20/50/200 (context, no edge over the base rate: sections
+1.1, 2, 3); the EMA 20/50 cross (its edge reversed out of sample; the death cross a risk signal: section
+5); MACD and RSI crosses and every candle pattern (failed: section 2); RSI divergence inside the chartist
+(+/-0.25 of a view that correlates +0.04 to +0.12 with what follows: section 21); simple trend rules
+(none beat holding: section 9); acting daily against every 10-20 days (daily lost: section 22).
+Untested: time-series momentum over 3-12 months (listed in 1.1, never run), MACD divergence, the EMA
+distance as the size of the swing rather than its timing, and divergence as a member of the room.
+
+**The B612 and a Raspberry Pi.** The Huawei B612 is an LTE router on closed firmware: no shell, no
+Python, no scheduler, so it cannot run the node; it can be the connection the node uses. A Raspberry Pi
+5 1GB ($45, the one model the 2025-26 memory-price rises spared) runs the node and small scheduled jobs;
+2 GB ($77.50) is the floor for a database or containers. A home Pi cannot take connections from the
+internet behind the carrier's NAT without a tunnel, and its uptime is the home's power and LTE link:
+GitHub Actions and Neon stay the always-on part. The owner's decision is open.
+
+**The node in production** (the owner's authorization, 2026-10-07). `sql/neon_migration_iran_node.sql`
+applied in one transaction at about 12:15 Tehran: `iran_node_readings` (12 columns, its index) and the role
+`iran_node` made by SQL -- not superuser, no role attributes, no memberships, INSERT on that table only;
+`market_snapshots` 755 rows before and after. From this workstation's Iranian connection, as
+`iran_node` over Neon's HTTPS endpoint: one Daric reading inserted (node `pc`, 12:19 Tehran: bid
+261,583,680, ask 262,799,360); SELECT on `market_snapshots` and on its own table, and DELETE, refused.
+The phone's `~/.iran_node.env` takes `NEON_URL=postgresql://iran_node:<password>@<pooled host>/neondb`
+(letters and digits only, so it survives being typed or pasted).
+
+**Production reads the node** (`sp-d-iran-node`, 0dd60fc). `main._daric_from_node`: when Daric's own
+collector fails, the newest OK node reading of the last `NODE_MAX_AGE_MINUTES` (30; the node reads
+every 15) becomes Daric's two-sided quote, its read time the quote's time, before
+`validate_market_prices` -- so the stale-quote rules apply to it as to any platform. Fails open: without
+the database or a recent reading Daric stays out as before. The model `IranNodeReading`, the target
+schema and the migration declare one table, and the role may only insert (`kpi_coherence.test_35`); the
+fallback in `kpi_signal_confirmation.test_48-51`. PAPER's venue chain (Daric > Goldika > Ayyareh) takes
+Daric with no change: its trades and its value move from Goldika's 2.37% spread to Daric's, so the
+accounts' value steps up on the first run with Daric (Daric's bid, not Goldika's, values the grams).
+The branch also carries the sanity ranges of section 30 (merged from `hotfix-validation-bounds`).
+Suite 30/30, compileall. Awaiting the owner's review; then `v1.8safe` on `main` and the fast-forward.
+
+**NEON MIGRATION REQUIRED = YES**, applied (above).

@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "project": "Gold Premium Monitor",
-  "active_branch": "sp-d-paper (cut from SP-D 2026-10-04: the PAPER portfolio); main, SP-D and sp-d-paper all at 04a37e1 since 2026-10-05 17:07 Tehran; main is production",
+  "active_branch": "sp-d-iran-node (the Iran-side node and production's reader; carries hotfix-validation-bounds merged in); main = SP-D = 04a37e1 until the owner's review; main is production",
   "current_phase": "SP-D (SP_D_HANDOFF.md): Direction live on main since 2026-10-03 (sections 1-8); the PAPER portfolio, the room as its front office, live on main since 2026-10-05 18:01 (sections 9-28); health check and record 2026-10-06 (section 29). Proposed next, for the owner's decision: Taline's frozen copies, the Iran-side node, the news leg with the LLM (section 29)",
   "current_phase_status": "SP-C CLOSED (merged 2026-09-28, 2b7c5f8; v1.3safe before). SP-D IN PROGRESS: Direction merged 2026-10-03 (v1.4safe before); PAPER merged 2026-10-05 15:57 (v1.6safe before); the go-live hotfix (scipy/pandas pins, venue label) fast-forwarded 17:07 (v1.7safe = 2957699 before). Production (cron-job.org and the Telegram worker) dispatches ref main. SP_D_HANDOFF.md sections 28-29.",
   "completed_phases": [
@@ -183,6 +183,14 @@
       "applied": "2026-10-05",
       "authorised_by_user": true,
       "rows_before": 0
+    },
+    "iran_node_migration": {
+      "file": "sql/neon_migration_iran_node.sql",
+      "applied": "2026-10-07 about 12:15 Tehran",
+      "authorised_by_user": true,
+      "verified_on_branch": "temp-iran-node-test (2026-10-06, deleted)",
+      "change": "new table iran_node_readings (12 columns, ix_iran_node_readings_lookup); role iran_node by SQL with INSERT on that table only (USAGE on schema and sequence); no existing table touched",
+      "verification": "role: not superuser, no attributes, 0 memberships, grants INSERT only; market_snapshots 755 before and after; an iran_node insert succeeded and its SELECT and DELETE were refused"
     }
   },
   "architecture_wings": {
@@ -306,7 +314,7 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "Owner (SP_D_HANDOFF.md sections 29-30): 1 review hotfix-validation-bounds (sanity ceilings: world gold $20,000, 18K 5B rial; test_47), then v1.8safe on main and the fast-forward; 2 authorize the Iran-node migration (iran_node_readings + an INSERT-only role made by SQL; tested, not applied) -- the owner's S10 already reads Daric every 15 minutes into its local spool; 3 then production reads Daric from the node and PAPER moves back to Daric; 4 Taline's frozen copies (agreed, first in the data work, with Afran's date); 5 the Direction message revamped totally; 6 the LLM member (weight 1.0). Broadcast PARKED until the room and PAPER have a record.",
+  "next_gate": "Owner (SP_D_HANDOFF.md section 31): review sp-d-iran-node (the sanity ranges of section 30 and production taking Daric from the node), then v1.8safe on main and the fast-forward. Then, in the agreed order: Taline and HoorGold frozen copies (measure, rule, replay; Afran's date with them); the quant fit's random starts; the Direction message revamped totally; the trend R&D (time-series momentum, EMA distance as the swing's size, RSI/MACD divergence, each inside the room, rules fixed first); the LLM member. Broadcast PARKED.",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
@@ -318,7 +326,8 @@
     "outcome_horizons_status": "FIXED 2026-09-15. backfill_outcome_evaluations() wired into the scheduled path; first run resolved 72 evaluations, COMPLETE count zero to 19 (9 at 1h, 2 at 6h, 8 at 24h). Remaining INSUFFICIENT_DATA rows belong to the sparse era and have no reachable partner.",
     "cadence_verified": "2026-09-15: six consecutive one-hour gaps between scheduled snapshots plus one nine-hour overnight pause, matching 0 6-21 Asia/Tehran. Runs appear at :30 UTC because minute 0 Tehran is minute 30 UTC.",
     "open_finding_bubble_outcome": "RESOLVED 2026-09-15 in 33ae96a: outcome evaluation now measures the bubble in percentage points.",
-    "worker_ref": "main since 2026-09-28 (src/worker/telegram-trigger.js line 135 mirrors the deployed worker)"
+    "worker_ref": "main since 2026-09-28 (src/worker/telegram-trigger.js line 135 mirrors the deployed worker)",
+    "neon_access": "Since 2026-10-07 without the claude.ai connector: neonctl signed in through the browser, run with NODE_USE_ENV_PROXY=1 (Neon's sign-in refuses Iranian addresses); production's connection string in ~/.gpm_neon_url, outside the repository; health checks open it read-only. SP_D_HANDOFF.md section 31."
   },
   "process_rule": "Do not change an agreed design, template or framework without explicit permission, including changes that appear obvious while working on a different task. Raise them as a question instead. Recorded after unrequested edits to an approved message template forced re-review and removed a column that was broken for a fixable reason.",
   "kpi_suite": {
@@ -337,7 +346,7 @@
     "assertions_paper": 34
   },
   "open_decisions": [
-    "Iran-side node (SP_D_HANDOFF.md section 30, branch sp-d-iran-node): iran_node/node.py and setup.sh run on the owner's Samsung S10 in Termux since 2026-10-06 evening, reading Daric every 15 minutes into a local spool. Migration sql/neon_migration_iran_node.sql verified on a temporary branch (deleted), NOT applied: awaiting authorization. The role must be created by SQL: API/console roles join neon_superuser (read and write all data). Production does not read the node yet.",
+    "Iran-side node (SP_D_HANDOFF.md sections 30-31): migration APPLIED 2026-10-07 (owner's authorization): iran_node_readings and the INSERT-only role iran_node made by SQL. The owner's S10 reads Daric every 15 minutes; its NEON_URL set 2026-10-07. Production's reader (main._daric_from_node, 30-minute freshness, before validation, fails open) is on sp-d-iran-node awaiting review. Open: a Raspberry Pi or other always-on device (owner's decision); TSETMC and fipiran on the node later.",
     "Sanity ranges (section 30, branch hotfix-validation-bounds, edff4c8): world gold ceiling $5,000 -> $20,000, 18K 500M -> 5B rial; the dollar's unchanged (toman, 3.7x, catches a rial slip; revisit above 500,000). Awaiting the owner's review, then v1.8safe and the fast-forward.",
     "quant.fit_regimes (section 30): search_reps=5 draws unseeded random starts; one KPI run failed on a non-converging SVD (kpi_paper.test_28), four reruns passed. Production's quant view is not exactly reproducible. Seed the search or retry a failed fit.",
     "Taline's frozen copies (SP_D_HANDOFF.md sections 20, 29): the Iranian CDN serves the runner a frozen Taline price that sits within its 1% band and within 1.0 pp of its usual position, so neither the band nor the repeat rule defers it: 267,410,000 stored in six readings on 2026-10-06 09:01-14:01 while the others moved. Against the owner's rule of 2026-10-02. Proposed first: measure, propose a rule, replay, then code.",
