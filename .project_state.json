@@ -306,7 +306,7 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "Owner (SP_D_HANDOFF.md section 29), decided 2026-10-06 evening: 1 Taline's frozen copies, agreed, first (measure, propose a rule, replay, then code; Afran's date in the same change); 2 tomorrow (2026-10-07): the Iran-side node on Termux, and the Direction message revamped totally; 3 the LLM member as designed in sections 17-18 (one vote, weight 1.0, headlines plus the brief, never a number). Broadcast PARKED until the committee and the PAPER trades have shown their performance. Also for the owner: disable the five dead probe workflows; decide whether the repository stays public.",
+  "next_gate": "Owner (SP_D_HANDOFF.md sections 29-30): 1 review hotfix-validation-bounds (sanity ceilings: world gold $20,000, 18K 5B rial; test_47), then v1.8safe on main and the fast-forward; 2 authorize the Iran-node migration (iran_node_readings + an INSERT-only role made by SQL; tested, not applied) -- the owner's S10 already reads Daric every 15 minutes into its local spool; 3 then production reads Daric from the node and PAPER moves back to Daric; 4 Taline's frozen copies (agreed, first in the data work, with Afran's date); 5 the Direction message revamped totally; 6 the LLM member (weight 1.0). Broadcast PARKED until the room and PAPER have a record.",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
@@ -337,6 +337,9 @@
     "assertions_paper": 34
   },
   "open_decisions": [
+    "Iran-side node (SP_D_HANDOFF.md section 30, branch sp-d-iran-node): iran_node/node.py and setup.sh run on the owner's Samsung S10 in Termux since 2026-10-06 evening, reading Daric every 15 minutes into a local spool. Migration sql/neon_migration_iran_node.sql verified on a temporary branch (deleted), NOT applied: awaiting authorization. The role must be created by SQL: API/console roles join neon_superuser (read and write all data). Production does not read the node yet.",
+    "Sanity ranges (section 30, branch hotfix-validation-bounds, edff4c8): world gold ceiling $5,000 -> $20,000, 18K 500M -> 5B rial; the dollar's unchanged (toman, 3.7x, catches a rial slip; revisit above 500,000). Awaiting the owner's review, then v1.8safe and the fast-forward.",
+    "quant.fit_regimes (section 30): search_reps=5 draws unseeded random starts; one KPI run failed on a non-converging SVD (kpi_paper.test_28), four reruns passed. Production's quant view is not exactly reproducible. Seed the search or retry a failed fit.",
     "Taline's frozen copies (SP_D_HANDOFF.md sections 20, 29): the Iranian CDN serves the runner a frozen Taline price that sits within its 1% band and within 1.0 pp of its usual position, so neither the band nor the repeat rule defers it: 267,410,000 stored in six readings on 2026-10-06 09:01-14:01 while the others moved. Against the owner's rule of 2026-10-02. Proposed first: measure, propose a rule, replay, then code.",
     "GitHub housekeeping for the owner (section 29): five temporary workflows (probe-gdelt, probe-groq, probe-iran-sites, probe-iran-sources, probe-llm-judge) are registered as active with their files on no branch; disable them. The repository is public: no secret is exposed, but the room and the research are readable.",
     "Direction message (SP_D_HANDOFF.md section 29): the owner is not satisfied with the live message; to be revamped totally, starting 2026-10-07. Layout changes need the owner's approval before they ship.",

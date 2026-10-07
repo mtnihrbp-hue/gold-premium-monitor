@@ -2293,3 +2293,69 @@ it as a heavy member of the room -- the record above confirms it was designed in
 and not yet built; the first section-29 draft understated that, corrected here.
 
 **NEON MIGRATION REQUIRED = NO** for this section: read-only queries only.
+
+## 30. The sanity ranges, the probe workflows, and the Iran-side node on the owner's phone (2026-10-06)
+
+**The owner.** "Why reject above 5,000? Strange; fix the issue." "You can get rid of the probe
+workflows if harmless." "I'm ready to go for Termux now; I have installed it on my S10."
+
+**The sanity ranges** (`validation/data.py`, branch `hotfix-validation-bounds`, edff4c8). A reading
+outside them is dropped: world gold falls back to a stored price for up to six hours, then fair value
+is lost; a platform is discarded. They were written for an older market and never revisited:
+
+```text
+range              was           2026-10-06     room    now            room
+world gold $/oz    1,000-5,000   4,146          1.2x    1,000-20,000   4.8x
+18K rial/gram      1M-500M       269M           1.9x    1M-5,000M      18.6x
+dollar toman       10k-1M        269,300        3.7x    unchanged      3.7x
+```
+
+18K rose 70% in four months, so its ceiling was the nearer of the two: past it every platform is
+discarded. The dollar's stays because it also catches a rial slip (ten times the rate) while the rate
+is above 100,000; revisit it when the rate passes 500,000. Its comment said IRR; the value is toman
+(`market_snapshots.usd_irr` holds 269,300). `kpi_signal_confirmation.test_47` keeps every ceiling at
+least three times the market of 2026-10-06, still refuses a price per gram of gold and a rial slip,
+and keeps 18K at twice today's price; it fails on the old bounds (46/47) and passes on the new.
+Awaiting the owner's review; then `v1.8safe` on `main` and the fast-forward.
+
+**A flaky KPI, found on the way.** One full run failed `kpi_paper.test_28`: `quant.fit_regimes` fits
+with `search_reps=5`, random starting points with no seed, and once the SVD did not converge. Four
+reruns passed. Production's quant engine is not exactly reproducible run to run, and a failed fit
+makes it report itself unavailable (the brake reads gold, section 28). Open: seed the search, or
+retry on a failed fit.
+
+**The probe workflows.** Disabled (owner's approval): probe-gdelt, probe-groq, probe-iran-sites,
+probe-iran-sources, probe-llm-judge. Their files were on no branch; only Gold Premium Monitor, KPI
+Suite and Task C Tests remain active.
+
+**The Iran-side node** (sections 13, 18, 29; branch `sp-d-iran-node`). Daric first: it is most of
+the room's edge, and it refuses GitHub's runner and Cloudflare. From this machine's Iranian
+connection Daric answered at bid 266.45M, ask 267.62M rial: a 0.44% spread against Goldika's 2.37%.
+
+- `iran_node/node.py`: Python and `requests` only. Reads Daric, inserts one row through Neon's HTTPS
+  endpoint (no Postgres port), keeps unsent readings in `~/iran_node_spool.jsonl` and sends them with
+  the next run, so a cut of the international link loses nothing. `--test` reads and sends nothing.
+  Its password lives in `~/.iran_node.env` on the phone, never in the repository (public).
+- `iran_node/setup.sh`: one command on the phone. Installs what is missing, takes the wake lock,
+  writes the Termux:Boot script (`termux-wake-lock`, `crond`), sets the 15-minute schedule, runs one
+  reading. Written after long commands pasted into Termux from a messenger arrived with curly quotes
+  and left the shell waiting.
+- `sql/neon_migration_iran_node.sql`: the table `iran_node_readings` (node, source, instrument,
+  observed_at UTC, bid and ask in rial, value, status, detail, the source's own answer as JSONB) and
+  the role `iran_node`, INSERT only.
+- **A role made through Neon's API or console joins `neon_superuser`, which holds
+  `pg_read_all_data` and `pg_write_all_data`** (seen on the temporary branch). The node's role is
+  therefore created with SQL; one made so had no memberships and no attributes.
+- Tested on `temp-iran-node-test` (copied from production, deleted after, owner's approval): two
+  readings inserted from this machine in about two seconds; the role was refused SELECT on
+  `market_snapshots` and on its own table, and DELETE on its own table.
+- **The owner's S10** (Termux, Iranian connection, no VPN): `--test` read Daric at 15:24Z (bid
+  266,651,140); `setup.sh` ran clean; the schedule reads every 15 minutes into the phone's spool.
+
+**Not yet** (the owner's choice): the table and role in production. Until then readings wait on the
+phone, with their own times, and go up when the node receives its `NEON_URL`. Production does not
+read the node yet: the next change makes Daric's quote come from the node when the runner is refused
+(freshness checked as for any platform), and moves PAPER back to Daric.
+
+**NEON MIGRATION REQUIRED = YES** for the node (`sql/neon_migration_iran_node.sql`), verified on a
+temporary branch, **not applied**: awaiting the owner's authorization.
