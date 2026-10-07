@@ -3,8 +3,9 @@
 Runs on the owner's phone in Termux, from an Iranian connection, and reads what GitHub's
 runner cannot reach: Daric (403 to the runner since 2026-10-03); and Taline, HoorGold and
 MioGold, whose pages the runner may be served as an old copy, to compare with production's
-(section 32). Each reading goes to Neon's HTTPS endpoint as one row of iran_node_readings;
-production reads Daric's from there.
+(section 31); and TSETMC's daily money flow of the gold funds (section 33), which TSETMC gives
+only to Iranian addresses. Each reading goes to Neon's HTTPS endpoint as one row of
+iran_node_readings; production reads Daric's from there.
 
 Needs Python, requests and beautifulsoup4 (the repository's collectors parse the three
 pages). Settings live in ~/.iran_node.env, never in the repo:
@@ -25,7 +26,7 @@ import importlib
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
 import requests
@@ -36,6 +37,7 @@ NEON_HOST = "ep-sweet-bread-agb1w6wg-pooler.c-2.eu-central-1.aws.neon.tech"
 
 HOME = os.path.expanduser("~")
 ENV_FILE = os.path.join(HOME, ".iran_node.env")
+STATE_FILE = os.path.join(HOME, ".iran_node_state.json")
 SPOOL = os.path.join(HOME, "iran_node_spool.jsonl")
 LOG = os.path.join(HOME, "iran_node.log")
 SPOOL_LIMIT = 3000          # about a month at four readings an hour
@@ -52,6 +54,22 @@ COMPARED = (("taline", "TALINE_18K", "collector.taline", "get_taline_price"),
             ("hoorgold", "HOORGOLD_18K", "collector.hoorgold", "get_hoorgold_price"),
             ("miogold", "MIOGOLD_18K", "collector.miogold", "get_miogold_price"))
 REPO_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src")
+
+# TSETMC's money flow for the room's money-flow member (SP_D_HANDOFF.md sections 24, 27, 33): each
+# gold fund's day, individuals and institutions, buy and sell, value and count. TSETMC refuses
+# addresses outside Iran. The 19 funds of the research record (research/data/tsetmc_gold_funds.json,
+# 2026-10-04), so production's history and the node's days are one series. A day is published once
+# it has closed; the last TSETMC_DAYS are asked for in the run of each hour's first quarter until
+# every fund has it, and what was fetched is remembered in ~/.iran_node_state.json.
+TSETMC_DAY = "https://cdn.tsetmc.com/api/ClientType/GetClientTypeHistory/{code}/{day}"
+TSETMC_DAYS = 7
+GOLD_FUNDS = (("34144395039913458", "عيار"), ("6362118829011821", "ليان"), ("46700660505281786", "طلا"),
+              ("17248898258246807", "درنا"), ("68376789401977331", "گلديس"), ("30582275818828857", "ناب"),
+              ("25559236668122210", "كهربا"), ("33254899395816171", "زر"), ("12390706505809150", "گوهر"),
+              ("32469128621155736", "مثقال"), ("28374437855144739", "آلتون"), ("38544104313215500", "جواهر"),
+              ("4626686276232042", "نفيس"), ("28255729477187163", "زروان"), ("9089296888187061", "تابش"),
+              ("6237807001018762", "قيراط"), ("61805666737517582", "درخشان"), ("51200575796028449", "سافرون"),
+              ("33144542989832366", "زرفام"))
 
 COLUMNS = ("node", "source", "instrument", "observed_at", "bid", "ask", "value", "status", "detail",
            "payload")
@@ -118,6 +136,40 @@ def read_compared():
     return rows
 
 
+def read_tsetmc(remember=True, any_minute=False):
+    """Each gold fund's closed days not yet fetched, among the last TSETMC_DAYS: one row per fund and
+    day, the trading day in `detail`, TSETMC's own record in `payload`. Asked once an hour."""
+    tehran = datetime.now(timezone.utc) + timedelta(hours=3, minutes=30)
+    if tehran.minute >= 15 and not any_minute:
+        return []
+    try:
+        with open(STATE_FILE, encoding="utf-8") as f:
+            state = json.load(f)
+    except (OSError, ValueError):
+        state = {}
+    days = [(tehran.date() - timedelta(days=k)).strftime("%Y%m%d") for k in range(TSETMC_DAYS)]
+    done = {key for key in state.get("tsetmc_done", []) if key[:8] in days}
+    rows = []
+    for day in days:
+        for code, symbol in GOLD_FUNDS:
+            if f"{day}:{code}" in done:
+                continue
+            try:
+                r = requests.get(TSETMC_DAY.format(code=code, day=day), headers=HEADERS, timeout=(5, 15))
+                record = r.json().get("clientType") if r.status_code == 200 else None
+            except Exception:  # noqa: BLE001 -- not published yet, or TSETMC down: next hour
+                record = None
+            if record:
+                rows.append({"source": "tsetmc", "instrument": f"CLIENTTYPE_{code}", "bid": None, "ask": None,
+                             "value": None, "status": "OK", "detail": day, "payload": record})
+                done.add(f"{day}:{code}")
+    if remember:
+        state["tsetmc_done"] = sorted(done)
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f)
+    return rows
+
+
 def describe(row):
     if row["status"] != "OK":
         return f"{row['source']} ERROR {row['detail']}"
@@ -166,8 +218,12 @@ def main(argv):
         setup()
     cfg = settings() if os.path.exists(ENV_FILE) else {}
     node, now = cfg.get("NODE", "s10"), utc_now()
-    readings = [dict(row, node=node, observed_at=now) for row in [read_daric()] + read_compared()]
-    summary = "; ".join(describe(row) for row in readings)
+    testing = "--test" in argv
+    flows = read_tsetmc(remember=not testing, any_minute=testing)
+    readings = [dict(row, node=node, observed_at=now) for row in [read_daric()] + read_compared() + flows]
+    summary = "; ".join(describe(row) for row in readings if row["source"] != "tsetmc")
+    if flows:
+        summary += f"; tsetmc {len(flows)} fund-days ({', '.join(sorted({r['detail'] for r in flows}))})"
     if "--test" in argv:
         log(f"TEST {summary} (nothing sent)")
         return 0
