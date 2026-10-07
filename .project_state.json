@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "project": "Gold Premium Monitor",
-  "active_branch": "sp-d-iran-node (the Iran-side node and production's reader; carries hotfix-validation-bounds merged in); main = SP-D = 04a37e1 until the owner's review; main is production",
+  "active_branch": "sp-d-iran-node; main and SP-D at cf3c520 since 2026-10-07 12:45 Tehran (v1.8safe before); main is production",
   "current_phase": "SP-D (SP_D_HANDOFF.md): Direction live on main since 2026-10-03 (sections 1-8); the PAPER portfolio, the room as its front office, live on main since 2026-10-05 18:01 (sections 9-28); health check and record 2026-10-06 (section 29). Proposed next, for the owner's decision: Taline's frozen copies, the Iran-side node, the news leg with the LLM (section 29)",
   "current_phase_status": "SP-C CLOSED (merged 2026-09-28, 2b7c5f8; v1.3safe before). SP-D IN PROGRESS: Direction merged 2026-10-03 (v1.4safe before); PAPER merged 2026-10-05 15:57 (v1.6safe before); the go-live hotfix (scipy/pandas pins, venue label) fast-forwarded 17:07 (v1.7safe = 2957699 before). Production (cron-job.org and the Telegram worker) dispatches ref main. SP_D_HANDOFF.md sections 28-29.",
   "completed_phases": [
@@ -273,7 +273,7 @@
     "sp_c_status": "CLOSED -- merged into main 2026-09-28 (2b7c5f8); tag v1.3safe = main before the merge",
     "sp_d_status": "IN PROGRESS: Direction merged 2026-10-03, PAPER 2026-10-05; each batch reaches main only after the owner's review, with a safe tag on main first",
     "until_2026_10_03": "PAST. Owner direction 2026-09-29: SP-D is for the next phase; anything found before 2026-10-03 is fixed on main, through a short-lived branch cut from main and fast-forwarded after owner review.",
-    "latest_safe_tag": "v1.7safe = 2957699 (main before the go-live hotfix, 2026-10-05)"
+    "latest_safe_tag": "v1.8safe = 04a37e1 (main before the sanity ranges and the Iran node, 2026-10-07)"
   },
   "verified_production_state": {
     "verified_on": "2026-10-06 16:45 Tehran",
@@ -314,7 +314,7 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "Owner (SP_D_HANDOFF.md section 31): review sp-d-iran-node (the sanity ranges of section 30 and production taking Daric from the node), then v1.8safe on main and the fast-forward. Then, in the agreed order: Taline and HoorGold frozen copies (measure, rule, replay; Afran's date with them); the quant fit's random starts; the Direction message revamped totally; the trend R&D (time-series momentum, EMA distance as the swing's size, RSI/MACD divergence, each inside the room, rules fixed first); the LLM member. Broadcast PARKED.",
+  "next_gate": "Owner (SP_D_HANDOFF.md section 31): MERGED 2026-10-07 (v1.8safe = 04a37e1; main = SP-D = cf3c520). Next, in the agreed order: Taline and HoorGold frozen copies (measure, rule, replay; Afran's date with them); the quant fit's random starts; the Direction message revamped totally; the trend R&D (time-series momentum, EMA distance as the swing's size, RSI/MACD divergence, each inside the room, rules fixed first); the LLM member. Broadcast PARKED.",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,

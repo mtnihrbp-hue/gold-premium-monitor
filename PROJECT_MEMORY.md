@@ -2333,8 +2333,8 @@ Full record in `SP_D_HANDOFF.md` (SP-D, sections 1-29) and `SP_C_HANDOFF.md` (SP
 the pre-SP-D hotfixes, closed). The machine-readable mirror is `.project_state.json`.
 
 ```text
-branch        main is production. main, SP-D and sp-d-paper all at 04a37e1 since
-              2026-10-05 17:07 Tehran. Safe tags before each merge: v1.3safe
+branch        main is production. main and SP-D at cf3c520 since 2026-10-07
+              12:45 Tehran (the sanity ranges and the Iran node). Safe tags before each merge: v1.3safe
               (SP-C), v1.4safe (Direction), v1.5safe (its section 8 fix), v1.6safe
               (PAPER), v1.7safe = 2957699 (the go-live hotfix). SP-D work lands on sp-d-* branches and reaches
               main only after the owner's review, safe tag first

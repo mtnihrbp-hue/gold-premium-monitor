@@ -2427,6 +2427,7 @@ fallback in `kpi_signal_confirmation.test_48-51`. PAPER's venue chain (Daric > G
 Daric with no change: its trades and its value move from Goldika's 2.37% spread to Daric's, so the
 accounts' value steps up on the first run with Daric (Daric's bid, not Goldika's, values the grams).
 The branch also carries the sanity ranges of section 30 (merged from `hotfix-validation-bounds`).
-Suite 30/30, compileall. Awaiting the owner's review; then `v1.8safe` on `main` and the fast-forward.
+Suite 30/30, compileall. **Merged** on the owner's review: `v1.8safe` tags `main` at 04a37e1; `main` and `SP-D`
+at cf3c520 from 12:45 Tehran; KPI Suite green on both.
 
 **NEON MIGRATION REQUIRED = YES**, applied (above).
