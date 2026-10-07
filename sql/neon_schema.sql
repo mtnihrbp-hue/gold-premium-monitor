@@ -432,6 +432,32 @@ CREATE INDEX IF NOT EXISTS ix_paper_activity_account_at
     ON paper_activity (account_id, at);
 
 -- ============================================================
+-- 14. IRAN-SIDE NODE READINGS (SP-D, 2026-10-07)
+-- ============================================================
+-- What the owner's phone in Iran reads where GitHub's runner is refused (Daric first),
+-- inserted by the INSERT-only role iran_node, created by SQL and never through Neon's
+-- API (an API role joins neon_superuser). Prices in rial. Migration:
+-- sql/neon_migration_iran_node.sql (SP_D_HANDOFF.md section 30).
+
+CREATE TABLE IF NOT EXISTS iran_node_readings (
+    id BIGSERIAL PRIMARY KEY,
+    node VARCHAR(20) NOT NULL,
+    source VARCHAR(20) NOT NULL,
+    instrument VARCHAR(40) NOT NULL,
+    observed_at TIMESTAMP NOT NULL,
+    bid NUMERIC(20, 2),
+    ask NUMERIC(20, 2),
+    value NUMERIC(20, 4),
+    status VARCHAR(10) NOT NULL,
+    detail TEXT,
+    payload JSONB,
+    received_at TIMESTAMP NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+);
+
+CREATE INDEX IF NOT EXISTS ix_iran_node_readings_lookup
+    ON iran_node_readings (source, instrument, observed_at DESC);
+
+-- ============================================================
 -- 9. VERIFICATION
 -- ============================================================
 
@@ -453,7 +479,8 @@ WHERE table_schema = 'public'
       'market_daily_candles',
       'direction_snapshots',
       'paper_accounts',
-      'paper_activity'
+      'paper_activity',
+      'iran_node_readings'
   )
 ORDER BY table_name;
 

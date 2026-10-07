@@ -742,6 +742,61 @@ class KPISignalConfirmation(unittest.TestCase):
                    for i, name in enumerate(("Milli", "Invi", "WallGold", "Parasteh"))}
         self.assertEqual(len(validate_market_prices(doubled)), 4, "18K at twice today's price is kept")
 
+    # -- 11. Daric from the Iran-side node ---------------------------------------------
+
+    def _node_rows(self, *rows):
+        """rows: (minutes before NOW, status, bid, ask)."""
+        from database.models import IranNodeReading
+        session = _test_get_session()
+        session.query(IranNodeReading).delete()
+        for minutes, status, bid, ask in rows:
+            session.add(IranNodeReading(node="s10", source="daric", instrument="DARIC_18K",
+                                        observed_at=NOW - timedelta(minutes=minutes), status=status,
+                                        bid=bid, ask=ask, received_at=NOW))
+        session.commit()
+        session.close()
+
+    def _refused(self):
+        return {"Daric": {"price": None, "status": "ERROR: 403 Client Error: Forbidden"},
+                "Milli": {"price": 262_000_000.0, "status": "OK"}}
+
+    def test_48_a_refused_daric_takes_the_nodes_latest_ok_reading(self):
+        """SP_D_HANDOFF.md section 30: Daric answers 403 to the runner; the phone in Iran
+        reads it every 15 minutes. The newest OK reading becomes Daric's two-sided quote,
+        its read time the quote's time; a newer ERROR reading is passed over."""
+        import main
+        self._node_rows((20, "OK", 261_000_000, 262_200_000), (5, "OK", 261_500_000, 262_700_000),
+                        (1, "ERROR", None, None))
+        markets = self._refused()
+        with redirect_stdout(io.StringIO()):
+            main._daric_from_node(markets, NOW)
+        daric = markets["Daric"]
+        self.assertEqual(daric["status"], "OK")
+        self.assertEqual((daric["buy"], daric["sell"], daric["price"]), (262_700_000, 261_500_000, 262_700_000))
+        self.assertEqual(daric["quoted_at"], NOW - timedelta(minutes=5))
+
+    def test_49_a_node_reading_older_than_half_an_hour_is_not_a_quote(self):
+        import main
+        self._node_rows((main.NODE_MAX_AGE_MINUTES + 1, "OK", 261_000_000, 262_200_000))
+        markets = self._refused()
+        with redirect_stdout(io.StringIO()):
+            main._daric_from_node(markets, NOW)
+        self.assertTrue(markets["Daric"]["status"].startswith("ERROR"), "a stale node reading entered")
+
+    def test_50_a_daric_the_runner_reached_is_left_alone(self):
+        import main
+        self._node_rows((5, "OK", 1, 2))
+        markets = {"Daric": {"price": 262_000_000.0, "buy": 262_000_000.0, "sell": 261_000_000.0, "status": "OK"}}
+        main._daric_from_node(markets, NOW)
+        self.assertEqual(markets["Daric"]["buy"], 262_000_000.0)
+
+    def test_51_the_node_quote_goes_through_validation_like_any_platform(self):
+        """Read before validate_market_prices, so the stale-quote rules apply to it."""
+        import main
+        source = inspect.getsource(main)
+        self.assertLess(source.index("_daric_from_node(raw_markets, now)"),
+                        source.index("validate_market_prices(raw_markets"))
+
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(KPISignalConfirmation)
     result = unittest.TextTestRunner(verbosity=2).run(suite)

@@ -452,3 +452,30 @@ class PaperActivity(Base):
               postgresql_where=text("kind = 'REPORT'"), sqlite_where=text("kind = 'REPORT'")),
         Index("ix_paper_activity_account_at", "account_id", "at"),
     )
+
+
+class IranNodeReading(Base):
+    """One reading by the Iran-side node: the owner's phone in Iran reads what GitHub's
+    runner is refused (Daric first) and inserts it here as the INSERT-only role
+    iran_node (iran_node/node.py; SP_D_HANDOFF.md section 30). Production reads it.
+    Prices in rial; observed_at is when the node read the source, in UTC.
+    """
+
+    __tablename__ = "iran_node_readings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    node = Column(String(20), nullable=False)
+    source = Column(String(20), nullable=False)
+    instrument = Column(String(40), nullable=False)
+    observed_at = Column(DateTime, nullable=False)
+    bid = Column(Numeric(20, 2), nullable=True)
+    ask = Column(Numeric(20, 2), nullable=True)
+    value = Column(Numeric(20, 4), nullable=True)
+    status = Column(String(10), nullable=False)
+    detail = Column(Text, nullable=True)
+    payload = Column(JSON, nullable=True)
+    received_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+
+    __table_args__ = (
+        Index("ix_iran_node_readings_lookup", "source", "instrument", "observed_at"),
+    )

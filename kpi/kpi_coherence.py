@@ -683,6 +683,26 @@ class KPICoherence(unittest.TestCase):
                           "UNIQUE (source, instrument, trade_date)", block,
                           f"the {name} has a different identity")
 
+    def test_35_the_iran_node_table_is_one_table_and_its_role_only_inserts(self):
+        """iran_node_readings was created in production by sql/neon_migration_iran_node.sql
+        (SP_D_HANDOFF.md section 30). The node writes it through the role iran_node from a
+        phone, so the role must be made by SQL and may only INSERT: a role made through
+        Neon's API joins neon_superuser, which reads and writes every table."""
+        from database.models import IranNodeReading
+        model_columns = {column.name for column in IranNodeReading.__table__.columns}
+        migration = (REPO / "sql" / "neon_migration_iran_node.sql").read_text(encoding="utf-8")
+        sources = {"target schema": (REPO / "sql" / "neon_schema.sql").read_text(encoding="utf-8"),
+                   "migration": migration}
+        for name, sql in sources.items():
+            block = sql[sql.index("CREATE TABLE IF NOT EXISTS iran_node_readings"):]
+            block = block[:block.index(");")]
+            sql_columns = set(re.findall(r"^\s+([a-z_]+)\s+[A-Z]", block, re.MULTILINE))
+            self.assertEqual(sql_columns, model_columns, f"the {name} and the model disagree")
+        self.assertIn("CREATE ROLE iran_node WITH LOGIN", migration)
+        self.assertIn("GRANT INSERT ON iran_node_readings TO iran_node", migration)
+        grants = re.findall(r"GRANT\s+(\w+)\s+ON\s+(?!SCHEMA|SEQUENCE)", migration)
+        self.assertEqual(set(grants), {"INSERT"}, "the node's role may only insert")
+
     # -- 6. the register must stay honest -------------------------------------
 
     def test_30_every_accepted_divergence_names_both_sides_and_a_reason(self):

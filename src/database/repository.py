@@ -16,6 +16,7 @@ from database.models import (
     PlatformPrice,
     MarketHypothesis,
     MarketState,
+    IranNodeReading,
 )
 
 
@@ -227,6 +228,20 @@ def get_recent_platform_prices(session, since):
     )
     return [(snapshot_id, timestamp, name, float(price))
             for snapshot_id, timestamp, name, price in rows]
+
+
+def get_latest_node_reading(session, source, instrument, since):
+    """The newest OK reading of the Iran-side node at or after `since` (naive UTC), or
+    None. Production reads what the owner's phone in Iran inserted (SP_D_HANDOFF.md
+    section 30)."""
+    return (
+        session.query(IranNodeReading)
+        .filter(IranNodeReading.source == source, IranNodeReading.instrument == instrument,
+                IranNodeReading.status == "OK", IranNodeReading.observed_at >= since,
+                IranNodeReading.bid.isnot(None), IranNodeReading.ask.isnot(None))
+        .order_by(IranNodeReading.observed_at.desc())
+        .first()
+    )
 
 
 def get_input_directions(world, usd, session):

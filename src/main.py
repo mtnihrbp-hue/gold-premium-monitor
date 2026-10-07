@@ -29,7 +29,7 @@ from alerts.telegram import (
 from alerts.telegram_update_v1 import send_update_v1
 from validation.data import validate_world_gold, validate_usd_rate, validate_market_prices, validate_fair_price, STALE_LOOKBACK_DAYS
 from database.connection import get_session
-from database.repository import save_market_snapshot, save_market_state, save_price_observation, get_input_directions, get_recent_platform_prices
+from database.repository import save_market_snapshot, save_market_state, save_price_observation, get_input_directions, get_recent_platform_prices, get_latest_node_reading
 from intelligence.freshness import evaluate_freshness
 from update.baseline_resolver import resolve_update_baselines
 from analysis.bubble_position import (
@@ -302,6 +302,39 @@ def _recent_platform_history(now):
     except Exception as e:
         print(f"Platform history unavailable, stale-quote check skipped: {e}")
         return []
+    finally:
+        session.close()
+
+
+NODE_MAX_AGE_MINUTES = 30   # the node reads every 15 minutes: two missed readings and Daric stays out
+
+
+def _daric_from_node(raw_markets, now):
+    """Daric's quote from the Iran-side node when the runner is refused (SP_D_HANDOFF.md
+    section 30). Daric answers 403 to GitHub's addresses; the owner's phone in Iran reads
+    it every 15 minutes into iran_node_readings. The reading enters validation like any
+    platform's, its read time as the quote's time, so the stale-quote rules apply to it.
+
+    Fails open: without the database or a recent reading, Daric stays as its collector
+    left it, and is discarded as before.
+    """
+    if raw_markets.get("Daric", {}).get("status") == "OK":
+        return
+    session = get_session()
+    if session is None:
+        return
+    try:
+        row = get_latest_node_reading(session, "daric", "DARIC_18K",
+                                      now - timedelta(minutes=NODE_MAX_AGE_MINUTES))
+        if row is None:
+            print(f" Daric: no node reading in the last {NODE_MAX_AGE_MINUTES} minutes")
+            return
+        ask, bid = float(row.ask), float(row.bid)
+        raw_markets["Daric"] = {"price": ask, "buy": ask, "sell": bid, "status": "OK",
+                                "quoted_at": row.observed_at}
+        print(f" Daric: from the Iran node ({row.node}, read {(now - row.observed_at).total_seconds() / 60:.0f} min ago)")
+    except Exception as e:
+        print(f" Daric: node reading unavailable: {e}")
     finally:
         session.close()
 
@@ -1117,6 +1150,7 @@ def main():
         usd = None
 
     raw_markets = get_market_prices()
+    _daric_from_node(raw_markets, now)
     for name, info in raw_markets.items():
         status = info.get("status", "UNKNOWN")
         print(f" {name:<15} {status.replace('ERROR: ', '') if status.startswith('ERROR: ') else status}")
