@@ -2501,3 +2501,72 @@ improves 60% of the windows or more, and does not lower the worst window by more
 Anything else is recorded and rejected. The last two years are reported, not used to decide.
 
 Research only: production unchanged. **NEON MIGRATION REQUIRED = NO.**
+
+### 32.1 Results (`research/rd_trend_room.py`, run after d519da5)
+
+The script's room reproduces `rd_room_reentry_sense.variant("veto + turn")` exactly (end values equal
+at every offset of a test window) before any candidate was added.
+
+**How often each leans** (gold / none / fixed income, 2016-2026): TSMOM 63 and 126 61 / 0 / 39%, 252
+68 / 2 / 30%, the vote 64 / 1 / 34%; each divergence 1 / 92 / 7%. Since 2014 the chartist's swings
+give RSI 10 bearish and 2 bullish divergences, MACD 11 and 3.
+
+**Alone** (gold over fixed income in the next 20 trading days, log %; all days +2.02 in 2016-2020,
++2.15 in 2021-2026):
+
+```text
+                  2016-2020: when gold / when fixed income     2021-2026: when gold / when fixed income
+TSMOM 63          +2.74 (776) / +0.90 (501)                    +3.13 (982) / +0.62 (627)
+TSMOM 126         +3.49 (725) / +0.08 (552)                    +1.87 (1035) / +2.66 (574)   reversed
+TSMOM 252         +3.19 (728) / +0.39 (488)                    +2.05 (1232) / +2.49 (377)   reversed
+TSMOM vote        +3.37 (744) / +0.15 (498)                    +2.27 (1116) / +1.89 (493)
+divergences       every era and kind inside the 5-95% band of 1,000 shuffles; bullish ones too few
+                  (0 and 1 events); after RSI's bearish ones 2016-2020 gold beat fixed income by +2.68
+```
+
+TSMOM 63 separates in both eras, 126 and 252 reverse after 2020. Even on TSMOM 63's fixed-income
+days gold still beat fixed income on average (+0.90, +0.62): a lean to leave that is right in rank is
+still wrong in sign.
+
+**In the room** (paired against the room as built; median over offsets, share of windows improved,
+change of the worst window):
+
+```text
+                   Daric 0.30%                                  Goldika 2.37%
+                   Afran (18)              index (27)            Afran (18)              index (27)
+room as built      +4.0..+5.7%, worst -3.3  +3.9..+5.6, -11.3     +1.3..+3.1, -4.6         +1.1..+2.8, -16.1
++ TSMOM 63         -4.81 pp, 13%, -4.27     -3.96, 20%, -0.28     -5.34, 7%, -5.87         -4.39, 14%, +0.41
++ TSMOM 126        -6.35, 3%, -4.98         -4.65, 11%, -0.84     -7.03, 5%, -7.52         -3.61, 11%, -0.11
++ TSMOM 252        -4.44, 5%, -0.95         -4.12, 17%, +4.69     -3.76, 8%, -2.12         -2.92, 24%, +6.59
++ TSMOM vote       -5.94, 6%, -3.93         -5.50, 13%, +0.01     -6.49, 8%, -6.10         -5.21, 14%, +1.39
++ RSI div          +0.00, 9%, 0             +0.00, 24%, 0         +0.00, 9%, 0             +0.00, 24%, 0
++ MACD div         +0.00, 14%, 0            +0.00, 29%, 0         +0.00, 16%, 0            +0.00, 32%, 0
+stretch size       -2.31, 31%, -2.68        -2.61, 24%, -6.83     -1.17, 35%, -1.95        -1.29, 29%, -5.25
+the last two years (offset 0, Daric; reported, not used): as built +9.5%, TSMOM 63 -2.9%, 126/252/vote
+-0.3%, the divergences +9.5%, stretch size +15.3%
+```
+
+**Verdict under the bar fixed in advance: every candidate is rejected** (0 of 4 conditions met by
+any). Why, from the numbers:
+- *Time-series momentum* leans to fixed income on 30-39% of days, so it carries the committee over
+  60% far more often; each extra exit leaves gold, and gold beat fixed income even on those days. It
+  costs 3-7 points per two years and lowers the share of winning windows from 83-100% to 3-61%. The
+  12-month version alone lifts the worst index window (+4.7 to +6.6 points) at -3 to -4 points of
+  median: insurance at a price the bar does not accept.
+- *Divergences* are too rare at the chartist's swing size (12-14 events in twelve years) to move a
+  committee of seven: no change at the median, no change to the worst window; alone they are
+  indistinguishable from random dates. A finer swing would give more events; it was not
+  pre-registered and is not tested here.
+- *Stretch sizing* sells more of the grams when 18K is far above its EMA50, which in an uptrend means
+  selling more at the start of extended legs: -1.2 to -2.6 points at the median, the worst window
+  2-7 points lower. Its last two years (+15.3% against +9.5%) are the flattering window of lesson 23.
+
+**What this adds to the record.** Section 31 listed what was already tested; with this, every element
+of the owner's trend idea that the data can test has been tested: the distances, the crosses, the
+candles, simple trend rules, time-series momentum, divergence of RSI and MACD, stretch as size. None
+improves the room, in toman, against holding gold. It is the same finding from another side as
+section 25's ("no price, chart, flow or LLM reading has called the start of a jump") and lesson 28
+(leaving gold is the expensive mistake): a trend member's value would come from leaving gold before a
+fall, and in this market the falls are short and the drift is strong. The room's remaining open
+inputs are those that are not functions of 18K's own price: money flow (TSETMC, through the node),
+the news read by the LLM member, Tether.

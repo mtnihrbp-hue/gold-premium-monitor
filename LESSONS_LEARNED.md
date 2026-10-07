@@ -770,6 +770,12 @@ early return, which bought a smaller tail for 1-2 points of median (`SP_D_HANDOF
 25). Both lead gold on the way up, when the room is already in gold; their votes to leave fall in
 dips that recover in toman.
 
+The cleanest instance (2026-10-07, `SP_D_HANDOFF.md` section 32.1): three-month time-series momentum
+against the cost of money ranks the next 20 days the right way in both eras (gold over fixed income
++2.74 / +3.13 on its gold days, +0.90 / +0.62 on its fixed-income days), yet as a seventh-plus member
+it cost the room 4-5 points of median and most of its winning windows. Right in rank, wrong in sign:
+on its fixed-income days gold still beat fixed income, so every exit it tipped was a loss.
+
 **The rule.** Test a candidate inside the decision it would join, on every window and offset, and
 score it by the calls the decision uses (here: when it says fixed income, how often fixed income
 wins, against the base rate), never by its correlation alone.

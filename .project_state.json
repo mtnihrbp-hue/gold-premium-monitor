@@ -314,7 +314,7 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "Owner (SP_D_HANDOFF.md section 31): MERGED 2026-10-07 (v1.8safe = 04a37e1; main = SP-D = cf3c520). Next, in the agreed order: Taline and HoorGold frozen copies (measure, rule, replay; Afran's date with them); the quant fit's random starts; the Direction message revamped totally; the trend R&D (time-series momentum, EMA distance as the swing's size, RSI/MACD divergence, each inside the room, rules fixed first); the LLM member. Broadcast PARKED.",
+  "next_gate": "Owner (SP_D_HANDOFF.md section 31): MERGED 2026-10-07 (v1.8safe = 04a37e1; main = SP-D = cf3c520). Next, in the agreed order: Taline and HoorGold frozen copies (measure, rule, replay; Afran's date with them); the quant fit's random starts; the Direction message revamped totally; the trend R&D DONE 2026-10-07 (section 32: all rejected); TSETMC client types on the node for the money-flow member; the LLM member. Broadcast PARKED.",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
@@ -346,6 +346,7 @@
     "assertions_paper": 34
   },
   "open_decisions": [
+    "Trend R&D (SP_D_HANDOFF.md section 32, branch sp-d-trend-rd): pre-registered in d519da5, then run (research/rd_trend_room.py). Time-series momentum 3/6/12 months and their vote, RSI and MACD divergence at the chartist's swings, EMA50 stretch as the swing's size -- all REJECTED at both costs and in both window sets (TSMOM -3 to -7 pp of median; divergences no effect, 12-14 events in 12 years; stretch -1.2 to -2.6 pp, worst window 2-7 pp lower). The room's open inputs are those not made of 18K's own price: money flow (TSETMC via the node), the LLM member, Tether.",
     "Iran-side node (SP_D_HANDOFF.md sections 30-31): migration APPLIED 2026-10-07 (owner's authorization): iran_node_readings and the INSERT-only role iran_node made by SQL. The owner's S10 reads Daric every 15 minutes; its NEON_URL set 2026-10-07. Production's reader (main._daric_from_node, 30-minute freshness, before validation, fails open) is on sp-d-iran-node awaiting review. Open: a Raspberry Pi or other always-on device (owner's decision); TSETMC and fipiran on the node later.",
     "Sanity ranges (section 30, branch hotfix-validation-bounds, edff4c8): world gold ceiling $5,000 -> $20,000, 18K 500M -> 5B rial; the dollar's unchanged (toman, 3.7x, catches a rial slip; revisit above 500,000). Awaiting the owner's review, then v1.8safe and the fast-forward.",
     "quant.fit_regimes (section 30): search_reps=5 draws unseeded random starts; one KPI run failed on a non-converging SVD (kpi_paper.test_28), four reruns passed. Production's quant view is not exactly reproducible. Seed the search or retry a failed fit.",
