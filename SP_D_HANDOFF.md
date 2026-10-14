@@ -2628,3 +2628,56 @@ and the owner's decision; the shortfall is recorded, not hidden.
 
 **NEON MIGRATION REQUIRED = NO** (the node's table of section 31). Awaiting the owner's review; then a
 safe tag and the merge.
+
+## 34. Neon suspended: the month's 5 GB of transfer spent by mid-month (2026-10-14)
+
+**The owner** (2026-10-14, a week after section 33): "there are a bunch of stuff outstanding and
+everything looks like shit now. Broken."
+
+**What broke.** Every GitHub run succeeded (16 ANALYZE a day from 10-07 to 10-13, the owner's UPDATE,
+DIRECTION and REPORT), so nothing failed visibly. Production's database refuses every connection:
+"Your account or project has exceeded the quota." The project's period runs 2026-10-01 to 11-01 and its
+`data_transfer_bytes` stood at 5.92 GB (2.26 GB on 10-06). Neon's free plan includes 5 GB of public
+network transfer a month per project; past it the compute is suspended, connections drop, and the
+suspension is not lifted by the next connection -- it holds until the period rolls over or the plan
+changes ([Neon, free plan limits](https://neon.com/faqs/free-plan-limits-and-quotas)). The first run
+refused: **2026-10-13 21:00 Tehran** (run 38439212761, 185 quota errors); every run since has collected
+prices and stored nothing. The app fails open on the database, so the runs stayed green; PAPER, the
+push, ANALYZE's history and the phone's uploads are down, and the phone keeps its readings in its
+spool.
+
+**Why.** About 450 MB a day left the database. Every hourly run read the last week's analysis snapshots
+whole -- six JSON documents a row (evidence, features, read model, intelligence, technical state, data
+quality) -- to use an id, a timestamp, a regime or four prices:
+
+```text
+outcome backfill        the last 168 h of snapshots, whole; then each needing work again, whole, in
+                        evaluate_snapshot -- about 80 a run, the retries of SP-C's open item (3-4 min)
+regime features         up to 500 snapshots, whole, for regime_state
+evidence package        2 x context snapshots, whole, for id and timestamp
+```
+
+The month before PAPER and Direction (10-03, 10-05) added the room's and Direction's full candle reads
+(about 20,000 small rows a run); those are a smaller share and were not changed.
+
+**Fixed** (`hotfix-neon-egress`, 1d8ae50, cut from `main`; merged into `sp-d-trend-rd`):
+`repository.get_analysis_snapshots(columns=...)` loads only the columns given (`load_only`); the
+regime features ask for id, timestamp and regime; the evidence package for id and timestamp; the
+backfill for id and timestamp, and `evaluate_snapshot` for the five values it reads. Behaviour is
+unchanged. `kpi_coherence.test_36` records the SQL those readers send and fails if any names a snapshot
+document; on `main`'s code it fails (the backfill's SELECT carries all six). Suite 30/30. The size of the
+saving can be measured only when the database is reachable again (`data_transfer_bytes` across one run).
+
+**The phone** (7661ed5, `sp-d-iran-node`): its spool held 3,000 rows -- seven days at about 400 rows a
+day since TSETMC joined -- and would have dropped the oldest; it now holds 30,000, the month with room.
+The owner pulls it once (`git pull`).
+
+**The decision for the owner.** Production stays suspended until 2026-11-01 (18 days without storage:
+no PAPER, no push, a hole in every 30-day window) unless the plan changes. Neon's Launch plan has no
+monthly minimum and bills use -- about $0.106 a compute-hour, 100 GB of transfer included, by
+third-party pricing pages -- which at this project's 60 or so compute-hours a month is roughly $6-10.
+Upgrading restores production at once; with the fix above the project should fall back under the free
+plan's 5 GB, to be confirmed on the first measured run, and November can return to free. Paying from
+Iran is the owner's question. Waiting costs nothing in money and 18 days of record.
+
+**NEON MIGRATION REQUIRED = NO.**
