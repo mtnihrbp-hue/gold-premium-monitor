@@ -234,7 +234,7 @@ def _build_regime_features(
     }
 
     try:
-        recent = get_analysis_snapshots(limit=500, hours=hours_lookback)
+        recent = get_analysis_snapshots(limit=500, hours=hours_lookback, columns=("id", "analysis_timestamp", "regime_state"))
         if not recent:
             return features
 

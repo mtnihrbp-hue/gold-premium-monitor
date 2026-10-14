@@ -705,6 +705,47 @@ class KPICoherence(unittest.TestCase):
 
     # -- 6. the register must stay honest -------------------------------------
 
+    def test_36_no_hourly_reader_pulls_the_snapshots_json_it_does_not_read(self):
+        """Neon's free plan suspended production on 2026-10-13 21:00 Tehran: 5.92 GB of outbound
+        transfer against 5 GB a month (SP_D_HANDOFF.md section 34). Every hourly run read the last
+        week's analysis snapshots whole -- six JSON documents a row -- to use an id, a timestamp, a
+        regime or four prices: the outcome backfill twice over, the regime features up to 500 rows,
+        the evidence package's outcome context. Each now loads only what it reads; the SQL they send
+        must not name the documents."""
+        from sqlalchemy import event
+        from analysis import outcome_evaluator
+        from database.models import AnalysisSnapshot
+        from intelligence import features
+        heavy = ("evidence_package_json", "features_json", "analysis_read_model_json",
+                 "intelligence_result_json", "technical_state_json", "data_quality_json")
+        session = _test_get_session()
+        session.query(AnalysisSnapshot).delete()
+        session.add(AnalysisSnapshot(analysis_timestamp=datetime.utcnow() - timedelta(hours=30),
+                                     source_run_id="kpi-coherence-36", regime_state="NORMAL",
+                                     xau_usd=4100, usd_irr=263000, rep_gold_price=262_000_000,
+                                     premium_percent=-1.5, evidence_package_json={"big": "x" * 1000}))
+        session.commit()
+        session.close()
+        sent = []
+        listener = lambda conn, cursor, statement, params, context, many: sent.append(statement)
+        event.listen(_TEST_ENGINE, "before_cursor_execute", listener)
+        try:
+            outcome_evaluator.backfill_outcome_evaluations(hours=168)
+            features._build_regime_features("NORMAL", None, datetime.utcnow())
+        finally:
+            event.remove(_TEST_ENGINE, "before_cursor_execute", listener)
+        reads = [s for s in sent if "FROM analysis_snapshots" in s]
+        self.assertTrue(reads, "the readers ran against the snapshots")
+        for statement in reads:
+            for column in heavy:
+                self.assertNotIn(column, statement, f"an hourly reader selects {column} again")
+        from analysis import evidence_package
+        self.assertIn('columns=("id", "analysis_timestamp")', inspect.getsource(evidence_package))
+        session = _test_get_session()
+        session.query(AnalysisSnapshot).delete()
+        session.commit()
+        session.close()
+
     def test_30_every_accepted_divergence_names_both_sides_and_a_reason(self):
         for key, entry in ACCEPTED.items():
             self.assertTrue(entry.get("what"), f"{key} does not say what diverges")
