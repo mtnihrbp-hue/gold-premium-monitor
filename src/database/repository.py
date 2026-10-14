@@ -1025,11 +1025,16 @@ def get_latest_analysis_snapshot():
         session.close()
 
 
-def get_analysis_snapshots(limit: int = 100, hours: int = None):
+def get_analysis_snapshots(limit: int = 100, hours: int = None, columns=None):
     """Get analysis snapshots ordered by timestamp desc.
+
+    `columns`: the attributes the caller reads, loaded alone. A snapshot row carries six JSON
+    documents; callers that read one or two scalars pulled them all, every hourly run, and
+    exhausted Neon's 5 GB monthly transfer on 2026-10-13 (SP_D_HANDOFF.md section 34).
 
     Non-blocking: returns [] if DB unavailable.
     """
+    from sqlalchemy.orm import load_only
     from database.models import AnalysisSnapshot
 
     session = get_session()
@@ -1037,7 +1042,10 @@ def get_analysis_snapshots(limit: int = 100, hours: int = None):
         return []
 
     try:
-        query = session.query(AnalysisSnapshot).order_by(
+        query = session.query(AnalysisSnapshot)
+        if columns:
+            query = query.options(load_only(*(getattr(AnalysisSnapshot, c) for c in columns)))
+        query = query.order_by(
             AnalysisSnapshot.analysis_timestamp.desc()
         )
         if hours is not None:

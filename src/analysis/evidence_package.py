@@ -261,7 +261,8 @@ def build_evidence_package(
         "status": "INSUFFICIENT_DATA",
     }
     try:
-        recent_snapshots = get_analysis_snapshots(limit=max_outcome_context * 2, hours=outcome_lookback_hours)
+        recent_snapshots = get_analysis_snapshots(limit=max_outcome_context * 2, hours=outcome_lookback_hours,
+                                                  columns=("id", "analysis_timestamp"))
         outcomes = []
         for snap in recent_snapshots:
             snap_id = getattr(snap, "id", None)

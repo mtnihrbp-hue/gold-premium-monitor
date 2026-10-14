@@ -7,6 +7,8 @@ Measures what happened after time T without prediction or trading logic.
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Tuple
 
+from sqlalchemy.orm import load_only
+
 from database.connection import get_session
 from database.models import AnalysisSnapshot, PriceObservation
 from database.repository import save_outcome_evaluation
@@ -259,7 +261,12 @@ def evaluate_snapshot(
         return []
 
     try:
-        snapshot = session.query(AnalysisSnapshot).filter(
+        # The five values read below, not the row: its six JSON documents were most of the
+        # 5 GB a month that suspended Neon on 2026-10-13 (SP_D_HANDOFF.md section 34).
+        snapshot = session.query(AnalysisSnapshot).options(load_only(
+            AnalysisSnapshot.id, AnalysisSnapshot.analysis_timestamp, AnalysisSnapshot.xau_usd,
+            AnalysisSnapshot.usd_irr, AnalysisSnapshot.rep_gold_price, AnalysisSnapshot.premium_percent,
+        )).filter(
             AnalysisSnapshot.id == snapshot_id
         ).first()
 
@@ -376,7 +383,9 @@ def backfill_outcome_evaluations(
 
     try:
         since = datetime.utcnow() - timedelta(hours=hours)
-        snapshots = session.query(AnalysisSnapshot).filter(
+        snapshots = session.query(AnalysisSnapshot).options(
+            load_only(AnalysisSnapshot.id, AnalysisSnapshot.analysis_timestamp),
+        ).filter(
             AnalysisSnapshot.analysis_timestamp >= since,
         ).order_by(AnalysisSnapshot.analysis_timestamp.desc()).all()
 
