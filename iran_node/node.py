@@ -40,7 +40,10 @@ ENV_FILE = os.path.join(HOME, ".iran_node.env")
 STATE_FILE = os.path.join(HOME, ".iran_node_state.json")
 SPOOL = os.path.join(HOME, "iran_node_spool.jsonl")
 LOG = os.path.join(HOME, "iran_node.log")
-SPOOL_LIMIT = 3000          # about a month at four readings an hour
+# Readings kept while Neon cannot be reached. Since TSETMC joined (about 400 rows a day) 3,000 was
+# seven days; Neon's free plan suspended the database on 2026-10-13 until the month's end
+# (SP_D_HANDOFF.md section 34), so the spool must hold a month: about 12,000 rows, kept with room.
+SPOOL_LIMIT = 30000
 
 DARIC = "https://apisc.daric.gold/loan/api/v1/User/Collateral/GetGoldlPrice"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Linux; Android 12; SM-G973F) AppleWebKit/537.36 "
