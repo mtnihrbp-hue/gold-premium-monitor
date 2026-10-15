@@ -18,7 +18,8 @@ SP-Dd  money flow, the phone's reads, the trend    sections 32-34   branch sp-d-
        R&D, Neon's transfer cuts
 SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de; 35.1-35.2 merged 2026-10-15 (v1.10safe);
        push, Direction's EMA lines, Tether as a                     35.4 (the spool) merged 2026-10-15 (v1.11safe);
-                                                                   35.5-35.6 merged 2026-10-15 (v1.12safe)
+                                                                   35.5-35.6 merged 2026-10-15 (v1.12safe);
+                                                                   35.8 merged 2026-10-15 (v1.13safe)
        member, the LLM member
 ```
 
@@ -3008,3 +3009,95 @@ What follows from it:
    - the gold funds' smart-money averages, which are already fetched every run.
 
    Not built.
+
+**35.8 Direction's revamp agreed in structure; what it needs, measured; two outage fixes** (10-15
+evening).
+
+**The owner's review of the drafts.**
+- *NEXT MONTH:* the range ("what kind of decision can be made from this") and the new-high chance
+  ("does it say probability? again no feed for making a decision") are dropped. Buy-now-or-wait stays
+  ("tends to be good").
+- *WATCH:* it should discuss support and resistance, how far each is and what happened near them. The
+  50-day lines keep the earlier draft's wording ("i like the EMA style of previous msg more"): "18K
+  closes under its 50-day, 23.83M (−9%): followed by −2.9% over 20 days".
+- *NEWS:* it must conclude, not list. Two conclusions:
+  - whether people are rushing into gold or leaving, from the funds' money flow;
+  - where the dollar and Tether are likely to go, from the event and what followed past ones ("whenever
+    the cbi intervened the prices dropped").
+- *Length:* Direction goes as text; Telegram allows 4,096 characters and `kpi_direction` caps it at
+  1,500 (owner, 10-03); the drafts are about 1,150.
+- *Routine:* the panel is computed at 06:00 and 13:00 and sent only on /Direction. Whether to push it
+  is the owner's to decide.
+- The approved structure:
+  ```
+  header (18K, uptrend since, driven by)
+  TREND
+  BUY NOW OR WAIT
+  LEVELS
+  WATCH
+  GOLD DEMAND
+  DOLLAR FROM NEWS
+  ```
+  Wiring waits for the two measured lines and the owner's view of the filled draft.
+
+**Support and resistance, against the record.** `rd_chart_accuracy` (section 15) measured the
+chart's lines on 18K, 2014-2026. Swing levels and trend lines held or broke no more often than a line
+drawn at the same distance with no history. At the first touch, trend-line supports bounced less often
+than that control (35% against 48%). So the message shows each line's distance and what lines at that
+distance did. The levels with an edge are:
+- the 50-day breaks;
+- the value area of the funds' volume (section 11), which needs the phone's TSETMC volume and so waits
+  for Neon.
+
+**Gold demand** (`research/rd_gold_demand.py`, rules fixed in its docstring before the run). Inputs:
+the 18 gold funds (saffron excluded) from TSETMC's client types, 2017-2026; ranks against earlier days
+only; tgju's 18K over the next 20 trading days.
+
+| Measure (10 days) | Band | 2019-2023 | 2024-2026 |
+|---|---|---|---|
+| all days | | move +2.00%, 5% drop 22% | move +7.45%, 5% drop 20% |
+| buyer power (per-capita money in / out) | bottom 20% | **+0.15%** | **+2.31%** |
+| | bottom 10% | +0.39% | **−0.41%**, drop 29% |
+| | top 10% / 20% | +4.26%, drop 8% (39 days) | +6.11%, drop 41% (17 days) |
+| net money in (share) | any band | no consistent effect | no consistent effect |
+| **crowd: buyers against the previous 120 days** | **top 20%** | **5% drop 52%** (usually 22) | **5% drop 37%** (usually 20); move +2.70% |
+| | top 10% | **−4.21%, drop 86%** (28 days) | — |
+
+- Two readings hold in both eras.
+  - **A rush of buyers precedes drops.** When the number of people buying the gold funds is in its
+    top 20%, a 5% drop within a month came about twice as often.
+  - **Sellers in control precede a weak month.** When buyer power is in its bottom 20%, 18K gained 2-5
+    points less than usual.
+- Net money in or out carries nothing.
+- Today: buyer power 0.58-0.61, rank about 27-30, normal; crowd (to 10-03) rank 68, normal.
+- Production can read both measures from GitHub through tablokhani's 10-day figures (35.7) once the
+  seed carries daily buyers.
+
+**Tether's history is on tgju.** `crypto-tether-irr` gives Tether in rial daily since 2020-11-12; it
+closed at 264,993 toman on 10-14. That unblocks the Tether member's research, which waited for a
+history (section 35).
+
+**/Direction without the database.** `/Direction` rendered only the stored panel, so from 10-13 it
+answered nothing. `main._send_direction_report` still reads the stored panel first. When none can be
+read, `_direction_live` computes it now:
+- `persistence/candle_cache.full_history` fetches tgju's whole history of 18K, the dollar and world
+  gold, 1,000 rows a request, the same days the database holds;
+- the platforms' prices give the live price.
+
+It writes nothing. On the workstation it took 22 s with Neon refusing. `kpi_direction.test_25` keeps
+the rules:
+- writes nothing;
+- the stored panel first;
+- the live computation only as the fallback.
+
+`test_25b` and `test_25c` cover the route and the paging. The message is today's layout until the
+revamp is wired.
+
+**The news run stops after three failed saves.** Each of up to 180 items spent about a second failing
+against the suspended database, 2.5 minutes a run. After three failed saves in a row the run stores
+nothing more and says how many it skipped (`ingest.MAX_CONSECUTIVE_FAILED`; test in
+`tests/test_news_collector.py`). The test runner's list there names four tests twice, left for the
+audit.
+
+**Merged** after `v1.13safe` (main 2085974); suite 30/30, `kpi_direction` 37/37, CI green on
+ubuntu-24.04.

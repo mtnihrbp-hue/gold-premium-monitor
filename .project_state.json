@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "project": "Gold Premium Monitor",
-  "active_branch": "sp-de; main and SP-D at SP-De's third batch since 2026-10-15 (v1.12safe before); main is production",
+  "active_branch": "sp-de; main and SP-D at SP-De's fourth batch since 2026-10-15 (v1.13safe before); main is production",
   "current_phase": "SP-D (SP_D_HANDOFF.md): Direction live on main since 2026-10-03 (sections 1-8); the PAPER portfolio, the room as its front office, live on main since 2026-10-05 18:01 (sections 9-28); health check and record 2026-10-06 (section 29). Proposed next, for the owner's decision: Taline's frozen copies, the Iran-side node, the news leg with the LLM (section 29)",
   "current_phase_status": "SP-C CLOSED (merged 2026-09-28, 2b7c5f8; v1.3safe before). SP-D IN PROGRESS: Direction merged 2026-10-03 (v1.4safe before); PAPER merged 2026-10-05 15:57 (v1.6safe before); the go-live hotfix (scipy/pandas pins, venue label) fast-forwarded 17:07 (v1.7safe = 2957699 before). Production (cron-job.org and the Telegram worker) dispatches ref main. SP_D_HANDOFF.md sections 28-29.",
   "completed_phases": [
@@ -314,7 +314,7 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "SP-De on branch sp-de: merged 2026-10-15 (v1.10safe, v1.11safe) -- the quant fit (35.1), the 21:00 chart without the database (35.2). Merged 2026-10-15 (v1.11safe): the spool for the record while Neon is out of reach (35.4). Merged 2026-10-15 (v1.12safe): the runner pinned to ubuntu-24.04 (35.5), the daily recap parked (35.6). Next: the news wing (35.5: six channels read from GitHub, Groq reads each post, a high-impact push to preview); the kept push level deferred to after 11-01 (35.5); DIRECTION is the message revamped (preview first), ANALYZE only trimmed; the news wing on the owner's seven Telegram channels via GitHub, geoblocked sites via the phone. Then: the room alert at 3 with its push, Direction's EMA lines, Tether, the LLM member. 2026-11-01: measure Neon's transfer around the first runs; check the phone's spool flushed. Parked: Raspberry Pi, broadcast, SP-C leftovers.",
+  "next_gate": "SP-De on branch sp-de, merged through v1.13safe on 2026-10-15: the quant fit (35.1), the 21:00 chart without the database (35.2), the spool (35.4), the runner pin and the channel reader (35.5), the recap parked (35.6), /Direction from tgju without Neon and the news circuit breaker (35.8). Direction's revamp agreed in structure (35.8): TREND, BUY NOW OR WAIT, LEVELS, WATCH (the earlier wording), GOLD DEMAND (measured: rush of buyers and sellers in control), DOLLAR FROM NEWS (the event study, 35.9); wiring after the owner sees the filled draft. Then: the news wing (sources and reading approved, the push locked 10-15), the room alert at 3, Tether (history found on tgju), the LLM member. 2026-10-16: the audit (code, docs, duplicates; the saffron fund in the money-flow member, 35.7). 2026-11-01: Neon's reset checks. Parked: Raspberry Pi, broadcast, the daily recap.",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
