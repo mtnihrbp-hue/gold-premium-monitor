@@ -75,6 +75,7 @@ class DirectionPanel:
     system: Dict = field(default_factory=dict)
     forecasts: List[Dict] = field(default_factory=list)
     record: Dict = field(default_factory=dict)       # the live track record and its alarms
+    demand: Dict = field(default_factory=dict)       # the gold funds' last 7 days (analysis/gold_demand.py)
 
     def to_json(self):
         return asdict(self)
@@ -88,6 +89,25 @@ class DirectionPanel:
 
 def _pct(a, b):
     return float((a / b - 1) * 100)
+
+
+# How often a chart line at a given distance held for 10 trading days on 18K, 2014-2026, drawn from the
+# days before only: a support not closed through, a resistance not closed above. The chart's own swing
+# levels and trend lines did no better than a line at the same distance with no history
+# (research/rd_chart_accuracy.py, SP_D_HANDOFF.md section 15), so this is what a line that far away is worth.
+LINE_HELD_PCT = {"support": ((1, 60), (2, 73), (3, 81), (5, 90), (8, 95), (10, 97)),
+                 "resistance": ((1, 39), (2, 49), (3, 59), (5, 74), (8, 86), (10, 90))}
+
+
+def line_held_pct(kind, distance_pct):
+    """Percent of 10-day spans a line `distance_pct` away (either sign) held, interpolated."""
+    table, x = LINE_HELD_PCT[kind], abs(distance_pct)
+    if x <= table[0][0]:
+        return float(table[0][1])
+    for (a, pa), (b, pb) in zip(table, table[1:]):
+        if x <= b:
+            return float(pa + (pb - pa) * (x - a) / (b - a))
+    return float(table[-1][1])
 
 
 def _rank(values, value):
@@ -214,6 +234,8 @@ def build_panel(gold, usd, live_price=None, live_at=None, markets=None, system=N
     u50 = talib.SMA(uc, 50)
     uidx = [bisect_right(ud, x) - 1 for x in gd]
     usd_above = np.array([float(uc[j] > u50[j]) if j >= 0 and not np.isnan(u50[j]) else np.nan for j in uidx])
+    usd_now = {"close": float(uc[uidx[-1]]), "sma50": float(u50[uidx[-1]]), "date": str(ud[uidx[-1]])} \
+        if uidx[-1] >= 0 and not np.isnan(u50[uidx[-1]]) else {}
 
     first = next(j for j in range(n) if gd[j].year >= 2014 and trend[j] is not None)
     pool = list(range(first, done - HORIZON))
@@ -283,6 +305,8 @@ def build_panel(gold, usd, live_price=None, live_at=None, markets=None, system=N
     avgs = {"SMA20": s20, "EMA20": e20, "SMA50": s50, "EMA50": e50, "SMA200": s200}
     position = {"average": {k: float(v[i]) for k, v in avgs.items()},
                 "dist": {k: _pct(c[i], v[i]) for k, v in avgs.items()},
+                # the same distances at the close before: "was" in the message
+                "dist_prev": {k: _pct(c[i - 1], avgs[k][i - 1]) for k in ("EMA20", "EMA50")},
                 "rank": {}, "rsi": float(r[i]), "adx": float(adx[last]),
                 "atr_pct": float(atr[last] / c[last] * 100), "trend": trend[i], "gaps": {}}
     for key in ("SMA20", "EMA20", "SMA50", "EMA50", "SMA200"):
@@ -350,6 +374,7 @@ def build_panel(gold, usd, live_price=None, live_at=None, markets=None, system=N
         "ema_death": fresh(has50 & ~ema_up),
         "below_sma50": fresh(np.array([not np.isnan(s50[j]) and c[j] < s50[j] for j in range(n)])),
         "usd_below_sma50": fresh(np.array([usd_above[j] == 0 for j in range(n)]))}
+    position["usd"] = usd_now
     panel.position = position
 
     # STANCE: the rulebook, its triggers, and what followed it before
@@ -409,8 +434,10 @@ def build_panel(gold, usd, live_price=None, live_at=None, markets=None, system=N
     sup, res = split_levels(swing_levels(hgh, low, upto=i, usable=usable), c[i])
     zones = [z for z in time_at_price_zones(c, upto=i) if abs(_pct(z["price"], c[i])) <= ZONE_MAX_PCT]
     panel.levels = {
-        "supports": [{"price": lv["price"], "pct": _pct(lv["price"], c[i]), "touches": lv["touches"]} for lv in sup[:3]],
-        "resistances": [{"price": lv["price"], "pct": _pct(lv["price"], c[i]), "touches": lv["touches"]} for lv in res[:2]],
+        "supports": [{"price": lv["price"], "pct": _pct(lv["price"], c[i]), "touches": lv["touches"],
+                      "held_10d_pct": line_held_pct("support", _pct(lv["price"], c[i]))} for lv in sup[:3]],
+        "resistances": [{"price": lv["price"], "pct": _pct(lv["price"], c[i]), "touches": lv["touches"],
+                         "held_10d_pct": line_held_pct("resistance", _pct(lv["price"], c[i]))} for lv in res[:2]],
         "zones": [{"price": z["price"], "pct": _pct(z["price"], c[i]), "days": z["days"]} for z in zones[:2]]}
 
     # CONVERT: waiting for a dip on days like today, against converting at once

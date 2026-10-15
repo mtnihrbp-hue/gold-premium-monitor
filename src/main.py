@@ -580,6 +580,7 @@ def _direction_precompute(markets, signal_state, now):
             return
         for alarm in apply_gate(panel, assess(resolved_direction_snapshots(session))):
             print(f"DIRECTION ALARM: {alarm}")
+        panel.demand = _gold_demand(session)
         snapshot_id = save_direction_snapshot(session, panel, day, slot)
         print(f"DIRECTION: {slot} panel {snapshot_id} stored ({panel.stance.get('label')}, "
               f"{', '.join(panel.position.get('tags', [])) or 'no tags'}); {resolved} forecasts resolved")
@@ -588,6 +589,38 @@ def _direction_precompute(markets, signal_state, now):
         print(f"DIRECTION failed: {e}")
     finally:
         session.close()
+
+
+def _gold_demand(session):
+    """The gold funds' last 7 trading days for Direction's GOLD DEMAND (analysis/gold_demand.py, SP-D
+    section 35.11): src/seed's daily totals, then the days the Iran node sent after them, a fund's latest
+    copy of a day, a day counting when gold_demand.MIN_FUNDS of the seed's funds have it. {} on failure
+    or without enough days: the section is then left out."""
+    from datetime import date as _date, datetime as _dt
+    from analysis import gold_demand
+    from database.repository import get_node_rows
+    try:
+        seed = json.load(open(os.path.join(SEED_DIR, "gold_fund_daily.json"), encoding="utf-8"))
+        totals = {_date.fromisoformat(k): v[:4] for k, v in seed["days"].items()}
+        seed_end, funds = max(totals), set(seed["funds"])
+        by_day = {}
+        for row in get_node_rows(session, "tsetmc", _dt.combine(seed_end, _dt.min.time())):
+            record, day = row.payload or {}, row.detail or ""
+            code = str(record.get("insCode") or row.instrument.replace("CLIENTTYPE_", ""))
+            if len(day) != 8 or code not in funds:
+                continue
+            day = _date(int(day[:4]), int(day[4:6]), int(day[6:]))
+            if day > seed_end:
+                by_day.setdefault(day, {})[code] = record
+        for day, records in by_day.items():
+            if len(records) >= gold_demand.MIN_FUNDS:
+                totals[day] = [sum(float(r.get(k) or 0) for r in records.values())
+                               for k in ("buy_I_Value", "buy_I_Count", "sell_I_Value", "sell_I_Count")]
+        days = sorted(totals)
+        return gold_demand.assess(days, [totals[d] for d in days])
+    except Exception as e:
+        print(f"GOLD DEMAND unavailable: {e}")
+        return {}
 
 
 def _paper_run(markets, signal_state, now):

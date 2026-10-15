@@ -1,41 +1,32 @@
 """DIRECTION (SP-D): the /Direction message, rendered from a stored panel.
 
-DRAFT v6, for the owner's review (2026-10-03). Read on a phone, by someone deciding when
-to turn rial into gold, so every line answers one of four questions -- is the uptrend
-intact, how late and stretched is it, what would change it, has waiting for a drop paid
--- in plain words: percentages, "a month" for 20 trading days, and each warning with
-what followed it before. No padded columns (they do not align in a proportional font);
-only <b> and <i>, and no bare "<", ">" or "&" (Telegram's HTML parser rejects them).
+v7, the revamp the owner agreed on 2026-10-15 (SP_D_HANDOFF.md sections 35.8-35.11). Read on a
+phone by someone deciding when to turn rial into gold. Each section answers one question, in plain
+words, and shows only what has a measured record:
 
-Same vocabulary as UPDATE and ANALYZE: a discount increases or decreases; a large one is
-"heavily discounted", never "cheap"; Cheap/Expensive, never comparatives of "dear". No
-BUY or SELL is printed except the system's own decision, which keeps its authority; the
-analyst stance is a stance.
+  TREND           how far this leg has gone and what carried it; the EMA distances against yesterday
+  BUY NOW OR WAIT has waiting for a dip paid on days like today
+  LEVELS          the nearest lines, with what lines that far away did (the chart's own lines did no
+                  better than that, section 15)
+  WATCH           where the uptrend would end, and whether that is near
+  GOLD DEMAND     the gold funds' last 7 days, each reading against the past year; no forecast
+  DOLLAR FROM NEWS  left out until its measurement holds (section 35.9)
+
+Dropped from v6: the analyst's label (the same on every panel), "higher a month later", the
+drop chance, the range, the new-high chance, the rally-age lines, the track-record line. Only <b>
+and <i>; no bare "<", ">" or "&" (Telegram's HTML parser rejects them). No BUY or SELL: the
+system's decision keeps its authority in UPDATE.
 """
 
 from datetime import date, datetime
 
-from alerts.helpers import format_m_tomans_short, format_timestamp, to_tehran
+from alerts.helpers import format_m_tomans_short, to_tehran
 from alerts.telegram import _send
-from analysis.direction import DIP_PCT, DOLLAR_SHARE, DROP_PCT, trading_date
-from analysis.direction_ledger import GATE_MIN_RESOLVED
-from timeutil import local_now
+from analysis.direction import DIP_PCT, DOLLAR_SHARE
+from timeutil import local_now, persian_day
 
-VALUATION_WORDS = {
-    "CHEAP": "platforms heavily discounted against fair value",
-    "FAIR": "platforms at their usual discount to fair value",
-    "EXPENSIVE": "platforms above fair value",
-    "UNKNOWN": "not enough history to judge the discount",
-}
-REASON_WORDS = {
-    "trend_up": "uptrend",
-    "below_sma50": "below its 50-day average",
-    "new_highs": "new record highs",
-    "no_high_20d": "no record high for 20+ days",
-    "usd_above_sma50": "dollar above its 50-day average",
-    "usd_below_sma50": "dollar below its 50-day average",
-    "rally_broken": "rally broken",
-}
+NEAR_PCT = 3.0              # a watched line this close is "close", not "far away"
+DEMAND_MAX_AGE_DAYS = 7     # older gold-fund days leave the section out
 
 
 def _m(price):
@@ -54,133 +45,159 @@ def _local(iso):
     return to_tehran(datetime.fromisoformat(iso)) if iso else None
 
 
-def _view(p):
-    s, sysd = p.stance, p.system or {}
-    decision = sysd.get("final_decision") or "—"
-    words = VALUATION_WORDS.get(sysd.get("valuation") or "UNKNOWN", VALUATION_WORDS["UNKNOWN"])
-    flag = " ⚠" if (p.record or {}).get("stance", {}).get("state") == "DEMOTED" else ""
-    lines = ["<b>VIEW</b>",
-             f"System: <b>{decision}</b> ({words})",
-             f"Analyst: <b>{s['label']}</b>{flag}",
-             f"Why: {' · '.join(REASON_WORDS[r] for r in s['reasons'])}"]
-    rec = s["record"]
-    if rec.get("cases"):
-        lines.append(f"After past days like this, 18K was higher a month later {_pct(rec['higher_pct'])} "
-                     f"of the time (any day: {_pct(rec['all_higher_pct'])}).")
-    return "\n".join(lines)
+def _day(iso, year=False):
+    return persian_day(date.fromisoformat(iso[:10]), year=year)
+
+
+def _side(value):
+    return "above" if value >= 0 else "below"
+
+
+def _head(p):
+    pos, r = p.position, p.rally
+    words = [f"18K <b>{_m(p.price)}</b>"]
+    trend = pos.get("trend")
+    if trend == "UPTREND" and r.get("trend_since"):
+        words.append(f"uptrend since {_day(r['trend_since'], year=True)}")
+    elif trend == "DOWNTREND":
+        words.append("downtrend")
+    else:
+        words.append("no clear trend")
+    usd, xau = r.get("usd_since_start"), r.get("xau_since_start")
+    if r.get("in_rally") and usd is not None and r.get("gain_pct", 0) > 0:
+        if usd >= DOLLAR_SHARE * r["gain_pct"]:
+            words.append("driven by the dollar")
+        elif xau is not None and xau >= DOLLAR_SHARE * r["gain_pct"]:
+            words.append("driven by world gold")
+    return " · ".join(words)
 
 
 def _trend(p):
-    r = p.rally
+    r, pos = p.rally, p.position
     lines = ["<b>TREND</b>"]
     if r.get("in_rally"):
-        lines.append(f"Rally {r['number']} of the uptrend since {r['trend_since'][:7]}: "
-                     f"{_signed(r['gain_pct'])} since {r['start_date'][5:]} ({r['age_days']} trading days)")
         usd, xau = r.get("usd_since_start"), r.get("xau_since_start")
-        if usd is not None and xau is not None:
-            source = ("the dollar" if usd >= DOLLAR_SHARE * r["gain_pct"]
-                      else "world gold" if xau >= DOLLAR_SHARE * r["gain_pct"] else "the dollar and world gold")
-            lines.append(f"Driven by {source}: dollar {_signed(usd)}, world gold {_signed(xau)}")
-        elif usd is not None:
-            lines.append(f"Dollar {_signed(usd)} over the same days; world gold: not available")
+        drivers = (f"dollar {_signed(usd)}, world gold {_signed(xau)}" if usd is not None and xau is not None
+                   else f"dollar {_signed(usd)}; world gold: not available" if usd is not None else "")
+        lines.append(f"This leg {_signed(r['gain_pct'])} since {_day(r['start_date'])}" + (f": {drivers}" if drivers else ""))
     else:
         lines.append(f"In a correction: {_signed((p.price / r['record_high'] - 1) * 100)} from the "
                      f"{_m(r['record_high'])} record")
-    return "\n".join(lines)
+    d, prev = pos["dist"], pos.get("dist_prev") or {}
 
-
-def _averages(p):
-    pos = p.position
+    def dist(key, label):
+        now, was = d[key], prev.get(key)
+        text = f"{_pct(now, 1)} {_side(now)} the {label}"
+        if was is not None:
+            text += f" (was {_pct(was, 1)}{'' if _side(was) == _side(now) else ' ' + _side(was)})"
+        return text
+    lines.append(f"{dist('EMA20', '20-day')}, {dist('EMA50', '50-day')}")
     ema = pos.get("ema") or {}
-    d20, d50 = pos["dist"]["EMA20"], pos["dist"]["EMA50"]
-    side = lambda v: "above" if v >= 0 else "below"
-    lines = ["<b>MOVING AVERAGES</b> (EMA)",
-             f"Price is {_pct(d20, 1)} {side(d20)} the 20-day and {_pct(d50, 1)} {side(d50)} the 50-day"]
     if ema.get("since_date"):
-        state = "bullish" if ema["above"] else "bearish"
-        lines.append(f"20-day is {_pct(ema['gap_pct'], 1)} {side(ema['gap_pct'])} the 50-day: "
-                     f"{state} since {ema['since_date'][5:]}")
-    rank = pos["rank"].get("EMA20")
-    if "STRETCHED" in pos.get("tags", []) and rank is not None:
-        lines.append(f"Stretched: price was this far above its 20-day on only "
-                     f"{max(1, round(100 - rank))}% of uptrend days")
+        lines.append(f"20-day {_pct(ema['gap_pct'], 1)} {_side(ema['gap_pct'])} the 50-day: "
+                     f"{'bullish' if ema['above'] else 'bearish'} since {_day(ema['since_date'])}")
     return "\n".join(lines)
 
 
-def _next_month(p):
-    o, cv, rec = p.outlook, p.convert, p.record or {}
-    lines = ["<b>NEXT MONTH</b> (20 trading days, from past days like today)"]
-    nh = o["new_high"]
-    above = "" if p.rally["days_since_high"] == 0 else f" (above {_m(nh['record'])})"
-    if nh.get("prob") is not None and rec.get("new_high", {}).get("state") != "DEMOTED":
-        lines.append(f"New record high{above}: {_pct(nh['prob'])} chance")
-    elif nh.get("base") is not None:
-        lines.append(f"New record high{above}: {_pct(nh['base'])} chance (base rate ⚠)")
-    if cv.get("dip_came_pct") is not None:
-        lines.append(f"{DIP_PCT:.0f}% drop (to {_m(p.price * (1 - DIP_PCT / 100))}): {_pct(cv['dip_came_pct'])} chance")
-        cost = cv["wait_cost_pct"]
-        better = ("buying now was" if cost > 0 else "waiting was")
-        lines.append(f"Buy now or wait for that drop? On average, {better} {_pct(cost, 1)} better.")
+def _buy_or_wait(p):
+    cv = p.convert or {}
+    if cv.get("dip_came_pct") is None or cv.get("wait_cost_pct") is None:
+        return None
+    cost, years, costlier = cv["wait_cost_pct"], cv.get("years"), cv.get("years_costlier")
+    lines = ["<b>BUY NOW OR WAIT</b>",
+             f"Waiting for a {DIP_PCT:.0f}% dip: on days like today it came {cv['dip_came_pct']:.0f} in 100;"]
+    if cost > 0:
+        tail = f"; waiting cost more in {costlier} of {years} years" if years else ""
+        lines.append(f"buying now was {_pct(cost, 1)} better on average{tail}")
+    else:
+        tail = f"; waiting cost less in {years - costlier} of {years} years" if years else ""
+        lines.append(f"waiting was {_pct(cost, 1)} better on average{tail}")
     return "\n".join(lines)
+
+
+def _levels(p):
+    lv = p.levels or {}
+    res, sup = (lv.get("resistances") or [None])[0], (lv.get("supports") or [None])[0]
+    if not res and not sup:
+        return None
+    lines = ["<b>LEVELS</b> (how lines this far away did)"]
+    if res and res.get("held_10d_pct") is not None:
+        lines.append(f"Resistance {_m(res['price'])} ({_signed(res['pct'], 1)}): broken within 10 days "
+                     f"{100 - res['held_10d_pct']:.0f} in 100")
+    if sup and sup.get("held_10d_pct") is not None:
+        lines.append(f"Support {_m(sup['price'])} ({_signed(sup['pct'], 1)}): held 10 days "
+                     f"{sup['held_10d_pct']:.0f} in 100")
+    return "\n".join(lines) if len(lines) > 1 else None
 
 
 def _watch(p):
-    r, s, pos = p.rally, p.stance, p.position
-    risk = pos.get("risk") or {}
-    usual = risk.get("base_drop_pct")
-    label = s["label"]
-    analyst = lambda t: f" Analyst → {t['to']}" if t["to"] != label else ""
+    pos = p.position
+    s50, usd = pos["average"].get("SMA50"), pos.get("usd") or {}
+    gold_gap = (s50 / p.price - 1) * 100 if s50 else None                       # negative: the line is below
+    usd_gap = (usd["sma50"] / usd["close"] - 1) * 100 if usd.get("sma50") else None
+    both_above = gold_gap is not None and gold_gap < 0 and (usd_gap is None or usd_gap < 0)
+    lines = ["<b>WATCH</b>" + (" (where the uptrend would end)" if both_above else "")]
+    if gold_gap is not None:
+        lines.append(f"18K: a close under {_m(s50)}, its 50-day average ({_pct(gold_gap)} below today)" if gold_gap < 0
+                     else f"18K: under its 50-day average, {_m(s50)} ({_pct(gold_gap)} above today)")
+    if usd_gap is not None:
+        lines.append(f"Dollar: a close under {usd['sma50'] / 10:,.0f} toman, its 50-day average "
+                     f"({_pct(usd_gap)} below today)" if usd_gap < 0
+                     else f"Dollar: under its 50-day average, {usd['sma50'] / 10:,.0f} toman")
+    # by separate breaks, 2014-2026: 18K's next 20 trading days trailed all days by 1.2-5.9 points;
+    # it usually did not fall (SP_D_HANDOFF.md section 35.11)
+    lines.append("After past breaks, 18K's next month was weaker than usual, by 1 to 6 points.")
+    gaps = [g for g in (gold_gap, usd_gap) if g is not None]
+    if any(g >= 0 for g in gaps):
+        lines.append("Today: a line is broken.")
+    elif any(-g <= NEAR_PCT for g in gaps):
+        lines.append("Today: close to a line, within 3%.")
+    elif gaps:
+        lines.append("Today: both far away, no warning." if len(gaps) == 2 else "Today: far away, no warning.")
+    return "\n".join(lines)
 
-    def followed(key):
-        x = risk.get(key) or {}
-        return f" chance of a {DROP_PCT:.0f}% drop {_pct(x['drop_pct'])}" if x.get("drop_pct") is not None else ""
 
-    lines = ["<b>WATCH</b>" + (f" (chance of a {DROP_PCT:.0f}% drop within a month: usually {_pct(usual)})"
-                               if usual else "")]
-    down = []
-    for t in s["triggers"]:
-        if t["key"] == "rally_end":
-            past = r["past"]
-            down.append((t["price"], f"Below {_m(t['price'])} (−8%): rally over; past corrections "
-                                     f"−{_pct(past['correction_median_depth'])} median.{analyst(t)}"))
-        elif t["key"] == "below_sma50":
-            down.append((t["price"], f"Below {_m(t['price'])} (50-day avg): uptrend broken;"
-                                     f"{followed('below_sma50')}.{analyst(t)}"))
-    lines.extend(text for _, text in sorted(down, key=lambda x: -x[0]))
-    ema = pos.get("ema") or {}
-    if ema.get("above"):
-        lines.append(f"20-day EMA under the 50-day:{followed('ema_death')}.")
-    for t in s["triggers"]:
-        if t["key"] == "usd_below_sma50":
-            lines.append(f"Dollar below {t['price'] / 10:,.0f} (its 50-day avg):{followed('usd_below_sma50')}."
-                         f"{analyst(t)}")
-        elif t["key"] == "usd_above_sma50":
-            lines.append(f"Dollar above {t['price'] / 10:,.0f} (its 50-day avg):{analyst(t)}")
-    as_of = date.fromisoformat(r["as_of"])
-    since = r["days_since_high"]
-    late = next((b for b in r.get("ladder", []) if b["band"][0] == 20), None)
-    for t in s["triggers"]:
-        if t["key"] == "no_high_days" and since <= 4:
-            lines.append(f"No new record by ~{trading_date(as_of, t['days']):%m-%d}:{analyst(t)}")
-    if late and since < 20:
-        lines.append(f"No new record by ~{trading_date(as_of, 20 - since):%m-%d}: the rally then ended "
-                     f"{_pct(late['ended'])} of the time.")
-    elif late:
-        lines.append(f"{since} trading days without a record: the rally then ended {_pct(late['ended'])} "
-                     f"of the time.")
+def _demand(p):
+    dm = p.demand or {}
+    if not dm.get("as_of") or not all(dm.get(k, {}).get("state") for k in ("money", "people", "size")):
+        return None
+    computed = _local(p.computed_at)
+    if computed and (computed.date() - date.fromisoformat(dm["as_of"])).days > DEMAND_MAX_AGE_DAYS:
+        return None
+    lines = [f"<b>GOLD DEMAND</b> (gold funds, 7 days to {_day(dm['as_of'])})"]
+    net = dm["net_rial"] / 1e10                                                   # billion toman
+    money = dm["money"]["state"]
+    if money == "HIGH":
+        lines.append(f"Money: heavy buying, a net {net:,.0f}B toman in; more than in 9 of 10 weeks of the past year.")
+    elif money == "LOW":
+        lines.append(f"Money: heavy selling, a net {abs(net):,.0f}B toman out; more than in 9 of 10 weeks of the past year.")
+    else:
+        lines.append(f"Money: individuals {'put in' if net >= 0 else 'took out'} a net {abs(net):,.0f}B toman; "
+                     f"normal for the past year.")
+    people, n, ratio = dm["people"]["state"], dm["buyers_per_day"], dm["people"]["value"]
+    if people == "HIGH":
+        lines.append(f"People: a rush, {n:,.0f} a day bought, {ratio:.1f} times the usual number.")
+    elif people == "LOW":
+        lines.append(f"People: few buyers, {n:,.0f} a day, {ratio:.1f} times the usual number.")
+    else:
+        lines.append(f"People: {n:,.0f} a day bought, {ratio:.1f} times the usual number; normal.")
+    size = dm["size"]["state"]
+    if size == "LOW":
+        lines.append("Sellers in control: each seller sold far more than each buyer bought; unusual.")
+    elif size == "HIGH":
+        lines.append("Big buyers: each buyer bought far more than each seller sold; unusual.")
+    elif dm["size"]["value"] < 1:
+        lines.append("Each seller sold more than each buyer bought; normal.")
+    else:
+        lines.append("Each buyer bought more than each seller sold; normal.")
     return "\n".join(lines)
 
 
 def _footer(p):
     local = _local(p.computed_at)
-    rec = p.record or {}
-    n = max([v.get("n", 0) for v in rec.values() if isinstance(v, dict)] or [0])
     source = "live prices" if p.price_source == "live" else "tgju's close"
-    lines = [f"<i>Computed {local:%H:%M} from {source} · history since 2014 · not a price forecast · "
-             f"track record {min(n, GATE_MIN_RESOLVED)} of {GATE_MIN_RESOLVED} days checked</i>"]
-    lines.extend(f"⚠ {alarm}" for alarm in rec.get("alarms", []))
-    lines.append(f"<b>{format_timestamp()}</b>")
-    return "\n".join(lines)
+    funds = " · gold funds since 2017" if _demand(p) else ""
+    return f"<i>Computed {local:%H:%M} from {source} · tgju since 2014{funds}</i>"
 
 
 def build_direction_message(panel):
@@ -189,16 +206,16 @@ def build_direction_message(panel):
     title = "<b>GOLDPremium: DIRECTION</b>"
     if panel is None:
         return "\n\n".join([title, "No panel computed yet: the first scheduled run from 06:00 or "
-                                   "13:00 computes it.", f"<b>{format_timestamp()}</b>"])
+                                   "13:00 computes it."])
     if panel.status != "OK":
-        return "\n\n".join([title, "Not enough history yet.", f"<b>{format_timestamp()}</b>"])
+        return "\n\n".join([title, "Not enough history yet."])
     local = _local(panel.computed_at)
-    when = f"{local:%H:%M}" if local.date() == local_now().date() else f"{local:%m-%d %H:%M} ⚠ not today"
-    record = " · record high" if panel.rally["days_since_high"] == 0 else ""
-    tags = " ".join(f"[{t}]" for t in panel.position.get("tags", []) if t != "RECORD")
-    head = "\n".join(x for x in (title, f"18K <b>{_m(panel.price)}</b> · {when}{record}", tags) if x)
-    return "\n\n".join([head, _view(panel), _trend(panel), _averages(panel), _next_month(panel),
-                        _watch(panel), _footer(panel)])
+    when = f"{persian_day(local.date())}, {local:%H:%M}"
+    if local.date() != local_now().date():
+        when += " ⚠ not today"
+    head = "\n".join([f"{title} · {when}", _head(panel)])
+    sections = [head, _trend(panel), _buy_or_wait(panel), _levels(panel), _watch(panel), _demand(panel), _footer(panel)]
+    return "\n\n".join(s for s in sections if s)
 
 
 def send_direction(panel):

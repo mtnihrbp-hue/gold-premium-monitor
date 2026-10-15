@@ -292,14 +292,14 @@ class KPIDirection(unittest.TestCase):
         alarms = ledger.apply_gate(p, ledger.assess(demoted))
         self.assertTrue(alarms)
         text = re.sub(r"<[^>]+>", "", build_direction_message(p))
-        self.assertNotIn("93 in 100", text)
-        self.assertIn("base rate", text)
-        self.assertIn("⚠", text)
+        self.assertNotIn("93", text)
+        # v7 (2026-10-15) shows no new-high chance at all; the gate still demotes it in the stored panel
+        self.assertEqual(p.record["new_high"]["state"], "DEMOTED")
 
     # -- the message and the wiring ------------------------------------------------------
 
     def test_23_the_message_keeps_the_vocabulary_and_fits_telegram(self):
-        from alerts.telegram_direction import build_direction_message, VALUATION_WORDS
+        from alerts.telegram_direction import build_direction_message
         p = _panel(live=None)
         p.convert.update({"cheapest": "Milli", "cheapest_price": 100.0, "most_expensive_price": 101.0,
                           "spread_pct": 1.0})
@@ -308,9 +308,7 @@ class KPIDirection(unittest.TestCase):
         for word in BANNED:
             self.assertNotIn(word, text.lower())
         self.assertLess(len(text), 1500, "read on a phone: a short message (owner, 2026-10-03)")
-        self.assertIn("System", text)
-        self.assertIn("Analyst", text)
-        self.assertIn("heavily discounted", VALUATION_WORDS["CHEAP"])
+        self.assertNotIn("Analyst", text, "the analyst's label read the same on every panel (2026-10-15)")
         self.assertNotIn("CHEAP", text, "the internal valuation state is never shown raw")
 
     def test_23b_the_message_is_telegram_safe_html(self):
@@ -476,6 +474,105 @@ class KPIDirection(unittest.TestCase):
                                  ("price_dollar_rl", 2000, "asc")])
         self.assertEqual(len(got), 2300)
         self.assertEqual((got[0].trade_date, got[-1].trade_date), (date(2020, 1, 1), date(2020, 1, 1) + timedelta(days=2299)))
+
+    # -- v7, the revamp of 2026-10-15 (SP_D_HANDOFF.md sections 35.8-35.11) ------------------
+
+    def test_29_v7_has_the_agreed_sections_and_none_of_the_dropped_lines(self):
+        from alerts.telegram_direction import build_direction_message
+        text = re.sub(r"</?[bi]>", "", build_direction_message(_panel()))
+        order = [text.index(s) for s in ("TREND", "BUY NOW OR WAIT", "LEVELS", "WATCH")]
+        self.assertEqual(order, sorted(order), "the agreed order")
+        for gone in ("Analyst", "System:", "NEXT MONTH", "higher a month later", "chance", "New record high",
+                     "Range", "track record", "No new record by"):
+            self.assertNotIn(gone, text, "dropped in the revamp (owner, 2026-10-15)")
+        self.assertIn("(was ", text, "the EMA distances against the close before")
+        self.assertIn("After past breaks, 18K's next month was weaker than usual, by 1 to 6 points.", text,
+                      "the measured effect of a break, counted by separate breaks (section 35.11)")
+        self.assertNotIn("DOLLAR FROM NEWS", text, "left out until its measurement holds")
+
+    def test_30_a_line_is_worth_what_lines_that_far_away_did(self):
+        self.assertEqual(d.line_held_pct("support", -2.0), 73.0)
+        self.assertEqual(d.line_held_pct("resistance", 2.5), 54.0)
+        self.assertEqual(d.line_held_pct("support", 20.0), 97.0)
+        self.assertEqual(d.line_held_pct("resistance", 0.5), 39.0)
+        p = _panel()
+        for kind, key in (("support", "supports"), ("resistance", "resistances")):
+            for lv in p.levels[key]:
+                self.assertAlmostEqual(lv["held_10d_pct"], d.line_held_pct(kind, lv["pct"]))
+
+    def test_31_watch_says_whether_the_line_is_near(self):
+        from alerts.telegram_direction import _watch
+        p = _panel()
+        p.position["usd"] = {"close": 100.0, "sma50": 80.0}
+        p.position["average"]["SMA50"] = p.price * 0.90
+        self.assertIn("Today: both far away, no warning.", _watch(p))
+        p.position["average"]["SMA50"] = p.price * 0.98
+        self.assertIn("Today: close to a line, within 3%.", _watch(p))
+        p.position["average"]["SMA50"] = p.price * 1.02
+        self.assertIn("Today: a line is broken.", _watch(p))
+
+    def _demand_days(self, n=600, spike=None):
+        rng = np.random.default_rng(0)
+        days = [date(2024, 1, 1) + timedelta(days=k) for k in range(n)]
+        sums = []
+        for k in range(n):
+            bv, bc = 1e12 * (1 + 0.1 * rng.standard_normal()), 50_000 * (1 + 0.1 * rng.standard_normal())
+            sv, sc = 1e12 * (1 + 0.1 * rng.standard_normal()), 30_000 * (1 + 0.1 * rng.standard_normal())
+            if spike and k >= n - 7:
+                bv, bc = bv * spike, bc * spike
+            sums.append((bv, bc, sv, sc))
+        return days, sums
+
+    def test_32_gold_demand_flags_the_unusual_and_says_normal_otherwise(self):
+        from analysis import gold_demand as g
+        days, sums = self._demand_days()
+        calm = g.assess(days, sums)
+        self.assertEqual(calm["window"], 7, "the system's 7-day convention (owner, 2026-10-15)")
+        self.assertEqual(calm["as_of"], str(days[-1]))
+        days, sums = self._demand_days(spike=3.0)
+        rush = g.assess(days, sums)
+        self.assertEqual((rush["money"]["state"], rush["people"]["state"]), ("HIGH", "HIGH"))
+        self.assertEqual(g.assess(days[:200], sums[:200]), {}, "too little history: no reading")
+
+    def test_33_the_demand_section_is_plain_and_left_out_when_stale(self):
+        from alerts.telegram_direction import _demand, build_direction_message
+        from analysis import gold_demand as g
+        days, sums = self._demand_days(spike=3.0)
+        p = _panel()
+        p.demand = g.assess(days, sums)
+        p.computed_at = f"{days[-1] + timedelta(days=1)}T05:00:00"
+        section = re.sub(r"</?[bi]>", "", _demand(p))
+        self.assertIn("Money: heavy buying, a net", section)
+        self.assertIn("People: a rush,", section)
+        self.assertLess(len(re.sub(r"</?[bi]>", "", build_direction_message(p))), 1500)
+        p.computed_at = f"{days[-1] + timedelta(days=10)}T05:00:00"
+        self.assertIsNone(_demand(p), "a week-old reading is left out, not shown as today's")
+
+    def test_34_production_reads_the_seed_then_the_phones_days(self):
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from database.connection import Base
+        from database.models import IranNodeReading
+        import json as _json
+        import main
+        engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(bind=engine)
+        session = sessionmaker(bind=engine, expire_on_commit=False)()
+        seed = _json.load(open(os.path.join(main.SEED_DIR, "gold_fund_daily.json"), encoding="utf-8"))
+        self.assertNotIn("51200575796028449", seed["funds"], "saffron is not a gold fund (section 35.7)")
+        end = max(date.fromisoformat(k) for k in seed["days"])
+        for k in (1, 2):
+            day = end + timedelta(days=k)
+            for code in seed["funds"]:
+                session.add(IranNodeReading(node="s10", source="tsetmc", instrument=f"CLIENTTYPE_{code}",
+                                            observed_at=datetime.combine(day, datetime.min.time()), status="OK",
+                                            detail=day.strftime("%Y%m%d"),
+                                            payload={"insCode": code, "buy_I_Value": 5e10, "buy_I_Count": 4000,
+                                                     "sell_I_Value": 4e10, "sell_I_Count": 2500}))
+        session.commit()
+        out = main._gold_demand(session)
+        self.assertEqual(out["as_of"], str(end + timedelta(days=2)), "the phone's days follow the seed")
+        self.assertEqual(out["window"], 7)
 
     def test_26_the_workflow_and_the_worker_declare_the_direction_wing(self):
         root = os.path.join(os.path.dirname(__file__), "..")

@@ -19,7 +19,8 @@ SP-Dd  money flow, the phone's reads, the trend    sections 32-34   branch sp-d-
 SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de; 35.1-35.2 merged 2026-10-15 (v1.10safe);
        push, Direction's EMA lines, Tether as a                     35.4 (the spool) merged 2026-10-15 (v1.11safe);
                                                                    35.5-35.6 merged 2026-10-15 (v1.12safe);
-                                                                   35.8 merged 2026-10-15 (v1.13safe)
+                                                                   35.8 merged 2026-10-15 (v1.13safe);
+                                                                   35.11 Direction v7 merged 2026-10-15 (v1.14safe)
        member, the LLM member
 ```
 
@@ -3194,3 +3195,51 @@ ubuntu-24.04.
     and sent as `iran_node_readings` rows, as TSETMC is.
   - While Neon is down they wait in the phone's spool. A route that does not depend on Neon (the
     Cloudflare worker as a relay) is for the audit.
+
+**35.11 Direction v7, wired** (10-15 night; the owner: "good, go ahead", after the corrected WATCH line).
+
+- **Gold demand, the owner's caveat "does it spot the anomalies?": not as first drafted.**
+  - The people and size readings missed the largest anomaly on record. In May 2026 individuals put a
+    net 39,268 B toman into the gold funds in the middle of the fall, and the two readings said
+    "normal" or "sellers in control".
+  - Nominal net money cannot be ranked either: it grows with inflation and the funds, and since 2024,
+    399 of 638 days ranked in its "top 10%".
+  - The fix adds a third reading, **money**: net money in as a share of the buying and selling. All
+    three are ranked against the trailing 250 trading days, with the top and bottom 10% unusual.
+  - Since 2024 each reading flags 6-12% of days at each end, so none is degenerate. Money catches May
+    2026 (6 days heavy buying) and December 2025 (9 days heavy selling).
+  - At 10-03, the last day with full data: money rank 77 (normal), people 91 (a rush, 1.67 times the
+    usual buyers), size 32 (normal).
+  - The section describes and forecasts nothing.
+- **WATCH, corrected.** The anchors (-2.9%, -3.2%) were measured against a normal month, not as falls.
+  Counted by separate breaks (the first close under the 50-day after five closes above), 18K's next
+  20 trading days against all days were:
+
+  | Break | Breaks | Next 20 days | All days | Lower after |
+  |---|---|---|---|---|
+  | 18K under its 50-day, 2014-2023 | 28 | +0.1% | +1.8% | 50% |
+  | 18K under its 50-day, 2024-2026 | 5 | +1.0% | +6.9% | 20% |
+  | dollar under its 50-day, 2014-2023 | 35 | +0.6% | +1.8% | 46% |
+  | dollar under its 50-day, 2024-2026 | 8 | +4.4% | +6.9% | 12% |
+
+  The line reads: "After past breaks, 18K's next month was weaker than usual, by 1 to 6 points." The
+  approved "18K fell about 3% more" was wrong.
+- **The wiring.**
+  - `analysis/gold_demand.py`: the calculator.
+  - `src/seed/gold_fund_daily.json`: the 18 funds' daily individual totals, 1,711 days to 10-03, by
+    `research/build_demand_seed.py`, saffron excluded.
+  - `main._gold_demand`: the seed, then the phone's TSETMC days (14 of 18 funds a day). It is stored
+    with the 06:00 and 13:00 panels as `panel.demand`.
+  - `analysis/direction.py`:
+    - `dist_prev`, the EMA distances at the close before;
+    - `position.usd`, the dollar's close and 50-day;
+    - each level's `held_10d_pct`, from `LINE_HELD_PCT` (section 15's table).
+  - `alerts/telegram_direction.py`: rewritten to the layout of section 35.9 with the corrections
+    above. DOLLAR FROM NEWS is left out until its measurement holds, and GOLD DEMAND is left out when
+    its last day is more than 7 days old, so it shows from November 1.
+  - One wording change from the draft: "cheaper in 12 of 13 years" became "waiting cost more in 12 of
+    13 years", because the house vocabulary bans "cheap".
+- **On live data with Neon refusing:** 913 characters without demand, and about 1,150 with it.
+- **KPIs:** `kpi_direction` 43/43; tests 22 and 23 were updated for the dropped lines, and tests 29-34
+  are new: the layout, the line rates, WATCH's state, demand's flags, staleness and the loader. Suite
+  30/30.
