@@ -26,8 +26,9 @@
     ]
   },
   "email": {
-    "send_daily_recap": true,
-    "send_alerts": true
+    "send_daily_recap": false,
+    "send_alerts": true,
+    "daily_recap_parked_2026_10_15": "Owner, 2026-10-15: the daily recap (Telegram and email) is out of the cycle, neither rewritten nor deleted, to be reviewed later. send_telegram_recap and send_email_recap are unchanged; true here brings it back. SP_D_HANDOFF.md section 35.6."
   },
   "historical_intelligence": {
     "premium_tolerance": 1.0,

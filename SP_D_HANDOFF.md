@@ -17,7 +17,8 @@ SP-Dc  the Iran-side node, the sanity ranges       sections 30-31   merged 2026-
 SP-Dd  money flow, the phone's reads, the trend    sections 32-34   branch sp-d-trend-rd, merged 2026-10-15 (v1.9safe)
        R&D, Neon's transfer cuts
 SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de; 35.1-35.2 merged 2026-10-15 (v1.10safe);
-       push, Direction's EMA lines, Tether as a                     35.4 (the spool) merged 2026-10-15 (v1.11safe)
+       push, Direction's EMA lines, Tether as a                     35.4 (the spool) merged 2026-10-15 (v1.11safe);
+                                                                   35.5-35.6 merged 2026-10-15 (v1.12safe)
        member, the LLM member
 ```
 
@@ -2948,3 +2949,24 @@ A runner change under pinned packages broke production once already (section 28,
 all computed from the stored readings, and nothing keeps a copy outside Neon. A kept level exists
 only if a run with Neon up has saved one, and none has since 10-13, so it would do nothing for this
 outage. It is deferred to after 11-01, as a copy refreshed every run for the next outage.
+
+**35.6 The owner's decisions on the news wing, the recap parked** (10-15).
+
+- **Sources approved.** The six channels; radpoool stays out ("if there is no way through, ok keep it
+  out"). The owner on the channels' bias toward the stock market: they are "the valuable source for
+  gold etfs in tsetmc as well". So the reading also judges each post's relevance to the gold funds
+  (the ETFs the money-flow member reads, section 33), not only to the dollar and gold.
+- **Reading approved** as proposed (35.5).
+- **What GitHub cannot reach goes to the phone**, as TSETMC did: cbi.ir, Tasnim, Donya-e-Eqtesad
+  (den.ir) "or any other thing that cant be reached through github". The owner: "the termux is the way
+  to circumvent the iran geo blocking."
+- **The daily recap is parked.** The owner: "the recap being sent daily is crap, just disable it for
+  now. dont rewrite or delete, just put it out of cycle." `config.json` `email.send_daily_recap` is
+  false, which stops both the Telegram and the email recap at the first scheduled run of the day. The
+  code is unchanged; true brings it back.
+- **Merging.** The owner: "i dont know why you keep asking for push sp-de to SP-D and main, do it.
+  authorized." Approved work is merged with the safe tag first, then reported, without a second ask.
+  This batch (the runner pin, the channel reader, the recap parked) went out after `v1.12safe`.
+- **Next, owner's order:** tablokhani checked for more value; Direction's revamp (not yet done: its
+  preview comes first, as agreed); the codebase audit and clean-up later ("everything now is so
+  messy").
