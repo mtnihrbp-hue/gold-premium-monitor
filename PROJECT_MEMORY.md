@@ -2333,14 +2333,15 @@ Full record in `SP_D_HANDOFF.md` (SP-D, sections 1-35) and `SP_C_HANDOFF.md` (SP
 the pre-SP-D hotfixes, closed). The machine-readable mirror is `.project_state.json`.
 
 ```text
-branch        main is production. main and SP-D at SP-De's first batch since 2026-10-15 (the quant
-              fit, the 21:00 chart without the database; SP-D 35.1-35.2). Safe tags before each merge: v1.3safe
+branch        main is production. main and SP-D at SP-De's second batch since 2026-10-15 (the quant
+              fit, the 21:00 chart without the database, the spool; SP-D 35.1-35.4). Safe tags before each merge: v1.3safe
               (SP-C), v1.4safe (Direction), v1.5safe (its section 8 fix), v1.6safe
               (PAPER), v1.7safe = 2957699 (the go-live hotfix), v1.8safe (the node), v1.9safe (SP-Dd),
-              v1.10safe (SP-De). SP-D work lands on sub-sprint branches (sp-de) and reaches
+              v1.10safe and v1.11safe (SP-De). SP-D work lands on sub-sprint branches (sp-de) and reaches
               main only after the owner's review, safe tag first
 database      Neon suspended from 2026-10-13 21:00 Tehran to 2026-11-01 (the free plan's 5 GB transfer,
-              SP-D 34): runs stay green and store nothing; 21:00 sends the chart from tgju (35.2)
+              SP-D 34): runs stay green; what they cannot write waits in the spool (35.4); 21:00 sends
+              the chart from tgju (35.2)
 SP-D          Direction live since 2026-10-03 (sections 1-8): 06:00 and 13:00
               panels, /Direction; first forecasts resolve in early November.
               PAPER live since 2026-10-05 18:01 (sections 9-28): six accounts, the

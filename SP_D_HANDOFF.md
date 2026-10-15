@@ -17,7 +17,7 @@ SP-Dc  the Iran-side node, the sanity ranges       sections 30-31   merged 2026-
 SP-Dd  money flow, the phone's reads, the trend    sections 32-34   branch sp-d-trend-rd, merged 2026-10-15 (v1.9safe)
        R&D, Neon's transfer cuts
 SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de; 35.1-35.2 merged 2026-10-15 (v1.10safe);
-       push, Direction's EMA lines, Tether as a                     35.4 (the spool) on the branch
+       push, Direction's EMA lines, Tether as a                     35.4 (the spool) merged 2026-10-15 (v1.11safe)
        member, the LLM member
 ```
 
@@ -2862,3 +2862,5 @@ first, then the kept push level). This is 35.3's first route.
   - `test_39`: a rejected write is dropped; an unreachable database keeps the rest; the time bound;
   - `test_40`: the wiring (scheduled runs only, before the run's time and the stale-quote check; the
     workflow's cache and variable).
+- **Merged** on 10-15 with the owner's approval ("approved: push sp-de to SP-D and main"): `main` tagged
+  `v1.11safe` first, then fast-forwarded with 35.4.
