@@ -2970,3 +2970,41 @@ outage. It is deferred to after 11-01, as a copy refreshed every run for the nex
 - **Next, owner's order:** tablokhani checked for more value; Direction's revamp (not yet done: its
   preview comes first, as agreed); the codebase audit and clean-up later ("everything now is so
   messy").
+
+**35.7 tablokhani, checked for more** (the owner, 10-15: "there is the tablokhani thing as well, you
+can check if there is anything valuable").
+
+The site's front end (152 code chunks) calls many endpoints. Most need an account: "توکن نامعتبر یا
+منقضی شده است", an invalid or expired token. Those include the trade history, the market signals and
+the big movers; the subscription is paid, so they are not pursued (zero spending). Without an account
+they answer:
+
+| Endpoint | What it gives | Used now |
+|---|---|---|
+| `public/market-indices` | TEDPIX and the market's state | yes, the room's stock-index member |
+| `public/smart-money-averages` | per symbol: the 10-day average per-capita buy and sell, buyer and seller counts, RSI14, MA20, the closes 1 and 29 days ago | Afran's close only; the gold funds' figures are fetched every run and dropped |
+| `public/fund-categories`, `public/fund-categories/gold-symbols` | 350 funds with their category; 35 gold funds | no |
+| `hot-money/{symbol}/daily` | a fund's daily money in, 14 days back (09-27 to 10-14), reachable by GitHub | no |
+| `public/hot-money-outcome`, `public/volume-averages` | today's money out, and average volume, per symbol | no |
+
+What follows from it:
+
+1. **A defect in the money-flow member.** Its 19 "gold funds" include **سافرون (insCode
+   51200575796028449), a saffron fund**: tablokhani does not list it as gold, and the research marked it
+   `NOT_GOLD` in four scripts (`rd_analyst_model`, `rd_downtrend_2026`, `rd_volume_profile`,
+   `chart_preview`). But `build_flow_seed.py`, the seed, the phone's list and `main._room_flow` all
+   count it. Today it is 0.43% of the 19's trading value (69 of 15,919 B toman a day; 14-day volume
+   times the last close), so the error is small now. It may not have been small in the early years,
+   when there were fewer gold funds. Fixing it means rerunning section 33's evidence without it. That
+   is for the audit.
+2. **The member reads 80% of the gold funds' trading value.** Ten funds are missing, among them گنج
+   (714 B toman a day), رز ترنج (657), ریتون (485), جام طلا (452), گلدا (413) and آتش (344): funds
+   launched or grown after the research's list was drawn. Whether 35 funds read differently from 18 is
+   an R&D question for the audit; the largest four (عیار, طلا, مثقال, کهربا) are in both.
+3. **A second route for the money flow, from GitHub.** Two sources could keep the member's daily
+   input alive when the phone is down, and both are reachable by the runner:
+   - `hot-money/{fund}/daily`, once its definition is checked against TSETMC's client types (the
+     phone's rows, readable after 11-01);
+   - the gold funds' smart-money averages, which are already fetched every run.
+
+   Not built.
