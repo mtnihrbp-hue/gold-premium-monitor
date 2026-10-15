@@ -2864,3 +2864,87 @@ first, then the kept push level). This is 35.3's first route.
     workflow's cache and variable).
 - **Merged** on 10-15 with the owner's approval ("approved: push sp-de to SP-D and main"): `main` tagged
   `v1.11safe` first, then fast-forwarded with 35.4.
+
+**35.5 The news wing: the owner's channels read from GitHub's side, and the runner pinned** (10-15).
+
+**The owner's channels:**
+- betasahm1
+- trade_fundd
+- bourse24ir
+- fundbase_ir
+- bidarbourse
+- radpoool
+- khabarfouri
+
+The owner: "you can add to this list as you wish, but i propose not to over pollute it". The routing,
+agreed:
+- Telegram channels are read by GitHub's runner;
+- geoblocked Iranian sites (Tasnim, cbi.ir; both removed from the RSS list on 09-21 for refusing the
+  runner) are read by the phone.
+
+The reader is `collector/news/telegram_channels.py`. It reads the channel's public web preview,
+`t.me/s/<channel>`, paging back with `?before=<id>`; not wired yet.
+
+**Probe from the runner** (`research/probe_telegram.py`, temporary branch `probe-telegram`, deleted).
+Results were read as check-run notices through `api.github.com`, because the log host timed out from
+the workstation. Posts from 10-08 00:00 UTC to 10-15 15:00 UTC:
+
+| Channel | Posts | A day | Read in |
+|---|---|---|---|
+| khabarfouri | 1,105 | 160 | 30 s |
+| bourse24ir | 841 | 112 | 21 s |
+| betasahm1 | 440 | 59 | 10 s |
+| bidarbourse | 178 | 24 | 8 s |
+| trade_fundd | 159 | 22 | 5 s |
+| fundbase_ir | 89 | 12 | 3 s |
+| radpoool | 1,200 in 6.6 hours | about 4,400 | 32 s, cut at 60 pages |
+
+- **All seven answer the runner.**
+- **radpoool is a price ticker, not news.** 1,197 of its 1,200 posts carry a rate. It is left out
+  of the news; as a free-market rate source it may have another use, unexamined.
+- **Without it, about 400 posts a day.** That averages 17 an hour and more in trading hours.
+- **Keywords cannot classify them.** "ارز" (currency) is also the start of "ارزش" (value), so the
+  stock channels' "ارزش معاملات" (trading value) counted as dollar news. The keyword classifier has
+  read `KEYWORD` on every stored event since SP-C (§27.5's register entry), and this is its failure
+  in the new sources too.
+- **The real movers are there.** The samples include the exchange centre's new rates
+  (khabarfouri, 10-11 10:03 Tehran), the remittance dollar (betasahm1, bidarbourse), Hormuz
+  tanker costs and the war's toll on households.
+
+Whether the channels carried the news behind 10-09 to 10-13's -4.4% is to be read against the
+dollar's hourly record once the wing runs. The record of those days is in Neon, out of reach until
+11-01.
+
+**The design proposed to the owner (not locked):**
+1. **Sources.**
+   - Telegram: six channels, read each scheduled run from the last post seen; the seen ids kept in
+     `state.json`, so no database is needed.
+   - RSS: keep Google News "iran rial" and "middle east strike", donya-e-eqtesad and tejaratnews;
+     drop goldbroker (a median of 26 days old) and kingworldnews (off-topic).
+   - The phone: Tasnim, from 11-01, as `iran_node_readings` rows (no migration).
+2. **Reading.** One Groq request a run (`openai/gpt-oss-120b`, the free tier; section 16 reached it
+   from the runner) reads each new post and returns, in a strict format:
+   - relevance to the dollar and gold;
+   - the dollar's likely direction;
+   - event type;
+   - impact;
+   - a one-line English gist.
+
+   It never produces a price. The keyword path stays as a labelled fallback.
+3. **Out.**
+   - a push for high-impact posts, rate-limited (preview to be locked);
+   - the news block of the revamped Direction;
+   - stored with `classification_method = LLM`. This retires the keyword constant and fixes
+     `high_impact_count`, so §33.3 and the register entry close.
+4. **A forward record.** Each label is scored against the dollar's next 6 and 24 hours. That record
+   is the LLM member's evidence (sections 17-18).
+
+**The runner pinned.** `ubuntu-latest` moves to Ubuntu 26 from 2026-10-19 (the probe run's notice).
+A runner change under pinned packages broke production once already (section 28, scipy).
+`gold-monitor.yml`, `kpi-suite.yml` and `test-task-c.yml` now run on `ubuntu-24.04`, which is what
+`ubuntu-latest` is today, so nothing changes until the move. It needs to reach `main` before 10-19.
+
+**The kept push level, reconsidered.** The push threshold, ANALYZE's deep zone and UPDATE's level are
+all computed from the stored readings, and nothing keeps a copy outside Neon. A kept level exists
+only if a run with Neon up has saved one, and none has since 10-13, so it would do nothing for this
+outage. It is deferred to after 11-01, as a copy refreshed every run for the next outage.
