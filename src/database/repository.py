@@ -417,25 +417,7 @@ def save_market_state(state: "SignalState", valuation_context: dict = None) -> i
         raise RuntimeError("Database not configured (DATABASE_URL missing)")
 
     try:
-        db_state = MarketState(
-            snapshot_id=state.snapshot_id,
-            valuation_state=state.valuation,
-            momentum_state=state.momentum,
-            premium_direction=state.premium_direction,
-            structure_state=state.structure,
-            platform_average=state.platform_average,
-            platform_high=state.platform_high,
-            platform_low=state.platform_low,
-            platform_spread=state.platform_spread,
-            platforms_below_fair=state.platforms_below_fair,
-            platforms_above_fair=state.platforms_above_fair,
-            conflict_state=state.conflict,
-            candidate_decision=state.candidate_decision,
-            final_decision=state.final_decision,
-            reason=state.reason,
-            timestamp=state.timestamp,
-            valuation_context_json=valuation_context,
-        )
+        db_state = MarketState(snapshot_id=state.snapshot_id, **market_state_fields(state, valuation_context))
         session.add(db_state)
         session.commit()
         session.refresh(db_state)
@@ -445,6 +427,29 @@ def save_market_state(state: "SignalState", valuation_context: dict = None) -> i
         raise
     finally:
         session.close()
+
+
+def market_state_fields(state, valuation_context=None):
+    """A SignalState as market_states' columns, without the snapshot it belongs to: what
+    save_market_state stores, and what the spool holds when the database is out of reach."""
+    return {
+        "valuation_state": state.valuation,
+        "momentum_state": state.momentum,
+        "premium_direction": state.premium_direction,
+        "structure_state": state.structure,
+        "platform_average": state.platform_average,
+        "platform_high": state.platform_high,
+        "platform_low": state.platform_low,
+        "platform_spread": state.platform_spread,
+        "platforms_below_fair": state.platforms_below_fair,
+        "platforms_above_fair": state.platforms_above_fair,
+        "conflict_state": state.conflict,
+        "candidate_decision": state.candidate_decision,
+        "final_decision": state.final_decision,
+        "reason": state.reason,
+        "timestamp": state.timestamp,
+        "valuation_context_json": valuation_context,
+    }
 
 
 def get_latest_market_state():
@@ -803,8 +808,15 @@ def save_price_observation(
         session.commit()
         return obs.id
     except Exception as e:
-        print(f"DB save failed (save_price_observation): {e}")
         session.rollback()
+        from persistence import spool
+        if spool.unreachable(e) and spool.hold("observation", {
+                "instrument": instrument, "source": source, "timestamp": timestamp, "price": price,
+                "freshness": freshness, "collection_run_id": collection_run_id, "quote_side": quote_side,
+                "collection_mode": collection_mode}):
+            print(f"DB unreachable: price observation held for later ({source} {instrument})")
+        else:
+            print(f"DB save failed (save_price_observation): {e}")
         return -1
     finally:
         session.close()
@@ -1505,6 +1517,55 @@ def save_daily_candles(session, source, instrument, unit, candles, collected_at)
         inserted += 1
     session.commit()
     return inserted, revised
+
+
+# -- THE SPOOL (SP-D, SP_D_HANDOFF.md section 35.4) ----------------------------------------------
+
+def spool_writers(session, entries):
+    """{kind: fn(session, payload)} writing held entries (persistence/spool.py) as the run that
+    collected them would have, with their original times. A reading or an observation already
+    stored is skipped, so a flush that ended before its file was rewritten does not store it
+    twice; a day's input keeps the first value seen (save_daily_candles)."""
+    from database.models import MarketDailyCandle, PriceObservation  # noqa: F401 -- the stores written
+
+    def span(kind):
+        times = [e["payload"]["snapshot"]["timestamp"] if kind == "reading" else e["payload"]["timestamp"]
+                 for e in entries if e["kind"] == kind]
+        return (min(times), max(times)) if times else None
+
+    readings, observations = span("reading"), span("observation")
+    stored_readings = set()
+    if readings:
+        stored_readings = {(r[0], r[1]) for r in session.query(MarketSnapshot.timestamp, MarketSnapshot.collection_mode)
+                           .filter(MarketSnapshot.timestamp >= readings[0], MarketSnapshot.timestamp <= readings[1])}
+    stored_observations = set()
+    if observations:
+        stored_observations = {tuple(r) for r in session.query(
+            PriceObservation.instrument, PriceObservation.source, PriceObservation.timestamp, PriceObservation.quote_side)
+            .filter(PriceObservation.timestamp >= observations[0], PriceObservation.timestamp <= observations[1])}
+
+    def reading(session, p):
+        s = p["snapshot"]
+        if (s["timestamp"], s["collection_mode"]) in stored_readings:
+            return
+        snapshot = MarketSnapshot(**s)
+        session.add(snapshot)
+        session.flush()
+        for pp in p.get("platform_prices") or []:
+            session.add(PlatformPrice(snapshot_id=snapshot.id, platform_name=pp["platform_name"],
+                                      price_irr=pp["price_irr"], change_irr=pp.get("change_irr"), timestamp=s["timestamp"]))
+        if p.get("state"):
+            session.add(MarketState(snapshot_id=snapshot.id, **p["state"]))
+
+    def observation(session, p):
+        if (p["instrument"], p["source"], p["timestamp"], p["quote_side"]) in stored_observations:
+            return
+        session.add(PriceObservation(**p))
+
+    def candles(session, p):
+        save_daily_candles(session, p["source"], p["instrument"], p["unit"], p["candles"], p["collected_at"])
+
+    return {"reading": reading, "observation": observation, "candles": candles}
 
 
 # -- DIRECTION (SP-D, SP_D_HANDOFF.md section 4) ------------------------------------------------

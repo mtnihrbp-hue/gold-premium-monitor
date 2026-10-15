@@ -271,13 +271,27 @@ def _collect_room_inputs(now=None):
             errors += e.pop("errors")
             readings.update(e)
         stored = []
-        for name, value in readings.items():
-            source, unit = ROOM_INPUTS[name]
-            inserted, _ = save_daily_candles(session, source, name, unit, [{
-                "trade_date": day, "jdate": f"{jy:04d}/{jm:02d}/{jd:02d}", "open": value, "high": value, "low": value,
-                "close": value, "quality": "LAST_KNOWN"}], now)
-            if inserted:
-                stored.append(f"{name} {value:,.0f}")
+        row = lambda value: {"trade_date": day, "jdate": f"{jy:04d}/{jm:02d}/{jd:02d}", "open": value, "high": value,
+                             "low": value, "close": value, "quality": "LAST_KNOWN"}
+        try:
+            for name, value in readings.items():
+                source, unit = ROOM_INPUTS[name]
+                inserted, _ = save_daily_candles(session, source, name, unit, [row(value)], now)
+                if inserted:
+                    stored.append(f"{name} {value:,.0f}")
+        except Exception as e:
+            from persistence import spool
+            if not (spool.unreachable(e) and readings):
+                raise
+            session.rollback()
+            # one a day, as stored: the first value seen is the day's
+            waiting = {(x["payload"]["instrument"], x["payload"]["candles"][0]["trade_date"])
+                       for x in spool.held() if x["kind"] == "candles"}
+            held = [name for name, value in readings.items() if (name, day) not in waiting and spool.hold("candles", {
+                "source": ROOM_INPUTS[name][0], "instrument": name, "unit": ROOM_INPUTS[name][1],
+                "candles": [row(value)], "collected_at": now})]
+            print(f"ROOM inputs held for the database: {', '.join(held) or 'already held today'}")
+            return
         print("ROOM inputs: " + (", ".join(stored) if stored else "nothing new today")
               + (f"; unavailable: {', '.join(errors)}" if errors else ""))
     except Exception as e:
@@ -285,6 +299,44 @@ def _collect_room_inputs(now=None):
         print(f"ROOM inputs failed: {e}")
     finally:
         session.close()
+
+
+def _flush_spool():
+    """Write back what was held while the database was out of reach (persistence/spool.py, SP-D
+    section 35.4). Scheduled runs only, before the run takes its time and before the stale-quote check
+    reads the platform history, so the check sees the held readings. Never raises."""
+    from persistence import spool
+
+    entries = spool.held()
+    if not entries:
+        return
+    session = get_session()
+    if session is None:
+        return
+    try:
+        from database.repository import spool_writers
+        written, dropped, left = spool.flush(session, spool_writers(session, entries), entries)
+        print(f"SPOOL: {written} held writes stored, {dropped} rejected, {left} still held")
+    except Exception as e:
+        session.rollback()
+        print(f"SPOOL: {len(entries)} held writes wait: {str(e).strip().splitlines()[0][:160]}")
+    finally:
+        session.close()
+
+
+def _hold_reading(now, fair, premium, world, usd, signal_state, platform_prices, collection_mode):
+    """Keep this run's reading -- its snapshot, platform prices and market state -- for when the
+    database is back (SP-D section 35.4). The relative-valuation context is not computed: it reads
+    the database, and the reading records what the run knew."""
+    from database.repository import market_state_fields
+    from persistence import spool
+
+    return spool.hold("reading", {
+        "snapshot": {"timestamp": now, "fair_price": fair, "premium_percent": premium, "world_gold_usd": world,
+                     "usd_irr": usd, "signal": signal_state.final_decision, "confidence": None,
+                     "collection_mode": collection_mode},
+        "platform_prices": platform_prices,
+        "state": market_state_fields(signal_state)})
 
 
 def _recent_platform_history(now):
@@ -1233,6 +1285,8 @@ def main():
         _send_analyze_report()
         return
     collection_run_id = _generate_collection_run_id()
+    if is_scheduled:
+        _flush_spool()          # before this run's time is taken: a write-back can last minutes
     now = datetime.utcnow()
     stale_threshold = config.get("freshness", {}).get("stale_threshold_minutes", 15)
 
@@ -1391,7 +1445,11 @@ def main():
         snapshot_id = save_market_snapshot(timestamp=now, fair_price=fair, premium_percent=premium, world_gold_usd=world, usd_irr=usd, signal=signal_state.final_decision, confidence=None, platform_prices=platform_prices, collection_mode=collection_mode)
         print("\nDB: Snapshot saved")
     except Exception as e:
-        print(f"\nDB ERROR (snapshot): {e}")
+        from persistence.spool import unreachable
+        if unreachable(e) and _hold_reading(now, fair, premium, world, usd, signal_state, platform_prices, collection_mode):
+            print(f"\nDB unreachable: the reading is held for later ({str(e).strip().splitlines()[0][:120]})")
+        else:
+            print(f"\nDB ERROR (snapshot): {e}")
 
     if snapshot_id is not None:
         try:

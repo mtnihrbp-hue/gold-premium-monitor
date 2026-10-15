@@ -848,6 +848,172 @@ class KPICoherence(unittest.TestCase):
                              "they are being closed")
 
 
+    # -- the spool (SP_D_HANDOFF.md section 35.4) ------------------------------------------
+
+    def _spool_file(self):
+        import tempfile
+        path = os.path.join(tempfile.mkdtemp(), "record_spool.jsonl")
+        os.environ["RECORD_SPOOL_FILE"] = path
+        self.addCleanup(os.environ.pop, "RECORD_SPOOL_FILE", None)
+        return path
+
+    @staticmethod
+    def _quota_error():
+        from sqlalchemy.exc import OperationalError
+        return OperationalError("INSERT", {}, Exception("Your project has exceeded the data transfer quota"))
+
+    def test_38_what_the_database_cannot_take_is_held_and_written_back_once(self):
+        """Neon refused every connection from 2026-10-13 21:00 to the month's end, and each run's reading,
+        observations and the room's inputs were lost. Held instead, they are written back by the next run
+        that reaches the database, with their original times, and never twice."""
+        import io
+        from contextlib import redirect_stdout
+        from datetime import date as _date
+        from caluclator.signal_state import SignalState
+        from collector import tablokhani
+        from database import repository as repo
+        from database.models import MarketDailyCandle, MarketState, PriceObservation
+        from persistence import spool
+        import main
+
+        path = self._spool_file()
+        when = datetime(2026, 10, 14, 10, 30, 17, 123456)
+        state = SignalState(premium=-1.74, fair_price=FAIR, lowest_price=FAIR * 0.98, valuation="UNKNOWN",
+                            final_decision="WAIT", reason="held: no rank", timestamp=when)
+        prices = [{"platform_name": "Milli", "price_irr": FAIR * 0.98, "change_irr": None},
+                  {"platform_name": "Goldika", "price_irr": FAIR * 1.01, "change_irr": None}]
+        self.assertTrue(main._hold_reading(when, FAIR, -1.74, 4157.0, 266_800.0, state, prices, "scheduled"))
+
+        class Down:  # a session whose every write fails as Neon's did
+            def __init__(self, error):
+                self.error = error
+            def add(self, _):
+                pass
+            def commit(self):
+                raise self.error
+            def rollback(self):
+                pass
+            def close(self):
+                pass
+
+        from sqlalchemy.exc import IntegrityError
+        real_session, real_save, real_collect = repo.get_session, repo.save_daily_candles, tablokhani.collect
+        try:
+            with redirect_stdout(io.StringIO()):
+                repo.get_session = lambda: Down(self._quota_error())
+                self.assertEqual(repo.save_price_observation("USD/IRR", "bonbast", when, 266_800.0, "FRESH", "run-1",
+                                                             "SINGLE", "scheduled"), -1)
+                repo.get_session = lambda: Down(IntegrityError("INSERT", {}, Exception("a rejected row")))
+                repo.save_price_observation("USD/IRR", "bonbast", when, 1.0, "FRESH", "run-1", "SINGLE", "scheduled")
+                repo.get_session = real_session
+
+                def refused(*args, **kwargs):
+                    raise self._quota_error()
+                repo.save_daily_candles = refused
+                tablokhani.collect = lambda: {"afran_close": 55_210.0, "tedpix": 3_150_000.0, "tse_state": "closed",
+                                              "afran": None, "funds": {}, "errors": []}
+                main._collect_room_inputs(datetime(2026, 10, 14, 11, 0))      # 14:30 Tehran: no etfbaz yet
+                main._collect_room_inputs(datetime(2026, 10, 14, 12, 0))      # the next run: already held today
+        finally:
+            repo.get_session, repo.save_daily_candles, tablokhani.collect = real_session, real_save, real_collect
+
+        entries = spool.held()
+        self.assertEqual([e["kind"] for e in entries], ["reading", "observation", "candles", "candles"],
+                         "an unreachable database is held; a row it rejects is not")
+        self.assertEqual(entries[0]["payload"]["snapshot"]["timestamp"], when, "times come back as they were")
+
+        s = _test_get_session()
+        try:
+            written = spool.flush(s, repo.spool_writers(s, entries), entries)
+        finally:
+            s.close()
+        self.assertEqual(written, (4, 0, 0))
+        self.assertFalse(os.path.exists(path), "a written spool is removed")
+        s = _test_get_session()
+        try:
+            snaps = s.query(MarketSnapshot).filter(MarketSnapshot.timestamp == when).all()
+            self.assertEqual([(x.collection_mode, round(float(x.premium_percent), 2)) for x in snaps], [("scheduled", -1.74)])
+            self.assertEqual(sorted(p.platform_name for p in s.query(PlatformPrice).filter(PlatformPrice.snapshot_id == snaps[0].id)),
+                             ["Goldika", "Milli"])
+            st = s.query(MarketState).filter(MarketState.snapshot_id == snaps[0].id).one()
+            self.assertEqual((st.final_decision, st.valuation_state, st.timestamp), ("WAIT", "UNKNOWN", when))
+            self.assertEqual(s.query(PriceObservation).filter(PriceObservation.timestamp == when).count(), 1)
+            days = {r.instrument: float(r.close) for r in s.query(MarketDailyCandle).filter(
+                MarketDailyCandle.trade_date == _date(2026, 10, 14), MarketDailyCandle.instrument.in_(["AFRAN_LAST", "TSE_TEDPIX"]))}
+            self.assertEqual(days, {"AFRAN_LAST": 55_210.0, "TSE_TEDPIX": 3_150_000.0})
+        finally:
+            s.close()
+
+        # a flush that stored its writes but ended before the file was rewritten: held again, stored once
+        for e in entries:
+            spool.hold(e["kind"], e["payload"])
+        s = _test_get_session()
+        try:
+            again = spool.held()
+            spool.flush(s, repo.spool_writers(s, again), again)
+            self.assertEqual(s.query(MarketSnapshot).filter(MarketSnapshot.timestamp == when).count(), 1)
+            self.assertEqual(s.query(PriceObservation).filter(PriceObservation.timestamp == when).count(), 1)
+            self.assertEqual(s.query(MarketDailyCandle).filter(MarketDailyCandle.trade_date == _date(2026, 10, 14),
+                                                              MarketDailyCandle.instrument == "AFRAN_LAST").count(), 1)
+        finally:
+            s.close()
+
+    def test_39_an_unreachable_database_stops_the_flush_and_a_rejected_write_is_dropped(self):
+        from persistence import spool
+        path = self._spool_file()
+
+        class Book:  # a session that keeps what was committed
+            def __init__(self):
+                self.pending, self.stored = [], []
+            def commit(self):
+                self.stored += self.pending
+                self.pending = []
+            def rollback(self):
+                self.pending = []
+
+        def write(session, payload):
+            if payload == "rejected":
+                raise ValueError("a row the database rejects")
+            if payload == "down":
+                raise self._quota_error()
+            session.pending.append(payload)
+
+        def run(payloads, clock=None):
+            if os.path.exists(path):
+                os.remove(path)
+            for p in payloads:
+                spool.hold("observation", p)
+            book = Book()
+            entries = spool.held()
+            out = (spool.flush(book, {"observation": write}, entries, clock=clock) if clock
+                   else spool.flush(book, {"observation": write}, entries))
+            return out, book.stored, [e["payload"] for e in spool.held()]
+
+        self.assertEqual(run(["a", "rejected", "b"]), ((2, 1, 0), ["a", "b"], []),
+                         "a rejected batch is retried one by one and only the rejected write dropped")
+        self.assertEqual(run(["a", "down", "b"]), ((0, 0, 3), [], ["a", "down", "b"]),
+                         "an unreachable database keeps everything not written")
+        many = [f"o{k}" for k in range(spool.BATCH + 5)]
+        ticks = iter([0, 0, spool.FLUSH_SECONDS + 1])
+        out, stored, left = run(many, clock=lambda: next(ticks))
+        self.assertEqual((out, stored, left), ((spool.BATCH, 0, 5), many[:spool.BATCH], many[spool.BATCH:]),
+                         "a run writes for a bounded time; the rest wait for the next")
+
+    def test_40_the_spool_is_wired_where_the_record_is_written(self):
+        import inspect
+        import main
+        run = inspect.getsource(main.main)
+        self.assertIn("if is_scheduled:\n        _flush_spool()", run, "write-back on scheduled runs, not on a reader's Update")
+        self.assertLess(run.index("_flush_spool()"), run.index("now = datetime.utcnow()"),
+                        "before the run takes its time: a write-back can last minutes")
+        self.assertLess(run.index("_flush_spool()"), run.index("_recent_platform_history("),
+                        "before the stale-quote check reads the platform history")
+        self.assertIn("if unreachable(e) and _hold_reading(", run)
+        workflow = (REPO / ".github" / "workflows" / "gold-monitor.yml").read_text(encoding="utf-8")
+        self.assertIn("RECORD_SPOOL_FILE: record_spool.jsonl", workflow)
+        self.assertIn("            record_spool.jsonl\n", workflow.replace("\r\n", "\n"), "kept in the cache between runs")
+
+
 if __name__ == "__main__":
     print("=" * 55)
     print("CROSS-CUTTING COHERENCE")

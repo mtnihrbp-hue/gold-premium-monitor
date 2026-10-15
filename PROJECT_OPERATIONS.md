@@ -540,6 +540,9 @@ Tehran time. Read-only throughout: no query below writes.
    ```
    `data_transfer_bytes` since `consumption_period_start`, projected to the month's end. Act -- cut
    reads, or slow the cadence -- at a projected 4 GB, before the cap rather than at it.
+   After an outage, the first scheduled runs that reach Neon print `SPOOL: N held writes stored,
+   D rejected, L still held` (`SP_D_HANDOFF.md` section 35.4): L reaches 0 within one or two runs,
+   and D is 0. While Neon is down, every run prints `DB unreachable: the reading is held for later`.
 10. **Verdict** in one line, the open defects named, then the record in the sprint's
    handoff.
 
@@ -548,6 +551,8 @@ does not survive a new session. The standing route is Neon's CLI, signed in once
 owner's browser:
 
 ```bash
+# Node needs the proxy in its environment: HTTPS_PROXY=http://127.0.0.1:58374, Psiphon's local port,
+# fixed on 2026-10-15 (HKCU\Software\Psiphon3 LocalHTTPProxyPort; it was 0, a new port each connect)
 NODE_USE_ENV_PROXY=1 npx neonctl auth                     # Neon's sign-in refuses Iranian addresses
 NODE_USE_ENV_PROXY=1 npx neonctl connection-string production --project-id wispy-glade-92753836 --pooled
 ```

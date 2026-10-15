@@ -16,8 +16,8 @@ SP-Db  PAPER and the room                          sections 9-29    merged 2026-
 SP-Dc  the Iran-side node, the sanity ranges       sections 30-31   merged 2026-10-07 (v1.8safe)
 SP-Dd  money flow, the phone's reads, the trend    sections 32-34   branch sp-d-trend-rd, merged 2026-10-15 (v1.9safe)
        R&D, Neon's transfer cuts
-SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de; 35.1-35.2 merged 2026-10-15 (v1.10safe)
-       push, Direction's EMA lines, Tether as a
+SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de; 35.1-35.2 merged 2026-10-15 (v1.10safe);
+       push, Direction's EMA lines, Tether as a                     35.4 (the spool) on the branch
        member, the LLM member
 ```
 
@@ -2811,3 +2811,54 @@ and the 13:22 UPDATE:
 
 The record matters beyond the outage. The deep-discount pool is 30 settled days, so in early November
 it will hold 10-02 to 10-13 and whatever arrives after the reset, unless the spool fills the gap.
+
+**35.4 The spool: the record kept while Neon is out of reach** (the owner, 10-15: "ok" to the spool
+first, then the kept push level). This is 35.3's first route.
+
+- **What is held.** Some writes fail because the database cannot be reached: a SQLAlchemy
+  `OperationalError` or `InterfaceError`, as every write since 10-13 21:00 has failed. Those writes
+  are appended to `record_spool.jsonl`, one JSON line each, with their datetimes kept
+  (`persistence/spool.py`, on when `RECORD_SPOOL_FILE` is set). Three kinds are held:
+  - **the reading** (`main._hold_reading`): the snapshot, its platform prices and the market state,
+    as `save_market_state` would store them (`repository.market_state_fields`, now shared). The
+    relative-valuation context is left out, because computing it reads the database.
+  - **each price observation** (`save_price_observation`).
+  - **the room's daily inputs** (`_collect_room_inputs`): the stock index, Afran and etfbaz's five,
+    including Tether, whose history the owner wants for its member. Each instrument is held once a
+    day, matching the stored rule that the first value seen is the day's.
+
+  A row the database rejects is not held, because it would be rejected again.
+- **Where it lives.** The workflow keeps `record_spool.jsonl` in its Actions cache beside
+  `state.json` and `candle_cache.json`. If an UPDATE overlaps a scheduled run, one cache can replace
+  the other's. That is the same exposure `state.json` has always had.
+- **Writing back.** It runs at the start of scheduled runs only (`main._flush_spool`), before the run
+  takes its own time and before the stale-quote check reads the platform history:
+  - writes go oldest first, with their original times;
+  - a reading or a day's input is committed alone, observations in batches of 50;
+  - a run spends at most 240 s on it, and the rest wait for the next run;
+  - a rejected batch is retried one write at a time, and only the rejected write is dropped;
+  - an unreachable database stops the flush and keeps everything not yet written;
+  - readings and observations already stored, at the same time and kind, are skipped, so a flush cut
+    off before its file was rewritten does not store anything twice. Day inputs are skipped by
+    `save_daily_candles` itself.
+
+  The UPDATE path never writes back: a reader's Update does not wait on the record.
+- **What it cannot recover.** It keeps only what the runner collected. The following stay missing
+  for the outage:
+  - analysis snapshots and outcome evaluations (derived later from stored state);
+  - Direction panels;
+  - PAPER;
+  - news, until the news wing keeps its own state.
+
+  Daric comes back through the phone's own spool. tgju's candles backfill themselves on the first
+  run (`_tgju_requests`).
+- **Expected volume.** For the rest of this outage, from the merge to 11-01: about 16 readings and a
+  few hundred observations a day, and a few day inputs. That comes to a few thousand lines and
+  1-3 MB, stored within the first one or two runs after the reset. Writes are inbound transfer; the two
+  range queries that check for stored rows return nothing for the outage. `NEON MIGRATION REQUIRED = NO`.
+- **KPIs.** `kpi_coherence` 35/35, suite 30/30:
+  - `test_38`: a reading, an observation and two day inputs are held on an unreachable database and
+    not on a rejected row; written back with their times; held again, still stored once;
+  - `test_39`: a rejected write is dropped; an unreachable database keeps the rest; the time bound;
+  - `test_40`: the wiring (scheduled runs only, before the run's time and the stale-quote check; the
+    workflow's cache and variable).
