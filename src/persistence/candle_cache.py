@@ -94,6 +94,29 @@ def candles(session, source, instrument):
     return [Candle(date.fromisoformat(r[0]), r[1], r[2], r[3], r[4], r[5]) for r in rows]
 
 
+def full_history(instrument, today):
+    """tgju's whole history of a stored instrument name, fetched from tgju itself (1,000 rows a
+    request, oldest first), classified and filtered as `direct()`: the same days the database holds,
+    for readers that rank against all of them (/Direction while the database is out of reach, SP-D
+    section 35.8). Raises when tgju cannot be read."""
+    from collector.tgju import INSTRUMENTS, fetch_daily_candles
+    from validation.data import classify_daily_candle
+    key = next(k for k, name in INSTRUMENTS.items() if name == instrument)
+    seen, start = {}, 0
+    while True:
+        page = fetch_daily_candles(key, DIRECT_ROWS, start=start, order="asc")
+        for c in page:
+            trade_date = date.fromisoformat(c["date"])
+            quality = classify_daily_candle(c)
+            if trade_date >= today or quality == "INVALID" or trade_date in seen:
+                continue
+            seen[trade_date] = Candle(trade_date, c["open"], c["high"], c["low"], c["close"], quality)
+        if len(page) < DIRECT_ROWS:
+            break
+        start += DIRECT_ROWS
+    return [seen[d] for d in sorted(seen)]
+
+
 def direct(instrument, today, rows=DIRECT_ROWS):
     """tgju's completed candles for a stored instrument name, fetched from tgju itself, oldest
     first, classified as main stores them: today's incomplete candle and rows without a valid

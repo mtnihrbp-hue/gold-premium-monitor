@@ -385,8 +385,97 @@ class KPIDirection(unittest.TestCase):
         self.assertGreater(source.find("get_market_prices()"), direction_index,
                            "the direction wing must return before prices are collected")
         report = inspect.getsource(main._send_direction_report)
+        live = inspect.getsource(main._direction_live)
         for name in ("save_", "resolve_direction", "build_panel", "commit"):
             self.assertNotIn(name, report, "/Direction renders the stored panel and writes nothing")
+        for name in ("save_", "commit", "session", "spool"):
+            self.assertNotIn(name, live, "the live panel, when no stored one can be read, writes nothing either")
+        self.assertLess(report.index("latest_direction_snapshot("), report.index("_direction_live("),
+                        "the stored panel first; computing it live is the fallback (SP-D section 35.8)")
+
+    def test_25b_without_the_database_direction_is_computed_live_from_tgju(self):
+        """Neon was suspended from 2026-10-13 and /Direction answered nothing: it read only the stored
+        panel. When no stored panel can be read, it is computed now from tgju's full histories and the
+        platforms' prices (SP_D_HANDOFF.md section 35.8); with one, nothing is fetched."""
+        import io
+        from contextlib import redirect_stdout
+        from sqlalchemy.exc import OperationalError
+        import main
+        import alerts.telegram_direction as td
+        import collector.iran as iran
+        import persistence.candle_cache as cc
+        from persistence.candle_cache import Candle
+
+        gold, usd = _series(_cycles(1200)), _usd(1200)
+        series = {d.GOLD: gold, d.USD: usd, d.XAU: _series([2000.0] * 1200)}
+        asked, sent = [], []
+
+        def history(name, today):
+            asked.append((name, today))
+            dates, high, low, close = series[name]
+            return [Candle(day, c, h, lo, c, "COMPLETE") for day, h, lo, c in zip(dates, high, low, close)]
+
+        class Down:
+            def query(self, *a, **k):
+                raise OperationalError("SELECT", {}, Exception("Your project has exceeded the data transfer quota"))
+
+            def close(self):
+                pass
+
+        class Stored:
+            panel = _panel().to_json()
+            id = 7
+
+        class Up:
+            def close(self):
+                pass
+
+        saved = (main.get_session, cc.full_history, iran.get_market_prices, td._send)
+        real_latest = __import__("database.repository", fromlist=["x"]).latest_direction_snapshot
+        import database.repository as repo
+        try:
+            cc.full_history = history
+            iran.get_market_prices = lambda: {"Milli": {"price": gold[3][-1] * 0.99, "status": "OK"},
+                                              "Goldika": {"price": gold[3][-1] * 1.01, "status": "OK"}}
+            td._send = sent.append
+            main.get_session = lambda: Down()
+            with redirect_stdout(io.StringIO()):
+                main._send_direction_report()
+            self.assertEqual([n for n, _ in asked], [d.GOLD, d.USD, d.XAU], "the three full histories, from tgju")
+            self.assertEqual(len(sent), 1)
+            self.assertIn("GOLDPremium: DIRECTION", sent[0])
+            self.assertNotIn("No panel computed yet", sent[0], "a real panel, computed live")
+
+            asked.clear(), sent.clear()
+            main.get_session = lambda: Up()
+            repo.latest_direction_snapshot = lambda session: Stored()
+            with redirect_stdout(io.StringIO()):
+                main._send_direction_report()
+            self.assertEqual(asked, [], "a stored panel is read, nothing fetched")
+            self.assertEqual(len(sent), 1)
+        finally:
+            main.get_session, cc.full_history, iran.get_market_prices, td._send = saved
+            repo.latest_direction_snapshot = real_latest
+
+    def test_25c_the_full_history_is_every_page_and_the_stored_shape(self):
+        import collector.tgju as tg
+        import persistence.candle_cache as cc
+        rows = [{"date": (date(2020, 1, 1) + timedelta(days=k)).isoformat(), "open": 1.0 + k, "high": 2.0 + k,
+                 "low": 0.5 + k, "close": 1.5 + k} for k in range(2300)]
+        pages, real = [], tg.fetch_daily_candles
+
+        def fetch(key, n, start=0, order="desc"):
+            pages.append((key, start, order))
+            return rows[start:start + n]
+        tg.fetch_daily_candles = fetch
+        try:
+            got = cc.full_history(d.USD, date(2027, 1, 1))
+        finally:
+            tg.fetch_daily_candles = real
+        self.assertEqual(pages, [("price_dollar_rl", 0, "asc"), ("price_dollar_rl", 1000, "asc"),
+                                 ("price_dollar_rl", 2000, "asc")])
+        self.assertEqual(len(got), 2300)
+        self.assertEqual((got[0].trade_date, got[-1].trade_date), (date(2020, 1, 1), date(2020, 1, 1) + timedelta(days=2299)))
 
     def test_26_the_workflow_and_the_worker_declare_the_direction_wing(self):
         root = os.path.join(os.path.dirname(__file__), "..")

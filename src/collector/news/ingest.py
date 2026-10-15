@@ -14,6 +14,9 @@ from intelligence.event_classifier import classify_news_item
 from database.repository import save_news_event, get_recent_dedup_keys
 
 
+MAX_CONSECUTIVE_FAILED = 3
+
+
 def run_news_ingestion(config: Dict[str, Any]) -> Dict[str, Any]:
     """Collect, classify, deduplicate, and persist news events.
 
@@ -37,6 +40,9 @@ def run_news_ingestion(config: Dict[str, Any]) -> Dict[str, Any]:
     total_new = 0
     total_duplicate = 0
     total_failed = 0
+    # Three failed saves in a row and the rest of the run stores nothing: while Neon was suspended
+    # (SP_D_HANDOFF.md sections 34, 35.3) each item spent about a second failing, 2.5 minutes a run.
+    consecutive_failed, skipped = 0, 0
 
     # Batch dedup: one query for all recent keys instead of N+1 exists checks
     recent_keys: Set[str] = get_recent_dedup_keys(hours=24)
@@ -86,6 +92,9 @@ def run_news_ingestion(config: Dict[str, Any]) -> Dict[str, Any]:
         source_result["fetched"] = len(items)
 
         for raw_item in items:
+            if consecutive_failed >= MAX_CONSECUTIVE_FAILED:
+                skipped += 1
+                continue
             try:
                 classified = classify_news_item(raw_item)
                 dedup_key = classified.get("dedup_key") or raw_item.get("dedup_key")
@@ -99,22 +108,28 @@ def run_news_ingestion(config: Dict[str, Any]) -> Dict[str, Any]:
                 if event_id > 0:
                     source_result["new"] += 1
                     total_new += 1
+                    consecutive_failed = 0
                     recent_keys.add(dedup_key)  # prevent intra-run duplicates
                 else:
                     source_result["failed"] += 1
                     total_failed += 1
+                    consecutive_failed += 1
             except Exception:
                 source_result["failed"] += 1
                 total_failed += 1
+                consecutive_failed += 1
 
         source_result["status"] = "OK"
         results[url] = source_result
 
+    if skipped:
+        print(f"NEWS: {MAX_CONSECUTIVE_FAILED} saves failed in a row; {skipped} items of this run not stored")
     return {
         "status": "OK",
         "sources": results,
         "total_new": total_new,
         "total_duplicate": total_duplicate,
         "total_failed": total_failed,
+        "total_skipped": skipped,
         "processed_at": datetime.utcnow().isoformat(),
     }

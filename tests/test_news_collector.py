@@ -356,6 +356,25 @@ def test_ingest_non_blocking_on_source_failure():
 # Runner
 # ---------------------------------------------------------------------------
 
+def test_ingest_stops_saving_when_the_database_is_out_of_reach():
+    """Three failed saves in a row and the run stores nothing more (SP_D_HANDOFF.md section 35.8)."""
+    import collector.news.ingest as ingest_module
+    saved = (ingest_module.get_recent_dedup_keys, ingest_module.collect_rss_feed, ingest_module.save_news_event)
+    items = [{"title": f"item {k}", "url": f"http://x/{k}", "source": "x", "dedup_key": f"k{k}"} for k in range(10)]
+    calls = []
+    try:
+        ingest_module.get_recent_dedup_keys = lambda hours=24: set()
+        ingest_module.collect_rss_feed = lambda url, timeout=None: items
+        ingest_module.save_news_event = lambda event: calls.append(event) or -1
+        result = ingest_module.run_news_ingestion({"news": {"enabled": True, "sources": ["http://a", "http://b"],
+                                                            "max_items_per_source": 10}})
+        assert len(calls) == ingest_module.MAX_CONSECUTIVE_FAILED, len(calls)
+        assert result["total_failed"] == 3 and result["total_skipped"] == 17
+    finally:
+        ingest_module.get_recent_dedup_keys, ingest_module.collect_rss_feed, ingest_module.save_news_event = saved
+    print("PASS: test_ingest_stops_saving_when_the_database_is_out_of_reach")
+
+
 if __name__ == "__main__":
     tests = [
         test_parse_valid_rss,
@@ -378,6 +397,7 @@ if __name__ == "__main__":
         test_ingest_orchestrator_persists_new_items,
         test_ingest_skips_duplicates,
         test_ingest_non_blocking_on_source_failure,
+        test_ingest_stops_saving_when_the_database_is_out_of_reach,
     ]
 
     passed = 0

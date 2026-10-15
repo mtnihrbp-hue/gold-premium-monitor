@@ -1075,23 +1075,55 @@ def _evening_fallback(markets, now, state):
 
 
 def _send_direction_report():
-    """Answer the Telegram Direction command from the stored panel. Reads only."""
+    """Answer the Telegram Direction command from the stored panel. Writes nothing. When no stored
+    panel can be read -- the database out of reach -- the panel is computed now from tgju's full
+    histories and the platforms' prices (_direction_live, SP-D section 35.8)."""
     from alerts.telegram_direction import send_direction
     from analysis.direction import DirectionPanel
     from database.repository import latest_direction_snapshot
 
+    panel, row = None, None
     session = get_session()
-    if session is None:
-        print("DIRECTION: no database session")
-        return
+    if session is not None:
+        try:
+            row = latest_direction_snapshot(session)
+            panel = DirectionPanel.from_json(row.panel) if row else None
+        except Exception as e:
+            print(f"DIRECTION: stored panel unavailable: {str(e).strip().splitlines()[0][:160]}")
+        finally:
+            session.close()
+    if panel is None:
+        panel = _direction_live(datetime.utcnow())
+        print(f"DIRECTION: computed live from tgju ({panel.status})")
     try:
-        row = latest_direction_snapshot(session)
-        send_direction(DirectionPanel.from_json(row.panel) if row else None)
-        print(f"DIRECTION sent. panel={row.id if row else None}")
+        send_direction(panel)
+        print(f"DIRECTION sent. panel={row.id if row else 'live'}")
     except Exception as e:
         print(f"DIRECTION report failed: {e}")
-    finally:
-        session.close()
+
+
+def _direction_live(now):
+    """Direction's panel computed now, without the database: tgju's full histories of 18K, the dollar
+    and world gold, fetched from tgju (persistence/candle_cache.full_history), and the platforms'
+    prices as the live price. Writes nothing. An empty panel (INSUFFICIENT_DATA) on failure."""
+    from analysis.direction import GOLD, USD, XAU, DirectionPanel, build_panel, live_gold_price
+    from collector.iran import get_market_prices
+    from persistence.candle_cache import full_history
+    from timeutil import local_date
+
+    try:
+        day = local_date(now)
+        series = {}
+        for name in (GOLD, USD, XAU):
+            rows = full_history(name, day)
+            series[name] = ([r.trade_date for r in rows], [float(r.high) for r in rows],
+                            [float(r.low) for r in rows], [float(r.close) for r in rows])
+        markets = get_market_prices()
+        return build_panel(series[GOLD], series[USD], live_price=live_gold_price(markets), live_at=now,
+                           markets=markets, now=now, xau=series[XAU])
+    except Exception as e:
+        print(f"DIRECTION live unavailable: {e}")
+        return DirectionPanel()
 
 
 def _evaluate_deep_discount_push(markets, fair, state):
