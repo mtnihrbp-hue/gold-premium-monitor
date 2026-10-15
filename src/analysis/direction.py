@@ -448,14 +448,12 @@ def build_panel(gold, usd, live_price=None, live_at=None, markets=None, system=N
 
 
 def load_series(session, instrument):
-    """(dates, high, low, close) of a tgju instrument from market_daily_candles."""
-    from database.models import MarketDailyCandle
-    rows = (session.query(MarketDailyCandle.trade_date, MarketDailyCandle.high, MarketDailyCandle.low,
-                          MarketDailyCandle.close)
-            .filter(MarketDailyCandle.source == "tgju", MarketDailyCandle.instrument == instrument)
-            .order_by(MarketDailyCandle.trade_date.asc()).all())
-    return ([r[0] for r in rows], [float(r[1]) for r in rows], [float(r[2]) for r in rows],
-            [float(r[3]) for r in rows])
+    """(dates, high, low, close) of a tgju instrument from market_daily_candles, through the copy
+    kept between runs (persistence/candle_cache.py)."""
+    from persistence.candle_cache import candles
+    rows = candles(session, "tgju", instrument)
+    return ([r.trade_date for r in rows], [float(r.high) for r in rows], [float(r.low) for r in rows],
+            [float(r.close) for r in rows])
 
 
 def live_gold_price(markets, offset_pct=TGJU_OFFSET_PCT):

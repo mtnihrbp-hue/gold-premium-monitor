@@ -747,12 +747,10 @@ def _room_state(session, account, engine):
     from analysis.direction import GOLD, USD, XAU, load_series
     from analysis.quant import growth_path
     from caluclator.chartist import Chartist
-    from database.models import MarketDailyCandle
+    from persistence.candle_cache import candles
     from timeutil import local_date
 
-    rows = (session.query(MarketDailyCandle).filter(MarketDailyCandle.source == "tgju",
-                                                    MarketDailyCandle.instrument == GOLD)
-            .order_by(MarketDailyCandle.trade_date.asc()).all())
+    rows = candles(session, "tgju", GOLD)              # the copy kept between runs (SP-D section 34)
     if len(rows) < 600:
         return None
     dates = [r.trade_date for r in rows]
@@ -904,12 +902,11 @@ def _paper_chart(session, analyst, live_sell):
         from alerts.chart import render
         from analysis.direction import GOLD
         from caluclator.technical import fibonacci, rally_legs, split_levels, swing_levels, trendlines
-        from database.models import MarketDailyCandle, PaperActivity
+        from database.models import PaperActivity
+        from persistence.candle_cache import candles
         from timeutil import to_tehran
 
-        rows = (session.query(MarketDailyCandle).filter(MarketDailyCandle.source == "tgju",
-                                                        MarketDailyCandle.instrument == GOLD)
-                .order_by(MarketDailyCandle.trade_date.asc()).all())
+        rows = candles(session, "tgju", GOLD)          # the copy kept between runs (SP-D section 34)
         if len(rows) < 260:
             return None
         dates = [r.trade_date for r in rows]

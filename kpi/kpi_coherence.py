@@ -746,6 +746,84 @@ class KPICoherence(unittest.TestCase):
         session.commit()
         session.close()
 
+    def test_37_the_daily_candles_are_read_once_and_then_only_the_new_days(self):
+        """The same week's second cut (SP_D_HANDOFF.md section 34): tgju's candles, about 26,000 rows
+        a run, are kept between runs (persistence/candle_cache.py). Unchanged, a run reads none of
+        them; a new day reads that day; a copy that disagrees is dropped and the instrument reread.
+        Every read gives exactly what a direct read gives."""
+        import tempfile
+        from datetime import date as _date
+        from sqlalchemy import event
+        from database.models import MarketDailyCandle
+        from persistence import candle_cache as cc
+        from analysis import direction
+        import main
+
+        def add(day, close):
+            s = _test_get_session()
+            s.add(MarketDailyCandle(source="tgju", instrument="KPI37", trade_date=day, trade_date_jalali="",
+                                    open=close, high=close + 1, low=close - 1, close=close, unit="IRR",
+                                    source_quality="COMPLETE", collected_at=datetime(2026, 10, 15)))
+            s.commit()
+            s.close()
+
+        def read():
+            sent.clear()
+            s = _test_get_session()
+            try:
+                return [(r.trade_date, r.open, r.high, r.low, r.close, r.source_quality)
+                        for r in cc.candles(s, "tgju", "KPI37")]
+            finally:
+                s.close()
+
+        def direct():
+            os.environ.pop("CANDLE_CACHE_FILE", None)
+            try:
+                return read()
+            finally:
+                os.environ["CANDLE_CACHE_FILE"] = path
+
+        for k in range(5):
+            add(_date(2026, 10, 1) + timedelta(days=k), 100.0 + k)
+        path = os.path.join(tempfile.mkdtemp(), "candle_cache.json")
+        os.environ["CANDLE_CACHE_FILE"] = path
+        sent = []
+        listener = lambda conn, cursor, statement, params, context, many: sent.append(statement)
+        event.listen(_TEST_ENGINE, "before_cursor_execute", listener)
+        rows_read = lambda: [s for s in sent if "market_daily_candles.open" in s]
+        try:
+            first = read()
+            self.assertEqual(first, direct())
+            self.assertTrue(os.path.exists(path), "the copy is written")
+            second = read()
+            self.assertEqual(second, first)
+            self.assertEqual(rows_read(), [], "an unchanged instrument reads no candle rows")
+            add(_date(2026, 10, 6), 110.0)
+            third = read()
+            third_reads = rows_read()
+            self.assertEqual(third, direct())
+            self.assertEqual(len(third_reads), 1)
+            self.assertIn("trade_date >", third_reads[0], "only the days after the copy's")
+            s = _test_get_session()
+            s.query(MarketDailyCandle).filter(MarketDailyCandle.instrument == "KPI37",
+                                              MarketDailyCandle.trade_date == _date(2026, 10, 2)).delete()
+            s.commit()
+            s.close()
+            fourth = read()
+            self.assertEqual(fourth, direct(), "a copy that disagrees is dropped and the instrument reread")
+        finally:
+            event.remove(_TEST_ENGINE, "before_cursor_execute", listener)
+            os.environ.pop("CANDLE_CACHE_FILE", None)
+            s = _test_get_session()
+            s.query(MarketDailyCandle).filter(MarketDailyCandle.instrument == "KPI37").delete()
+            s.commit()
+            s.close()
+        self.assertIn('candles(session, "tgju", instrument)', inspect.getsource(direction.load_series))
+        self.assertIn('candles(session, "tgju", GOLD)', inspect.getsource(main._room_state))
+        workflow = (REPO / ".github" / "workflows" / "gold-monitor.yml").read_text(encoding="utf-8")
+        self.assertIn("candle_cache.json", workflow.split("Cache pip packages")[0], "kept with state.json")
+        self.assertIn("CANDLE_CACHE_FILE: candle_cache.json", workflow)
+
     def test_30_every_accepted_divergence_names_both_sides_and_a_reason(self):
         for key, entry in ACCEPTED.items():
             self.assertTrue(entry.get("what"), f"{key} does not say what diverges")

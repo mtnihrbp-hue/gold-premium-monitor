@@ -68,7 +68,11 @@ jobs:
       - name: Restore State
         uses: actions/cache@v4
         with:
-          path: state.json
+          # candle_cache.json: the daily candles kept between runs, so a run fetches only the new
+          # days (src/persistence/candle_cache.py; Neon's monthly transfer, SP_D_HANDOFF.md 34).
+          path: |
+            state.json
+            candle_cache.json
           key: gold-monitor-state-${{ github.run_id }}
           restore-keys: |
             gold-monitor-state-
@@ -115,6 +119,8 @@ jobs:
           DIRECTION_ONLY: ${{ github.event.inputs.mode == 'direction' && 'true' || 'false' }}
 
           PYTHONUNBUFFERED: "1"
+
+          CANDLE_CACHE_FILE: candle_cache.json
 
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 

@@ -7,6 +7,23 @@ deliverable on is recorded here (owner, 2026-10-03: "that sprint is closed, anyt
 is SP-D"). Sections 1-4 were written as `SP_C_HANDOFF.md` sections 46-49 and moved here
 on 2026-10-03 unchanged, apart from their numbers.
 
+**SP-D's sub-sprints** (owner, 2026-10-15: "mark the sprints SP-Da, SP-Db, SP-Dc and so on"; most
+items of one batch belong to one sub-sprint, not several):
+
+```text
+SP-Da  Direction                                   sections 1-8     merged 2026-10-03 (v1.4safe), 10-04 (v1.5safe)
+SP-Db  PAPER and the room                          sections 9-29    merged 2026-10-05 (v1.6safe, v1.7safe)
+SP-Dc  the Iran-side node, the sanity ranges       sections 30-31   merged 2026-10-07 (v1.8safe)
+SP-Dd  money flow, the phone's reads, the trend    sections 32-34   branch sp-d-trend-rd, merged 2026-10-15 (v1.9safe)
+       R&D, Neon's transfer cuts
+SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
+       push, Direction's EMA lines, Tether as a
+       member, the LLM member
+```
+
+A sub-sprint's work lives on one branch named after it (`sp-de`), short-lived topic branches cut
+from it when useful (`sp-de-tether`), and reaches `main` as one reviewed batch with a safe tag first.
+
 ## 1. SP-D opens: Direction, the first deliverable (2026-10-03)
 
 **Why first.** The owner, 2026-10-03: "we have enough data and history, but there is no
@@ -2681,3 +2698,30 @@ plan's 5 GB, to be confirmed on the first measured run, and November can return 
 Iran is the owner's question. Waiting costs nothing in money and 18 days of record.
 
 **NEON MIGRATION REQUIRED = NO.**
+
+### 34.1 The owner's decision, and the second cut (2026-10-15)
+
+**The owner.** "Will we ever face such an issue, or is it because we pulled and stored large amounts of
+data previously? If it's a one-time issue, let's wait for the reset, as I planned to move on this
+project with zero penny." The answer: not one-time. The cap counts what the database **sends**, every
+month; stored history mattered only because each run read it again, so the old code would reach 5 GB
+by mid-month every month (about 460 MB a day). After the first cut the estimate is 2.5-4 GB a month --
+under the cap without a wide margin. **Decided:** wait for 2026-11-01; merge the fix before it; a
+second cut; measure on the first day and watch the month-to-date figure in every health check.
+
+**The second cut** (`src/persistence/candle_cache.py`). tgju's daily candles -- 18K up to three times a
+run, the dollar, world gold's 12,000 days, about 26,000 rows a run -- are kept between runs in a file
+the workflow caches beside `state.json` (`CANDLE_CACHE_FILE`). Each read asks the database only for the
+instrument's count and latest day: equal to the copy's, no candle row is read; newer, only the days
+after the copy's are read; anything else, the copy is dropped and the instrument read in full. The
+candles are stored first-seen and never revised, which is what makes a copy safe. Readers:
+`direction.load_series` (Direction, the quant engine's 18K, the Direction ledger), `main._room_state`,
+the 21:00 chart. Without the variable (tests, local runs) every read goes to the database as before.
+`kpi_coherence.test_37`: the four cases against a real table, each equal to a direct read; the wiring.
+Suite 30/30.
+
+**Measure on 2026-11-01.** `data_transfer_bytes` from Neon's API (`PROJECT_OPERATIONS.md` section 15,
+step 9) before the 06:00 run and after the 07:00 run; the difference is one run's transfer plus the
+phone's spool flush (inserts send little back); projected over a month against the 5 GB.
+
+**SP-Dd merged** on the owner's approval ("yes on all 4 items"): `v1.9safe` tags `main` before it.

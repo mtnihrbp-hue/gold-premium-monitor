@@ -533,7 +533,14 @@ Tehran time. Read-only throughout: no query below writes.
    24 hours. The phone reads every 15 minutes, so about 96 rows a day; a gap is the phone
    (asleep, off Wi-Fi, Termux stopped). In the run log, `Daric: from the Iran node (...)`
    when the runner was refused and the node supplied the quote.
-9. **Verdict** in one line, the open defects named, then the record in the sprint's
+9. **Neon's month-to-date transfer** (from 2026-10-15). The free plan's 5 GB of outbound transfer a
+   month suspended production on 2026-10-13 until the period ended (`SP_D_HANDOFF.md` section 34):
+   ```bash
+   NODE_USE_ENV_PROXY=1 npx neonctl projects get wispy-glade-92753836 --output json
+   ```
+   `data_transfer_bytes` since `consumption_period_start`, projected to the month's end. Act -- cut
+   reads, or slow the cadence -- at a projected 4 GB, before the cap rather than at it.
+10. **Verdict** in one line, the open defects named, then the record in the sprint's
    handoff.
 
 **Reaching production from the workstation** (2026-10-07). The claude.ai Neon connector
