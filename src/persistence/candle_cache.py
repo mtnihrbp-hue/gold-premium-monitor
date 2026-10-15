@@ -9,6 +9,10 @@ are new ones. A copy that disagrees in any other way is dropped and the instrume
 
 On when CANDLE_CACHE_FILE names the file -- the workflow sets it and keeps the file in its cache
 beside state.json. Unset (tests, local runs), every read goes to the database as before.
+
+`direct()` is the route when the database cannot be read at all (section 35.2): tgju's own recent
+candles, fetched in one request. It is for readers that draw the recent chart, never for those
+that replay the whole history (the room, the quant engine), which would silently read less.
 """
 
 import json
@@ -16,6 +20,11 @@ import os
 from datetime import date
 
 FIELDS = ("trade_date", "open", "high", "low", "close", "source_quality")
+
+# One tgju request. On 18K's history to 2026-10-14 the 21:00 chart drawn from the last 400 days
+# or more -- its EMAs, swing levels, trendlines, Fibonacci and the chartist's reading -- is the one
+# drawn from all 3,529 (EMA50 within 5e-7 at 400, exact at 1,000); 1,000 takes about a second.
+DIRECT_ROWS = 1000
 
 
 class Candle:
@@ -83,3 +92,20 @@ def candles(session, source, instrument):
             cache[key] = rows
             _save(path, cache)
     return [Candle(date.fromisoformat(r[0]), r[1], r[2], r[3], r[4], r[5]) for r in rows]
+
+
+def direct(instrument, today, rows=DIRECT_ROWS):
+    """tgju's completed candles for a stored instrument name, fetched from tgju itself, oldest
+    first, classified as main stores them: today's incomplete candle and rows without a valid
+    price are dropped. Raises when tgju cannot be read."""
+    from collector.tgju import INSTRUMENTS, fetch_daily_candles
+    from validation.data import classify_daily_candle
+    key = next(k for k, name in INSTRUMENTS.items() if name == instrument)
+    seen = {}
+    for c in fetch_daily_candles(key, rows, order="desc"):
+        trade_date = date.fromisoformat(c["date"])
+        quality = classify_daily_candle(c)
+        if trade_date >= today or quality == "INVALID" or trade_date in seen:
+            continue
+        seen[trade_date] = Candle(trade_date, c["open"], c["high"], c["low"], c["close"], quality)
+    return [seen[d] for d in sorted(seen)]

@@ -805,6 +805,105 @@ class KPIPaper(unittest.TestCase):
         self.assertEqual(len(calls), 2)
 
 
+    # -- the 21:00 chart without the database (SP_D_HANDOFF.md section 35.2) -------------
+
+    def _wave(self, n=400, start=date(2025, 6, 1)):
+        from persistence.candle_cache import Candle
+        rows = []
+        for k in range(n):
+            c = 150_000_000 * 1.002 ** k * (1 + 0.08 * math.sin(k / 12))
+            rows.append(Candle(start + timedelta(days=k), c * 0.998, c * 1.006, c * 0.994, c, "COMPLETE"))
+        return rows
+
+    def _evening(self, reachable, now, state):
+        import main
+        import alerts.telegram_paper as tp
+        import persistence.candle_cache as cc
+        sent, calls = [], []
+        saved = (main._database_reachable, tp.send_paper_report, cc.direct)
+        main._database_reachable = lambda: calls.append("checked") or reachable
+        tp.send_paper_report = lambda text, png=None: sent.append((text, png))
+        cc.direct = lambda instrument, today: calls.append((instrument, today)) or self._wave()
+        try:
+            with redirect_stdout(io.StringIO()):
+                main._evening_fallback(_markets(), now, state)
+        finally:
+            main._database_reachable, tp.send_paper_report, cc.direct = saved
+        return sent, calls
+
+    def test_35_the_evening_chart_goes_out_without_the_database(self):
+        from alerts.telegram_paper import CAPTION_LIMIT
+        state = {}
+        utc = lambda hh, mm=31: datetime(2026, 10, 15, hh, mm)          # Tehran = UTC + 3:30
+        self.assertEqual(self._evening(False, utc(16), state), ([], []), "before 21:00 nothing is asked or sent")
+        sent, calls = self._evening(True, utc(17), state)                 # 21:01, the database up
+        self.assertEqual(sent, [], "with the database up, PAPER's own report carries the chart")
+        self.assertEqual(calls, ["checked"])
+        sent, calls = self._evening(False, utc(17), state)                # 21:01, the database down
+        self.assertEqual(len(sent), 1)
+        text, png = sent[0]
+        self.assertEqual(png[1:4], b"PNG", "the chart, drawn from tgju's own candles")
+        self.assertIn(("TGJU_GOLD_18K", date(2026, 10, 15)), calls, "18K's candles before today")
+        plain = re.sub(r"</?[bi]>", "", text)
+        for part in ("GOLDPremium: EVENING", "23 Mehr 1405, 21:00", "18K ", "the 20-day (was", "the 50-day",
+                     "Channel ", "PAPER resumes when the database is back"):
+            self.assertIn(part, plain)
+        for char in "<>&":
+            self.assertNotIn(char, plain)
+        self.assertLessEqual(len(plain), CAPTION_LIMIT, "it fits under the chart")
+        self.assertEqual(state["evening_fallback_date"], "2026-10-15")
+        self.assertEqual(self._evening(False, utc(18), state), ([], []), "once a Tehran day")
+
+    def test_36_tgju_direct_has_the_stored_candles_shape(self):
+        import collector.tgju as tg
+        from persistence import candle_cache as cc
+        served = [  # newest first, as tgju serves them
+            {"date": "2026-10-15", "open": 1.0, "high": 2.0, "low": 0.5, "close": 1.5},      # today: incomplete
+            {"date": "2026-10-14", "open": 10.0, "high": 12.0, "low": 9.0, "close": 11.0},
+            {"date": "2026-10-14", "open": 10.0, "high": 12.0, "low": 9.0, "close": 11.0},   # served twice
+            {"date": "2026-10-13", "open": 10.0, "high": 9.0, "low": 9.5, "close": 10.0},    # stored, flagged
+            {"date": "2026-10-12", "open": None, "high": 9.0, "low": 9.0, "close": 9.0},     # not a candle
+            {"date": "2026-10-11", "open": 8.0, "high": 9.0, "low": 7.0, "close": 8.5}]
+        asked, real = [], tg.fetch_daily_candles
+        tg.fetch_daily_candles = lambda key, rows, start=0, order="desc": asked.append((key, rows, order)) or served
+        try:
+            got = cc.direct("TGJU_GOLD_18K", date(2026, 10, 15))
+        finally:
+            tg.fetch_daily_candles = real
+        self.assertEqual(asked, [("geram18", 1000, "desc")], "one request, measured to match the full history")
+        self.assertEqual([(c.trade_date.isoformat(), c.source_quality) for c in got],
+                         [("2026-10-11", "COMPLETE"), ("2026-10-13", "INCONSISTENT"), ("2026-10-14", "COMPLETE")])
+
+    def test_37_only_the_evening_chart_reads_tgju_directly(self):
+        # the room and the quant engine replay the whole history: fed 1,000 days they would
+        # silently decide on less, so the direct route stays with the chart
+        import main
+        users = []
+        for root, _, files in os.walk(SRC_DIR):
+            for name in files:
+                if name.endswith(".py"):
+                    with open(os.path.join(root, name), encoding="utf-8") as f:
+                        if re.search(r"import[^\n]*\bdirect\b|candle_cache\.direct\(", f.read()):
+                            users.append(name)
+        self.assertEqual(users, ["main.py"])
+        self.assertEqual(inspect.getsource(main).count("import direct"), 1)
+        self.assertIn("import direct", inspect.getsource(main._evening_fallback))
+
+    def test_38_the_evening_caption(self):
+        from alerts.telegram_paper import build_evening_message
+        reading = {"price": 263_449_605.0, "live": True, "as_of": date(2026, 10, 14), "phase": "MARKUP",
+                   "channel": {"slope_pct_day": 0.55, "position": 0.3}, "swing": (date(2026, 6, 16), 156_500_000.0, "L"),
+                   "ema20": (0.8, -1.2), "ema50": (10.2, 9.0)}
+        lines = re.sub(r"</?[bi]>", "", build_evening_message(date(2026, 10, 15), reading)).splitlines()
+        self.assertEqual(lines, ["GOLDPremium: EVENING · 23 Mehr 1405, 21:00",
+                                 "18K 26.34M · rising (markup), up from 15.65M on 26 Khordad",
+                                 "Channel +0.55%/day, price in its lower half",
+                                 "0.8% above the 20-day (was 1.2% below), 10% above the 50-day",
+                                 "PAPER resumes when the database is back"])
+        bare = build_evening_message(date(2026, 10, 15), None)
+        self.assertIn("Chart reading: not enough history", bare)
+
+
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(KPIPaper)
     result = unittest.TextTestRunner(verbosity=2).run(suite)

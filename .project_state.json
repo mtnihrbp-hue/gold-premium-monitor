@@ -314,7 +314,7 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "SP-De on branch sp-de: the quant fit (fixed seed plus a retry), the room alert at 3 with its push, Direction's EMA lines, Tether as a member (history first, then the section-32 bar), the LLM member. 2026-11-01: measure Neon's transfer around the first runs; check the phone's spool flushed. Parked: Raspberry Pi, broadcast, SP-C leftovers.",
+  "next_gate": "SP-De on branch sp-de: done -- the quant fit (35.1), the 21:00 chart without the database (35.2, caption awaiting the owner's lock). Proposed, awaiting the owner: the survival routes for a Neon outage (35.3: the hourly-record spool, kept push thresholds, UPDATE baselines from state.json); the news wing (Telegram channels via GitHub, geoblocked sites via the phone); one of ANALYZE or DIRECTION revamped. Then: the room alert at 3 with its push, Direction's EMA lines, Tether, the LLM member. 2026-11-01: measure Neon's transfer around the first runs; check the phone's spool flushed. Parked: Raspberry Pi, broadcast, SP-C leftovers.",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
@@ -423,6 +423,6 @@
     "SP-Db": "PAPER and the room, sections 9-29, merged 2026-10-05",
     "SP-Dc": "the Iran-side node and the sanity ranges, sections 30-31, merged 2026-10-07",
     "SP-Dd": "money flow, the phone's reads, the trend R&D, Neon's transfer cuts, sections 32-34, merged 2026-10-15 (v1.9safe)",
-    "SP-De": "next, one branch sp-de: the quant fit retry, the room alert at 3 with its push, Direction's EMA lines, Tether as a member, the LLM member"
+    "SP-De": "one branch sp-de, sections 35+: the quant fit retry (35.1), the 21:00 chart without the database (35.2), the outage routes (35.3, proposed), then the room alert at 3 with its push, Direction's EMA lines, Tether as a member, the LLM member, the news wing"
   }
 }

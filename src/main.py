@@ -892,16 +892,43 @@ def _paper_report(session, accounts, day, quote, sig, now, view=None, fund=(None
           f"chart {'yes' if png else 'no'}")
 
 
-def _paper_chart(session, analyst, live_sell):
-    """The analyst's chart for the 21:00 report: tgju's last 120 daily candles, EMA20 and
-    EMA50, the swing supports and resistances, the analyst's trades and the live price.
-    None on failure: the report then goes out as text."""
+def _usable(rows, o, h, l, c):
+    """Candles whose range can be read: complete, and not a flat bar (tgju's placeholder days)."""
+    return [r.source_quality == "COMPLETE" and not (o[j] == h[j] == l[j] == c[j]) for j, r in enumerate(rows)]
+
+
+def _chart_png(rows, trades, live, title):
+    """The 21:00 chart from daily candles, oldest first: the last 120, EMA20 and EMA50, the swing
+    supports and resistances, the trendlines, a rally's Fibonacci levels, `trades` and the live
+    price. None with fewer than 260 candles or on failure."""
     try:
         import numpy as np
         import talib
         from alerts.chart import render
-        from analysis.direction import GOLD
         from caluclator.technical import fibonacci, rally_legs, split_levels, swing_levels, trendlines
+
+        if len(rows) < 260:
+            return None
+        dates = [r.trade_date for r in rows]
+        o, h, l, c = (np.array([float(getattr(r, k)) for r in rows]) for k in ("open", "high", "low", "close"))
+        usable = _usable(rows, o, h, l, c)
+        supports, resistances = split_levels(swing_levels(h, l, upto=len(c) - 1, usable=usable), live)
+        trend = trendlines(h, l, c, upto=len(c) - 1, usable=usable)
+        direction, start = rally_legs(c)
+        fib = fibonacci(c[start[-1]], c[start[-1]:].max()) if direction[-1] == "up" else []
+        return render(dates, o, h, l, c, ema20=talib.EMA(c, 20), ema50=talib.EMA(c, 50),
+                      supports=[x["price"] for x in supports[:3]], resistances=[x["price"] for x in resistances[:2]],
+                      trades=trades, live=live, title=title, trend=trend, fib=fib)
+    except Exception as e:
+        print(f"Chart unavailable: {e}")
+        return None
+
+
+def _paper_chart(session, analyst, live_sell):
+    """The analyst's chart for the 21:00 report: tgju's stored candles, the analyst's trades and
+    the venue's live sell price (_chart_png). None on failure: the report then goes out as text."""
+    try:
+        from analysis.direction import GOLD
         from database.models import PaperActivity
         from persistence.candle_cache import candles
         from timeutil import to_tehran
@@ -909,22 +936,90 @@ def _paper_chart(session, analyst, live_sell):
         rows = candles(session, "tgju", GOLD)          # the copy kept between runs (SP-D section 34)
         if len(rows) < 260:
             return None
-        dates = [r.trade_date for r in rows]
-        o, h, l, c = (np.array([float(getattr(r, k)) for r in rows]) for k in ("open", "high", "low", "close"))
-        usable = [r.source_quality == "COMPLETE" and not (o[j] == h[j] == l[j] == c[j]) for j, r in enumerate(rows)]
-        supports, resistances = split_levels(swing_levels(h, l, upto=len(c) - 1, usable=usable), live_sell)
         trades = [(to_tehran(t.at).date(), t.action, float(t.price)) for t in
                   session.query(PaperActivity).filter(PaperActivity.account_id == analyst.id,
                                                       PaperActivity.kind == "TRADE").all()]
-        trend = trendlines(h, l, c, upto=len(c) - 1, usable=usable)
-        direction, start = rally_legs(c)
-        fib = fibonacci(c[start[-1]], c[start[-1]:].max()) if direction[-1] == "up" else []
-        return render(dates, o, h, l, c, ema20=talib.EMA(c, 20), ema50=talib.EMA(c, 50),
-                      supports=[x["price"] for x in supports[:3]], resistances=[x["price"] for x in resistances[:2]],
-                      trades=trades, live=live_sell, title=f"18K daily · PAPER {analyst.name}", trend=trend, fib=fib)
+        return _chart_png(rows, trades, live_sell, f"18K daily · PAPER {analyst.name}")
     except Exception as e:
         print(f"PAPER chart unavailable: {e}")
         return None
+
+
+def _database_reachable():
+    """True when the database answers a trivial query; the 21:00 fallback asks before it sends."""
+    session = get_session()
+    if session is None:
+        return False
+    try:
+        from sqlalchemy import text
+        session.execute(text("SELECT 1"))
+        return True
+    except Exception as e:
+        print(f"DATABASE unreachable: {str(e).strip().splitlines()[0][:200]}")
+        return False
+    finally:
+        session.close()
+
+
+def _evening_reading(rows, live):
+    """What the 21:00 fallback's caption says about the chart, or None without 260 candles: the
+    price (live when there is one, else the last close), the chartist's phase, last swing and
+    channel on the completed candles, and the distance from EMA20 and EMA50 now and at the last
+    close, the live price taken as a provisional close as Direction does (analysis/direction.py)."""
+    import numpy as np
+    import talib
+    from caluclator.chartist import Chartist
+
+    if len(rows) < 260:
+        return None
+    o, h, l, c = (np.array([float(getattr(r, k)) for r in rows]) for k in ("open", "high", "low", "close"))
+    chart = Chartist(h, l, c, _usable(rows, o, h, l, c))
+    i = len(c) - 1
+    read = chart.read(i)
+    known = chart.known(i)
+    series = np.append(c, float(live)) if live else c
+    e20, e50 = talib.EMA(series, 20), talib.EMA(series, 50)
+    dist = lambda e, k: float((series[k] / e[k] - 1) * 100)
+    return {"price": float(series[-1]), "live": bool(live), "as_of": rows[-1].trade_date,
+            "phase": read["phase"], "channel": read.get("channel"),
+            "swing": (rows[known[-1][1]].trade_date, float(known[-1][2]), known[-1][3]) if known else None,
+            "ema20": (dist(e20, -1), dist(e20, -2)), "ema50": (dist(e50, -1), dist(e50, -2))}
+
+
+def _evening_fallback(markets, now, state):
+    """The 21:00 chart when the database cannot be read (SP-D section 35.2). PAPER keeps its
+    accounts in the database and sends nothing without it; the chart needs only 18K's daily
+    candles, which tgju serves directly. Once per Tehran day, kept in state.json; with the
+    database up, PAPER's own report carries the chart and this sends nothing. Never raises."""
+    try:
+        from analysis import paper
+        from analysis.direction import GOLD, live_gold_price
+        from timeutil import local_date, local_now
+
+        if local_now(now).hour < paper.REPORT_HOUR:
+            return
+        day = local_date(now)
+        if state is not None and state.get("evening_fallback_date") == day.isoformat():
+            return
+        if _database_reachable():
+            return
+        from alerts.telegram_paper import build_evening_message, send_paper_report
+        from persistence.candle_cache import direct
+
+        rows = direct(GOLD, day)
+        live = live_gold_price(markets)
+        png = _chart_png(rows, (), live, "18K daily")
+        reading = _evening_reading(rows, live)
+        if png is None and reading is None:
+            print(f"EVENING: {len(rows)} tgju candles, too few for the chart; nothing sent")
+            return
+        send_paper_report(build_evening_message(day, reading), png)
+        if state is not None:
+            state["evening_fallback_date"] = day.isoformat()
+        print(f"EVENING sent without the database: {len(rows)} tgju candles to {rows[-1].trade_date}, "
+              f"chart {'yes' if png else 'no'}")
+    except Exception as e:
+        print(f"EVENING failed: {e}")
 
 
 def _send_direction_report():
@@ -1318,6 +1413,7 @@ def main():
         _collect_room_inputs(now)
         _direction_precompute(markets, signal_state, now)
         _paper_run(markets, signal_state, now)
+        _evening_fallback(markets, now, state)
         if snapshot_id is not None:
             try:
                 analysis_snapshot_id = build_analysis_snapshot(config=config)

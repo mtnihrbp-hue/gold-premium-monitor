@@ -137,6 +137,35 @@ def build_room_report_message(day, venue, sell, sell_note, holding, units, fund_
     return "\n".join(lines)
 
 
+def build_evening_message(day, reading):
+    """The 21:00 caption when the database cannot be read and PAPER cannot run (SP-D section
+    35.2): the chart's reading in three lines. `reading`: main._evening_reading, or None."""
+    from caluclator.chartist import PHASE_WORDS
+    side = lambda v: "above" if v >= 0 else "below"
+    lines = [f"<b>GOLDPremium: EVENING</b> · {persian_day(day, year=True)}, 21:00"]
+    if reading is None:
+        lines.append("Chart reading: not enough history")
+    else:
+        head = f"18K {_m(reading['price'])}"
+        if reading["phase"]:
+            head += f" · {PHASE_WORDS[reading['phase']]}"
+        if reading["swing"]:
+            swing_day, swing_price, kind = reading["swing"]
+            head += f", {'up' if kind == 'L' else 'down'} from {_m(swing_price)} on {persian_day(swing_day)}"
+        lines.append(head)
+        channel = reading["channel"]
+        if channel:
+            where = ("above its top line" if channel["position"] > 1 else "below its bottom line" if channel["position"] < 0
+                     else "in its upper half" if channel["position"] > 0.5 else "in its lower half")
+            lines.append(f"Channel {channel['slope_pct_day']:+.2f}%/day, price {where}".replace("-", "−"))
+        d20, was20 = reading["ema20"]
+        d50 = reading["ema50"][0]
+        was = f"{abs(was20):.1f}%" + ("" if side(was20) == side(d20) else f" {side(was20)}")
+        lines.append(f"{abs(d20):.1f}% {side(d20)} the 20-day (was {was}), {abs(d50):.0f}% {side(d50)} the 50-day")
+    lines.append("PAPER resumes when the database is back")
+    return "\n".join(lines)
+
+
 def send_paper(text):
     _send(text)
 

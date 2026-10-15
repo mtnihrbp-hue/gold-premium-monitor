@@ -2743,3 +2743,70 @@ state is restored afterwards, and only when all three fail is the engine unavail
 seed used is kept with the fit. `kpi_paper.test_33` (the same fit every time, the program's random
 state untouched) and `test_34` (a failed search retried from the next seed); kpi_paper 39/39, suite
 30/30.
+
+**35.2 The 21:00 chart without the database** (the owner, 10-15: "the important part for the nightly
+msg for me is the chart, is that possible now? if yes, we should, overall, design a try and error
+route that if the NEON is down, then another route can survive mostly"). Since 10-13 21:00 no 21:00
+message has gone out: PAPER keeps its accounts in Neon, `_paper_run` fails at its first query, and the
+report and its chart go with it. The chart needs only 18K's daily candles, and tgju serves those to the
+runner directly.
+
+- **The route.** `main._evening_fallback` runs after `_paper_run` on scheduled runs from 21:00 Tehran.
+  It asks the database `SELECT 1` (`_database_reachable`). If that answers, PAPER's own report carries
+  the chart and the fallback sends nothing. If it doesn't, it does four things:
+  1. fetches 18K's candles from tgju (`persistence/candle_cache.direct`: one request, 1,000 days,
+     dropping today's incomplete candle and rows without a valid price, classified as `main` stores
+     them);
+  2. draws the report's own chart (`_chart_png`, now shared with `_paper_chart`), titled "18K daily",
+     with no trades and the live line at the platforms' tgju-level price that Direction uses;
+  3. sends it with the caption below;
+  4. records the Tehran day in `state.json` (`evening_fallback_date`), so it goes out once a day.
+
+  It never raises.
+- **Depth, measured** on tgju's full 18K history (3,529 days to 10-14): from 400 days up, the last N
+  days give the same chart as all 3,529. That covers the EMAs, swing levels, trendlines, Fibonacci and
+  the chartist's reading. EMA50 differs by 5e-7 at 400 days and by 0 at 1,000. Fetching 1,000 days
+  takes 0.9-1.2 s.
+- **Only the chart reads tgju directly.** The room and the quant engine replay the whole history; fed
+  1,000 days, they would decide on less without saying so (`kpi_paper.test_37`).
+- **The caption**, previewed 10-15 on live data:
+  ```
+  GOLDPremium: EVENING · 23 Mehr 1405, 21:00
+  18K 26.34M · rising (markup), up from 15.65M on 26 Khordad
+  Channel +0.55%/day, price in its lower half
+  3.1% above the 20-day (was 2.2%), 10% above the 50-day
+  PAPER resumes when the database is back
+  ```
+  - The phase words are the room report's ("Phase: ...").
+  - The EMA distances are computed as Direction computes them: the live price is taken as a
+    provisional close, and "was" is the distance at the last completed close.
+  - A correction to the first preview: it said PAPER resumes "(1 Aban)", but Neon resets on
+    1 November, which is **10 Aban**. The caption carries no date, since a future outage has none.
+- **KPIs.** `kpi_paper` 43/43, suite 30/30:
+  - `test_35`: nothing before 21:00 or with the database up; with it down, one chart with its
+    caption, once a day;
+  - `test_36`: the direct candles' shape;
+  - `test_37`: only the chart reads tgju directly;
+  - `test_38`: the caption, line by line.
+- **Awaiting** the owner's lock of the caption. It reaches production with SP-De's batch.
+
+**35.3 What survives a Neon outage: production's runs of 10-15, and the proposed routes.** Every
+database call fails in about 0.9 s and is caught. Runs stay green. From the logs of the 16:00 ANALYZE
+and the 13:22 UPDATE:
+
+| What | During the outage | Proposed route (not locked) |
+|---|---|---|
+| 21:00 chart | nothing sent | built, 35.2 |
+| Deep-discount push | cannot fire: `PUSH ... fire_at=None -> NO_DATA` | the last thresholds kept in `state.json`, used for a few days |
+| UPDATE: deep-discount level, "Bigger than", trend | missing (bubble queries fail) | the kept threshold; "Bigger than" stays missing |
+| UPDATE: RUN and DAY baselines | `RUN=N/A DAY=N/A` | `state.json` already holds the last 30 readings |
+| The hourly record (snapshots, platform prices, states) | lost, about 16 readings a day | a spool in the Actions cache, flushed when Neon returns, as the phone spools its readings |
+| Stale-quote check | skipped: it fails open, so a frozen copy can pass | the spool and `state.json` history give the repeat rule part of its window |
+| Daric | lost: the runner gets 403, and the node's rows are in Neon | the phone keeps them in its spool; no route to the runner without a second store |
+| Direction, the room's inputs, tgju candles | fail | the candle cache plus tgju's days after it (exact, unlike 1,000 days alone) |
+| BUY signal | held: confirmation fails closed | unchanged, by design |
+| News | 0 stored; 2.5 minutes a run spent failing to save | dedup in `state.json`, with the news wing |
+| PAPER | paused | none: the accounts live in Neon |
+
+The record matters beyond the outage. The deep-discount pool is 30 settled days, so in early November
+it will hold 10-02 to 10-13 and whatever arrives after the reset, unless the spool fills the gap.
