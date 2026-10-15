@@ -3101,3 +3101,69 @@ audit.
 
 **Merged** after `v1.13safe` (main 2085974); suite 30/30, `kpi_direction` 37/37, CI green on
 ubuntu-24.04.
+
+**35.9 The dollar after the news: the year of channels, the keyword pass, the AI model's labels**
+(10-15 night).
+
+- **The history.** `research/backfill_telegram.py` ran on GitHub's runner, six jobs in parallel, and
+  the files came back through a temporary branch because the log host does not answer the workstation.
+  The result is **123,569 posts**:
+  - five channels from 2025-10-15;
+  - khabarfouri from 2026-01-08, where its 50-minute budget ran out.
+
+  The files are `research/data/telegram/`, git-ignored.
+- **Keywords cannot find the events** (`research/rd_news_events.py`, rules in its docstring). The
+  "central-bank intervention" matches are mostly other things:
+  - steel exporters' currency agreements with the central bank;
+  - Japan's yen intervention;
+  - an Iran-US memorandum.
+
+  In a year with a war, "military" and "talks" match almost every day: 253 and 222 event days of
+  357. Every type therefore reads like the base rate (the dollar's median 3-day move +0.53% on all
+  days). The owner's hypothesis ("whenever the cbi intervened the prices dropped") is not tested by
+  this, only shown to need the model.
+- **The model reads each day** (`research/label_news_days.py`), running on GitHub on the temporary
+  branch `probe-news-labels`:
+  - each Tehran day gets one request to Groq, `openai/gpt-oss-120b` at low reasoning;
+  - the request carries the day's headlines: the first line of each post from khabarfouri, betasahm1,
+    bourse24ir and bidarbourse, deduplicated, filtered to the economy and politics, at most 70 a day
+    (median 70, 5,440 characters);
+  - the model returns `cbi_fx_intervention`, `talks`, `conflict`, `sanctions`, `oil_exports`,
+    `dollar_pressure` and a one-line summary;
+  - it is never shown a price after the day, and its training predates these events.
+
+  It is paced under the free tier's 8,000 tokens a minute, about 3 hours for the year.
+  `research/rd_news_labels.py` then measures the dollar and Tether 1 and 3 trading days after each
+  label value, and the model's own `dollar_pressure` against what followed.
+- **Tether's daily history** for it comes from tgju (`crypto-tether-irr`, from 2020-11-12).
+- **The filled Direction draft** (all but its news line), live at 21:13 Tehran:
+
+  ```
+  GOLDPremium: DIRECTION · 23 Mehr, 21:13
+  18K 26.25M · uptrend since 8 Azar 1402 · driven by the dollar
+
+  TREND
+  This leg +68% since 26 Khordad: dollar +70%, world gold −5%
+  2.7% above the 20-day (was 2.2%), 9.9% above the 50-day (was 9.4%)
+  20-day 7.0% above the 50-day: bullish since 27 Tir
+
+  BUY NOW OR WAIT
+  Waiting for a 3% dip: on days like today it came 27 in 100;
+  buying now was 5.7% better on average, and cheaper in 12 of 13 years
+
+  LEVELS (how lines this far away did)
+  Resistance 26.84M (+2.2%): broken within 10 days 49 in 100
+  Support 24.43M (−6.9%): held 10 days 93 in 100
+
+  WATCH (each with a measured record)
+  18K closes under its 50-day, 23.83M (−9%): followed by −2.9% over 20 days
+  Dollar closes under its 50-day, 231,127 (−12%): followed by −3.2% over 20 days
+
+  GOLD DEMAND (gold funds, last 10 days)
+  Normal. Buyers 1.4x their usual number: from 2x, a rush, a 5% drop
+  within a month came twice as often. Buyer power 0.60: under 0.55,
+  sellers in control, the next month was 2-5 points weaker.
+
+  DOLLAR FROM NEWS
+  <from the model's labels>
+  ```
