@@ -29,7 +29,8 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "src"))   # the pickle of tgju's series carries a panel
 NOT_GOLD = {"51200575796028449"}          # سافرون
-WINDOW, HORIZON, MIN_HISTORY = 10, 20, 250
+WINDOW = int(os.environ.get("GOLD_DEMAND_WINDOW", 10))   # 10: tablokhani's window; 7: the system's 7-day convention
+HORIZON, MIN_HISTORY = 20, 250
 
 
 def daily_flows():

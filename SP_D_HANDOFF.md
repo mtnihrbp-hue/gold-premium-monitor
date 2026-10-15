@@ -3167,3 +3167,30 @@ ubuntu-24.04.
   DOLLAR FROM NEWS
   <from the model's labels>
   ```
+
+**35.10 The owner's review of the filled draft; gold demand counted by episodes** (10-15 night).
+
+- **21:00:** the evening chart reached the owner's Telegram ("yes i received the chart at 21 good"):
+  the fallback of 35.2 worked on its first night.
+- **WATCH is vague** (the owner: "idk what msg it want to deliver to the user"). It is to be rewritten
+  to say when the uptrend would end and whether that is near.
+- **GOLD DEMAND is vague and the wording misleads.** The owner read "buyers 1.4x their usual number" as
+  buyer power against sellers. Plain words are needed, and the system's 7-day window ("we normally use
+  the 7D MA through out the system"), not tablokhani's 10.
+- **"How accurate is this?" Counted by episodes, the evidence is thin.** On 7 days the day-count
+  results hold, but rush days come in clusters, and a 10-day rush counted ten times.
+  - By separate episodes (`rd_gold_demand.py`, `GOLD_DEMAND_WINDOW=7`):
+    - rushes of buyers (top 20%): 12 in 2019-2023, a 5% drop within a month after 4; 7 in 2024-2026,
+      after 3. That is 7 of 19 against about 1 in 5 normally.
+    - sellers in control (bottom 20% of buyer power): 32 episodes in 2019-2023, a drop after 12; 21
+      in 2024-2026, after 4, the normal rate, with a median move of +6.8% against +7.45% on all days.
+  - The 48 and 41 in 100 shown earlier were day counts and overstated it. 19 rushes are too few for a
+    rate a reader should act on, so the line is to describe demand plainly and claim no forecast.
+  - **Lesson:** count episodes, not days, whenever a signal persists. The 50-day break anchors (-2.9%,
+    -3.2%) are to be checked the same way in the audit.
+- **News through the phone** (the owner: "we need to bring back the websites, that are being geo
+  blocked, using the termux. understood?"):
+  - cbi.ir, Tasnim, Donya-e-Eqtesad and any site the runner cannot reach are read by `iran_node/node.py`
+    and sent as `iran_node_readings` rows, as TSETMC is.
+  - While Neon is down they wait in the phone's spool. A route that does not depend on Neon (the
+    Cloudflare worker as a relay) is for the audit.
