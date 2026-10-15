@@ -2725,3 +2725,21 @@ step 9) before the 06:00 run and after the 07:00 run; the difference is one run'
 phone's spool flush (inserts send little back); projected over a month against the 5 GB.
 
 **SP-Dd merged** on the owner's approval ("yes on all 4 items"): `v1.9safe` tags `main` before it.
+
+## 35. SP-De: the quant fit, then the room alert, Direction's EMA lines, Tether, the LLM member (2026-10-15)
+
+**The owner** (2026-10-07 and 10-15): fix the quant fit's random starts ("retry is better, what's your
+call?"); the room alert at 3 of 8 with its push; Direction's EMA lines as previewed; Tether as a member
+("a must to have, do it"); the LLM member onboarded; most of these under one sprint. Production's
+database is suspended until 2026-11-01 (section 34), so SP-De is built and tested on `sp-de` and
+reaches `main` before the reset, as one reviewed batch.
+
+**35.1 The quant fit** (`analysis/quant.fit_regimes`). The two-regime fit searches 5 random starting
+points from numpy's global generator, unseeded: two fits of the same returns could differ, and on
+2026-10-07 one search failed (an SVD that did not converge) and the engine reported itself
+unavailable. A retry alone keeps the randomness; a seed alone keeps the failure. Both: each attempt
+draws from a fixed seed (`FIT_SEEDS` 0, 1, 2), a failed attempt is retried from the next, numpy's random
+state is restored afterwards, and only when all three fail is the engine unavailable as before. The
+seed used is kept with the fit. `kpi_paper.test_33` (the same fit every time, the program's random
+state untouched) and `test_34` (a failed search retried from the next seed); kpi_paper 39/39, suite
+30/30.

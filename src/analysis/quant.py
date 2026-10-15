@@ -38,18 +38,37 @@ def ewma_variance(returns, lam=EWMA_LAMBDA):
     return float(v)
 
 
+# The fit searches 5 random starting points, drawn from numpy's global generator. Unseeded, two
+# fits of the same returns could differ, and on 2026-10-07 one search did not converge (an SVD
+# failure in the EM step) and the engine reported itself unavailable (SP_D_HANDOFF.md section 35).
+# Each attempt now draws from a fixed seed, and a failed one is retried from the next.
+FIT_SEEDS = (0, 1, 2)
+
+
 def fit_regimes(returns):
-    """{"params": [...], "names": [...]} of a two-regime fit, or None."""
+    """{"params": [...], "names": [...]} of a two-regime fit, or None when every seed fails."""
     import warnings
     import statsmodels.api as sm
     r = np.asarray(returns, dtype=float)
     if len(r) < MIN_RETURNS:
         return None
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        model = sm.tsa.MarkovRegression(r, k_regimes=2, trend="c", switching_variance=True)
-        fit = model.fit(disp=False, search_reps=5)
-    return {"params": [float(x) for x in fit.params], "names": list(model.param_names)}
+    outer = np.random.get_state()
+    try:
+        for seed in FIT_SEEDS:
+            np.random.seed(seed)
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    model = sm.tsa.MarkovRegression(r, k_regimes=2, trend="c", switching_variance=True)
+                    fit = model.fit(disp=False, search_reps=5)
+                params = [float(x) for x in fit.params]
+                if all(np.isfinite(params)):
+                    return {"params": params, "names": list(model.param_names), "seed": seed}
+            except Exception as e:  # noqa: BLE001 -- the next seed is the retry
+                print(f"Quant fit failed with seed {seed}: {type(e).__name__}: {e}")
+        return None
+    finally:
+        np.random.set_state(outer)       # the rest of the program's random numbers are untouched
 
 
 def filtered_drift(returns, fitted):

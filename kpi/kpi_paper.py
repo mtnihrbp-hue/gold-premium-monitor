@@ -18,11 +18,13 @@ load-bearing properties are the contract's clauses:
 """
 
 import inspect
+import io
 import math
 import os
 import re
 import sys
 import unittest
+from contextlib import redirect_stdout
 from datetime import date, datetime, timedelta
 
 SRC_DIR = os.path.join(os.path.dirname(__file__), "..", "src")
@@ -760,6 +762,47 @@ class KPIPaper(unittest.TestCase):
         self.assertIn("room.money_flow(dates, *_room_flow(session))", source)
         self.assertIn("flow=flow", source)
         self.assertIn("flow = None", source, "without the flow the member has no view; the room carries on")
+
+    # -- the quant engine's fit (SP_D_HANDOFF.md section 35) --------------------------------
+
+    def _returns(self):
+        import numpy as np
+        rng = np.random.default_rng(5)
+        return np.diff(np.log(150_000_000 * np.exp(np.cumsum(rng.normal(0.0015, 0.01, 700)))))
+
+    def test_33_the_fit_is_the_same_every_time_and_leaves_the_rest_random(self):
+        import numpy as np
+        from analysis import quant
+        r = self._returns()
+        np.random.seed(123)
+        before = np.random.get_state()[1].copy()
+        a, b = quant.fit_regimes(r), quant.fit_regimes(r)
+        self.assertEqual(a["params"], b["params"], "an unseeded search fitted the same data two ways")
+        self.assertEqual(a["seed"], quant.FIT_SEEDS[0])
+        self.assertTrue((np.random.get_state()[1] == before).all(), "the program's random state is restored")
+
+    def test_34_a_failed_search_is_retried_from_the_next_seed(self):
+        """On 2026-10-07 one search did not converge and the engine reported itself unavailable."""
+        import numpy as np
+        import statsmodels.api as sm
+        from analysis import quant
+        real = sm.tsa.MarkovRegression.fit
+        calls = []
+
+        def flaky(self, *args, **kwargs):
+            calls.append(1)
+            if len(calls) == 1:
+                raise np.linalg.LinAlgError("SVD did not converge")
+            return real(self, *args, **kwargs)
+        sm.tsa.MarkovRegression.fit = flaky
+        try:
+            with redirect_stdout(io.StringIO()):
+                fit = quant.fit_regimes(self._returns())
+        finally:
+            sm.tsa.MarkovRegression.fit = real
+        self.assertIsNotNone(fit)
+        self.assertEqual(fit["seed"], quant.FIT_SEEDS[1])
+        self.assertEqual(len(calls), 2)
 
 
 if __name__ == "__main__":
