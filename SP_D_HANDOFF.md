@@ -16,7 +16,7 @@ SP-Db  PAPER and the room                          sections 9-29    merged 2026-
 SP-Dc  the Iran-side node, the sanity ranges       sections 30-31   merged 2026-10-07 (v1.8safe)
 SP-Dd  money flow, the phone's reads, the trend    sections 32-34   branch sp-d-trend-rd, merged 2026-10-15 (v1.9safe)
        R&D, Neon's transfer cuts
-SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
+SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de; 35.1-35.2 merged 2026-10-15 (v1.10safe)
        push, Direction's EMA lines, Tether as a
        member, the LLM member
 ```
@@ -2788,7 +2788,8 @@ runner directly.
   - `test_36`: the direct candles' shape;
   - `test_37`: only the chart reads tgju directly;
   - `test_38`: the caption, line by line.
-- **Awaiting** the owner's lock of the caption. It reaches production with SP-De's batch.
+- **Locked** by the owner on 10-15 ("fine"), with the merge before that evening's 21:00 run. `main` was
+  tagged `v1.10safe` first, then fast-forwarded to `sp-de` with 35.1 and 35.2.
 
 **35.3 What survives a Neon outage: production's runs of 10-15, and the proposed routes.** Every
 database call fails in about 0.9 s and is caught. Runs stay green. From the logs of the 16:00 ANALYZE

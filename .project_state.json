@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "project": "Gold Premium Monitor",
-  "active_branch": "sp-d-iran-node; main and SP-D at cf3c520 since 2026-10-07 12:45 Tehran (v1.8safe before); main is production",
+  "active_branch": "sp-de; main and SP-D at SP-De's first batch since 2026-10-15 (v1.10safe before); main is production",
   "current_phase": "SP-D (SP_D_HANDOFF.md): Direction live on main since 2026-10-03 (sections 1-8); the PAPER portfolio, the room as its front office, live on main since 2026-10-05 18:01 (sections 9-28); health check and record 2026-10-06 (section 29). Proposed next, for the owner's decision: Taline's frozen copies, the Iran-side node, the news leg with the LLM (section 29)",
   "current_phase_status": "SP-C CLOSED (merged 2026-09-28, 2b7c5f8; v1.3safe before). SP-D IN PROGRESS: Direction merged 2026-10-03 (v1.4safe before); PAPER merged 2026-10-05 15:57 (v1.6safe before); the go-live hotfix (scipy/pandas pins, venue label) fast-forwarded 17:07 (v1.7safe = 2957699 before). Production (cron-job.org and the Telegram worker) dispatches ref main. SP_D_HANDOFF.md sections 28-29.",
   "completed_phases": [
@@ -75,12 +75,12 @@
   },
   "latest_verified_kpi": {
     "phase": "FULL SUITE",
-    "verified_on": "2026-10-06",
+    "verified_on": "2026-10-15",
     "files_passed": 30,
     "files_total": 30,
-    "assertions": "802 across 29 files; kpi_update_telegram_v1.py reports no count",
+    "assertions": "819 across 29 files; kpi_update_telegram_v1.py reports no count",
     "status": "PASS",
-    "evidence_source": "python kpi/run_all.py at 04a37e1 (main = SP-D = sp-d-paper) against an isolated in-memory database, runner exit status 0; also green in CI on main and SP-D (runs 37318234182, 37318234401, 2026-10-05)",
+    "evidence_source": "python kpi/run_all.py at ad93ff7 (sp-de, fast-forwarded into SP-D and main) against an isolated in-memory database, runner exit status 0; kpi_paper 43/43",
     "notes": [
       "C.2 had been failing since commit ff4496d (C.13 idempotency fix) while documentation recorded 14/14 PASS; the stale assertion was corrected on SP-C.",
       "KPI scripts print status emoji and crash with UnicodeEncodeError under the Windows console codepage after assertions pass. kpi/run_all.py forces UTF-8 for child processes.",
@@ -314,7 +314,7 @@
       "relevant source/tests/KPI/SQL"
     ]
   },
-  "next_gate": "SP-De on branch sp-de: done -- the quant fit (35.1), the 21:00 chart without the database (35.2, caption awaiting the owner's lock). Proposed, awaiting the owner: the survival routes for a Neon outage (35.3: the hourly-record spool, kept push thresholds, UPDATE baselines from state.json); the news wing (Telegram channels via GitHub, geoblocked sites via the phone); one of ANALYZE or DIRECTION revamped. Then: the room alert at 3 with its push, Direction's EMA lines, Tether, the LLM member. 2026-11-01: measure Neon's transfer around the first runs; check the phone's spool flushed. Parked: Raspberry Pi, broadcast, SP-C leftovers.",
+  "next_gate": "SP-De on branch sp-de: merged 2026-10-15 (v1.10safe) -- the quant fit (35.1), the 21:00 chart without the database (35.2). Approved by the owner 10-15, next in order: the hourly-record spool, then the kept push thresholds (35.3); DIRECTION is the message revamped (preview first), ANALYZE only trimmed; the news wing on the owner's seven Telegram channels via GitHub, geoblocked sites via the phone. Then: the room alert at 3 with its push, Direction's EMA lines, Tether, the LLM member. 2026-11-01: measure Neon's transfer around the first runs; check the phone's spool flushed. Parked: Raspberry Pi, broadcast, SP-C leftovers.",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
