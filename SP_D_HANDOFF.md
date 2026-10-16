@@ -4820,6 +4820,7 @@ studies were run, each committed before it ran:
 | 18K under its year's high | -1.8% | — |
 | Ayyar's premium to NAV (10-03) | +9.5%, rank 97% | buyers paying up |
 | the room (10-01) | all in gold | — |
+| the pattern reader (`caluclator/patterns.read`, tgju's last 300 days) | a sideways range since 09-29 (7 Mehr), 25.27M-26.74M toman, after the range of 09-03 to 09-28 broke up | the owner's "side way channel"; on 18K's record a breakout up from a range reached its target first in 30 of 39, a breakdown in 12 of 22 (37.4) |
 
 **42.7 What the evidence supports for the decision engine** (with 39.6 and 40.5, for the owner's
 decision). Three readers, three questions:
