@@ -303,7 +303,7 @@ Fail-safe law used throughout collection/analysis: on missing data, use a safe d
 - `src/database/` — SQLAlchemy models/connection/repository against Neon Postgres.
 - `src/alerts/` — Telegram and email/resend delivery; `telegram_update_v1.py` is the current UPDATE presentation surface.
 - `src/update/` — RUN/DAY baseline resolution for the UPDATE v1 Telegram surface.
-- `src/persistence/state.py` — lightweight JSON state (`state.json`) used by the Live Wing between runs (separate from Neon).
+- `src/persistence/state.py` — lightweight JSON state (`state.json`) used by the Live Wing between runs (separate from Neon). Beside it, all cached by the workflow: `spool.py` (writes held while Neon is out of reach), `candle_cache.py` (daily candles between runs) and `mirror.py` (the last 61 days of readings, read-only, for the reads a run makes while Neon is out of reach; `SP_D_HANDOFF.md` §37.12).
 - `kpi/` — one executable KPI spec per phase (`kpi_pre_sp_cN.py`, `kpi_sp_bN.py`, etc.); these are the authoritative acceptance tests for each phase, not just unit tests.
 - `sql/neon_schema.sql` is the canonical **target** schema; `sql/neon_migration_*.sql` are incremental migrations for the **existing** populated Neon database. Never apply the full target schema as a migration against production.
 

@@ -460,6 +460,17 @@ fresh `state.json`. The expected visible effect is one extra daily recap on the 
 scheduled run on `main`, at 15:00 Tehran on 2026-09-28. SP-C's caches remain, but `main` cannot read another branch's caches,
 by GitHub's design.
 
+The same cache entry carries the files a run keeps between runs (`gold-monitor.yml`, Restore State):
+- `state.json`;
+- `candle_cache.json`, the daily candles (SP-D 34.1);
+- `record_spool.jsonl`, writes held while Neon is out of reach (35.4);
+- `record_mirror.sqlite`, the last 61 days of readings for the reads a run makes while Neon is out of
+  reach (37.12).
+
+Each run saves a new entry and restores the latest, so a busy branch never ages out. Deleting the
+entries in the repository's Actions caches starts all four fresh: the mirror then refills in full from
+Neon, and the spool is lost.
+
 ### Job timeouts and log access (2026-09-27)
 
 `gold-monitor.yml` kills a run at 20 minutes. A normal scheduled Execute step takes

@@ -97,6 +97,17 @@ def _generate_collection_run_id():
     return f"run_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
 
 
+def _read_session():
+    """A session for the reads the record mirror can serve when Neon is out of reach
+    (persistence/mirror.py, SP_D_HANDOFF.md section 37.12): the valuation rank, the platform
+    history, the confirmation, UPDATE's context and baselines, momentum. Otherwise, and for
+    every writer, `get_session()` as before."""
+    from persistence import mirror
+    if mirror.enabled() and not mirror.reachable() and mirror.built_at() is not None:
+        return mirror.read_session()
+    return get_session()
+
+
 def _resolve_decision_valuation(premium, thresholds):
     """The valuation leg, or an abstention.
 
@@ -107,7 +118,7 @@ def _resolve_decision_valuation(premium, thresholds):
     """
     from analysis.bubble_position import DecisionValuation
     try:
-        session = get_session()
+        session = _read_session()
         if session is None:
             return DecisionValuation(premium=premium)
         return resolve_decision_valuation(session, premium, thresholds)
@@ -395,12 +406,16 @@ def _hold_reading(now, fair, premium, world, usd, signal_state, platform_prices,
     from database.repository import market_state_fields
     from persistence import spool
 
-    return spool.hold("reading", {
-        "snapshot": {"timestamp": now, "fair_price": fair, "premium_percent": premium, "world_gold_usd": world,
-                     "usd_irr": usd, "signal": signal_state.final_decision, "confidence": None,
-                     "collection_mode": collection_mode},
-        "platform_prices": platform_prices,
-        "state": market_state_fields(signal_state)})
+    from persistence import mirror
+
+    snapshot = {"timestamp": now, "fair_price": fair, "premium_percent": premium, "world_gold_usd": world,
+                "usd_irr": usd, "signal": signal_state.final_decision, "confidence": None,
+                "collection_mode": collection_mode}
+    held = spool.hold("reading", {"snapshot": snapshot, "platform_prices": platform_prices,
+                                  "state": market_state_fields(signal_state)})
+    if held:
+        mirror.add_held(snapshot, platform_prices)      # so the next run's reads see it (section 37.12)
+    return held
 
 
 def _recent_platform_history(now):
@@ -410,7 +425,7 @@ def _recent_platform_history(now):
     guess is worse than keeping it -- and the confirmation check below still fails
     closed, so a stale quote that slips through cannot carry a signal on its own.
     """
-    session = get_session()
+    session = _read_session()
     if session is None:
         return []
     try:
@@ -462,7 +477,7 @@ def _resolve_signal_confirmation(markets, fair, usd, world_from_fallback, thresh
     check that cannot run holds the signal, because a recommendation that cannot show
     its evidence must not be sent (SP_C_HANDOFF.md section 38).
     """
-    session = get_session()
+    session = _read_session()
     if session is None:
         return SignalConfirmation(world_live=not world_from_fallback, status="NO_SESSION")
     try:
@@ -1118,6 +1133,23 @@ def _paper_chart(session, analyst, live_sell):
         return None
 
 
+def _refresh_mirror(now):
+    """Bring the record mirror up to date from Neon, after this run's writes (persistence/mirror.py,
+    SP_D_HANDOFF.md section 37.12). Nothing when unset or when Neon is out of reach."""
+    from persistence import mirror
+    if not mirror.enabled() or not mirror.reachable():
+        return
+    session = get_session()
+    if session is None:
+        return
+    try:
+        copied = mirror.refresh(session, now)
+        if copied is not None:
+            print(f"MIRROR: {copied} rows copied (built {mirror.built_at():%Y-%m-%d %H:%M})")
+    finally:
+        session.close()
+
+
 def _database_reachable():
     """True when the database answers a trivial query; the 21:00 fallback asks before it sends."""
     session = get_session()
@@ -1340,7 +1372,7 @@ def _resolve_presentation_context(premium, run_premium=None, markets=None, fair=
     they stay inside the Live Wing boundary. Non-blocking: a failure here degrades
     the message rather than preventing it.
     """
-    session = get_session()
+    session = _read_session()
     if session is None:
         return None, None, None, None
     try:
@@ -1563,7 +1595,7 @@ def main():
     momentum = None
     input_directions = None
     try:
-        session = get_session()
+        session = _read_session()
         if session:
             momentum = build_momentum_context(premium, session)
             if is_scheduled:
@@ -1648,6 +1680,7 @@ def main():
         # and the push would fire on every reading above the level -- which is the
         # flicker the re-arm band exists to prevent.
         save_state(state)
+        _refresh_mirror(now)
 
     should_send_alert = bool(signal and signal["signal"] in ("BUY", "SELL") and email_cfg.get("send_alerts", True))
     if should_send_alert and signal["signal"] == "BUY":

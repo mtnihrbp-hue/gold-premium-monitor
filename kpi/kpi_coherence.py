@@ -1224,6 +1224,185 @@ class KPICoherence(unittest.TestCase):
         self.assertEqual(sides("no prices here"), {})
 
 
+    # -- the record mirror (SP_D_HANDOFF.md section 37.12) ------------------------------
+
+    def _mirror_file(self, reachable):
+        """A copy in a temporary file, with Neon's reachability fixed for the test."""
+        import tempfile
+        from persistence import mirror
+        path = os.path.join(tempfile.mkdtemp(), "record_mirror.sqlite")
+        os.environ["RECORD_MIRROR_FILE"] = path
+        mirror._engine, mirror._reachable = None, reachable
+
+        def reset():
+            os.environ.pop("RECORD_MIRROR_FILE", None)
+            if mirror._engine is not None:
+                mirror._engine.dispose()
+            mirror._engine, mirror._reachable = None, None
+        self.addCleanup(reset)
+        return mirror
+
+    @staticmethod
+    def _seventy_days():
+        """Six readings a day for 70 days, sized like production's record."""
+        start = NOW - timedelta(days=70)
+        return [(start + timedelta(hours=4 * i), "scheduled", PRODUCTION_SHAPE[i % len(PRODUCTION_SHAPE)])
+                for i in range(70 * 6)]
+
+    def test_47_the_mirror_copies_sixty_days_then_only_what_is_new(self):
+        """A scheduled run that reaches Neon copies the last 61 days of readings and their platform
+        prices; the next copies only the readings added since; a week later it copies everything
+        again, which is how a row corrected in place reaches the copy."""
+        from sqlalchemy import func, select
+        mirror = self._mirror_file(reachable=True)
+        _seed(self._seventy_days())
+        source = _test_get_session()
+        try:
+            copied = mirror.refresh(source, NOW)
+            window = source.query(MarketSnapshot).filter(
+                MarketSnapshot.timestamp >= NOW - timedelta(days=mirror.WINDOW_DAYS)).count()
+            self.assertEqual(copied, window * 5, "each reading and its four platform prices")
+            with mirror._mirror_engine().connect() as m:
+                snap = MarketSnapshot.__table__
+                self.assertEqual(m.execute(select(func.count()).select_from(snap)).scalar(), window)
+                oldest = m.execute(select(func.min(snap.c.timestamp))).scalar()
+            self.assertGreaterEqual(oldest, NOW - timedelta(days=mirror.WINDOW_DAYS), "nothing older than the window")
+
+            later = NOW + timedelta(hours=1)
+            added = MarketSnapshot(timestamp=later, world_gold_usd=4300.0, usd_irr=230_000.0,
+                                   fair_price=FAIR, premium_percent=-3.0, collection_mode="scheduled")
+            source.add(added)
+            source.flush()
+            source.add(PlatformPrice(snapshot_id=added.id, platform_name="A", timestamp=later,
+                                     price_irr=FAIR * 0.97))
+            first = source.query(MarketSnapshot).order_by(MarketSnapshot.timestamp.desc()).offset(5).first()
+            first.premium_percent = -9.99          # a correction made in place, as section 45's were
+            source.commit()
+            self.assertEqual(mirror.refresh(source, later), 2, "only the new reading and its price")
+            with mirror._mirror_engine().connect() as m:
+                kept = m.execute(select(snap.c.premium_percent).where(snap.c.id == first.id)).scalar()
+            self.assertNotAlmostEqual(float(kept), -9.99, msg="an in-place correction waits for the weekly copy")
+
+            week = NOW + timedelta(days=mirror.REBUILD_DAYS, hours=2)
+            mirror.refresh(source, week)
+            with mirror._mirror_engine().connect() as m:
+                kept = m.execute(select(snap.c.premium_percent).where(snap.c.id == first.id)).scalar()
+            self.assertAlmostEqual(float(kept), -9.99, msg="the weekly copy carries it")
+            self.assertEqual(mirror.built_at(), week)
+        finally:
+            source.close()
+
+    def test_48_reads_come_from_the_copy_only_when_neon_is_out_of_reach_and_answer_the_same(self):
+        """Out of reach, the valuation rank, the platform history and UPDATE's readers get the copy,
+        and it gives the answers Neon gives. In reach, or unset, they get Neon as before. The copy
+        refuses to write."""
+        import main
+        from database.repository import get_recent_platform_prices
+        from analysis.bubble_position import resolve_decision_valuation
+        mirror = self._mirror_file(reachable=True)
+        _seed(self._seventy_days())
+        source = _test_get_session()
+        mirror.refresh(source, NOW)
+        thresholds = _config()["thresholds"]
+        since = NOW - timedelta(days=60)
+
+        neon = main._read_session()
+        self.assertIs(neon.bind, _TEST_ENGINE, "Neon in reach: Neon")
+        neon.close()
+
+        mirror._reachable = False
+        copy = main._read_session()
+        try:
+            self.assertIsNot(copy.bind, _TEST_ENGINE, "Neon out of reach: the copy")
+            self.assertEqual([(t, n, float(p)) for _, t, n, p in get_recent_platform_prices(copy, since)],
+                             [(t, n, float(p)) for _, t, n, p in get_recent_platform_prices(source, since)],
+                             "the stale-quote rules see the same history")
+            on_neon = resolve_decision_valuation(source, -4.2, thresholds, now=NOW)
+            on_copy = resolve_decision_valuation(copy, -4.2, thresholds, now=NOW)
+            self.assertEqual((on_copy.state, on_copy.percentile, on_copy.sample_size),
+                             (on_neon.state, on_neon.percentile, on_neon.sample_size),
+                             "the valuation leg ranks the same reading the same way")
+            self.assertNotEqual(on_copy.state, "UNKNOWN", "and it has a rank to give")
+            copy.add(MarketSnapshot(timestamp=NOW, fair_price=FAIR, premium_percent=-1.0, collection_mode="user"))
+            with self.assertRaises(RuntimeError):
+                copy.commit()
+        finally:
+            copy.close()
+            source.close()
+
+        os.environ.pop("RECORD_MIRROR_FILE")
+        unset = main._read_session()
+        self.assertIs(unset.bind, _TEST_ENGINE, "unset: Neon, as before")
+        unset.close()
+
+    def test_49_a_held_reading_reaches_the_next_runs_reads_and_the_rebuild_drops_it(self):
+        """A reading the spool holds is added to the copy under a negative id, so the stale-quote rules
+        and the rank of the next run see it. When Neon answers again the copy is rebuilt from Neon,
+        where the spool has written it, and the negative ids go. Without a copy made from Neon nothing
+        is added: a copy of the outage alone would rank a reading against a few hours."""
+        import io
+        from contextlib import redirect_stdout
+        from sqlalchemy import func, select
+        from caluclator.signal_state import SignalState
+        from database.repository import get_recent_platform_prices
+        import main
+
+        self._spool_file()
+        mirror = self._mirror_file(reachable=False)
+        when = NOW + timedelta(hours=3)
+        state = SignalState(premium=-3.1, fair_price=FAIR, lowest_price=FAIR * 0.969, valuation="FAIR",
+                            final_decision="WAIT", reason="held", timestamp=when)
+        prices = [{"platform_name": "A", "price_irr": FAIR * 0.969, "change_irr": None},
+                  {"platform_name": "B", "price_irr": FAIR * 0.975, "change_irr": None}]
+        self.assertTrue(main._hold_reading(when, FAIR, -3.1, 4300.0, 230_000.0, state, prices, "scheduled"))
+        self.assertIsNone(mirror.built_at())
+        with mirror._mirror_engine().connect() as m:
+            self.assertEqual(m.execute(select(func.count()).select_from(MarketSnapshot.__table__)).scalar(), 0,
+                             "no copy from Neon: nothing added")
+
+        _seed(self._seventy_days())
+        source = _test_get_session()
+        mirror._reachable = True
+        mirror.refresh(source, NOW)
+        mirror._reachable = False
+        self.assertTrue(main._hold_reading(when, FAIR, -3.1, 4300.0, 230_000.0, state, prices, "scheduled"))
+        copy = main._read_session()
+        try:
+            rows = get_recent_platform_prices(copy, NOW)
+            self.assertEqual(sorted((n, round(float(p))) for sid, t, n, p in rows if sid < 0),
+                             sorted((r["platform_name"], round(r["price_irr"])) for r in prices),
+                             "the held reading is in the next run's history")
+        finally:
+            copy.close()
+
+        mirror._reachable = True
+        with redirect_stdout(io.StringIO()):
+            mirror.refresh(source, when + timedelta(hours=1))
+        with mirror._mirror_engine().connect() as m:
+            snap = MarketSnapshot.__table__
+            self.assertEqual(m.execute(select(func.count()).select_from(snap).where(snap.c.id < 0)).scalar(), 0,
+                             "rebuilt from Neon once it answers")
+        source.close()
+
+    def test_50_only_the_reads_the_copy_can_answer_use_it(self):
+        """The copy holds two tables, so only their readers ask for it. The deep-discount push stays as the
+        owner parked it during an outage; PAPER, ANALYZE and Direction do not read the copy; every writer
+        keeps Neon's session and the spool."""
+        import main
+        from update import baseline_resolver
+        readers = {"_resolve_decision_valuation", "_recent_platform_history", "_resolve_signal_confirmation",
+                   "_resolve_presentation_context", "main"}
+        for name in readers:
+            self.assertIn("_read_session()", inspect.getsource(getattr(main, name)), name)
+        for name in ("_evaluate_deep_discount_push", "_paper_run", "_send_analyze_report", "_direction_precompute",
+                     "_send_direction_report", "_flush_spool", "_save_price_observations", "_collect_tgju_candles"):
+            self.assertNotIn("_read_session()", inspect.getsource(getattr(main, name)), name)
+        self.assertIn("read_session()", inspect.getsource(baseline_resolver.resolve_update_baselines))
+        self.assertIn("_refresh_mirror(now)", inspect.getsource(main.main))
+        workflow = (REPO / ".github" / "workflows" / "gold-monitor.yml").read_text(encoding="utf-8")
+        self.assertIn("record_mirror.sqlite", workflow.split("key: gold-monitor-state-")[0], "cached with state.json")
+        self.assertIn("RECORD_MIRROR_FILE: record_mirror.sqlite", workflow)
+
 if __name__ == "__main__":
     print("=" * 55)
     print("CROSS-CUTTING COHERENCE")

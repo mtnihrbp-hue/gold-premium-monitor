@@ -232,8 +232,10 @@ def resolve_update_baselines(
     current_platform_avg: Optional[float] = None,
     current_premium: Optional[float] = None,
 ) -> UpdateBaselines:
-    """Resolve RUN/DAY/7D baselines before the current snapshot is persisted."""
-    session = get_session()
+    """Resolve RUN/DAY/7D baselines before the current snapshot is persisted. Read from the record
+    mirror when Neon is out of reach (persistence/mirror.py, SP_D_HANDOFF.md section 37.12)."""
+    from persistence.mirror import read_session
+    session = read_session()
     if session is None:
         return _empty_baselines()
 

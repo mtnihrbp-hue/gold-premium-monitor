@@ -126,12 +126,13 @@ Labelling a day needs the model.
 
 ## What has been measured
 
-On 108 of 357 labelled days (`SP_D_HANDOFF.md` 36.2), the rest running:
+On 152 of 357 labelled days (`SP_D_HANDOFF.md` 36.2, 37.11), the rest running:
 - the model's own call on the dollar showed no skill;
 - the central bank's interventions met pressure and did not reverse it;
-- escalation separated (+1.20% the next day, against +0.25%).
+- escalation separated on 108 days and stopped separating on 152: a result from one window is not a
+  result (lesson 22).
 
-Only a label that separates may reach a reader, with its counts.
+Only a label that separates on the whole record may reach a reader, with its counts.
 
 ## Historical learning
 

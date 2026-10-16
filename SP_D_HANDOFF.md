@@ -26,7 +26,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    37.7 both price sides merged 2026-10-16 (v1.17safe);
                                                                    37.8 the unit tests merged 2026-10-16 (v1.18safe);
                                                                    37.9 the documents merged 2026-10-16 (v1.19safe);
-                                                                   CLAUDE.md's tag line 2026-10-16 (v1.20safe, see 37.10)
+                                                                   CLAUDE.md's tag line 2026-10-16 (v1.20safe, see 37.10);
+                                                                   37.11-37.12 the labels, the mirror merged 2026-10-16 (v1.21safe)
        member, the LLM member
 ```
 
@@ -4058,6 +4059,119 @@ stale-quote re-check.
 - **The phone's TSETMC readings during an outage**, pushed through GitHub, which the phone reaches.
   - Only GOLD DEMAND would gain before 11-01, since PAPER is stopped.
   - It needs a write token on the phone.
+
+The owner agreed (10-16: "agreed on your proposals, go ahead"). The mirror is 37.12.
+
+**37.11 The news labels at 152 days, and where each news source can be read** (10-16).
+
+**The labelling.**
+- The second run on `probe-news-labels` (05:41-11:06 UTC) labelled 44 days, against 108 for the first.
+- No request failed. The run waited out Groq's daily cap, which the first run had spent seven hours
+  earlier.
+- 152 of 357 days are labelled (2025-10-15 to 2026-03-24); 205 remain. A third run started at 11:13.
+- At 44 to 108 days a run, the year completes in two to four more runs.
+- The repository is public, so the runner's minutes cost nothing.
+
+**Re-measured on 152 days** (`research/rd_news_labels.py`, its rules unchanged):
+
+| Label | 108 days (36.2) | 152 days |
+|---|---|---|
+| all labelled days | — | dollar +0.15% next day, +0.55% over 3 days |
+| central-bank intervention | +1.81% over 3 days (9 days) | +1.70% over 3 days (10 days); fell after 3 of 10 |
+| escalation | **+1.20% next day against +0.25% (22 days)** | **+0.02% against +0.29% on days without (59 days)** |
+| the model's own "dollar down" | larger rises than its "up" days | +1.20% over 3 days, against +0.44% after "up" |
+
+- **Escalation no longer separates.** 37 of the 44 new days (02-09 to 03-24) are escalation days. By the
+  model's own summaries they run from February's tension to the missile strikes of late March. The 108-day result was one window's number (lesson 22). B7's "DOLLAR FROM NEWS
+  only for labels that separate" has, for now, no such label.
+- **Interventions still meet pressure**; they do not reverse it.
+- **The model's own dollar call** still runs the wrong way.
+- Corrected in `PROJECT_MEMORY.md` section 8 and `skills/llm-news-intelligence.md`.
+
+**Where each source can be read** (probed 10-16 from the workstation in Iran, direct, and from the
+11:00 production run's log):
+
+| Source | GitHub's runner | Iran |
+|---|---|---|
+| Donya-e-Eqtesad (`/rss`) | **already read**, 30 items a run | 30 items, fresh |
+| Tejarat News (`/feed`) | **already read**, 100 items | 100 items |
+| Tasnim (`/fa/rss/feed`) | refused (removed 09-21) | **no connection** from the workstation |
+| cbi.ir | refused (removed 09-21) | the home page answers "Request Rejected"; `exratesrss.aspx` gives 47 items, the reference rates rather than news |
+| Mehr, ISNA, IRNA | not tried | 30 items each, fresh |
+
+- Of the owner's list (cbi.ir, Tasnim, Donya-e-Eqtesad), Donya-e-Eqtesad needs no phone.
+- The other two fail from the workstation as well. Whether the phone's home connection reaches them is
+  the first thing to test on the phone.
+
+**A gap found.** News is not held while Neon is down. Each run fetches about 160 items and stores none
+("3 saves failed in a row; 156 items of this run not stored"). The feeds keep only their latest items,
+so the Iranian sites' news from 10-13 to 11-01 will be missing. The Telegram channels can be read back
+later; the RSS feeds cannot.
+
+**37.12 The record mirror: what runs read, kept for the next outage** (10-16; the owner: "agreed on your
+proposals, go ahead").
+
+**The problem.** With Neon out of reach the spool keeps what runs write, but what they read fails:
+- the stale-quote rules run without history;
+- the valuation leg abstains (UNKNOWN);
+- the confirmation holds every BUY;
+- UPDATE loses its rank, its deep-discount level, its bubble trend and its RUN/DAY/7D baselines.
+
+All of those read only `market_snapshots` and their `platform_prices`, at most 60 days back.
+
+**Built** (`src/persistence/mirror.py`):
+- **The copy.** A SQLite file, `record_mirror.sqlite`, cached by the workflow beside `state.json`
+  (`RECORD_MIRROR_FILE`). It holds the last 61 days of those two tables, in the same models, so every
+  reader runs on it unchanged.
+- **Filled.** Each scheduled run that reaches Neon calls `main._refresh_mirror` after its writes. It
+  copies in full when the copy is missing or a week old, and otherwise only the readings added since.
+  A row corrected in place, as section 45's were, reaches the copy within a week.
+- **Read.** `main._read_session()` and `mirror.read_session()` give the copy only when Neon does not
+  answer (probed once a run) and a copy made from Neon exists. Readers that use it:
+  - the valuation rank, the platform history and the confirmation;
+  - UPDATE's context, momentum and the input directions;
+  - `update/baseline_resolver.resolve_update_baselines`.
+- **Read-only.** A write on the copy raises. Every writer keeps `get_session()`, so a write fails as
+  unreachable and goes to the spool as before.
+- **Held readings.** A reading the spool holds is also added to the copy under a negative id, so the
+  next run ranks against it. Only into a copy made from Neon: a copy of the outage alone would rank a
+  reading against a few hours. When Neon answers again, the copy is rebuilt from it, where the spool
+  has written the reading, and the negative ids go.
+- **Not changed in an outage:**
+  - the deep-discount push, which the owner parked ("it may mislead the user"; to be decided for the
+    next outage);
+  - PAPER, which needs its own writes held first;
+  - ANALYZE, which is being redesigned (B5);
+  - Direction, which already runs live from tgju.
+
+**Its size, measured:**
+- 0.88 MB for 61 days at 20 readings a day across 11 platforms (14,640 rows).
+- A full copy reads about that from Neon once a week, about 4 MB a month. A run between copies reads
+  its own new rows, plus one `SELECT 1` to probe.
+- Against the 5 GB cap, that is under 0.1%.
+
+**When it works.** It is first filled on 11-01, at the first scheduled run that reaches Neon. It does
+nothing in this outage, because nothing can be copied from a suspended project.
+
+**Tests** (`kpi_coherence`):
+- `test_47`: the 61-day window, then only what is new, and the weekly copy that carries an in-place
+  correction.
+- `test_48`: the copy only when Neon is out of reach. On the copy, the valuation leg ranks a reading
+  as on Neon, and the stale-quote rules see the same history. The copy refuses writes.
+- `test_49`: a held reading is in the next run's history and goes at the rebuild; nothing is added
+  without a copy from Neon.
+- `test_50`: only the readers above use it; the push, PAPER, ANALYZE, Direction and the writers do
+  not; the workflow caches it.
+
+Each was seen to fail. Six breaks were made in the code, among them:
+- the copy never served;
+- the incremental copy taking everything;
+- the held reading not added;
+- no rebuild after an outage.
+
+Each break failed its test. `kpi_coherence` 45/45, suite 30/30, unit tests 18/18.
+
+**NEON MIGRATION REQUIRED = NO.**
 
 **38.6 The first laboratory measurement: the platforms do not catch up a fair jump**
 (`research/rd_platform_lag.py`, rules in its docstring; `hourly.json`, 2026-08-04 to 10-04).

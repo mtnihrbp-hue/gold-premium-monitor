@@ -47,7 +47,7 @@ The reader's four questions, the frame for every surface (`SP_D_HANDOFF.md` 36.6
 | **where** to buy | the live platform prices and their spread |
 | **when** | buy now rather than wait for a dip; the deep-discount zone as a lead |
 | **how much** | gold or fixed income: the room's posture |
-| **what risk** | the trend and its 50-day breaks, gold demand, escalation news |
+| **what risk** | the trend and its 50-day breaks, gold demand |
 
 **Invariants**, enforced by code and KPIs:
 
@@ -141,7 +141,8 @@ Telegram-channel news reader (`collector/news/telegram_channels.py`, research on
    - PAPER (trades, and at 21:00 the report);
    - the evening fallback;
    - the analysis snapshot's core and outcome evaluations;
-   - the deep-discount push.
+   - the deep-discount push;
+   - the record mirror's refresh (section 7).
 8. **Send** the BUY or SELL alert if `final_decision` gives one.
 
 A normal run took about 6 minutes before the wing was parked; the new time is measured once Neon is
@@ -263,6 +264,13 @@ system_events  market_hypotheses
 - **The spool.** While Neon is out of reach, what a run cannot write waits in `record_spool.jsonl` in
   the Actions cache (`persistence/spool.py`, SP-D 35.4). Each scheduled run flushes it first. Held
   readings are re-checked against the stale-quote rules before they are written (37.1).
+- **The record mirror.** The last 61 days of `market_snapshots` and `platform_prices`, copied by each
+  scheduled run that reaches Neon into `record_mirror.sqlite` (`persistence/mirror.py`, SP-D 37.12;
+  0.88 MB). While Neon is out of reach the outage-sensitive readers use it, read-only:
+  - the stale-quote history, the valuation rank and the confirmation;
+  - UPDATE's context and baselines.
+
+  A held reading is added to it, so the next run sees it. First filled on 11-01.
 - **The outage, until Neon returns:**
   - the 21:00 chart comes from tgju;
   - `/Direction` is computed live;
@@ -299,8 +307,9 @@ Built-ness and past effort count for nothing.
 | In turbulence, a rush of buyers precedes a further 5% fall about twice as often; big buyers precede a rise | four combinations of twelve agree in both eras: leads, not edges | 37.6 |
 | The platforms do not catch up a jump in fair value | 63% of fair's move after 24 h, against 85% for all readings | 38.6 |
 | The deep-discount zone gives a head start | +1.16% in 24 h against +0.53% (11 episodes) | 36.1, suggestive |
-| The central bank's interventions met pressure, they did not reverse it | the dollar +1.81% over 3 days on 9 days against +0.65% | 36.2, 108 of 357 days labelled |
-| Escalation news separates | +1.20% the next day against +0.25% (22 days) | 36.2 |
+| The central bank's interventions met pressure, they did not reverse it | the dollar +1.70% over 3 days on 10 days against +0.55% | 37.11, 152 of 357 days labelled |
+| Escalation news does not separate | +1.20% the next day on 22 of 108 days did not hold: +0.02% against +0.29% on 59 of 152 | 36.2, 37.11 |
+| The AI model's own call on the dollar has no skill | its "down" days were followed by +1.20% over 3 days, its "up" days by +0.44% | 37.11 |
 | Flags and double bottoms work on 18K; bearish patterns do not | section 6 | 37.4 |
 
 **Proposed, for the owner's decision** (SP-D 38):
@@ -375,7 +384,7 @@ inspect → define the change surface → implement minimally → targeted test 
 - **Branches.**
   - `main` is production.
   - The sprint is SP-D, run in sub-sprints with one branch each (now `sp-de`).
-  - A batch reaches SP-D and `main` by fast-forward, with a safe tag on `main` first (`v1.20safe` is
+  - A batch reaches SP-D and `main` by fast-forward, with a safe tag on `main` first (`v1.21safe` is
     the latest).
   - The owner authorized on 2026-10-15 that approved work is tagged and pushed without asking again.
   - A production defect is fixed on a short branch cut from `main`.
@@ -393,7 +402,7 @@ inspect → define the change surface → implement minimally → targeted test 
 batch with its tag.
 
 On 2026-10-16:
-- **Branches:** `main` and SP-D at SP-De's B6 batch (v1.19safe before it).
+- **Branches:** `main` and SP-D at SP-De's B6 batch and the record mirror (v1.21safe before it).
 - **Neon:** suspended to 11-01.
 - **Tests:** unit tests 18 of 18 files, KPI suite 30 of 30, both run in CI.
 - **Next, in the agreed order of B:**

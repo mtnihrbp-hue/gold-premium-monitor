@@ -90,6 +90,12 @@ While Neon is out of reach, what a run cannot write waits in the spool (`persist
 readings against the stale-quote rules before writing (`SP_D_HANDOFF.md` 35.4, 37.1). The phone keeps a
 spool of its own.
 
+What runs read comes from the record mirror (`persistence/mirror.py`, 37.12). It is a read-only SQLite
+copy of the last 61 days of readings, refreshed from Neon by each scheduled run. A reader that should
+work in an outage asks for `_read_session()` in `main` (or `mirror.read_session()`), and a writer never
+does. A reader that needs another table needs that table in the copy first, with its window and its
+size measured.
+
 The phone writes as the role `iran_node`, INSERT only, made with SQL, never through Neon's API or
 console, whose roles join `neon_superuser`.
 

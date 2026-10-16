@@ -74,10 +74,13 @@ jobs:
           # days (src/persistence/candle_cache.py; Neon's monthly transfer, SP_D_HANDOFF.md 34).
           # record_spool.jsonl: what a run could not write while Neon was out of reach, written back
           # by the next scheduled run that reaches it (src/persistence/spool.py, SP_D_HANDOFF.md 35.4).
+          # record_mirror.sqlite: the last 60 days of readings, copied from Neon by each scheduled run,
+          # for the reads a run makes while Neon is out of reach (src/persistence/mirror.py, 37.12).
           path: |
             state.json
             candle_cache.json
             record_spool.jsonl
+            record_mirror.sqlite
           key: gold-monitor-state-${{ github.run_id }}
           restore-keys: |
             gold-monitor-state-
@@ -127,6 +130,7 @@ jobs:
 
           CANDLE_CACHE_FILE: candle_cache.json
           RECORD_SPOOL_FILE: record_spool.jsonl
+          RECORD_MIRROR_FILE: record_mirror.sqlite
 
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 
