@@ -3287,3 +3287,212 @@ ubuntu-24.04.
   2. the held readings bypass the stale-quote rules;
   3. Daric is absent;
   4. 249 days remain unlabelled.
+
+## 36. The audit: what the system knows, what it only says, and what it costs (2026-10-16)
+
+**The owner's brief.**
+
+> "we need to rethink, review critically, with no pride or prejudice or attachment to what have been
+> built. the project has evolved. ... the core goal of the project is to give information, and act as
+> Decision Support System and provide Expert System Judgements based on data, information and fact.
+> ... pay close attention to the project core principles of development written in the skills folder."
+
+The owner also listed specific items:
+
+- the saffron fund and the member's evidence;
+- 18 of 35 gold funds;
+- every "followed by" figure re-checked by episodes;
+- `rss.py` and the duplicated tests;
+- `high_impact_count`;
+- `SignalState`'s clock and `utcnow()`;
+- stale and repeated docs.
+
+**Parked first.** The owner: "lets park the discount now, it may mislead the user". The deep-discount
+push stays blind until Neon returns. The 10-13 level (`fire_at` 3.17) is recorded in 35.12, not used.
+
+**The test applied to every part.**
+
+- Which decision does it support?
+- Is what it tells the reader measured, and by independent cases rather than overlapping days?
+- What does it cost (run time, Neon transfer, code to maintain)?
+
+Built-ness, test counts and past effort count for nothing here.
+
+### 36.1 What has measured value
+
+| Part | The decision | The evidence | Caveat |
+|---|---|---|---|
+| **The room, 7 members** (without money flow) | gold or fixed income | Beat holding by +4.0% to +5.7% median over two-year windows (18 Afran windows, Daric's cost), ahead in 83-100% of them, worst -3.3%; at Goldika's cost +1.3% to +3.1%. `rd_room_simpler.py`, below. | 18 overlapping windows are about three independent periods. |
+| **Buy now, don't wait for a dip** (Direction) | when to buy | Waiting for a 3% dip cost more in 12 of 13 years (section 1; the panel's `convert`). | The one robust timing fact on record. |
+| **The live platform prices** (UPDATE) | where to buy | Today's spread is 1.9% between the cheapest and the dearest platform (10-15). That is money a buyer saves for certain. | The price sides are mixed: see 36.3. |
+| **The 50-day breaks** (Direction WATCH) | when the trend turns | Counted by separate breaks, a weaker month by 1 to 6 points (section 35.11). | 5 to 35 breaks a cell. |
+| **Gold demand** (Direction) | context | Descriptive. It catches May 2026's heavy buying and December 2025's heavy selling (35.11). | No forecast, by design. |
+| **The deep-discount zone** (the push) | when, within days | After the first deep reading of each episode, the platforms rose +1.16% in 24 hours against +0.53% for all readings (11 episodes, 08-04 to 10-04, `research/data/hourly.json`). Bought the same day, the deep zone saved only +0.05% (median). | Suggestive, not established. Re-measure on the full record after 11-01. |
+
+**The room's members, tested** (`research/rd_room_simpler.py`, section 33's paired test, production as
+the base; the production weights: brake 2.0, fair gap 1.5, real dollar 1.5, market state 1.5, dollar
+20d 1.0, chartist 1.0, world gold 60d 0.5, money flow 0.5):
+
+| Room | Gain over holding, median (Afran, 0.30%) | Paired against production |
+|---|---|---|
+| production, 8 | +5.0% to +9.0% | — |
+| 7, no money flow | +4.0% to +5.7% | -0.83 pp (index windows -1.42) |
+| 5, no money flow, chartist or dollar 20d | +0.3% to +1.4% | -3.57 pp |
+
+- The chartist and the dollar's 20 days carry the room. Section 22's leave-one-out ("they add
+  nothing") was measured on an earlier committee that acted daily, and it does not hold for the room
+  as it runs.
+
+### 36.2 What has no measured value
+
+1. **The decision engine, the sole BUY/SELL authority.**
+   - Its scorecard: a 55.2% hit rate against a 55.2% always-WAIT baseline, an edge of 0.0
+     (`SP_C_HANDOFF.md` section 15, its open finding 2).
+   - Four BUYs ever, all of which the confirmation check would now hold.
+   - `analysis/decision_scorecard.py` is not reached from `main`: production records outcomes and never
+     scores them. ANALYZE prints only their count.
+2. **The money-flow member** (`research/rd_flow_saffron.py`). Its 19 funds include saffron. Rebuilt on
+   the 18 gold funds, it votes differently on 42 of 1,306 days (3.2%), and its gain falls from +0.67
+   to +1.42 points to +0.00, +0.00, +0.31 and +0.22, with fewer than half the windows improved. The
+   measured edge came from a handful of saffron-tilted days. Section 33's figures reproduce exactly on
+   19 funds, so the harness is right.
+3. **The Analysis Wing's chain.**
+   - What it covers: the snapshot builder, regime, structure, the evidence package, market
+     intelligence, features, the read model, C.14A candles and the C.14B forecast engine, about 5,000
+     lines.
+   - Who reads it: nothing a reader sees and nothing the decision uses.
+   - What it costs:
+     - In a normal run (10-12 12:00) it took 4m46s of `main.py`'s 5m50s (82%): the outcome backfill,
+       then "Forecast 1h/6h/24h: OK / UP", then the snapshot.
+     - Its snapshot JSON spent Neon's transfer and suspended production (section 34).
+   - A further 23 modules (2,204 lines, 1,663 of them in `intelligence/`) are reached from nowhere.
+4. **The news, so far** (`research/rd_news_labels.py`, 108 of 357 days labelled by the model,
+   2025-10-15 to 2026-02-08, the rest running):
+   - the model's own call on the dollar shows no skill: its "down" days were followed by larger 3-day
+     rises than its "up" days;
+   - **the central-bank hypothesis is contradicted so far.** On the 9 intervention days the dollar
+     rose +1.81% over 3 days against +0.65%, and fell after 2 of 9: interventions met pressure, they
+     did not reverse it;
+   - **escalation separates**: +1.20% the next day against +0.25%, falling after 18% (22 days).
+5. **Forecast ranges.** The owner dropped Direction's range on 10-15 ("what kind of decision can be
+   made from this"). The room's 21:00 report still prints one: "Next 20 trading days: most likely X to
+   Y" (`alerts/telegram_paper.py:135`).
+6. **ANALYZE's "when the discount was at this level"** counts hourly readings ("increased N times,
+   decreased M times in the 24 hours after"). Neighbouring readings share most of the same 24 hours, so
+   the counts overstate the evidence: the day-count inflation of 35.10. `SP_C_HANDOFF.md` section 31
+   found it needs about 171 independent days against 42 available, and the 09-21 lean reversed within two
+   days (its 33.6). Its deep-zone durations, by contrast, are episodes with censoring handled.
+
+### 36.3 Defects
+
+| Where | What |
+|---|---|
+| Price sides | Only Daric, Goldika and Ayyareh record both the buy and the sell price. The other 8 report one price whose side is not recorded (WallGold asks `side=buy`, Milli gives `price18`, and so on). The discount and "the cheapest platform" therefore compare mixed sides; SP-C found it ("part of the persistent discount is dealer spread") and it is still open. |
+| The spool, 11-01 | Readings held during the outage skipped the repeat and jump rules ("Platform history unavailable"), so the write-back would store frozen copies unchecked. Time-bound. |
+| `collector/news/rss.py:19` | A broken leftover copy of `collect_rss_feed` (`...` placeholders, "# rest unchanged", an undefined `headers`), overridden at line 228. |
+| `tests/` and `src/tests/` | Five test files exist in both, diverged; `tests/test_news_collector.py` lists four tests twice. |
+| `analysis/evidence_package.py:206` | `high_impact_count` reads `relevance` for values only `impact` holds: always 0 (`SP_C_HANDOFF.md` 33.3). |
+| `caluclator/signal_state.py:56` | `SignalState.timestamp` defaults to `datetime.now`, the runner's clock. |
+| `src/` | 92 `datetime.utcnow()` calls, deprecated by Python 3.12. |
+| `.github/workflows/test-task-c.yml` | Runs two unit tests by hand; the KPI suite already covers them. |
+| The money-flow member | Weighted 0.5 on evidence that does not survive the saffron fix (36.2). |
+| Gold funds | Both the money-flow member and GOLD DEMAND read 18 of tablokhani's 35 gold funds, about 80% of their trading value (35.7). |
+
+### 36.4 The docs
+
+- **The authority docs describe September's project.**
+  - `PROJECT_MEMORY.md` (2,368 lines, the highest authority) is the SP-A to SP-C history: indicator
+    definitions, the C.14 research, the SP-C changelog. Its current state is 40 lines at the end.
+  - `MASTER_PLAN_STATUS.md` is about C.14A/B/C and UPDATE v1.
+  - `README.md` walks the PRE-SP-C phases.
+  - Direction, PAPER and the room, the phone, the spool and the fallbacks are barely in any of them.
+- **Five documents each define the authority order, and they differ:** `CLAUDE.md`,
+  `skills/README.md`, `Prompt_Guide.md`, `PROJECT_ORCHESTRATION.md` (with a "KIMI handoff template" and
+  the C.14 boundaries; last changed 09-13) and `DOCUMENTATION_INDEX.md` (titled "SP-B").
+- **Not touched since August or September:** `C14_HANDOFF.md`, `C14C_HANDOFF.md`,
+  `C14C_IMPLEMENTATION.md`, `UPDATE_V1_IMPLEMENTATION.md`, `Prompt_Guide.md` and
+  `PROJECT_ORCHESTRATION.md`.
+- **`skills/`** (last changed 09-12 and 09-29) is sound on principle and stale on fact:
+  - `telegram-product.md` plans /Technical, /History, /News, /Radar and /Health, none built, and does
+    not know /Direction, PAPER or the evening chart;
+  - `market-analyst.md` does not know the room;
+  - `data-and-neon.md` does not know the transfer cap, the spool or the node.
+  - The principles hold, and this audit applies them: no fabrication, "expose sample size", "do not
+    manufacture confidence from a small sample", "INSUFFICIENT DATA is valid", "remove dead code made
+    obsolete".
+
+### 36.5 Infrastructure
+
+- **Neon** is the single point. The spool, the evening fallback and live Direction now carry an
+  outage, but the phone's data (Daric, TSETMC) reaches the system only through Neon.
+- **Groq's free tier** caps the day as well as the minute: about 108 labelled days per 5-hour run.
+- **GitHub's log host** does not answer the workstation; the job-log API does (35.12).
+
+### 36.6 Options, for the owner's decision
+
+The reader's decisions, and what the record supports today:
+
+| Question | What the system can say with evidence |
+|---|---|
+| **where** to buy | the live platform prices, once both sides are recorded |
+| **when** | buy now rather than wait for a dip; the deep zone as a hint not yet proven |
+| **how much** | gold or fixed income: the 7-member room |
+| **what risk** | the trend and its 50-day breaks, gold demand, and escalation news |
+
+Everything else either says what it cannot show, or costs without being read.
+
+**A. Fix and tidy, keep the shape** (about 1-2 days).
+- What it does:
+  - the defects of 36.3;
+  - the money-flow member to weight 0;
+  - the room report's range line out;
+  - the docs consolidated (36.4).
+- What it keeps:
+  - the Analysis Wing, with 82% of each run's time and the transfer risk;
+  - the decision engine and ANALYZE as they are.
+- Least change, least gain.
+
+**B. Refocus on what is measured** (recommended; about 4-6 days in stages, each previewed and merged
+on its own).
+1. **Now, before 11-01:**
+   - the spool's re-check against the stale-quote rules before it writes;
+   - money flow out of the room, back to the 7 members that are the honest baseline;
+   - the room report's range line out;
+   - the small defects: `rss.py`, the duplicated tests, `SignalState`'s clock, `test-task-c.yml`.
+2. **Retire the unconsumed Analysis Wing.**
+   - What goes: the snapshot builder's chain, the forecast engine, the evidence, interpretation,
+     features and read model, the 23 unreachable modules, and their KPIs.
+   - What stays: the raw observations, market states and news events.
+   - Effect: runs fall from about 6 minutes to about 1, and Neon's transfer moves far from its cap.
+3. **The decision engine.**
+   - Wire the scorecard (it exists, unrun) into ANALYZE as the system's own record.
+   - Hold the BUY push until that record shows an edge over always-WAIT; the engine keeps computing
+     and storing as now.
+   - This changes the alert rule in `CLAUDE.md`, so it is the owner's decision. The alternative is to
+     retire BUY/SELL alerts and keep the deep-discount push.
+4. **Price sides.** Record both prices for every platform that publishes them, show "where to buy" by
+   the buy price, and re-measure the discount on one side.
+5. **ANALYZE.** Rebuild its level section on episodes, or retire the message and move its one
+   decision-useful item (the deep-discount level and how long the zone lasts) next to UPDATE's
+   discount. UPDATE is a locked layout, so that is a preview first.
+6. **The docs.**
+   - `PROJECT_MEMORY.md` rewritten as the system that runs (about 400 lines), its history moved to an
+     archive file.
+   - One authority order, in `CLAUDE.md`. `Prompt_Guide.md`, `PROJECT_ORCHESTRATION.md`, the C.14 and
+     UPDATE v1 files archived, `DOCUMENTATION_INDEX.md` brought up to date.
+   - `skills/` updated to SP-D.
+7. **News.** Finish the labels within Groq's daily cap, measure them all, and add DOLLAR FROM NEWS
+   only for labels that separate (escalation so far), with their counts.
+
+**C. Rebuild as one advisor** (about 2 weeks).
+- One daily brief answering where, when, how much and what risk, each line with its evidence; UPDATE
+  on demand; alerts only where an edge is measured; PAPER and the research behind it.
+- It uses the same parts as B and adds a redesign of the messages, so more previews. B leads into C
+  without waste.
+
+**Recommended: B, staged:**
+1. B1 (part of it is time-bound);
+2. B2 and B6 (the largest clean-up);
+3. B4 (the data);
+4. B3 and B5 when the owner has decided them;
+5. B7 as the labels come in.
