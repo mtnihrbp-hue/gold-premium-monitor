@@ -3496,3 +3496,14 @@ on its own).
 3. B4 (the data);
 4. B3 and B5 when the owner has decided them;
 5. B7 as the labels come in.
+
+**36.7 B4 scoped** (10-16, probed from the workstation, Iranian sites direct): every platform but Milli
+publishes, or can give, both sides.
+- WallGold's API takes `side=sell` as well as `side=buy`.
+- Goldika and Daric are already collected two-sided.
+- Ayyareh gives `goldPrice` with `buyWageValue` and `sellWageValue`.
+- The six HTML sites (Invi, MioGold, Parasteh, HoorGold, Taline, Eligold) show both "خرید" and "فروش"
+  and need a parser each.
+- Milli gives one `price18`.
+
+About a day of collector work.
