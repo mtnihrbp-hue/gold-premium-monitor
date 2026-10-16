@@ -315,6 +315,9 @@ Built-ness and past effort count for nothing.
 |---|---|---|
 | Buying now beats waiting for a 3% dip | 12 of 13 years | SP-D 1, 36.1 |
 | No WHEN rule and no model beats buying at once (dips, gaps, trend breaks, splits, the engine's shape; walk-forward models) | 12 years of daily windows, with the waiting rial in fixed income; dip rules' worst case about +20% | 40.1, 40.2 |
+| For a holder, parking in fixed income after a trend break pays: 18K or the dollar under its 50-day, or EMA20 under EMA50 | 20 days in the fund beat holding by +0.8% to +2.4% on average in 2014-19 and 2020-26; 10-32 episodes a cell | 41.4 |
+| A dollar spike, turbulence and a rush of buyers in the funds warn of falls (about twice the rate) but are not exits | leaving on them lost; a rush in turbulence: a 5% fall after 55% against 21% | 41.4 |
+| The central bank's interventions come during dollar surges; the dollar rose more than usual 1-20 days after | 6 and 19 episodes, noisy definitions | 41.3 |
 | The platform is worth more than the hour: the median platform sits 1.06% above the cheapest; the morning's apparent edge is the day's drift | 607 hourly readings, 62 days; mixed price sides | 40.3 |
 | The decision engine's BUYs do not pick better moments, and waiting for them cost +2.0% | 28 candidate episodes, +0.64% against +0.67% in 24 h; 40 days of waiting | 39.3 |
 | The room's gain rests on its chartist and dollar 20d | with five members it falls to +0.3% to +1.4% | 36.1 |

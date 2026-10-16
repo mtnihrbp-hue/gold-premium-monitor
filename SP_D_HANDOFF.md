@@ -4623,3 +4623,105 @@ readings, 62 days).
   - The other seven need their buy price found or marked unknown.
 
 **NEON MIGRATION REQUIRED = NO**; research only.
+
+## 41. The owner's challenge: falls, parking in fixed income, and the central bank (2026-10-16)
+
+The owner, on 40: "honestly, i cant decide, my gut feeling says you are wrong. you are seeing the whole
+pattern in an inflated economy, in the past 2-3 years, dollar and gold have rised. now the gold is in a
+side way channel, and the whole iran gold going up is on dollar. but when the CBI intervens, like past
+week, the dollar loosen and gold prices drop. the whole benefit of the system should be in a way to
+collect data, analyze and predict such falls. or even when the whole market is on wait move to fixed
+income. so it should be able to see if the rally is coming to an end, how long park, what are the
+signals to watch. how can the gold etf money flow help."
+
+**41.1 Where the challenge is right.**
+- 40.1 asked a buyer's question: convert within a month. It did not ask a holder's: when to step out of
+  gold into fixed income, and for how long. That is the room's question.
+- 37.11 measured the central bank's interventions at 1 and 3 days. The owner's claim is about the week
+  or two after.
+- Both are measured below. Each study's rules were committed before it ran (5bbf23d).
+
+**41.2 The last four weeks** (tgju, and the channels' headlines):
+
+| Days | The dollar | 18K | |
+|---|---|---|---|
+| 09-27 to 10-03 | 235,000 to 267,900 (+14.0%) | 23.90M to 26.23M toman | a surge |
+| 09-30 | | | the bank announces $2 billion of banknotes |
+| 10-01 to 10-06 | +1.5%, +3.7%, then flat to 268,820 | to 26.74M | |
+| 10-07 to 10-13 | to 257,710 (-4.1%) | to 25.74M (-3.7%) | the fall the owner saw |
+| 10-14, 10-15 | +2.4%, +1.5% | +1.2%, +0.8% | |
+
+The fall came a week after the announcement, from the surge's peak. Ten trading days on, the dollar was
+still 1.6% above the day before the announcement.
+
+**41.3 The interventions at 1 to 20 trading days** (`research/rd_cbi_horizons.py`):
+
+| Definition | Episodes | Dollar +5d | +10d | +20d | Dollar's control (+5d, +10d, +20d) |
+|---|---|---|---|---|---|
+| A, the AI model's labels (to 03-24) | 6 | +2.43% | +2.52% | +5.67% | +1.56%, +2.98%, +5.94% |
+| B, channel headlines (to 10-15) | 19 | +2.88% | +5.53% | +9.92% | +1.68%, +3.30%, +6.69% |
+
+- **The verdict:** a fall after an intervention is not shown at any horizon. The dollar rose more after
+  announcements than on other days.
+- **The reading:** an intervention marks a surge under way; the bank acts when the dollar is running. A
+  pullback, when it comes, starts from the surge's peak, which is the case of 41.2.
+- **The caveats:**
+  - B is noisy: of its 19 episodes, about 6 to 8 are interventions, and the rest are exporters'
+    currency, fund notices and commentary;
+  - A has 6 episodes.
+  - Re-measured when the labelling reaches October (it stands at 152 of 357 days).
+
+**41.4 Falls and parking, 2013-2026** (`research/rd_falls.py`).
+- **The falls:** 73 falls of 5% or more within 20 days. On any day the chance is 12% in 2014-2019 and
+  23% in 2020-2026.
+- **Parking:** the rial in the fixed-income fund for 20 trading days from a signal's first day, against
+  holding 18K.
+
+| Signal | 5% fall after: 2014-19 / 2020-26 (any day: 12% / 23%) | 20-day return after | parking in fixed income: 2014-19 / 2020-26 | verdict |
+|---|---|---|---|---|
+| 18K under its 50-day | 12% / 28% | -0.6% / +1.6% | **+2.35% / +0.80%** | parking pays |
+| EMA20 under EMA50 | 27% / 30% | -0.0% / -0.3% | **+2.21% / +2.24%** | parking pays |
+| the dollar under its 50-day | 14% / 38% | +1.9% / +0.5% | **+0.10% / +1.83%** | parking pays |
+| a dollar spike (+8% in 10 days) | **31% / 44%** | +7.9% / +2.4% | -4.74% / +0.62% | warns; parking does not pay |
+| turbulence | **29% / 37%** | +0.8% / +3.9% | +0.50% / -1.02% | warns; parking does not pay |
+| a rush of buyers in the funds (2018-) | — / **41%** (of 21%) | — / +4.9% | — / -2.52% | warns (one era) |
+| a rush in turbulence (2018-) | — / **55%** (of 21%) | — / +5.5% | — / -3.08% | warns (one era) |
+| 18K stretched 15%+ | 14% / 32% | +12.4% / +8.3% | -8.36% / -4.98% | neither |
+| sideways | 7% / 29% | +0.7% / +1.6% | +1.50% / +0.59% | neither (paid in 59% / 45%) |
+| heavy money out of the funds | — / 31% | — / +3.0% | — / -0.56% | neither |
+
+- 10 to 39 episodes a cell.
+
+**41.5 What it says.**
+1. **"When the market is on wait, move to fixed income" holds**, on the trend's own breaks:
+   - 18K under its 50-day;
+   - the 20-day EMA under the 50-day;
+   - the dollar under its 50-day.
+
+   After each, the next month of 18K was weak, and 20 days in the fund beat holding, by +0.8% to +2.4% on
+   average in both eras.
+2. **The signals that warn of a fall are not exit signals.** A dollar spike, turbulence and a rush of
+   buyers in the funds roughly double the chance of a 5% fall. They also come before further rises (a
+   dollar spike was followed by +7.9% in 20 days in 2014-2019), so leaving on them lost.
+   - They say risk is high, not that the rally ended.
+   - This is where the funds' money flow helps: a rush of buyers in turbulence is the strongest warning
+     on record, 55% against 21%. It is a reason to watch, not to sell.
+3. **A stretched rally keeps running** more often than not. Leaving at 15% above the 50-day lost 5% to 8%.
+4. **The central bank's interventions** come during surges, and the dollar keeps rising after them.
+5. **40.1 stands for its own question.** A reader with rial to convert does better buying at once. The
+   new finding is for the holder.
+
+**41.6 What it means for the decision engine.**
+- The holder's question is the room's.
+  - The trend breaks above are not explicit members: the chartist and the market-state member cover them
+    only in part.
+  - The warnings (spike, turbulence, a rush in turbulence) are candidates for a "risk" line, not a vote
+    to leave.
+- **"How long to park"** is not yet measured: only 20 days was tested. To test:
+  - out until the break ends (18K back over its 50-day), against 10, 20 and 40 days;
+  - the break combined with a warning;
+  - the room with a trend-break member against the room without, by 33's paired test, designed on
+    2014-2019 and judged on 2020-2026.
+- **The labels' remaining 205 days** re-measure the interventions with the owner's own week of 10-07.
+
+**NEON MIGRATION REQUIRED = NO**; research only.
