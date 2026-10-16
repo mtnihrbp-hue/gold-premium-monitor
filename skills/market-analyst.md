@@ -96,9 +96,12 @@ A deep discount on one platform is not a market-wide opportunity.
 
 The conflict matrix is explicit and testable. Do not replace it with a weighted score without explicit approval.
 
-Its record is the reason to restructure it, not to trust it. Its scorecard hit rate is 55.2%, against
-55.2% for always-WAIT (`SP_D_HANDOFF.md` 36.2). The restructure is proposed in 38.2 and waits for the
-owner's decision, because it changes the alert rule.
+Its record is the reason to restructure it, not to trust it. Replayed on two months of readings, its
+BUY candidates picked no better moments than any other (+0.64% against +0.67% over the next day, 28
+episodes), and waiting for its next BUY cost +2.0% (`SP_D_HANDOFF.md` 39.3). The once-quoted "55.2%
+against always-WAIT" scored a latched constant, not the engine (39.2). The restructure, a decision table
+of rules each with its evidence and count, is proposed in 39.6 and waits for the owner's decision,
+because it changes the alert rule.
 
 ## Interpretation
 

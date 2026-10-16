@@ -4268,3 +4268,161 @@ feeds.
   tgju; the node's TSETMC funds) beside Bonbast.
 - **For the advisor:** WHEN starts from "buy now" (waiting for a dip cost more in 12 of 13 years). The
   deep zone stays a push, without a claim of what follows, until the full record speaks.
+
+## 39. The decision engine: what the record says, before it is rebuilt (2026-10-16, for the owner's decision)
+
+The owner: "before rebuilding the decision engine, let me know your plan in details. what the
+documentation says, what the R&D says, and whats your opinion based on the data we have gathered and
+analyzed so far. then we can come up with a viable solution."
+
+**39.1 What the documentation says** (the rules in force):
+- **The chain:** the valuation rank with its direction gate, then premium direction, momentum,
+  structure, the conflict matrix, the candidate, the confirmation (which fails closed), the 24-hour
+  timed cooldown, and `final_decision`.
+- **The alert rule:** `final_decision` is the sole BUY/SELL alert authority, and a candidate never
+  alerts (`CLAUDE.md`).
+- **The matrix:** it is "explicit and testable", and it is not to be replaced by a weighted score
+  without the owner's approval (`skills/market-analyst.md`).
+- **SELL:** its gate (+3.0% premium) has never opened. The highest stored premium is +0.75%.
+- **The scorecard** (`analysis/decision_scorecard.py`):
+  - it scores the discount, not the price: BUY is right when the discount then shrank;
+  - it is not reached from `main`.
+- **The proposal of 38.2:** a WHEN rule base takes the alert authority; the old chain computes beside
+  it; SELL is retired. It changes `CLAUDE.md`'s alert rule.
+
+**39.2 A correction: "an edge of 0.0" never measured this engine.**
+- The 55.2% against always-WAIT's 55.2% was taken while a latch held every decision at WAIT. SP-C
+  said so itself: "the scorecard was scoring a constant against a constant ... untested in
+  production, not failed" (`SP_C_HANDOFF.md` 16.1).
+- The audit (36.2), the proposal (38.1) and the rewritten `PROJECT_MEMORY.md` repeated it as evidence.
+  They are corrected by 39.3.
+
+**39.3 The engine replayed** (`research/rd_engine_replay.py`; its rules committed before each run,
+784d727 and 9519d94).
+- **The data:** `research/data/hourly.json`, 607 readings, 2026-08-04 to 10-04.
+- **The method:**
+  - production's own functions judge each reading at its own time, from earlier readings only: the
+    valuation rank, the confirmation, the matrix, and the cooldown on the replay's clock;
+  - a buyer pays the mean of the three cheapest platforms;
+  - each rule is counted by episodes, against every reading.
+
+| Rule | Episodes | Basis change, next 24 h | next 72 h |
+|---|---|---|---|
+| every reading (the control) | 572 readings | +0.67% (median +0.49%) | +1.97% |
+| the matrix's BUY candidate | 28 | +0.64% (median +0.28%) | +2.38% |
+| the BUY that would have been sent | 11 | +0.39% (median +0.23%) | +2.27% |
+| the deep-discount zone (the push's level) | 11 | +0.93% (median +1.16%) | +2.44% |
+
+- **Verdicts, by the rule fixed before the run** (+0.5 pp over the control on 8 or more episodes):
+  NO EDGE for all three, at -0.03, -0.29 and +0.25 pp.
+  - The deep zone is the best of them. By medians it is +0.67 pp, which matches the head start of 36.1.
+  - On 11 episodes that stays suggestive.
+- **What the engine says.** WAIT on 555 of 607 readings, BUY on 12.
+  - The confirmation held 41 of the 67 BUY candidates: 34 because only one platform showed the
+    discount, 7 because the dollar was not yet today's.
+- **The scorecard's own rule on the same readings:** the engine 53.8%, always-WAIT 51.9%, always-BUY
+  48.1%.
+  - That is +1.9 pp over the better baseline, on overlapping readings, about the discount and not the
+    price.
+- **The cost of following it.**
+  - **40 days:** a reader whose day began with WAIT, and who waited for the engine's next BUY, paid
+    +2.01% more on average (median +0.81%), 1.9 days later (median). Waiting was cheaper on 11 of the
+    40.
+  - **16 further days** had no later BUY in the record. They are left out, and they would only raise
+    the cost.
+- **Caveats:**
+  - two months, all in one rising market (+0.67% a day);
+  - the replay sent 12 BUYs where production sent 4. The copy is the corrected record (`SP_C_HANDOFF.md`
+    45), and the confirmation's inputs differ in detail, so the replay measures the engine's logic,
+    not production's exact sends;
+  - to be re-run on the full record after 11-01.
+
+**39.4 What the rest of the research says, by the reader's question:**
+
+| Question | Measured | Where |
+|---|---|---|
+| when | waiting for a 3% dip cost more in 12 of 13 years, in every year of 18K's record | 1, 3 (R4) |
+| when | the platforms do not catch up a fair jump: no "wait a few hours" edge | 38.6 |
+| when | the deep zone: a head start of about half a point in a day, 11 episodes | 36.1, 39.3 |
+| when | up or down in 20 days, and pullback odds: not predictable (AUC 0.49, 0.58) | 3 (R3) |
+| how much | the room: +4.0% to +5.7% median over holding per two years, about three independent periods | 27, 36.1 |
+| what risk | 18K or the dollar under its 50-day average: the next month weaker by 1 to 6 points | 35.11 |
+| what risk | a new 52-week high: continuation (+3.2% over 20 days against normal) | 3 (R4) |
+| what risk | in turbulence, a rush of buyers: another 5% fall about twice as often; leads | 37.6 |
+| what risk | news: no label separates on 152 days; interventions meet pressure | 37.11 |
+| where | the platforms' spread, about 1.9% on 10-15; the sides now recorded for three | 36.1, 37.7 |
+| sell | nothing: the gate never opens, and no measure supports one | 39.1 |
+
+**39.5 My reading.**
+1. **The engine answers a question the reader does not face.** It asks whether today's discount is
+   unusual and widening, hour by hour. The reader converts rial to gold, in a market where 18K is higher
+   20 days later on two days in three. Its default answer, WAIT, is the expensive one: following it cost
+   2% a time.
+2. **Its parts that carry value are not its verdict.**
+   - The confirmation's checks guard against data that is not what it seems (one stale platform, a stale
+     dollar).
+   - The valuation rank says honestly how discounted today is.
+   - The deep-discount level is the one timing hint with a head start.
+3. **The record supports four answers, none of them hour-level timing:**
+   - buy now;
+   - how much, from the room;
+   - where, by the buyer's price;
+   - what risk, from the 50-day breaks and the trend.
+4. **SELL has no basis.**
+5. **A weighted score fitted to two months would overfit, and the skill's rule forbids it.** An
+   explicit table of rules, each with its evidence and its count, is the standard form of an expert
+   system, and it keeps the project's audit trail.
+
+**39.6 The proposed solution: the decision table, in stages.**
+- **B3a, wire the scorecard** (about half a day; no message changes):
+  - score every recorded decision on the buyer's price (the basis 24 and 72 hours later), beside the
+    discount rule;
+  - run it on production's record on 11-01;
+  - keep the replay as the research check, re-run on the full record.
+- **B3b, the WHEN table, built beside the old chain** (about two days; its output previewed first). Each
+  rule has its verdict, evidence and status:
+
+  | Rule | Verdict | Evidence | Status |
+  |---|---|---|---|
+  | default | buy now | 12 of 13 years; following the engine cost 2% | admitted |
+  | deep zone | heavily discounted now: a good moment | +0.25 pp mean, +0.67 pp median, 11 episodes | context; re-measure after 11-01 |
+  | the room out of gold | buy now the share the room holds (60%) | the room's replay | admitted (how much) |
+  | 18K or the dollar under its 50-day | a risk line, not a wait | weaker month by 1-6 points | context (risk) |
+  | turbulence and a rush of buyers | a risk line | twice as often; 4 of 12 agree | lead |
+  | one platform shows it, stale dollar, world gold not live | the verdict names no platform | SP-C 37-38 | admitted (data quality) |
+  | sell | none | none | retired |
+
+  - Every verdict prints the rules that fired and their counts.
+  - "Wait" enters only when a measure admits it: for example, buying after a 50-day break against buying
+    at once, measured by episodes, which is to be run.
+- **The gate.** The replay re-run on the full record after 11-01 (August to November, about three months)
+  stands in place of a quarter's wait. If the table beats the old chain on the buyer's price there, the
+  alert authority moves.
+- **The alert rule** (the owner's decision, because it changes `CLAUDE.md`). When the table goes live,
+  the matrix's BUY alert is retired. The pushes that stay are:
+  - the room's trades;
+  - the deep zone, once its record holds;
+  - a risk push, only after its preview.
+
+**The decisions for the owner:**
+1. Proceed with the table (B3a then B3b)? Or retire the BUY/SELL alerts now and keep the chain only as a
+   record? Or keep the chain as it is and wire only its scorecard?
+2. Use the replay on the full record as the gate, instead of a quarter?
+3. When the table goes live, retire the matrix's BUY alert (and change `CLAUDE.md`'s rule)?
+
+**NEON MIGRATION REQUIRED = NO** for B3a and B3b: the table reads what is stored.
+
+**39.7 Proposed: telling the reader about an outage** (the owner, 10-16: "the user should be informed of
+any possible outage, it can either be retrieved through the status command as we have on tlgrm or a push
+msg"). For preview, not built.
+
+- **The gap.** Telegram's Status (`src/worker/telegram-trigger.js`) reports the latest GitHub run. Every
+  run of this outage finished green, so Status read ✅ while the database was out of reach.
+- **The proposal:**
+  - **A push when a service changes state**, once each way, after two scheduled runs agree (so a
+    single failed read does not alarm). The states: the database out of reach and back; platforms fewer
+    than the minimum; world gold on its fallback; the dollar not updating.
+  - **Status reads the same state**, kept in `state.json` by the scheduled run. The worker cannot read
+    `state.json`, so this costs one short run. Alternatively, Status keeps its instant answer and the
+    push carries the news.
+- Draft texts, in the owner's wording rules, are shown in the chat for review.

@@ -213,10 +213,15 @@ valuation rank → premium direction → momentum → structure → conflict mat
   +3.0%, which no stored reading has reached (highest +0.75%). UNKNOWN below `MIN_OBSERVATIONS`.
 - **Confirmation**: the second-cheapest platform heavily discounted on its own 30-day record, today's
   dollar and live world gold. It fails closed (`SP_C_HANDOFF.md` 37, 38).
-- **Its record.** WAIT on 663 readings and BUY on 4 to 2026-10-13. Its scorecard hit rate is 55.2%,
-  against 55.2% for always-WAIT: **an edge of 0.0** (SP-D 36.2).
-- **Proposed:** restructure it around measured evidence (SP-D 38.2). This changes the alert rule in
-  `CLAUDE.md`, so it waits for the owner's decision.
+- **Its record.** WAIT on 663 readings and BUY on 4 to 2026-10-13.
+  - The "55.2% against always-WAIT, an edge of 0.0" once quoted was taken while a latch held every
+    decision at WAIT. It scored a constant, not the engine (SP-C 16.1, SP-D 39.2).
+- **Replayed on 08-04 to 10-04** (SP-D 39.3):
+  - its BUY candidates did not pick better moments: the next 24 hours rose +0.64%, against +0.67% from
+    any reading (28 episodes);
+  - a reader who waited for its next BUY paid +2.0% on average.
+- **Proposed:** a decision table built beside it, gated by the replay on the full record (SP-D 39.6).
+  Moving the alert authority changes `CLAUDE.md`'s rule, so it waits for the owner's decision.
 
 **Direction** (`analysis/direction.py`):
 - the trend and its drivers;
@@ -306,7 +311,7 @@ Built-ness and past effort count for nothing.
 | Finding | Evidence | Where |
 |---|---|---|
 | Buying now beats waiting for a 3% dip | 12 of 13 years | SP-D 1, 36.1 |
-| The decision engine has no edge | 55.2% against always-WAIT's 55.2% | 36.2 |
+| The decision engine's BUYs do not pick better moments, and waiting for them cost +2.0% | 28 candidate episodes, +0.64% against +0.67% in 24 h; 40 days of waiting | 39.3 |
 | The room's gain rests on its chartist and dollar 20d | with five members it falls to +0.3% to +1.4% | 36.1 |
 | The money-flow member's edge came from the saffron fund | without it: 0 to +0.31 pp, from +0.67 to +1.42 | 36.2 |
 | In turbulence, a rush of buyers precedes a further 5% fall about twice as often; big buyers precede a rise | four combinations of twelve agree in both eras: leads, not edges | 37.6 |
@@ -335,7 +340,7 @@ until the sentence that says otherwise.
 | Defect | Status | Reference |
 |---|---|---|
 | Neon suspended for transfer to 2026-11-01; the spool's write-back, the transfer per run and the phone's spool are to be checked that day | time-bound | SP-D 34, 35.4, 37.1 |
-| The decision engine has no measured edge | owner's decision on 38.2 | SP-D 36.2 |
+| The decision engine's BUYs do not pick better moments | owner's decision on 39.6 | SP-D 39.3 |
 | Morning readings priced on yesterday's dollar; dollar freshness stored as always fresh | research first | `SP_C_HANDOFF.md` 34.3 |
 | Daric refuses GitHub's runner | their side; the phone reads it | SP-D 29-31 |
 | Taline's frozen copy is stored when it sits within its band and its usual position | open | SP-D 20, 29 |
