@@ -15,6 +15,11 @@ Rules, fixed before the run:
   day with both. Days are the unit; a bucket with fewer than 15 days is reported as too few.
 - Verdict, decided now: an hour "pays" when its days' mean is at least 0.2% below the day's mean, on 15
   days or more, and below it on at least 60% of them. Otherwise none is claimed.
+- Added after the first run, before its own (committed first): the morning's 0.40% could be the day's
+  own rise in a rising market. Days are split by direction (the day's last basis against the previous
+  day's last); the 06-09 bucket against the day's mean is reported for each. A time-of-day effect is
+  claimed only if the morning is at least 0.2% below the day's mean on up days and on down days, each
+  with 8 days or more; otherwise the morning's edge is the drift.
 
 Run: python research/rd_where_and_hour.py
 """
@@ -101,6 +106,24 @@ def main():
     if pairs:
         print(f"\n  the evening's last against the morning's first: {len(pairs)} days, mean {mean(pairs):+.2f}%, "
               f"median {median(pairs):+.2f}%, higher in the evening on {sum(p > 0 for p in pairs) / len(pairs):.0%}")
+    # the follow-up: is the morning's edge the drift?
+    last_basis = {}
+    for r in rows:
+        last_basis[r["day"]] = r["basis"]
+    ordered = sorted(last_basis)
+    direction = {d: ("up" if last_basis[d] > last_basis[p] else "down") for p, d in zip(ordered, ordered[1:])}
+    split = {"up": [], "down": []}
+    for d in ordered[1:]:
+        morning = [(r["basis"] / day_mean[d] - 1) * 100 for r in rows if r["day"] == d and 6 <= r["local"].hour <= 9]
+        if morning:
+            split[direction[d]].append(mean(morning))
+    print("\n  the morning (06-09) against the day's mean, by the day's direction:")
+    for side, values in split.items():
+        if values:
+            print(f"    {side:<5} {len(values):>2} days: mean {mean(values):+.2f}%, below on {sum(v < 0 for v in values) / len(values):.0%}")
+    effect = all(len(v) >= 8 and mean(v) <= -0.2 for v in split.values())
+    verdicts["06-09, net of the drift"] = "A TIME-OF-DAY EFFECT" if effect else "the drift, not the hour"
+
     print("\nverdicts (decided before the run):")
     for label, v in verdicts.items():
         print(f"  {label}  {v}")
