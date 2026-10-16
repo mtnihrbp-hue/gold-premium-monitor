@@ -1400,8 +1400,21 @@ class KPICoherence(unittest.TestCase):
         self.assertIn("read_session()", inspect.getsource(baseline_resolver.resolve_update_baselines))
         self.assertIn("_refresh_mirror(now)", inspect.getsource(main.main))
         workflow = (REPO / ".github" / "workflows" / "gold-monitor.yml").read_text(encoding="utf-8")
-        self.assertIn("record_mirror.sqlite", workflow.split("key: gold-monitor-state-")[0], "cached with state.json")
+        self.assertIn("path: record_mirror.sqlite\n          key: gold-monitor-mirror-", workflow.replace("\r\n", "\n"),
+                      "cached in its own entry")
         self.assertIn("RECORD_MIRROR_FILE: record_mirror.sqlite", workflow)
+
+    def test_52_the_state_cache_keeps_its_list_of_files(self):
+        """A cache entry belongs to its exact list of paths. Adding record_mirror.sqlite to the state's
+        list made every earlier entry invisible: the run of 2026-10-16 12:30 UTC started from an empty
+        state.json and spool, and three days of held readings were out of reach (SP_D_HANDOFF.md section
+        37.14). The list is fixed; a new file gets its own cache step."""
+        import re as _re
+        workflow = (REPO / ".github" / "workflows" / "gold-monitor.yml").read_text(encoding="utf-8").replace("\r\n", "\n")
+        step = workflow.split("- name: Restore State\n", 1)[1].split("\n      - name:", 1)[0]
+        paths = _re.search(r"path: \|\n((?:            \S+\n)+)", step).group(1).split()
+        self.assertEqual(paths, ["state.json", "candle_cache.json", "record_spool.jsonl"])
+        self.assertIn("key: gold-monitor-state-${{ github.run_id }}", step)
 
     def test_51_news_is_held_once_while_the_database_is_out_of_reach_and_written_back_once(self):
         """The feeds keep only their latest items, so news a run cannot store is lost (SP_D_HANDOFF.md

@@ -67,23 +67,78 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Restore State
-        uses: actions/cache@v4
+      # One-off recovery, to be removed after 2026-11-01 (SP_D_HANDOFF.md section 37.14). The runs of
+      # 2026-10-16 12:30 and 13:30 UTC cached the state under a four-file list. A cache entry belongs
+      # to its exact list of paths, so those runs could not see the entries before them and started
+      # from an empty state and spool. Their own held writes are restored here, set aside, and added
+      # once to the spool the next step restores; state.json marks it done.
+      - name: Recover the writes held under the four-file cache
+        id: recover
+        uses: actions/cache/restore@v4
         with:
-          # candle_cache.json: the daily candles kept between runs, so a run fetches only the new
-          # days (src/persistence/candle_cache.py; Neon's monthly transfer, SP_D_HANDOFF.md 34).
-          # record_spool.jsonl: what a run could not write while Neon was out of reach, written back
-          # by the next scheduled run that reaches it (src/persistence/spool.py, SP_D_HANDOFF.md 35.4).
-          # record_mirror.sqlite: the last 60 days of readings, copied from Neon by each scheduled run,
-          # for the reads a run makes while Neon is out of reach (src/persistence/mirror.py, 37.12).
           path: |
             state.json
             candle_cache.json
             record_spool.jsonl
             record_mirror.sqlite
+          key: gold-monitor-state-recover-none
+          restore-keys: |
+            gold-monitor-state-
+
+      - name: Set the recovered writes aside
+        if: steps.recover.outputs.cache-matched-key != ''
+        run: |
+          mkdir -p recovered
+          if [ -f record_spool.jsonl ]; then mv record_spool.jsonl recovered/record_spool.jsonl; fi
+          rm -f state.json candle_cache.json record_mirror.sqlite
+
+      - name: Restore State
+        uses: actions/cache@v4
+        with:
+          # NEVER change this list. A cache entry belongs to its exact list of paths: a run with a
+          # different list cannot see the entries saved before it and starts from an empty state.json
+          # and spool. Adding a file here lost the spool's first three days on 2026-10-16
+          # (SP_D_HANDOFF.md section 37.14; kpi_coherence.test_52). A new file gets its own cache step.
+          # candle_cache.json: the daily candles kept between runs, so a run fetches only the new
+          # days (src/persistence/candle_cache.py; Neon's monthly transfer, SP_D_HANDOFF.md 34).
+          # record_spool.jsonl: what a run could not write while Neon was out of reach, written back
+          # by the next scheduled run that reaches it (src/persistence/spool.py, SP_D_HANDOFF.md 35.4).
+          path: |
+            state.json
+            candle_cache.json
+            record_spool.jsonl
           key: gold-monitor-state-${{ github.run_id }}
           restore-keys: |
             gold-monitor-state-
+
+      - name: Add the recovered writes once
+        if: steps.recover.outputs.cache-matched-key != ''
+        run: |
+          python3 - <<'PY'
+          import json, os
+          state = json.load(open("state.json")) if os.path.exists("state.json") else {}
+          path = "recovered/record_spool.jsonl"
+          if not state.get("recovered_2026_10_16") and os.path.exists(path):
+              lines = [l for l in open(path, encoding="utf-8") if l.strip()]
+              with open("record_spool.jsonl", "a", encoding="utf-8") as f:
+                  f.writelines(lines)
+              state["recovered_2026_10_16"] = True
+              json.dump(state, open("state.json", "w"))
+              print(f"recovered {len(lines)} held writes")
+          else:
+              print("nothing to recover")
+          PY
+
+      - name: Restore the record mirror
+        uses: actions/cache@v4
+        with:
+          # record_mirror.sqlite: the last 60 days of readings, copied from Neon by each scheduled run,
+          # for the reads a run makes while Neon is out of reach (src/persistence/mirror.py, 37.12).
+          # Its own entry, so the state's list above never changes.
+          path: record_mirror.sqlite
+          key: gold-monitor-mirror-${{ github.run_id }}
+          restore-keys: |
+            gold-monitor-mirror-
 
       - name: Cache pip packages
         uses: actions/cache@v4
