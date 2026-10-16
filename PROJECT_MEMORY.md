@@ -317,6 +317,9 @@ Built-ness and past effort count for nothing.
 | No WHEN rule and no model beats buying at once (dips, gaps, trend breaks, splits, the engine's shape; walk-forward models) | 12 years of daily windows, with the waiting rial in fixed income; dip rules' worst case about +20% | 40.1, 40.2 |
 | For a holder, parking in fixed income after a trend break pays: 18K or the dollar under its 50-day, or EMA20 under EMA50 | 20 days in the fund beat holding by +0.8% to +2.4% on average in 2014-19 and 2020-26; 10-32 episodes a cell | 41.4 |
 | A dollar spike, turbulence and a rush of buyers in the funds warn of falls (about twice the rate) but are not exits | leaving on them lost; a rush in turbulence: a 5% fall after 55% against 21% | 41.4 |
+| Parking on a single trend break does not survive a reader's record (whipsaws, costs, missed jumps); as room members the breaks make it worse | two-year windows at two costs; 0 of 4 paired tests | 42.1, 42.2 |
+| The room's stays out of gold: median 18 trading days, 11 of 16 gained, +1.2% on the whole holding per stay | 2018-2026 replay | 42.3 |
+| Tether's move over the Iranian weekend tells Saturday's direction: 1%+ moves, the same way 66-78%; Tether down 1%+: 18K about -1.8% on Saturday | 187 weekends, both halves | 42.4 |
 | The central bank's interventions come during dollar surges; the dollar rose more than usual 1-20 days after | 6 and 19 episodes, noisy definitions | 41.3 |
 | The platform is worth more than the hour: the median platform sits 1.06% above the cheapest; the morning's apparent edge is the day's drift | 607 hourly readings, 62 days; mixed price sides | 40.3 |
 | The decision engine's BUYs do not pick better moments, and waiting for them cost +2.0% | 28 candidate episodes, +0.64% against +0.67% in 24 h; 40 days of waiting | 39.3 |

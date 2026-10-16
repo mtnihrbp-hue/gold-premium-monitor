@@ -4725,3 +4725,123 @@ still 1.6% above the day before the announcement.
 - **The labels' remaining 205 days** re-measure the interventions with the owner's own week of 10-07.
 
 **NEON MIGRATION REQUIRED = NO**; research only.
+
+## 42. The holder's question, full power: how long to park, what to watch (2026-10-16 night)
+
+The owner: "Go ahead ... take a deep breath, stretch your fingers (and models) and GO FULL POWER." Six
+studies were run, each committed before it ran:
+- `rd_parking.py`: fa15bbf;
+- `rd_room_breaks.py`: 80bfeba;
+- `rd_room_stays.py`: 84264ec;
+- `rd_tether_lead.py`: 4d45495, with a lookup fix (rules unchanged) before its first complete run;
+- `rd_fund_premium.py`: ddd44dd;
+- a descriptive check of the platforms on Fridays.
+
+**42.1 How long to park after a trend break** (`research/rd_parking.py`, 2015-2026).
+- **Per episode, many exits pay**, as 41.4 found: the gain is positive in both eras and paid in at least
+  55% of episodes.
+  - Best: 18K and the dollar both under their 50-day, parked 10, 20 or 40 days (+2.1% / +1.2% at 20).
+  - EMA20 under EMA50, parked 20 or 40 days (+2.2% / +2.2% at 20).
+- **On a reader's record, no rule is worth following.** The reader starts in gold, parks the whole
+  holding or 40% on every break, and comes back on the exit, at Daric's 0.30% or Goldika's 2.37%,
+  measured over two-year windows against holding.
+  - The 50-day breaks of 18K and the dollar are era-bound. Windows starting 2015-2019 gained (+16% to
+    +24% at Daric's cost); those starting 2020-2024 lost (-1% to -9%).
+  - The nearest is EMA20 under EMA50, out 40 days with 40% of the holding.
+    - At Daric's cost: +2.8% and +2.8% median, ahead in 65% of windows, worst -6.0% (the bar is -5%).
+    - At Goldika's: +1.1% and +1.1%, ahead in 56% (the bar is 60%).
+  - The worst windows of the others ran -15% to -46%: the jumps missed while out.
+- **Lesson 28 again:** leaving gold on one signal is the expensive mistake. Whipsaws and costs take back
+  what each episode earned.
+
+**42.2 Trend breaks as members of the room** (`research/rd_room_breaks.py`, section 33's paired test).
+
+| Added at weight 1.0 | Paired median vs the room as built (4 tests) | Windows improved | Accepted |
+|---|---|---|---|
+| EMA cross | -4.0 to -4.8 pp | 9-14% | 0 of 4 |
+| EMA cross, only to leave | -0.9 to -2.6 pp | 12-25% | 0 of 4 |
+| 18K 50-day | -2.6 to -4.2 pp | 5-23% | 0 of 4 |
+| dollar 50-day | -2.1 to -4.1 pp | 12-24% | 0 of 4 |
+| both 50-day | -2.5 to -3.4 pp | 8-20% | 0 of 4 |
+
+- **Every break makes the room worse.** The break's edge sits in its first days. As a standing vote it
+  keeps the room out while gold, on average, still beats the fund. From 2021, on the days the breaks
+  lean out, gold over fixed income in the next 20 days was still +0.2% to +1.0%.
+- **The room as built:** +5.0% to +9.0% over holding at Daric's cost (Afran windows), ahead in 83-100%.
+
+**42.3 How long the room parks** (`research/rd_room_stays.py`, 2018-01 to 2026-10-01).
+- **The stays:** 16 completed, 40% of the grams each; out of gold on 17% of days. Median 18 trading
+  days, from 9 to 70.
+- **Their gains:** 11 of 16 gained, by +1.19% on the whole holding on average (median +1.64%; best
+  +7.55%, worst -7.59%).
+- **The losses** were 2018-2019's sanction-shock jumps, out while 18K rose 16% and 24%.
+- **Since 2020,** 8 of 9 stays gained or broke even, among them:
+  - 2023-05-20 to 08-15, 70 days, 18K -10.0%: +6.96%;
+  - 2025-03-17 to 04-07, 18K -9.2%: +4.79%.
+- **On 10-01** the room was all in gold, back since 08-06.
+- So the answer to "how long to park" is the room's: until its committee turns back, typically three to
+  four weeks.
+
+**42.4 Tether over the Iranian weekend** (`research/rd_tether_lead.py`, 2020-11 to 2026-10, 187 weekends).
+
+| | 2020-11 to 2023-06 | 2023-07 to now |
+|---|---|---|
+| Tether's weekend move against Saturday's dollar / 18K | r = +0.53 / +0.53 | r = +0.61 / +0.46 |
+| weekends of a 1%+ move: Saturday's dollar / 18K the same way | 66% / 75% (53) | 78% / 78% (23) |
+| Tether down 1%+: Saturday's 18K | -1.79% (38) | -1.81% (13) |
+| Tether up 1%+: Saturday's 18K | +1.98% (15) | +1.99% (10) |
+| every Saturday's 18K | -0.08% | +0.11% |
+
+- **The verdict:** A SIGNAL TO WATCH, in both halves.
+- **It is the weekend's catch-up, not a general lead.** On trading days, Tether today against the dollar
+  tomorrow is r = 0.00.
+- **For a platform buyer:** the platforms trade on Fridays. In the hourly copy (9 weekends, one with a
+  1%+ Tether move) their Friday moves did not follow Tether. Whether they already price it, or lag it,
+  is to be measured on the full record after 11-01.
+
+**42.5 The gold fund's price against its NAV** (`research/rd_fund_premium.py`, Ayyar, 2019-2026).
+- **The verdicts:** a high premium (rank 90%+, 44 episodes) does not warn. A deep discount (rank 10% or
+  less, 40 episodes) does not precede rises.
+- **Seen, not registered:** after a deep discount 18K was weaker (+0.4% against +3.5% in 20 days,
+  2019-2022; +3.8% against +5.4%, 2023-2026), and fell 5% more often (37% against 23%; 33% against 22%).
+  - A discount behaves like sellers in control, not like a bargain.
+  - It was not the hypothesis committed, so it is a lead to pre-register on new data, not a result.
+- **On 10-03** the premium read +9.5% (relative), rank 97% of its year: buyers paying up.
+
+**42.6 The signals on the latest close (10-15)**, for the record:
+
+| Signal | Reading | State |
+|---|---|---|
+| 18K against its 50-day | +10.2% | no break |
+| EMA20 against EMA50 | +7.0% | no break |
+| the dollar against its 50-day | +15.1% | no break |
+| the dollar's 10 days | -0.1% | no spike |
+| 18K's volatility, rank in its year | 8% | calm, no turbulence |
+| 18K under its year's high | -1.8% | — |
+| Ayyar's premium to NAV (10-03) | +9.5%, rank 97% | buyers paying up |
+| the room (10-01) | all in gold | — |
+
+**42.7 What the evidence supports for the decision engine** (with 39.6 and 40.5, for the owner's
+decision). Three readers, three questions:
+
+| Reader | Question | What the record supports |
+|---|---|---|
+| has rial | when to convert, where | buy now (40.1, 40.2; 12 years, both eras); the cheapest buyer's price (40.3); two short hints: after a weekend in which Tether fell 1%+, Saturday's 18K was about 1.8% lower on average (42.4), and the deep-discount zone (39.3) |
+| holds gold | gold or fixed income, how long | the room: 40% out on broad agreement, back when it turns, stays of three to four weeks, 11 of 16 gained (42.3); not a single break (42.1, 42.2) |
+| either | what to watch | measured warnings, each with its rate: a dollar spike, 31-44% against 12-23%; turbulence, 29-37%; a rush of buyers in the funds during turbulence, 55% against 21% (41.4); Tether's weekend move (42.4). They warn; they are not exits |
+
+- **The central bank's interventions** mark a surge under way (41.3), so they read as a warning, not as
+  a fall to come.
+- **The old matrix** has no measured role among these (39.3, 40.1).
+- **The proposed design** is A of 40.5 with the room as its holder's answer and a WATCH section built
+  from 41.4 and 42.4.
+  - Every line carries its measured rate.
+  - A preview comes first.
+  - The alert authority changes only on the owner's decision.
+
+**Next, measurable on the full record after 11-01:**
+- the platforms on Fridays against Tether;
+- the deep zone;
+- the replay of 39.3 on three months.
+
+**NEON MIGRATION REQUIRED = NO**; research only.
