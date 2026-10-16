@@ -13,14 +13,7 @@ import requests
 
 
 
-from typing import List, Dict, Any, Optional, Union, Tuple
 from urllib.parse import urlparse, parse_qs
-...
-def collect_rss_feed(url: str, timeout: Union[int, Tuple[int, int]] = 15) -> List[Dict[str, Any]]:
-    """Fetch and parse a single RSS/Atom feed."""
-    ...
-    response = requests.get(url, timeout=timeout, headers=headers)
-    # rest unchanged
 
 
 def _parse_rss_date(date_str: str) -> Optional[datetime]:

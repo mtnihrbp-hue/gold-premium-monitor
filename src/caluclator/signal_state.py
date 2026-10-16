@@ -53,7 +53,7 @@ class SignalState:
     held_reason: str = ""
 
     # Meta
-    timestamp: datetime = field(default_factory=datetime.now)
+    timestamp: datetime = field(default_factory=datetime.utcnow)     # stored as UTC, like every timestamp
     snapshot_id: int = 0
 
 

@@ -443,9 +443,13 @@ class KPICoherence(unittest.TestCase):
         happens to be UTC -- which every CI runner is, and this workstation is not.
         `kpi_pre_sp_c2.test_13` proved it: a two-hour lookback reached back five and
         a half hours here and passed in CI."""
+        # any read of the machine clock: datetime.now(), and datetime.now passed uncalled, as a
+        # dataclass default -- two SignalState and HistoricalQuery stamps did that until 2026-10-16
+        # (SP_D_HANDOFF.md section 37.3). datetime.now(timezone.utc) is UTC and allowed.
+        clock = re.compile(r"datetime\.now\b(?!\(\s*timezone\.utc\s*\))")
         offenders = []
         for path in _python_files():
-            if "datetime.now()" in _code(path):
+            if clock.search(_code(path)):
                 offenders.append(path.name)
         self.assertEqual(sorted(offenders), [],
                          "use datetime.utcnow(); see timeutil for local dates")
@@ -1009,9 +1013,138 @@ class KPICoherence(unittest.TestCase):
         self.assertLess(run.index("_flush_spool()"), run.index("_recent_platform_history("),
                         "before the stale-quote check reads the platform history")
         self.assertIn("if unreachable(e) and _hold_reading(", run)
+        flush = inspect.getsource(main._flush_spool)
+        self.assertLess(flush.index("_recheck_held("), flush.index("spool.flush("),
+                        "held readings meet the stale-quote rules before anything is written (section 37.1)")
         workflow = (REPO / ".github" / "workflows" / "gold-monitor.yml").read_text(encoding="utf-8")
         self.assertIn("RECORD_SPOOL_FILE: record_spool.jsonl", workflow)
         self.assertIn("            record_spool.jsonl\n", workflow.replace("\r\n", "\n"), "kept in the cache between runs")
+
+
+    def test_41_held_readings_meet_the_stale_quote_rules_before_they_are_written(self):
+        """Readings held while Neon was down skipped the repeat and jump rules, which need the stored
+        history (SP_D_HANDOFF.md sections 35.12, 37.1). At the write-back each is judged as its run would
+        have been, so a frozen copy held during the outage never reaches the database."""
+        import io
+        from contextlib import redirect_stdout
+        import main
+
+        s = _test_get_session()
+        start = datetime(2026, 9, 20, 6, 0)
+        offsets = {"WallGold": 1.000, "Milli": 0.992, "Goldika": 1.010, "Ayyareh": 0.998}
+        frozen = None
+        try:
+            for k in range(15 * 12):                                   # 15 days, every 2 hours
+                ts = start + timedelta(hours=2 * k)
+                base = 250_000_000 * (1 + 0.0004 * k)
+                snap = MarketSnapshot(collection_mode="scheduled", timestamp=ts, fair_price=base * 1.03,
+                                      premium_percent=-3.0)
+                s.add(snap)
+                s.flush()
+                for name, off in offsets.items():
+                    s.add(PlatformPrice(snapshot_id=snap.id, platform_name=name, price_irr=base * off, timestamp=ts))
+                if k == 100:
+                    frozen = base * offsets["Ayyareh"]                 # what Ayyareh's copy will repeat
+            s.commit()
+            last_base = 250_000_000 * (1 + 0.0004 * 179)
+            held, observations = [], []
+            for h in range(2):
+                ts = start + timedelta(hours=2 * 180 + h)
+                moved = last_base * 1.04
+                prices = {name: moved * off for name, off in offsets.items()}
+                prices["Ayyareh"] = frozen                              # a copy from days ago, far below the rest
+                fair = moved * 1.03
+                held.append({"kind": "reading", "payload": {
+                    "snapshot": {"timestamp": ts, "fair_price": fair, "premium_percent": (frozen / fair - 1) * 100,
+                                 "world_gold_usd": 4100.0, "usd_irr": 2_650_000.0, "signal": "WAIT",
+                                 "confidence": None, "collection_mode": "scheduled"},
+                    "platform_prices": [{"platform_name": n, "price_irr": p, "change_irr": None} for n, p in prices.items()],
+                    "state": {"platform_low": frozen, "structure_state": "DISCOUNT_DOMINANT", "final_decision": "WAIT"}}})
+                for n, p in prices.items():
+                    observations.append({"kind": "observation", "payload": {
+                        "instrument": "REP_IRAN_GOLD", "source": n.lower(), "timestamp": ts, "price": p}})
+            with redirect_stdout(io.StringIO()) as out:
+                kept, deferred = main._recheck_held(s, held + observations)
+        finally:
+            s.rollback()
+            s.close()
+        self.assertEqual(deferred, 2, "the frozen copy, in both held readings")
+        self.assertIn("deferred Ayyareh", out.getvalue())
+        readings = [e["payload"] for e in kept if e["kind"] == "reading"]
+        self.assertEqual(len(readings), 2)
+        for r in readings:
+            names = {pp["platform_name"] for pp in r["platform_prices"]}
+            self.assertEqual(names, {"WallGold", "Milli", "Goldika"})
+            low = min(pp["price_irr"] for pp in r["platform_prices"])
+            self.assertAlmostEqual(r["snapshot"]["premium_percent"], (low / r["snapshot"]["fair_price"] - 1) * 100)
+            self.assertAlmostEqual(r["state"]["platform_low"], low, msg="the state's platform fields follow")
+        sources = {(e["payload"]["source"]) for e in kept if e["kind"] == "observation"}
+        self.assertEqual(sources, {"wallgold", "milli", "goldika"}, "its observations leave with it")
+
+    def test_42_a_held_reading_left_without_enough_platforms_is_dropped(self):
+        import io
+        from contextlib import redirect_stdout
+        import main
+        from validation import data as v
+
+        real = v.MIN_WORKING_SOURCES
+        held = [{"kind": "reading", "payload": {
+            "snapshot": {"timestamp": datetime(2026, 10, 20, 8), "fair_price": 100.0, "premium_percent": -3.0,
+                         "collection_mode": "scheduled"},
+            "platform_prices": [{"platform_name": "A", "price_irr": 97.0}, {"platform_name": "B", "price_irr": 96.0}]}},
+            {"kind": "observation", "payload": {"instrument": "XAUUSD", "source": "kitco",
+                                                "timestamp": datetime(2026, 10, 20, 8), "price": 4100.0}}]
+        import database.repository as repo
+        real_history, real_defer = repo.get_recent_platform_prices, v.defer_stale_quotes
+
+        def defer(valid, history, now, holds=None):
+            valid.pop("B")
+            return [("B", "a copy")]
+        try:
+            repo.get_recent_platform_prices = lambda session, since: []
+            v.defer_stale_quotes = defer
+            with redirect_stdout(io.StringIO()):
+                kept, deferred = main._recheck_held(None, held)
+        finally:
+            repo.get_recent_platform_prices, v.defer_stale_quotes = real_history, real_defer
+        self.assertEqual(real, v.MIN_WORKING_SOURCES)
+        self.assertEqual((kept, deferred), ([], 1), "fewer than the minimum: the run would have skipped it, and so do we")
+
+
+    def test_43_the_analysis_wing_parts_nothing_reads_are_parked_by_config(self):
+        """Owner 2026-10-16: the wing is to be rethought, not retired. Meanwhile the interpretation chain,
+        the C.14A candles and the C.14B forecasts -- read by nothing a reader sees or the decision uses,
+        about 80% of each run -- are parked by config.json; the snapshot's core and the outcome
+        evaluations, which the scorecard needs, run (SP_D_HANDOFF.md section 37.2)."""
+        import inspect as _inspect
+        from analysis import snapshot_builder as sb
+        cfg = json.loads((REPO / "config" / "config.json").read_text(encoding="utf-8"))
+        wing = cfg["analysis_wing"]
+        self.assertEqual((wing["interpretation"], wing["candles"], wing["forecasts"]), (False, False, False))
+        self.assertIn("section 37.2", wing["parked_2026_10_16"])
+        src = _inspect.getsource(sb.build_analysis_snapshot)
+        self.assertIn('wing.get("candles", True)', src, "absent, everything runs as before")
+        self.assertIn('wing.get("forecasts", True)', src)
+        self.assertIn('wing.get("interpretation", True)', src)
+        self.assertNotIn("_Parked", src[src.index("run_outcome_evaluation_for_snapshot"):src.index("backfill_outcome_evaluations")],
+                         "the outcome evaluations are never parked")
+
+    def test_44_analyze_says_the_database_is_out_of_reach(self):
+        import io
+        from contextlib import redirect_stdout
+        import main
+        import alerts.telegram as tg
+        sent, saved = [], (main._database_reachable, tg._send)
+        try:
+            main._database_reachable = lambda: False
+            tg._send = sent.append
+            with redirect_stdout(io.StringIO()):
+                main._send_analyze_report()
+        finally:
+            main._database_reachable, tg._send = saved
+        self.assertEqual(len(sent), 1)
+        self.assertIn("out of reach", sent[0])
+        self.assertNotIn("Not enough history", sent[0], "the history was never the problem")
 
 
 if __name__ == "__main__":

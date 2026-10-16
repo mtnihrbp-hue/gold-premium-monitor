@@ -175,6 +175,10 @@ def _build_technical_state_json(
     return tech_json
 
 
+class _Parked(Exception):
+    """A part of the wing the config parks (section 37.2)."""
+
+
 def build_analysis_snapshot(
     analysis_timestamp: Optional[datetime] = None,
     config: Optional[Dict] = None,
@@ -295,9 +299,18 @@ def build_analysis_snapshot(
     # Serialize technical and regime evidence
     technical_state_json = _build_technical_state_json(rep_price, structure_state)
 
+    # Parts of the wing that nothing a reader sees or the decision uses read are parked by config
+    # (config.json "analysis_wing", SP_D_HANDOFF.md section 37.2): the interpretation chain, the
+    # C.14A candles and the C.14B forecasts. Absent, everything runs as before. The snapshot's core
+    # and the outcome evaluations, which the decision engine's scorecard needs, always run.
+    wing = dict((config or {}).get("analysis_wing") or {})
+    interpretation_on = wing.get("interpretation", True)
+
     # --- PRE-SP-C.6: Build deterministic evidence package ---
     evidence_package = None
     try:
+        if not interpretation_on:
+            raise _Parked()
         evidence_package = build_evidence_package(
             analysis_timestamp=analysis_timestamp,
             source_run_id=source_run_id,
@@ -314,6 +327,8 @@ def build_analysis_snapshot(
         valid, ev_errors = validate_evidence_package(evidence_package)
         if not valid:
             print(f"Evidence package validation warnings: {ev_errors}")
+    except _Parked:
+        print("Analysis wing: interpretation parked (evidence, intelligence, features, read model)")
     except Exception as e:
         print(f"Evidence package build failed: {e}")
 
@@ -335,6 +350,8 @@ def build_analysis_snapshot(
         # --- PRE-SP-C.8: Build analytical feature snapshot ---
     features = None
     try:
+        if not interpretation_on:
+            raise _Parked()
         features = build_feature_snapshot(
             analysis_timestamp=analysis_timestamp,
             current_regime=regime_result.state,
@@ -345,12 +362,16 @@ def build_analysis_snapshot(
         feat_valid, feat_errors = validate_feature_snapshot(features)
         if not feat_valid:
             print(f"Feature validation warnings: {feat_errors}")
+    except _Parked:
+        pass
     except Exception as e:
         print(f"Feature build failed: {e}")
 
     # --- PRE-SP-C.9: Build analytical read model ---
     read_model = None
     try:
+        if not interpretation_on:
+            raise _Parked()
         snapshot_facts = {
             "xau_usd": xau_usd,
             "usd_irr": usd_irr,
@@ -376,6 +397,8 @@ def build_analysis_snapshot(
         rm_valid, rm_errors = validate_read_model(read_model)
         if not rm_valid:
             print(f"Read model validation warnings: {rm_errors}")
+    except _Parked:
+        pass
     except Exception as e:
         print(f"Read model build failed: {e}")
 
@@ -426,7 +449,7 @@ def build_analysis_snapshot(
             print(f"Outcome backfill failed: {e}")
 
     # PRE-SP-C.14A: non-blocking candle build
-    if snapshot_id is not None and snapshot_id > 0:
+    if snapshot_id is not None and snapshot_id > 0 and wing.get("candles", True):
         try:
             from intelligence.candles import run_candle_build_for_snapshot
             candle_result = run_candle_build_for_snapshot(
@@ -443,7 +466,7 @@ def build_analysis_snapshot(
             print(f" Candle build failed: {e}")
 
     # PRE-SP-C.14B: non-blocking forecast evaluation (analysis wing only)
-    if snapshot_id is not None and snapshot_id > 0:
+    if snapshot_id is not None and snapshot_id > 0 and wing.get("forecasts", True):
         try:
             from intelligence.forecast_engine import generate_forecast
             from database.models import AnalysisSnapshot

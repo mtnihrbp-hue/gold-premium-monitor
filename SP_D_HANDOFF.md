@@ -20,7 +20,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
        push, Direction's EMA lines, Tether as a                     35.4 (the spool) merged 2026-10-15 (v1.11safe);
                                                                    35.5-35.6 merged 2026-10-15 (v1.12safe);
                                                                    35.8 merged 2026-10-15 (v1.13safe);
-                                                                   35.11 Direction v7 merged 2026-10-15 (v1.14safe)
+                                                                   35.11 Direction v7 merged 2026-10-15 (v1.14safe);
+                                                                   36 the audit; 37.1-37.3 merged 2026-10-16 (v1.15safe)
        member, the LLM member
 ```
 
@@ -3507,3 +3508,95 @@ publishes, or can give, both sides.
 - Milli gives one `price18`.
 
 About a day of collector work.
+
+## 37. SP-De after the audit: the owner's decisions, and the first stage of B (2026-10-16)
+
+**The owner's decisions on section 36.**
+
+- **Options:** "lets say B, and then bringing in a total advisor as C."
+- **Money flow:** "no, the money flow is precious, taking it is pricy, we should rethink the strategy
+  to use that data". The owner points to the GOLD DEMAND wording of 35.10 (buyers 1.4 times the
+  usual, within the normal range) and to its value "in the times of turbulence". The member stays at
+  0.5. Its use is to be rethought around turbulence; section 36.2's finding stands as evidence, not as
+  a removal.
+- **The Analysis Wing:** "was built for the discount analysis. so retiring isnt good, but maybe
+  revamping and rethinking would be a better call ... we spent loads of time for the analysis wing, if
+  we arent gaining, mean we didnt design it well, i was low experienced back then, maybe rethinking is
+  much better now." /Analyze answered "not enough history" while Neon was down. The owner asked: park
+  it now like the recap, "or what do you say?"
+- **The decision engine:** "agreed ... the problem is that the logic behind is messy and not standard.
+  maybe restructuring now with loads of info could be better."
+- **Price sides:** "collecting both sides is better unless if factually disagree."
+- **The spool re-check:** agreed.
+- **New, for the chart:**
+  - patterns: the flag, the double top ("double ceiling") and others, with learning.emofid.com as a
+    reference;
+  - channels: "gold started a side channel, then hit the ema and rose up ... the system should be
+    able to identify such moves technically";
+  - "so even the room could be revised as well."
+- **The go:** "GO FULL POWER."
+- **The range line:** the owner asked what it is. It is the room report's "Next 20 trading days: most
+  likely X to Y" (21:00 PAPER). It is shown to the owner before anything changes.
+
+**37.1 The spool's re-check** (time-bound: the write-back runs on 11-01).
+
+- **The problem.** Readings held during the outage skipped the repeat and jump rules, because those
+  read the stored history (35.12).
+- **The fix.** `main._recheck_held` runs in `_flush_spool` before anything is written.
+  - It judges each held reading with `validation.data.defer_stale_quotes`, the production rule itself,
+    in time order, against the stored history (one read: 60 days before the first held reading) and
+    the held readings before it.
+  - A deferred quote leaves the reading together with its price observations. The reading's premium
+    (single cheapest) and its state's platform fields and structure (`caluclator.structure.evaluate_structure`)
+    are recomputed from the quotes that remain.
+  - A reading left with fewer than `MIN_WORKING_SOURCES` is dropped with its run's observations, as its
+    run would have skipped it.
+  - If the history cannot be read, nothing is written.
+- **Tests:**
+  - `kpi_coherence.test_41`: a frozen copy repeated from days earlier, 4% below the moved market, is
+    deferred in both held readings; the premium and the state follow; its observations leave;
+  - `test_42`: a reading left with too few platforms is dropped;
+  - `test_40` pins the re-check before `spool.flush`.
+
+**37.2 The Analysis Wing: parked in part, and /Analyze honest.** My call, as the owner asked for it:
+park what nothing reads, keep what the redesign and the decision engine's scorecard need, and bring
+parts back as they are redesigned rather than all on 11-01.
+
+- **The switches.** `config.json` `analysis_wing` sets `interpretation`, `candles` and `forecasts` to
+  false, with the reason recorded beside them, as with the recap.
+  - `interpretation` covers the evidence package, intelligence, features and read model; `candles` is
+    C.14A; `forecasts` is C.14B.
+  - `snapshot_builder.build_analysis_snapshot` honours them; absent, everything runs as before.
+- **What keeps running:** the snapshot's core (prices, premium, valuation, momentum, structure,
+  regime) and the outcome evaluations with their backfill.
+- **The effect** from 11-01: no JSON columns written or read back for the forecasts, and the run's
+  longest stages gone except the outcome backfill.
+- **/Analyze.** When the database does not answer, `main._send_analyze_report` sends
+  `telegram_analyze.build_unavailable_message()`: "The record is in the database, which is out of
+  reach right now. ANALYZE answers again when it is back. UPDATE and DIRECTION work meanwhile, from
+  live prices." It no longer says "not enough history".
+- **Tests:** `kpi_coherence.test_43` (the switches and their defaults; the outcome evaluations never
+  parked) and `test_44` (the message).
+
+**37.3 Defects fixed.**
+
+- `collector/news/rss.py`: the broken leftover copy of `collect_rss_feed`, the stray `...` and the
+  duplicated typing import are removed.
+- `tests/test_news_collector.py`: its runner listed four tests twice (21 runs, now 17, all pass).
+- **The machine clock.** `SignalState.timestamp` and `HistoricalQuery.query_time` defaulted to
+  `datetime.now`, the runner's local time. They are now `datetime.utcnow`.
+  - `kpi_coherence.test_19` looked only for the literal `datetime.now()` and missed both.
+  - It now catches any read of the machine clock, except `datetime.now(timezone.utc)`.
+  - The pattern was checked on samples after a shell heredoc had first turned its `\b` into a
+    backspace and let it pass vacuously.
+- **Found, left for the clean-up batch** (B6). The two unit-test folders run nowhere in CI and have
+  rotted:
+  - `src/tests/` passes only with `PYTHONPATH=src`;
+  - `tests/test_event_classifier.py` has a SyntaxError;
+  - `tests/test_signal_state.py` imports a function that no longer exists;
+  - `src/tests/test_trends.py`, `test_event_classifier.py` (2 of 14) and `test_signal_state.py` (1 of
+    26) fail, as does `tests/test_pre_sp_c3.py`.
+- **The decision engine's BUY hold** (agreed) is built with its scorecard in B3. With Neon down the
+  confirmation already holds every candidate (it fails closed).
+
+`kpi_coherence` 39/39; suite 30/30.

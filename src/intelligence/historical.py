@@ -56,7 +56,7 @@ class HistoricalComparison:
     total_candidates: int = 0
     lookback_days: int = 90
     premium_tolerance: float = 1.0
-    query_time: datetime = field(default_factory=datetime.now)
+    query_time: datetime = field(default_factory=datetime.utcnow)
 
     @property
     def match_count(self) -> int:

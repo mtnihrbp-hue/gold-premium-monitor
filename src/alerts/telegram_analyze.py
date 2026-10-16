@@ -230,6 +230,15 @@ def build_analyze_message(report) -> str:
     return "\n\n".join(blocks)
 
 
+def build_unavailable_message() -> str:
+    """ANALYZE when the database is out of reach (SP_D_HANDOFF.md section 37.2). The record lives
+    there, so there is nothing to read; saying "not enough history" blamed the history."""
+    return "\n".join(["<b>GOLDPremium: ANALYZE</b>", "",
+                      "The record is in the database, which is out of reach right now.",
+                      "ANALYZE answers again when it is back. UPDATE and DIRECTION work meanwhile,",
+                      "from live prices.", "", f"<b>{format_timestamp()}</b>"])
+
+
 def send_analyze(report):
     _send(build_analyze_message(report))
 

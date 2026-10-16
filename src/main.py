@@ -315,6 +315,9 @@ def _flush_spool():
         return
     try:
         from database.repository import spool_writers
+        entries, deferred = _recheck_held(session, entries)
+        if deferred:
+            print(f"SPOOL re-check: {deferred} held quotes deferred by the stale-quote rules")
         written, dropped, left = spool.flush(session, spool_writers(session, entries), entries)
         print(f"SPOOL: {written} held writes stored, {dropped} rejected, {left} still held")
     except Exception as e:
@@ -322,6 +325,67 @@ def _flush_spool():
         print(f"SPOOL: {len(entries)} held writes wait: {str(e).strip().splitlines()[0][:160]}")
     finally:
         session.close()
+
+
+def _recheck_held(session, entries):
+    """The stale-quote rules for readings held while the database was out of reach (SP-D section 37.1).
+
+    Held readings skipped the repeat and jump rules: those need the stored platform history, and the
+    database was the thing missing. Before the write-back each held reading is judged as its run would
+    have judged it with the database up -- validation.data.defer_stale_quotes, in time order, against
+    the stored history and the held readings before it. A deferred quote leaves the reading with its
+    price observations; the reading's premium and platform fields are recomputed from the quotes that
+    remain, and a reading left with fewer than MIN_WORKING_SOURCES is dropped, as its run would have
+    skipped it. Returns (entries, quotes deferred). Raises when the history cannot be read, so nothing
+    is written unchecked."""
+    from caluclator.gold import premium_percent
+    from caluclator.structure import evaluate_structure
+    from database.repository import get_recent_platform_prices
+    from validation.data import MIN_WORKING_SOURCES, STALE_LOOKBACK_DAYS, defer_stale_quotes
+
+    readings = sorted((e for e in entries if e["kind"] == "reading"), key=lambda e: e["payload"]["snapshot"]["timestamp"])
+    if not readings:
+        return entries, 0
+    first = readings[0]["payload"]["snapshot"]["timestamp"]
+    history = list(get_recent_platform_prices(session, first - timedelta(days=STALE_LOOKBACK_DAYS)))
+    holds, out_quotes, out_runs, deferred_count, skipped = {}, set(), set(), 0, set()
+    for k, e in enumerate(readings):
+        p = e["payload"]
+        snap, ts = p["snapshot"], p["snapshot"]["timestamp"]
+        valid = {pp["platform_name"]: {"price": float(pp["price_irr"]), "status": "OK"} for pp in p["platform_prices"]}
+        deferred = defer_stale_quotes(valid, history, ts, holds)
+        for name, reason in deferred:
+            print(f"SPOOL re-check {ts:%Y-%m-%d %H:%M}: deferred {name}: {reason}")
+        if deferred:
+            names = {name for name, _ in deferred}
+            deferred_count += len(names)
+            out_quotes |= {(name.lower(), ts) for name in names}
+            if len(valid) < MIN_WORKING_SOURCES:
+                out_runs.add(ts)
+                skipped.add(id(e))
+                print(f"SPOOL re-check {ts:%Y-%m-%d %H:%M}: {len(valid)} platforms remain; the reading is dropped")
+                continue
+            p["platform_prices"] = [pp for pp in p["platform_prices"] if pp["platform_name"] not in names]
+            fair = snap["fair_price"]
+            snap["premium_percent"] = premium_percent(fair, min(v["price"] for v in valid.values()))
+            if p.get("state"):
+                structure = evaluate_structure(valid, fair)
+                p["state"].update({"structure_state": structure["state"],
+                                   **{key: structure[key] for key in ("platform_average", "platform_high", "platform_low",
+                                                                      "platform_spread", "platforms_below_fair",
+                                                                      "platforms_above_fair")}})
+        history.extend((f"held-{k}", ts, name, v["price"]) for name, v in valid.items())
+
+    def keep(e):
+        if e["kind"] == "reading":
+            return id(e) not in skipped
+        if e["kind"] == "observation":
+            q = e["payload"]
+            if q["timestamp"] in out_runs:
+                return False
+            return not (q["instrument"] == "REP_IRAN_GOLD" and (q["source"], q["timestamp"]) in out_quotes)
+        return True
+    return [e for e in entries if keep(e)], deferred_count
 
 
 def _hold_reading(now, fair, premium, world, usd, signal_state, platform_prices, collection_mode):
@@ -522,8 +586,13 @@ def _send_analyze_report():
     a failure here degrades to a message saying so rather than a silent absence.
     """
     from analysis.analyze_report import build_analyze_report
-    from alerts.telegram_analyze import send_analyze
+    from alerts.telegram_analyze import build_unavailable_message, send_analyze
 
+    if not _database_reachable():
+        from alerts.telegram import _send
+        _send(build_unavailable_message())
+        print("REPORT: the database is out of reach; said so")
+        return
     session = get_session()
     if session is None:
         print("REPORT: no database session")
