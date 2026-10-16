@@ -27,6 +27,26 @@ def parse_price(text: str) -> float:
     return float(digits)
 
 
+PERSIAN_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")
+BUY_LABEL, SELL_LABEL = "قیمت خرید طلا", "قیمت فروش طلا"
+
+
+def sides(text):
+    """{"buy", "sell"} in rial from the page's calculator block ("قیمت خرید طلا: ۲۶,۲۹۴,۷۰۰ قیمت فروش طلا:
+    ۲۶,۰۸۵,۲۰۰", toman, Persian digits), or {} when either is missing or they are not in order. `price`
+    stays the page's 18K label, which sits between them (SP_D_HANDOFF.md section 37.7)."""
+    found = {}
+    for key, label in (("buy", BUY_LABEL), ("sell", SELL_LABEL)):
+        m = re.search(label + r"\s*:?\s*([0-9۰-۹,٬]+)", text)
+        if m:
+            digits = re.sub(r"[^0-9]", "", m.group(1).translate(PERSIAN_DIGITS))
+            if digits:
+                found[key] = float(digits) * 10
+    if "buy" in found and "sell" in found and 0 < found["sell"] <= found["buy"]:
+        return found
+    return {}
+
+
 def get_taline_price():
     # The page sits behind a CDN that, on 2026-09-29, served GitHub's non-Iranian
     # runners copies up to a day old while serving Iran the live price (SP_C_HANDOFF.md
@@ -52,10 +72,12 @@ def get_taline_price():
 
             raw_text = labels[i + 1].get_text(strip=True)
 
-            return {
+            result = {
                 "platform": "Taline",
                 "price": parse_price(raw_text) *10,  # Toman → Rial
                 "raw": raw_text,
             }
+            result.update(sides(soup.get_text(" ", strip=True)))
+            return result
 
     raise RuntimeError("18K gold price not found.")

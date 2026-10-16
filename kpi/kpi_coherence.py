@@ -1147,6 +1147,42 @@ class KPICoherence(unittest.TestCase):
         self.assertNotIn("Not enough history", sent[0], "the history was never the problem")
 
 
+    def test_45_two_sided_platforms_store_both_sides_and_the_representative_chain_keeps_one(self):
+        """Both price sides where a platform publishes them (owner 2026-10-16: "collecting both sides is better";
+        SP_D_HANDOFF.md section 37.7). Ayyareh stays one row: the representative chain reads its latest
+        observation without a side."""
+        import io
+        from contextlib import redirect_stdout
+        import main
+        from analysis.representative_price import FALLBACK_CHAIN
+        calls, real = [], main.save_price_observation
+        main.save_price_observation = lambda **k: calls.append((k["source"], k["quote_side"], k["price"])) or 1
+        markets = {name: {"status": "OK", "price": 100.0, "buy": 101.0, "sell": 99.0}
+                   for name in ("Goldika", "Daric", "Taline", "Ayyareh")}
+        markets["Milli"] = {"status": "OK", "price": 98.0}
+        try:
+            with redirect_stdout(io.StringIO()):
+                main._save_price_observations(markets, None, None, datetime(2026, 10, 16, 8), 15, "run")
+        finally:
+            main.save_price_observation = real
+        sides = {}
+        for source, side, price in calls:
+            sides.setdefault(source, set()).add(side)
+        for name in main.TWO_SIDED_OBSERVED:
+            self.assertEqual(sides[name.lower()], {"BUY", "SELL"}, name)
+        self.assertEqual(sides["ayyareh"], {"SINGLE"})
+        self.assertEqual(sides["milli"], {"SINGLE"})
+        self.assertFalse({n.lower() for n in main.TWO_SIDED_OBSERVED} & set(FALLBACK_CHAIN),
+                         "no platform of the representative chain is stored two-sided")
+
+    def test_46_taline_reads_its_two_sides(self):
+        from collector.taline import sides
+        page = "قیمت خرید طلا: ۲۶,۲۹۴,۷۰۰ قیمت فروش طلا: ۲۶,۰۸۵,۲۰۰ تومان"
+        self.assertEqual(sides(page), {"buy": 262_947_000.0, "sell": 260_852_000.0}, "Persian digits, toman to rial")
+        self.assertEqual(sides("قیمت خرید طلا: ۲۶,۰۰۰ قیمت فروش طلا: ۲۷,۰۰۰"), {}, "a sell above the buy is not trusted")
+        self.assertEqual(sides("no prices here"), {})
+
+
 if __name__ == "__main__":
     print("=" * 55)
     print("CROSS-CUTTING COHERENCE")

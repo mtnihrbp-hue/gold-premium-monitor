@@ -1375,6 +1375,13 @@ def _resolve_presentation_context(premium, run_premium=None, markets=None, fair=
         session.close()
 
 
+# The platforms whose two published sides are stored as BUY and SELL observations (SP_D_HANDOFF.md section
+# 37.7): what a buyer pays and what a seller is paid. Ayyareh also has both (its price and its two fees) but
+# stays one SINGLE row: the representative-price chain (Milli, Ayyareh, WallGold) reads each source's latest
+# observation without a side, and two rows would move it from the published price to one side.
+TWO_SIDED_OBSERVED = ("Goldika", "Daric", "Taline")
+
+
 def _save_price_observations(markets, world, usd, now, stale_threshold, collection_run_id,
                              collection_mode="unknown", world_observed_at=None,
                              world_from_fallback=False):
@@ -1384,7 +1391,7 @@ def _save_price_observations(markets, world, usd, now, stale_threshold, collecti
         try:
             freshness = evaluate_freshness(now, now, stale_threshold)
             source = name.lower()
-            if name == "Goldika" and "buy" in info and "sell" in info:
+            if name in TWO_SIDED_OBSERVED and "buy" in info and "sell" in info:
                 for side in ("buy", "sell"):
                     save_price_observation(instrument="REP_IRAN_GOLD", source=source, timestamp=now, price=info[side], freshness=freshness, collection_run_id=collection_run_id, quote_side=side.upper(), collection_mode=collection_mode)
             elif info.get("price") is not None:

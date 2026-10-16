@@ -22,7 +22,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    35.8 merged 2026-10-15 (v1.13safe);
                                                                    35.11 Direction v7 merged 2026-10-15 (v1.14safe);
                                                                    36 the audit; 37.1-37.3 merged 2026-10-16 (v1.15safe);
-                                                                   37.4-37.5 the patterns merged 2026-10-16 (v1.16safe)
+                                                                   37.4-37.5 the patterns merged 2026-10-16 (v1.16safe);
+                                                                   37.7 both price sides merged 2026-10-16 (v1.17safe)
        member, the LLM member
 ```
 
@@ -3849,3 +3850,47 @@ room keeps its 21:00 report.
    after 11-01.
 3. **38.2's engine, with its scorecard,** beside the old chain.
 4. **C's message:** a preview first, as always.
+
+**37.7 Both price sides (B4), and a correction to 36.7** (10-16).
+
+**The correction.** 36.7 said every platform but Milli publishes both sides. That was wrong. On Invi,
+MioGold, Parasteh, HoorGold and Eligold, "خرید" and "فروش" belong to the shop's navigation ("buy online",
+"best sellers"), not to two prices. WallGold's API answers `side=buy` and `side=sell` with the same number
+(26,053,000 on 10-16).
+
+**What each platform's `price` means**, read from the collectors and the pages on 10-16:
+
+| Platform | `price` | Both sides |
+|---|---|---|
+| Daric | what a buyer pays (`BestSellPrice`) | yes, `BestBuyPrice` the other |
+| Goldika | what a buyer pays (`buy`) | yes |
+| Ayyareh | its published price; a buyer pays it plus `buyWageValue`, a seller gets it less `sellWageValue` | yes, derived |
+| Taline | the page's 18K figure, between its two sides (26,168,500 against buy 26,273,900 and sell 26,064,500, a 0.8% spread) | **yes, from 10-16** |
+| Milli, Invi, WallGold | one price, its side not published | no |
+| MioGold, Parasteh, HoorGold, Eligold | a jewellery gallery's daily gold price: the reference its jewellery is priced from, not a price raw gold can be bought at | no |
+
+**So the discount and "the cheapest platform" compare four kinds of number:**
+- two buyers' prices;
+- two between-the-sides prices;
+- three of unknown side;
+- four gallery references.
+
+This is the mixed-sides finding of SP-C, now itemized. **Changing what `price` means would break the
+discount's history** (its ranks, the deep-discount level, the valuation leg), so it is left as it is. Both
+sides are recorded beside it, for the advisor's "where" answer (38.1) and for a later one-sided discount,
+measured before any change.
+
+**Built.**
+- `collector/taline.sides()` reads the calculator block ("قیمت خرید طلا: ۲۶,۲۹۴,۷۰۰ قیمت فروش طلا: ...",
+  Persian digits, toman). It returns nothing unless both sides are found in order. Taline's `price` is
+  unchanged.
+- `main._save_price_observations` stores BUY and SELL rows for `TWO_SIDED_OBSERVED` (Goldika, Daric,
+  Taline); until now only Goldika's sides were stored.
+- Ayyareh stays one SINGLE row. The representative-price chain (Milli, Ayyareh, WallGold) reads each
+  source's latest observation without a side, and two rows would move it from the published price to one
+  side.
+- Nothing a reader sees changes: no message reads `buy` or `sell`, and PAPER's venue chain (Daric,
+  Goldika, Ayyareh) already used them.
+- Tests: `kpi_coherence.test_45` (who is stored two-sided; no member of the representative chain is) and
+  `test_46` (Taline's parser on Persian digits, a reversed pair, nothing). `kpi_coherence` 41/41, suite
+  30/30.
