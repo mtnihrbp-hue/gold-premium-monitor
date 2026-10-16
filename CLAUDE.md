@@ -11,19 +11,16 @@ Gold Premium Monitor is a decision-support analytical intelligence system for th
 This repo's documentation is itself a strict authority hierarchy. A new session must reconstruct state from the repo, not from conversation memory:
 
 ```
-.project_state.json      (machine-readable continuity/phase state)
-→ PROJECT_MEMORY.md       (canonical architecture + current state — highest authority)
-→ MASTER_PLAN_STATUS.md
-→ DOCUMENTATION_INDEX.md
-→ README.md
-→ Prompt_Guide.md         (generic AI engineering behavior, not project state)
-→ PROJECT_ORCHESTRATION.md
-→ PROJECT_OPERATIONS.md   (runtime/scheduler/Cloudflare/cron-job.org control plane)
-→ skills/                 (specialist operating rules, load only what's task-relevant)
+.project_state.json      (machine-readable state: branch, tags, production, open items)
+→ PROJECT_MEMORY.md       (the system as it runs — highest authority)
+→ SP_D_HANDOFF.md         (the current sprint: its sub-sprint table, then the latest sections)
+→ PROJECT_OPERATIONS.md   (runtime/scheduler/Cloudflare/cron-job.org control plane, health check, node)
+→ LESSONS_LEARNED.md      (the defect patterns met in production)
+→ skills/                 (operating rules; load only what's task-relevant)
 → relevant source / tests / KPI / sql
 ```
 
-When docs conflict, `PROJECT_MEMORY.md` wins, then executable evidence (tests/KPI/production DB state) outranks any prose. Do not create new top-level status/architecture docs — update the existing authority file instead (see `DOCUMENTATION_INDEX.md` for exact ownership per file).
+When docs conflict, `PROJECT_MEMORY.md` wins, then executable evidence (tests/KPI/production DB state) outranks any prose. Do not create new top-level status/architecture docs — update the existing authority file instead (see `DOCUMENTATION_INDEX.md` for exact ownership per file). Superseded documents are in `archive/`, unchanged, so a handoff's citation still resolves; nothing there describes the current system (consolidated 2026-10-16, `SP_D_HANDOFF.md` §37.9: `Prompt_Guide.md`, `PROJECT_ORCHESTRATION.md`, `MASTER_PLAN_STATUS.md`, the C.14 and UPDATE v1 files, and the old `PROJECT_MEMORY.md` as `archive/PROJECT_MEMORY_HISTORY.md`).
 
 `skills/` load order for a fresh session: `core-engineering.md` → `repository-onboarding.md` → `sprint-execution.md` → then only the specialist skill for the current task (`market-analyst.md`, `telegram-product.md`, `data-and-neon.md`, `llm-news-intelligence.md`, `validation-and-release.md`, `branch-management.md`).
 
@@ -87,6 +84,8 @@ scheduled window → canonical observations → technical structure → regime
 → feature intelligence → analytical read model → downstream consumers
 → C.14A candles → C.14B forecast → C.14C forecast resolution/human review/audit
 ```
+
+Partly parked since 2026-10-16 (owner: to be rethought, not retired; `SP_D_HANDOFF.md` §37.2): `config.analysis_wing` turns off the evidence package, interpretation, features and read model, the C.14A candles and the C.14B forecasts, which nothing a reader sees reads. The snapshot's core and the outcome evaluations still run. Their contracts are in `archive/`; read them before bringing a part back.
 
 ### Layered data-flow contract
 
@@ -314,7 +313,7 @@ Neon Postgres is the long-term historical store (`market_snapshots`, `platform_p
 
 ### Phase completion discipline
 
-A phase/task is not "done" on green tests alone. The full loop this repo expects: inspect → define change surface → implement minimally (surgical diffs only, no drive-by refactors) → targeted test → regression (prior KPIs + compileall) → KPI → Neon verification when applicable → diff review → update `PROJECT_MEMORY.md`/`MASTER_PLAN_STATUS.md`/`.project_state.json` as relevant → commit. Current branch policy: `main` is production. cron-job.org and the Telegram worker dispatch `ref: main` since 2026-09-28, when SP-C was merged (tag `v1.3safe` marks `main` before the merge; `SP_C_HANDOFF.md` §35). The current sprint, **SP-D**, was branched from `main` on 2026-09-29; its code work began on 2026-10-03. Its work is built on `sp-d-*` branches cut from SP-D (Direction, merged 2026-10-03; PAPER, merged 2026-10-05) and reaches `main` by fast-forward after the owner's review (`sprint-execution.md`: never develop directly on `main`). A defect found in production is fixed through a short-lived branch cut from `main`, reviewed the same way (`hotfix-signal-confirmation`, §38; `hotfix-scipy-pin`, SP-D §28). As of 2026-10-15 `main` and `SP-D` are at SP-De's second batch (the quant fit, the 21:00 chart without the database and the spool that keeps the record while Neon is out of reach, SP-D §35.1-35.6: also the runner pinned to ubuntu-24.04, the daily recap parked, /Direction computed from tgju when Neon is out of reach, Direction v7 with GOLD DEMAND; after the audit of SP-D §36: the spool's re-check, the analysis wing's unread parts parked by config, the machine-clock test tightened, the pattern reader on the 21:00 chart, both price sides stored where published, §37), and the latest safe tag is `v1.17safe`. SP-D runs in sub-sprints, SP-Da to SP-De so far, one branch each (`sp-de`), listed at the top of `SP_D_HANDOFF.md`. Never commit to or merge into `main` without the product owner's review. Do not create a parallel long-lived branch without explicit direction.
+A phase/task is not "done" on green tests alone. The full loop this repo expects: inspect → define change surface → implement minimally (surgical diffs only, no drive-by refactors) → targeted test → regression (`tests/run_all.py`, prior KPIs + compileall) → KPI → Neon verification when applicable → diff review → update `PROJECT_MEMORY.md`/`SP_D_HANDOFF.md`/`.project_state.json` as relevant → commit. Current branch policy: `main` is production. cron-job.org and the Telegram worker dispatch `ref: main` since 2026-09-28, when SP-C was merged (tag `v1.3safe` marks `main` before the merge; `SP_C_HANDOFF.md` §35). The current sprint, **SP-D**, was branched from `main` on 2026-09-29; its code work began on 2026-10-03. Its work is built on `sp-d-*` branches cut from SP-D (Direction, merged 2026-10-03; PAPER, merged 2026-10-05) and reaches `main` by fast-forward after the owner's review (`sprint-execution.md`: never develop directly on `main`). A defect found in production is fixed through a short-lived branch cut from `main`, reviewed the same way (`hotfix-signal-confirmation`, §38; `hotfix-scipy-pin`, SP-D §28). As of 2026-10-15 `main` and `SP-D` are at SP-De's second batch (the quant fit, the 21:00 chart without the database and the spool that keeps the record while Neon is out of reach, SP-D §35.1-35.6: also the runner pinned to ubuntu-24.04, the daily recap parked, /Direction computed from tgju when Neon is out of reach, Direction v7 with GOLD DEMAND; after the audit of SP-D §36: the spool's re-check, the analysis wing's unread parts parked by config, the machine-clock test tightened, the pattern reader on the 21:00 chart, both price sides stored where published, §37), and the latest safe tag is `v1.17safe`. SP-D runs in sub-sprints, SP-Da to SP-De so far, one branch each (`sp-de`), listed at the top of `SP_D_HANDOFF.md`. Never commit to or merge into `main` without the product owner's review. Do not create a parallel long-lived branch without explicit direction.
 
 **Neon's free plan caps outbound transfer at 5 GB a month**, and exceeding it suspended production from 2026-10-13 to the month's end (`SP_D_HANDOFF.md` §34). A reader that loads whole rows to use a few columns, or rereads history each run, spends that cap: load only the columns used (`get_analysis_snapshots(columns=...)`), read daily candles through `persistence/candle_cache.py`, and watch the month-to-date figure in the health check (`PROJECT_OPERATIONS.md` §15).
 

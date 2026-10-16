@@ -1,6 +1,6 @@
 # Gold Premium Monitor — Operational Control Plane
 
-This document records the runtime control plane around the application. It is distinct from `PROJECT_MEMORY.md` (architecture/state), `PROJECT_ORCHESTRATION.md` (continuity), `C14_HANDOFF.md` (C.14 implementation contract), and `RESEARCH_ADOPTION.md` (research adoption/defer decisions).
+This document records the runtime control plane around the application. It is distinct from `PROJECT_MEMORY.md` (the system and its state), the sprint handoffs (`SP_D_HANDOFF.md`, `SP_C_HANDOFF.md`) and `RESEARCH_ADOPTION.md` (research adoption/defer decisions). Sections 9-13 describe the C.14 runtime, parked since 2026-10-16 with the Analysis Wing's unread parts (`config.analysis_wing`); its contracts are in `archive/`.
 
 ## 1. Two frontend wings
 

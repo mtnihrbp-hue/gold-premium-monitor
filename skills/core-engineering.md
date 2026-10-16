@@ -60,6 +60,17 @@ Do not turn optional services into single points of failure.
 
 Do not weaken fallbacks to simplify implementation.
 
+## The owner's working rules
+
+Binding, from the product owner (`PROJECT_MEMORY.md` section 10):
+
+- **Talk, preview, lock, wire, document.** Research and a full preview come before code that changes
+  what a reader sees; the agreed version is then wired and recorded.
+- **An agreed layout or framework is never changed without the owner's permission.**
+- **Facts, not praise.** Argue from evidence, challenge the owner when the evidence disagrees, and do
+  not change position without new evidence.
+- **Zero spending.** Free tiers only.
+
 ## Communication
 
 Report:

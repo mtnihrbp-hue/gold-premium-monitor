@@ -6,20 +6,24 @@ Telegram is the user-facing cockpit. Analytical truth lives in the quantitative,
 
 ## Current command model
 
-Implemented today:
+Implemented (`PROJECT_MEMORY.md` section 3):
 
 - `/Update` — live, user-triggered market snapshot
+- `/Analyze` — what the record shows, read-only over persisted state; says so when the database is
+  out of reach
+- `/Direction` — the trend, buy now or wait, support and resistance, what to watch, gold demand
 
-Planned Analysis Wing read models:
+Scheduled, not commanded:
+- the room's 21:00 report, with the day's chart as a photo;
+- the room's trades;
+- the BUY signal;
+- the deep-discount push, parked until Neon returns.
 
-- `/Analyze` — what the record shows, read-only over persisted state (SP-C.12)
-- `/Technical` — deterministic technical analysis
-- `/History` — historical context
-- `/News` — structured recent news
-- `/Radar` — combined read model over persisted analytical state
-- `/Health` — system/data-quality status
+The daily recap is parked.
 
-Do not invent commands such as Sentiment or Risk as current product contracts unless `PROJECT_MEMORY.md` explicitly adds them.
+SP-C's plan named `/Technical`, `/History`, `/News`, `/Radar` and `/Health`. None was built, and none is
+a product contract. Do not add a command unless the owner asks for it and `PROJECT_MEMORY.md` records
+it. The advisor (C, `SP_D_HANDOFF.md` 38.4) is the proposed next surface.
 
 ## Live vs Analysis
 
@@ -135,6 +139,37 @@ Confidence is **not** surfaced as a label. Withheld by product decision in SP-C.
 section 15.6: the window the reading is ranked against is stated directly, and a bare
 "LOW" beside it was noise a reader could not act on. Sample size and sampling quality
 appear in ANALYZE's DATA section instead, which is where a reader can weigh them.
+
+## Locked layouts
+
+An agreed layout is locked. UPDATE, Direction v7, the room's report and the chart (support and
+resistance with the patterns, "both worlds") are changed only with the owner's permission, after a
+full preview.
+
+## Wording (owner)
+
+The readers are Persian and the text is English, so plain words beat idioms. The goal: "the user,
+once he/she reads the msg, gets informed, and can make a decision."
+
+- **The discount** "increased" or "decreased", never "widening", "deepening" or "shrinking". It is
+  shown as a positive number below fair value; a premium has its own words, above fair value.
+- **Plain words:** "cheaper" and "more expensive", "typical" rather than "median", "heavily
+  discounted" rather than "cheap".
+- **Every change says against what:** the last scheduled run, today's first reading, 7 days. Seven days
+  is the system's convention for averages a reader sees.
+- **A figure with a record shows the record** ("14 of 19 flags since 2014"), not a confidence word. A
+  statistic without enough data stays hidden until it holds.
+- **The phone:** readable at its width, with no wide tables.
+- **No admin detail:** sampling notes and data health go to the docs or an admin report, not the
+  reader.
+- **No generalising** beyond the evidence without saying so.
+
+## Telegram's limits
+
+- A text message holds 4,096 characters.
+- A photo's caption holds 1,024: `telegram_paper.send_paper_report` sends the chart with the report
+  as its caption, or the text alone when the caption is too long or the photo fails.
+- Check a new message's length against its limit at its longest, not on today's values.
 
 ## Formatting rules
 

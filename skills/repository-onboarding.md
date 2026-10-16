@@ -8,14 +8,17 @@ Use this when starting a new AI-development conversation or when repository cont
 
 1. Identify the current branch.
 2. Identify its base/stable branch.
-3. Read `README.md`.
-4. Read `PROJECT_MEMORY.md`.
-5. Read `Prompt_Guide.md` if it still contains active guidance.
+3. Read `.project_state.json` and `PROJECT_MEMORY.md`.
+4. Read the current sprint's handoff (`SP_D_HANDOFF.md`): its sub-sprint table, then the latest sections.
+5. Read `PROJECT_OPERATIONS.md` when the task touches the runtime, and `LESSONS_LEARNED.md`.
 6. Read `skills/README.md` and the relevant specialist skills.
-7. Inspect the current sprint specification/task.
+7. Inspect the current task.
 8. Inspect the relevant implementation files.
 9. Inspect relevant tests and KPI checks.
 10. Compare the current branch against its base when behavior depends on recent changes.
+
+`archive/` holds superseded documents. Read one only when a handoff cites it or a parked part
+is being brought back.
 
 ## Do not code during orientation
 

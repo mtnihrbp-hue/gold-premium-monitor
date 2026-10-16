@@ -91,6 +91,10 @@ The deterministic decision layer remains explicit.
 
 The project is free-tier only.
 
+Groq's free tier caps the minute (about 8,000 tokens for the model used) and the day: about 108
+labelled days per 5-hour run (`SP_D_HANDOFF.md` 35.9, 36.5). Pace requests under the cap, and plan
+a backfill across days.
+
 Minimize calls.
 
 Deduplicate news.
@@ -107,6 +111,27 @@ If the LLM is unavailable:
 - deterministic state continues
 - news-derived fields become `UNKNOWN`
 - the worker does not crash
+
+## Where the news comes from
+
+- **RSS feeds**, read by GitHub's runner (`config.news.sources`).
+- **Telegram channels**, read from GitHub's side, because t.me is blocked from Iran
+  (`collector/news/telegram_channels.py`; research so far).
+- **Iranian sites that refuse the runner** (cbi.ir, Tasnim, Donya-e-Eqtesad) are read by the owner's
+  phone (`iran_node/`), as TSETMC is.
+
+The keyword classifier gives the event type and impact, never a gold direction (UNKNOWN since
+2026-09-21). Keywords cannot find events: in a year with a war, "military" matched 253 of 357 days.
+Labelling a day needs the model.
+
+## What has been measured
+
+On 108 of 357 labelled days (`SP_D_HANDOFF.md` 36.2), the rest running:
+- the model's own call on the dollar showed no skill;
+- the central bank's interventions met pressure and did not reverse it;
+- escalation separated (+1.20% the next day, against +0.25%).
+
+Only a label that separates may reach a reader, with its counts.
 
 ## Historical learning
 

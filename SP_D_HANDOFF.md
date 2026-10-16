@@ -23,7 +23,9 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    35.11 Direction v7 merged 2026-10-15 (v1.14safe);
                                                                    36 the audit; 37.1-37.3 merged 2026-10-16 (v1.15safe);
                                                                    37.4-37.5 the patterns merged 2026-10-16 (v1.16safe);
-                                                                   37.7 both price sides merged 2026-10-16 (v1.17safe)
+                                                                   37.7 both price sides merged 2026-10-16 (v1.17safe);
+                                                                   37.8 the unit tests merged 2026-10-16 (v1.18safe);
+                                                                   37.9 the documents merged 2026-10-16 (v1.19safe)
        member, the LLM member
 ```
 
@@ -3937,6 +3939,79 @@ that was changed on purpose:
   `iran.COLLECTORS` by tuple assignment, which the old text patterns could not have recognised either.
 
 Unit tests 18/18 files, `kpi_coherence` 41/41, suite 30/30, compile clean.
+
+**37.9 The documents: one authority order, the system as it runs** (B6, second part; 10-16). The
+audit's finding (36.4): the authority documents described September's project, and five of them each
+stated an authority order, all different.
+
+**`PROJECT_MEMORY.md` rewritten** (404 lines, from 2,368) as the system that runs:
+- purpose and the four questions;
+- the surfaces and their state;
+- the scheduled run, step by step;
+- what the data means (the price sides, the quantities, time, the daily series, news);
+- the decisions and their record;
+- Neon and the outage;
+- what the research established;
+- the defects index, re-checked item by item;
+- how work is done;
+- where things stand.
+
+The old file is `archive/PROJECT_MEMORY_HISTORY.md`, moved with `git mv` and unchanged.
+
+**The defects index, checked against code rather than carried over:**
+- **Closed since the SP-C list:**
+  - `MAX_WORLD_GOLD` ($20,000 since section 30);
+  - `kpi_coherence.test_27` and the stale unit tests (37.8).
+- **Restated:** the snapshot's support and resistance are still labelled by extremum type. That is the
+  Analysis Wing's own `technical_state`, which no reader sees; readers get Direction's levels, labelled
+  by position.
+- **Still open:** Afran's late date and Taline's in-band frozen copies.
+
+**One authority order.**
+- The order is stated in `PROJECT_MEMORY.md` section 1 and in `CLAUDE.md`. `skills/README.md` and
+  `DOCUMENTATION_INDEX.md` point to it.
+- The order: `.project_state.json`, then `PROJECT_MEMORY.md`, this handoff, `PROJECT_OPERATIONS.md`,
+  `LESSONS_LEARNED.md`, `skills/`, and the code. Executable evidence outranks prose.
+
+**Archived** to `archive/`, unchanged, so every citation in the handoffs still resolves:
+- `Prompt_Guide.md`: its rules were already in `skills/core-engineering.md`; the two that were not went
+  to `validation-and-release.md`;
+- `PROJECT_ORCHESTRATION.md`, last changed 09-13: the production-liveness rule, the KPI engineering
+  standard and regression discipline went to `validation-and-release.md` and `PROJECT_MEMORY.md`
+  section 10;
+- `C14_HANDOFF.md`, `C14C_HANDOFF.md`, `C14C_IMPLEMENTATION.md`: contracts of the parked parts, to be
+  read before one is brought back;
+- `UPDATE_V1_IMPLEMENTATION.md`;
+- `MASTER_PLAN_STATUS.md`. This one was not in the audit's list. Its milestone status ends at C.14C and
+  UPDATE v1, and keeping it beside `.project_state.json` and this file's sub-sprint table would be the
+  duplicate sprint-status document the governance rules forbid. Restoring it is one `git mv`.
+
+**Rewritten:**
+- `DOCUMENTATION_INDEX.md`: who owns what, the archive and what supersedes each file;
+- `README.md`: a short orientation (what it sends, how it runs, run and test, the repository map).
+
+**Updated:**
+- `CLAUDE.md`: the reading order, the parked part of the Analysis Wing, the tests in the loop;
+- `PROJECT_OPERATIONS.md`: its opening, and its C.14 sections marked as parked;
+- `LESSONS_LEARNED.md`: lesson 10's "a check that cannot fail" gains test_27, test_19's vacuous
+  pattern and the unit tests that ran nowhere.
+
+**`skills/` brought to SP-D.** The principles are unchanged; stale facts and pointers to archived
+files are replaced:
+- **reading orders:** README, onboarding, bootstrap;
+- **the owner's working rules:** core-engineering;
+- **the branch model, the safe tag and the standing authorization**, stated as covering the push, not
+  the approval: sprint-execution, branch-management;
+- **validation-and-release:** the runners, production liveness, a check seen to fail, how a KPI is
+  written;
+- **data-and-neon:** the tables, the transfer cap, the spool, the phone's role, the price sides;
+- **market-analyst:** the engine's zero edge, Direction and the room, "the default is gold", the
+  method;
+- **telegram-product:** the commands that exist, the five SP-C planned that do not, locked layouts, the
+  owner's wording, Telegram's limits;
+- **llm-news-intelligence:** Groq's caps, where news comes from, what has been measured.
+
+No code changed. Suite 30/30 (840 assertions across 29 files), unit tests 18/18.
 
 **38.6 The first laboratory measurement: the platforms do not catch up a fair jump**
 (`research/rd_platform_lag.py`, rules in its docstring; `hourly.json`, 2026-08-04 to 10-04).

@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "project": "Gold Premium Monitor",
-  "active_branch": "sp-de; main and SP-D at SP-De's B6 tests batch since 2026-10-16 (SP-D 37.8; v1.18safe before); main is production",
+  "active_branch": "sp-de; main and SP-D at SP-De's B6 batch since 2026-10-16 (the tests, SP-D 37.8, v1.18safe before; the documents, 37.9, v1.19safe before); main is production",
   "current_phase": "SP-D (SP_D_HANDOFF.md): Direction live on main since 2026-10-03 (sections 1-8); the PAPER portfolio, the room as its front office, live on main since 2026-10-05 18:01 (sections 9-28); health check and record 2026-10-06 (section 29). Proposed next, for the owner's decision: Taline's frozen copies, the Iran-side node, the news leg with the LLM (section 29)",
   "current_phase_status": "SP-C CLOSED (merged 2026-09-28, 2b7c5f8; v1.3safe before). SP-D IN PROGRESS: Direction merged 2026-10-03 (v1.4safe before); PAPER merged 2026-10-05 15:57 (v1.6safe before); the go-live hotfix (scipy/pandas pins, venue label) fast-forwarded 17:07 (v1.7safe = 2957699 before). Production (cron-job.org and the Telegram worker) dispatches ref main. SP_D_HANDOFF.md sections 28-29.",
   "completed_phases": [
@@ -75,12 +75,12 @@
   },
   "latest_verified_kpi": {
     "phase": "FULL SUITE",
-    "verified_on": "2026-10-15",
+    "verified_on": "2026-10-16",
     "files_passed": 30,
     "files_total": 30,
-    "assertions": "819 across 29 files; kpi_update_telegram_v1.py reports no count",
+    "assertions": "840 across 29 files; kpi_update_telegram_v1.py reports no count",
     "status": "PASS",
-    "evidence_source": "python kpi/run_all.py at ad93ff7 (sp-de, fast-forwarded into SP-D and main) against an isolated in-memory database, runner exit status 0; kpi_paper 43/43",
+    "evidence_source": "python kpi/run_all.py at ec9774e plus the docs batch (sp-de) against an isolated in-memory database, runner exit status 0; python tests/run_all.py 18/18 files",
     "notes": [
       "C.2 had been failing since commit ff4496d (C.13 idempotency fix) while documentation recorded 14/14 PASS; the stale assertion was corrected on SP-C.",
       "KPI scripts print status emoji and crash with UnicodeEncodeError under the Windows console codepage after assertions pass. kpi/run_all.py forces UTF-8 for child processes.",
@@ -195,7 +195,7 @@
   },
   "architecture_wings": {
     "live_wing": "collect -> validate -> calculate -> current deterministic state -> Telegram",
-    "analysis_wing": "scheduled analysis -> snapshots -> outcomes -> evidence -> interpretation -> features -> read model -> consumer -> dataset -> C.14A candles -> C.14B forecast -> C.14C resolution/audit",
+    "analysis_wing": "scheduled analysis -> snapshots -> outcomes -> evidence -> interpretation -> features -> read model -> consumer -> dataset -> C.14A candles -> C.14B forecast -> C.14C resolution/audit -- partly parked since 2026-10-16 (config.analysis_wing): the evidence package, interpretation, features, read model, C.14A candles and C.14B forecasts are off; the snapshot core and outcome evaluations run (SP_D_HANDOFF.md 37.2)",
     "frontend_wings": "TWO_ONLY",
     "prediction_boundary": "Prediction never directly becomes BUY/WAIT/SELL authority",
     "regime_detector": "Existing regime detection and hysteresis are forecast context/features and must be used for regime-conditioned evaluation and tuning, not as an overriding decision engine"
@@ -273,7 +273,7 @@
     "sp_c_status": "CLOSED -- merged into main 2026-09-28 (2b7c5f8); tag v1.3safe = main before the merge",
     "sp_d_status": "IN PROGRESS: Direction merged 2026-10-03, PAPER 2026-10-05; each batch reaches main only after the owner's review, with a safe tag on main first",
     "until_2026_10_03": "PAST. Owner direction 2026-09-29: SP-D is for the next phase; anything found before 2026-10-03 is fixed on main, through a short-lived branch cut from main and fast-forwarded after owner review.",
-    "latest_safe_tag": "v1.18safe (main before the B6 tests batch, 2026-10-16; v1.10safe to v1.17safe were SP-De's earlier batches)"
+    "latest_safe_tag": "v1.19safe (main before the B6 documents batch, 2026-10-16; v1.10safe to v1.18safe were SP-De's earlier batches)"
   },
   "verified_production_state": {
     "verified_on": "2026-10-06 16:45 Tehran",
@@ -298,23 +298,16 @@
     ],
     "required_read_order": [
       ".project_state.json",
-      "DOCUMENTATION_INDEX.md",
       "PROJECT_MEMORY.md",
-      "MASTER_PLAN_STATUS.md",
-      "PROJECT_ORCHESTRATION.md",
+      "SP_D_HANDOFF.md",
       "PROJECT_OPERATIONS.md",
-      "C14_HANDOFF.md",
-      "RESEARCH_ADOPTION.md",
-      "C14C_HANDOFF.md",
-      "C14C_IMPLEMENTATION.md",
-      "SP_C_HANDOFF.md",
-      "README.md",
-      "Prompt_Guide.md",
+      "LESSONS_LEARNED.md",
       "skills/",
       "relevant source/tests/KPI/SQL"
-    ]
+    ],
+    "note": "Consolidated 2026-10-16 (SP_D_HANDOFF.md 37.9): the order is stated in PROJECT_MEMORY.md section 1 and CLAUDE.md. Prompt_Guide.md, PROJECT_ORCHESTRATION.md, MASTER_PLAN_STATUS.md, C14_HANDOFF.md, C14C_HANDOFF.md, C14C_IMPLEMENTATION.md, UPDATE_V1_IMPLEMENTATION.md and the old PROJECT_MEMORY.md (archive/PROJECT_MEMORY_HISTORY.md) are in archive/, unchanged."
   },
-  "next_gate": "2026-10-16: the owner chose B, then C (SP_D_HANDOFF.md sections 36, 37). Done and merged (v1.15safe): the spool's re-check, the analysis wing's unread parts parked by config, /Analyze honest when the database is out of reach, the clock and rss defects. Next: chart patterns and channels (the owner's request, with learning.emofid.com); money flow rethought around turbulence (kept at 0.5); the analysis wing redesigned for the discount; the decision engine restructured with its scorecard and the BUY hold; both price sides; the docs and test clean-up; then C, the advisor. 2026-11-01: Neon's reset checks and the spool's write-back.",
+  "next_gate": "2026-10-16: B in the owner's order, then C (SP_D_HANDOFF.md 36-38). Merged: the spool's re-check, the wing parked in part, /Analyze honest, the clock and rss defects (v1.15safe); patterns and channels (v1.16safe); both price sides (v1.17safe); the unit tests in one folder and CI (v1.18safe); the docs consolidated (37.9). Next: the decision engine (B3) and ANALYZE (B5) after the owner decides 38.2; the news labels (B7); money flow in turbulence; then C, the advisor. 2026-11-01: the spool's write-back, Neon's transfer per run, the phone's spool.",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
@@ -338,7 +331,7 @@
     "assertions_sp_c4": 54,
     "assertions_sp_c6": 45,
     "assertions_coherence": 29,
-    "status": "30/30 files passing (2026-10-06, 04a37e1, runner exit 0)",
+    "status": "30/30 files passing (2026-10-16, ec9774e, runner exit 0); unit tests 18/18 files, both in CI",
     "note": "kpi_coherence.py checks modules against each other and carries the register of accepted divergences, now 5 entries. An entry whose divergence is fixed fails the suite, so the register cannot go stale.",
     "assertions_signal_confirmation": 46,
     "assertions_direction": 35,
@@ -423,6 +416,6 @@
     "SP-Db": "PAPER and the room, sections 9-29, merged 2026-10-05",
     "SP-Dc": "the Iran-side node and the sanity ranges, sections 30-31, merged 2026-10-07",
     "SP-Dd": "money flow, the phone's reads, the trend R&D, Neon's transfer cuts, sections 32-34, merged 2026-10-15 (v1.9safe)",
-    "SP-De": "one branch sp-de, sections 35+: the quant fit retry (35.1), the 21:00 chart without the database (35.2), the outage routes (35.3), the spool (35.4), then the room alert at 3 with its push, Direction's EMA lines, Tether as a member, the LLM member, the news wing"
+    "SP-De": "one branch sp-de, sections 35-38: the quant fit, the 21:00 chart without the database, the spool, Direction v7, the recap parked (35); the audit (36); B: the spool's re-check, the wing parked in part, patterns, both price sides, the unit tests, the docs (37); the advisor proposal and the first laboratory measurement (38). Merged v1.10safe to v1.18safe."
   }
 }

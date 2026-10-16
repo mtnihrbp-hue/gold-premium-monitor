@@ -10,44 +10,36 @@ Think of branches as copies of the project at different stages.
 
 ```text
 main
-  = stable version
+  = production
 
-SP-A
-  = Sprint A work
+SP-D
+  = the current sprint
 
-SP-A-Edited
-  = refinement of SP-A
-
-SP-B
-  = Sprint B work after SP-A is merged
+sp-de
+  = the current sub-sprint (SP-De), cut from SP-D
 ```
 
 ## For normal sprint work
 
-1. Start from `main`.
-2. Create the sprint branch, for example `SP-B`.
-3. Work only on that branch.
-4. Run tests and KPI.
-5. Review the diff.
-6. Merge the sprint into `main` only after approval.
+1. Work on the sub-sprint's branch (`sp-de`), or a topic branch cut from it.
+2. Run the unit tests and the KPI suite.
+3. Review the diff.
+4. After the owner's approval: tag `main` with the next safe tag, push the tag, then fast-forward
+   SP-D and `main` to the branch (`sprint-execution.md`).
 
-## For refinement work
+## For a production defect
 
-If a sprint is not yet ready to merge:
-
-```text
-SP-A
-  ↓
-SP-A-Edited
-```
-
-Do the refinements on `SP-A-Edited`.
-
-After verification, merge the approved changes back into `SP-A` or use the approved branch as the final merge source, according to the user's workflow.
+Cut a short branch from `main`, fix, test, and fast-forward `main` after review, with a safe tag
+first; then bring SP-D up to it.
 
 ## Beginner rule
 
 Never make changes directly on `main` unless the user explicitly asks for that.
+
+Never force-add git-ignored data to a temporary branch and then switch away from it: switching to a
+branch that does not track the files deletes them from the working tree (a year of Telegram posts,
+2026-10-15, restored from the commit). Commit such data from a separate `git worktree`, and take
+results back with `git show origin/<branch>:<path>`, never a checkout.
 
 Never delete a branch to solve a problem.
 
@@ -68,13 +60,13 @@ git status
 git diff
 
 # Switch branch
-git switch SP-A-Edited
+git switch sp-de
 
 # Update local view of remote branches
 git fetch origin
 
 # Compare current branch with main
-git diff main...SP-A-Edited
+git diff origin/main...sp-de
 ```
 
 ## Safe merge rule

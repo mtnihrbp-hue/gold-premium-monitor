@@ -7,18 +7,16 @@ Keep sprint work isolated, measurable, reversible, and independently verifiable.
 ## Branch model
 
 ```text
-main
- ├── SP-A
- │    └── SP-A-Edited
- ├── SP-B
- └── SP-C
+main                      production; cron-job.org and the worker dispatch ref main
+ └── SP-D                 the current sprint (SP-A to SP-C are merged and closed)
+      └── sp-de           the current sub-sprint, one branch each (SP-Da ... SP-De)
+           └── sp-de-*    short-lived topic branches, when useful
 ```
 
-Use a dedicated branch for each sprint or approved refinement branch.
+Never develop directly on `main`. A defect found in production is fixed on a short branch cut from
+`main`, reviewed the same way.
 
-Never develop directly on `main`.
-
-A refinement branch may sit under a sprint branch when the parent sprint is not yet ready to merge.
+The sub-sprints and their merges are listed at the top of `SP_D_HANDOFF.md`.
 
 ## Execution order
 
@@ -57,9 +55,14 @@ A sprint is complete only when:
 
 ## Merge discipline
 
-The user reviews the sprint branch before merge.
+The owner reviews the work, including any new message's layout, before it reaches `main`.
 
-Do not merge automatically.
+A batch reaches SP-D and `main` by fast-forward, and **`main` is tagged with a safe tag first**
+(`v1.19safe` the latest), pushed before the merge, so production always has an instant rollback point.
+
+Standing authorization (owner, 2026-10-15): work the owner has approved is tagged and pushed to SP-D
+and `main` without asking again. It covers the push, not the approval: work the owner has not
+approved still waits.
 
 Before merge, verify the branch is based on the intended stable branch and reconcile any newer commits deliberately.
 

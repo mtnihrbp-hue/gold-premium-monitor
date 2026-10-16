@@ -1,152 +1,51 @@
-# Documentation Index — SP-B
+# Documentation Index
 
-This file is the navigation authority for repository documentation. It identifies ownership boundaries and prevents overlapping architectural sources.
+Which file owns which fact. A fact is updated in the file that owns it, and other files point to it
+rather than repeat it. The reading order and the conflict rule are in `PROJECT_MEMORY.md` section 1
+(and `CLAUDE.md`).
 
-## Authority hierarchy
+Consolidated on 2026-10-16 (`SP_D_HANDOFF.md` section 37.9): five files each stated an authority order,
+and they differed. The superseded files are in `archive/`.
 
-| Document | Responsibility |
+## Live documents
+
+| Document | Owns |
 |---|---|
-| `PROJECT_MEMORY.md` | Canonical architecture and current project state authority |
-| `README.md` | Human onboarding overview and repository navigation |
-| `MASTER_PLAN_STATUS.md` | Milestone and delivery status tracking |
-| `PROJECT_ORCHESTRATION.md` | Continuity protocol and synchronization workflow |
-| `PROJECT_OPERATIONS.md` | Operational control plane |
-| `C14_HANDOFF.md` | C14A/C14B contracts, terminology, feedback, and audit rules |
-| `C14C_HANDOFF.md` | C14C architecture and implementation contract |
-| `C14C_IMPLEMENTATION.md` | Verified C14C implementation reference, KPI boundary, supporting operational news-ingestion work, and UPDATE v1 wing-boundary record |
-| `SP_C_HANDOFF.md` | SP-C implementation contract: relative valuation, decision scorecard, and the evidence behind both; closed, with the pre-SP-D hotfixes on `main` (sections 37-45) |
-| `SP_D_HANDOFF.md` | SP-D record from its first deliverable (Direction, 2026-10-03) on: research, contracts, builds and their evidence |
-| `RESEARCH_ADOPTION.md` | External research boundaries |
-| `Prompt_Guide.md` | AI engineering operating rules |
-| `CLAUDE.md` | Claude Code entry point: commands, architecture summary, and pointers into this hierarchy |
-| `.project_state.json` | Machine continuity state mirror |
+| `.project_state.json` | Machine-readable state: branch, tags, production, KPI evidence, open items |
+| `PROJECT_MEMORY.md` | The system as it runs: purpose, surfaces, the run, the data's meaning, decisions, the measured record, the defects index, how work is done. Highest authority |
+| `SP_D_HANDOFF.md` | SP-D, open: its sub-sprints, research, contracts, builds and their evidence, dated |
+| `SP_C_HANDOFF.md` | SP-C and the pre-SP-D hotfixes on `main`, closed. Cited for the valuation basis (15.1), the deep-discount level (24), the valuation leg (26), confirmation (37, 38) and the stale-quote rules (39, 44, 45) |
+| `PROJECT_OPERATIONS.md` | The runtime: cron-job.org, the workflows and their modes, Cloudflare, the routine health check (15), the Iran-side node (16) |
+| `LESSONS_LEARNED.md` | The defect patterns met in production, as patterns. Appended to when a new class is found |
+| `RESEARCH_ADOPTION.md` | Which external research was adopted, and its boundaries |
+| `CLAUDE.md` | Claude Code's entry point: commands, the architecture's load-bearing rules, pointers here |
+| `README.md` | A short orientation for a person |
+| `skills/` | How an agent works here: engineering, onboarding, sprints, and the specialist rules |
+| `sql/neon_schema.sql` | The target schema |
+| `sql/neon_migration_*.sql` | Incremental migrations for the live database |
+| `src/`, `tests/`, `kpi/`, CI | Executable evidence, which outranks every document |
 
-## Source ownership rules
+## Archive
 
-- `PROJECT_MEMORY.md` remains the single architectural source of truth.
-- Sprint status belongs to `MASTER_PLAN_STATUS.md`; other documents reference it rather than duplicate milestone state.
-- C14 documents define implementation contracts and do not replace architecture authority.
-- `C14C_IMPLEMENTATION.md` records verified C14C implementation scope and the subsequent UPDATE v1 surgical boundary; it does not create a competing architecture source.
-- C14 terminology and feedback decisions are maintained inside the C14 handoff contract.
-- Neon ownership remains governed by schema and migration discipline.
-- UPDATE v1 presentation is a consumer concern; it must not become a second analytical or decision authority.
+Superseded and kept unchanged in `archive/`, so a citation in a handoff still resolves. Nothing there
+describes the current system.
 
-## Current verified state
+| Document | Was | Superseded by |
+|---|---|---|
+| `archive/PROJECT_MEMORY_HISTORY.md` | `PROJECT_MEMORY.md` to 2026-10-15: SP-A to SP-C, the PRE-SP-C phases, the C.14 research, the SP-C changelog, the full defects list | `PROJECT_MEMORY.md` |
+| `archive/MASTER_PLAN_STATUS.md` | Milestone status to C.14C and UPDATE v1 | `.project_state.json` and the sub-sprint table of `SP_D_HANDOFF.md` |
+| `archive/PROJECT_ORCHESTRATION.md` | The continuity protocol, the C.14 boundaries, the forecast readiness gate, a KIMI handoff template | `PROJECT_MEMORY.md` 1 and 10; `skills/validation-and-release.md` |
+| `archive/Prompt_Guide.md` | Generic AI engineering behaviour | `skills/core-engineering.md` |
+| `archive/C14_HANDOFF.md` | The C.14A and C.14B contracts: candles, forecast features, terminology | parked with the Analysis Wing (`PROJECT_MEMORY.md` 3) |
+| `archive/C14C_HANDOFF.md` | The C.14C contract: forecast resolution, error analysis, human review | as above |
+| `archive/C14C_IMPLEMENTATION.md` | C.14C's verified scope, news ingestion's wiring, UPDATE v1's boundary | as above |
+| `archive/UPDATE_V1_IMPLEMENTATION.md` | UPDATE v1's first build | `SP_C_HANDOFF.md` 15, 18 and the locked layout in `alerts/telegram_update_v1.py` |
 
-```text
-C14A  COMPLETE — 26/26 KPI
-C14B  COMPLETE — 36/36 KPI
-C14C  COMPLETE — 21/21 KPI
-UPDATE v1  SURGICAL IMPLEMENTATION / VALIDATION
-SP-C.1 … SP-C.18  COMPLETE; SP-C merged into main 2026-09-28 (tag v1.3safe = main before)
-ROLLOUT    steps 1-3 done (observe, merge, repoint to main)
-SP-D       IN PROGRESS — Direction live 2026-10-03, PAPER live 2026-10-05 (SP_D_HANDOFF.md, section 29)
-FULL SUITE  30/30 files — executed 2026-10-06 (04a37e1), exit 0
-```
+Bringing back a parked part of the Analysis Wing means reading its contract here first.
 
-Current sprint state is narrated in `SP_D_HANDOFF.md` (SP-C's in `SP_C_HANDOFF.md`,
-closed) and mirrored in `.project_state.json`.
+## Rules
 
-KPI evidence is now produced by `python kpi/run_all.py` and by the `KPI Suite`
-workflow, rather than reported from ad-hoc local runs. See the production
-liveness rule in `PROJECT_ORCHESTRATION.md`: several phases hold passing KPIs
-while having processed zero real production cases.
-
-C14C is the **Adaptive Intelligence Foundation**. It is downstream of C14B and remains diagnostic/analytical. It does not introduce reinforcement learning, online learning, automatic model-weight changes, LLM decision authority, or BUY/SELL authority changes.
-
-### C14C supporting work — operational news ingestion
-
-The existing RSS collector, deterministic event classifier, repository persistence, and downstream snapshot consumer are wired through a thin runtime ingestion orchestrator. The runtime invokes news ingestion before `build_analysis_snapshot()` on the scheduled ANALYZE path.
-
-The supporting work is operational plumbing only:
-
-```text
-configured RSS sources
-→ collect / normalize
-→ classify
-→ existing deduplicate
-→ persist `news_events`
-→ downstream news context
-```
-
-Source failures are non-blocking. No new table, migration, LLM, event-impact learning, or decision authority was introduced.
-
-Neon verification for the C14C foundation and supporting work remains **no migration required**. Existing production/history data remains intact.
-
-### UPDATE v1 — current operational boundary
-
-UPDATE is user-triggered and intentionally lightweight. It does not execute the full ANALYZE pipeline merely to produce a Telegram update.
-
-```text
-USER /UPDATE
-→ current collection
-→ validation
-→ canonical observation persistence
-→ minimum current calculations
-→ SP-A current state
-→ RUN/DAY baseline resolution
-→ Telegram
-```
-
-During the current transition period:
-
-```text
-RUN = current observation vs latest previous canonical market snapshot
-DAY = current observation vs first canonical market snapshot of today
-```
-
-When the Analyze wing is fully operational, DAY may move to the first controlled Analyze-wing collection of the day without changing the UPDATE presentation contract.
-
-UPDATE v1 currently exposes:
-
-```text
-MARKET
-PRICE/BUBBLE DYNAMICS
-MARKET STRUCTURE
-PLATFORMS
-CURRENT DECISION
-```
-
-Price Pace and Bubble Pace remain deferred where historical evidence is insufficient. Bubble movement uses the existing 0.05 percentage-point convention and is not empirically calibrated.
-
-The current UPDATE surgery requires **no Neon migration**.
-
-## Continuity loading order
-
-```text
-.project_state.json
-→ PROJECT_MEMORY.md
-→ DOCUMENTATION_INDEX.md
-→ README.md
-→ MASTER_PLAN_STATUS.md
-→ PROJECT_ORCHESTRATION.md
-→ PROJECT_OPERATIONS.md
-→ C14 contracts
-→ research and AI guidance
-→ C14C_IMPLEMENTATION.md
-```
-
-## Post-C14 direction
-
-The next major phase is not another blind implementation sprint. The intended sequence is:
-
-```text
-production history accumulation
-→ empirical research
-→ identify actual forecasting bottleneck
-→ evidence/analytical improvements where justified
-→ Expert Judgment System design
-→ implementation only after scope lock
-```
-
-Potential future ETF money-flow data is a deferred extension, not part of current UPDATE v1 scope.
-
-
-## LESSONS_LEARNED.md
-
-Failure patterns this project has actually met, in production, written so a future
-session recognises the shape of a defect before spending a week on its symptoms.
-Owner: any session that finds a new class of defect appends to it.
-
-Not a changelog. Chronology lives in `SP_C_HANDOFF.md` and `PROJECT_MEMORY.md`; this
-file holds only the generalised pattern, how to detect it, and what actually fixed it.
+- A sprint's record goes into its handoff. SP-D sections are never added to `SP_C_HANDOFF.md`.
+- `PROJECT_MEMORY.md` changes when what runs changes, and `.project_state.json` with it.
+- No new top-level status or architecture document. A superseded file moves to `archive/` unchanged.
+- A handoff's citation of an archived file stays as written: the file name still finds it.

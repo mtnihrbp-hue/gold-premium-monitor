@@ -4,25 +4,20 @@ The `skills/` directory contains reusable operating instructions for AI coding a
 
 ## Documentation authority
 
-Use the repository documents in this order:
-
-1. **Current user/task requirement** — exact scope for the current change.
-2. **`PROJECT_MEMORY.md`** — canonical project architecture, implemented state, invariants, contracts, and current development position.
-3. **`README.md`** — human-facing project orientation, setup, navigation, and concise status.
-4. **`Prompt_Guide.md`** — generic AI engineering behavior; it must not be used as a project-state record.
-5. **`skills/`** — reusable execution behavior and specialist guidance.
-6. **Source code, tests, and KPI** — executable implementation truth and verification evidence.
+The reading order and the conflict rule are stated once, in `PROJECT_MEMORY.md` section 1 (mirrored
+in `CLAUDE.md`). In short: the owner's current instruction sets the scope; executable evidence
+(tests, KPIs, production state) outranks prose; among documents `PROJECT_MEMORY.md` wins.
 
 When documentation conflicts with executable behavior, report the discrepancy and follow the current approved task plus repository implementation evidence.
 
 ## Required load order for a new AI coding session
 
-1. `core-engineering.md`
-2. `repository-onboarding.md`
-3. `sprint-execution.md`
-4. `PROJECT_MEMORY.md`
+1. `.project_state.json` and `PROJECT_MEMORY.md`
+2. `core-engineering.md`
+3. `repository-onboarding.md`
+4. `sprint-execution.md`
 5. Task-specific specialist skill(s)
-6. Current sprint prompt/task
+6. The current sprint's handoff (`SP_D_HANDOFF.md`) for the task's background
 
 Do not load every specialist skill for every task.
 

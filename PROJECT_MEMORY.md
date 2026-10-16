@@ -1,196 +1,55 @@
-[PROJECT_MEMORY.md](https://github.com/user-attachments/files/31727259/PROJECT_MEMORY.md)
 # Gold Premium Monitor — Project Memory
 
-This file is the **canonical project-specific architecture, implementation state, invariants, contracts, and roadmap** for maintainers and AI implementation agents.
+The system as it runs: what it is for, what it sends, how a run works, what its data means, what it
+has measured, what is broken and the rules it is built by. The highest-authority document; the
+machine-readable mirror is `.project_state.json`.
+
+Rewritten on 2026-10-16 (`SP_D_HANDOFF.md` section 37.9; the audit's B6, section 36.4). The previous
+file, the SP-A to SP-C history (indicator definitions, the PRE-SP-C phases, the C.14 research, the
+SP-C changelog), is `archive/PROJECT_MEMORY_HISTORY.md`, unchanged. The sprint records stay where they
+are: `SP_C_HANDOFF.md` (SP-C and the pre-SP-D hotfixes, closed) and `SP_D_HANDOFF.md` (SP-D, open).
 
 ---
 
+## 1. Authority
 
----
+**Reading order for a new session:**
 
-## Resolved defects index
+```text
+.project_state.json      machine-readable state: branch, tags, production, open items
+→ PROJECT_MEMORY.md       this file
+→ SP_D_HANDOFF.md         the current sprint: its sub-sprint table, then the latest sections
+→ PROJECT_OPERATIONS.md   the runtime: scheduler, workflows, Cloudflare, the health check, the node
+→ LESSONS_LEARNED.md      the defect patterns this project has met
+→ skills/                 core-engineering → repository-onboarding → sprint-execution → the specialist
+→ source, tests, KPI, sql
+```
 
-This document narrates defects in detail. A third-party audit in 2026-09 filed a
-finding that had been fixed seven days earlier, because the narrative reads as a
-description of current state until the sentence that says otherwise. **Check here
-before reading any failure narrative below as live.**
+**When documents conflict:**
+- this file wins over every other document;
+- executable evidence (tests, KPIs, production database state) outranks any prose, this file included;
+- a sprint handoff narrates and dates, and a later section supersedes an earlier one.
 
-| defect | fixed | reference |
-|---|---|---|
-| Analyze trigger misrouted; scheduled runs took the UPDATE path | 2026-09-13 | this file, "The Analyze trigger was misrouted" |
-| RUN baseline compared against the user's own previous request | 2026-09-14 | SP-C.1 |
-| valuation_state read CHEAP on every reading (fixed threshold) | 2026-09-15 **and** 2026-09-21 | SP-C.2 fixed the reader's valuation; the decision engine's column stayed constant on 364/364 rows until SP-C.15 replaced it with a rank. Both instances now closed, section 26 |
-| Outcome evaluations never resolved after their horizons matured | 2026-09-15 | SP-C.3 |
-| Message times and day boundaries were UTC, not Iran local | 2026-09-16 | SP-C.5, section 15.3 |
-| Valuation computed from a single cheapest platform (tail point) | 2026-09-16 | SP-C.5, section 15.1 |
-| final_decision latched to WAIT; 100 of 100 BUY candidates suppressed | 2026-09-18 | SP-C.6, section 16.1 |
-| regime_state read PANIC on every snapshot (fixed thresholds) | 2026-09-18 | SP-C.6, section 16.2 |
-| Unbounded collector subprocess killing scheduled runs | 2026-09-18 | SP-C.6, section 16.3 |
-| Regime calibration inert because config pinned the same keys | 2026-09-19 | SP-C.6, section 16.6 |
-| Deep discount threshold moved within a day; reader's own clicks in the window | 2026-09-20 | SP-C.7, section 17 |
-| World gold fallback indistinguishable from a live quote in storage | 2026-09-20 | SP-C.8, section 18 |
-| `Deep discount` labelled two different numbers across UPDATE and ANALYZE | 2026-09-21 | SP-C.13, section 24 |
-| Push fired on `abs(gap)`, so a premium would alert as a deep discount | 2026-09-21 | SP-C.13, section 24.5 |
-| Rounded threshold excluded the readings it was drawn from | 2026-09-21 | SP-C.13, section 24.6 |
-| A third copy of the percentile formula, in regime.py | 2026-09-21 | SP-C.14, section 25.4 |
-| valuation.py reads config keys that do not exist; configured sell threshold never in effect | 2026-09-21 | SP-C.15, section 26.5 |
-| valuation_context_json persisted every run, read by nothing | **BY DESIGN** | reclassified as an audit record in SP-C.15, section 26.6 |
-| ANALYZE projected the scheduled gate one day early | 2026-09-21 | SP-C.15, section 26.9 |
-| resolve_bubble_position used the machine clock, an unsettled window and user rows | 2026-09-21 | SP-C.16, section 27.2 |
-| datetime.now() against UTC-stored timestamps, 74 calls in 14 modules | 2026-09-21 | SP-C.16, section 27.3 |
-| Six constants for two tolerances, under four names | 2026-09-21 | SP-C.16, section 27.6 |
-| News classifier matched "us" inside base64 image tokens; 879 of 1441 mislabelled | 2026-09-21 | SP-C.16, section 27.5 |
-| structure_state is DISCOUNT_DOMINANT on 365 of 367 rows | **MEASURED, LEFT ALONE -- REOPENED AS A QUESTION 2026-09-28** | SP-C.17, section 28 -- a rare-event detector, not a dead leg; all three candidate replacements are within one standard error of chance. The firings up to 09-28 morning all sat before 13:00 Tehran, in the stale-dollar window, so part of the separation may be mechanical (section 34.6); it also fired at 19:01 and 19:10 on 09-28 on a current dollar, so the re-measure should split by dollar freshness |
-| News LLM classification path has never run | **OPEN** | SP-C.16, section 27.5 |
-| Four runs stalled at the 20-minute job timeout before their first write (09-24, 09-25 x2, 09-30 13:00) | 2026-09-30 (hotfix on main) | sections 33.2, 42 -- the Kitco SSE body never ends and was read whole; now read line by line under 15 s, and the whole world-gold chain under one 60 s deadline on a daemon thread. The fix exposed a second defect: Kitco's parser took the first metal (platinum, palladium), now gold by symbol |
-| News dedup looks back 24 h while feeds keep items for days; 330 of 2,294 rows re-inserted | **OPEN** | section 33.3 N1 -- live consumers unaffected, measurements must count distinct keys |
-| `high_impact_count` 0 on 268/268 snapshots; reads `relevance` for values only `impact` holds | **OPEN** | section 33.3 N2 -- interpretation layer only |
-| donya-e-eqtesad.com and tejaratnews.com unproven from a GitHub runner | 2026-09-27 | section 33.3 -- the two largest and freshest sources |
-| Morning readings priced on the previous day's dollar; both "premiums" on record (09-24, 09-28) most likely this | **OPEN, research first** | section 34.3 -- USD/IRR input barely moves before 11:00 Tehran while platforms reprice; USD freshness stored as always fresh |
-| Daric collector timing out since 09-25 | 2026-09-28 (their side) | section 34.4 -- isolated as designed; returned at 15:01 on 09-28 with no change on ours (35.4) |
-| Google News " - Publisher" title suffix defeats title-hash dedup | **OPEN** | section 34.5 -- beside N1 |
-| First live BUY (2026-09-29 14:01) rested on one stale platform quote; Taline's page is intermittently served stale to non-Iranian clients | 2026-09-29 (hotfix on main) | sections 37, 38 -- a confirmation check between candidate and hysteresis (second platform confirms; dollar is today's; world gold live), failing closed; Taline collector hardened; replay: all 4 BUYs ever sent would have been held. Section 15.7 item 1 is closed by it |
-| BUY alert uses the old SP-A layout: single-cheapest premium contradicts UPDATE, raw internal labels | 2026-09-29 (hotfix on main) | section 38.5 -- `alerts/telegram_signal.py`, UPDATE's helpers, "heavily discounted"; SELL keeps the old layout |
-| Taline quotes intermittently a stale CDN copy (17 of 600 readings, 2.8%) | 2026-09-29 (validation) | section 38.7 -- a Taline quote more than 1.0% from the other platforms' median is discarded for that reading; history not rewritten (levels unchanged) |
-| Stale quotes from any platform entered calculations (Taline, HoorGold, MioGold on the record) | 2026-09-29 (validation) | section 39 -- deferred per reading when the price repeats a 3-48h-old value and sits >1.0 pp from the platform's own usual position; 27 of ~3,150 readings replayed; fails open without history |
-| First deep-discount push (2026-09-29 15:00) was a false alarm: 3.53% displayed, 2.82% without the stale Taline | 2026-09-29 (by 38.7) | section 38.8 -- verified in production at 18:00 (Taline discarded, 2.48%); whether the push needs its own second-platform check is open for SP-D |
-| Support/resistance (live since PRE-SP-C.3, unshown) labels levels by extremum type, not position: "support" listed above the price; 20-reading lookback; one platform | **OPEN, SP-D TA step 2** | section 41.1 |
-| `platform_candles` are 30-minute candles from about one reading each: 98% have open = high = low = close | **KNOWN, SP-D TA** | section 41.1 -- real daily candles come from our hourly readings and tgju's history (41.4), stored in `market_daily_candles` since 2026-09-30 (41.6) |
-| Goldika's CDN served the runner a 2026-09-13 copy from 10-01 (6% below the market): a false deep-discount push, three live UPDATEs, BUY candidates held only by confirmation, false PANIC regime, 12 contaminated readings since 09-25 | 2026-10-02 (hotfix + DB correction) | section 44 -- source price time (Goldika, Milli), repeat within 60 days, a 3 pp jump hold, the push corroborated without its cheapest platform; 12 readings corrected in production with a backup |
-| 37 earlier readings (20 scheduled) whose cheapest quote the new rule judges stale, incl. the -8.19% "record low" (Milli, 09-05) | 2026-10-03 (production correction) | section 45 -- 79 stale quotes in 72 readings removed, 37 premiums recomputed, labels from the false input -> UNKNOWN, 51 snapshots re-evaluated; deep-discount level 3.48% -> 3.44% |
-| Milli 5% below every other platform all day on 09-05 (224M vs 236-239M); the jump hold accepted two readings because the price moved | 2026-10-03 (owner: a real price, Milli sold low for some days) | section 45 -- no correction; the hold's behaviour is right for it |
-| Ayyareh and Eligold quote the same price in ~60% of readings (likely one source) | **WATCH (owner, 10-02: keep both)** | section 44 |
-| Daric times out from the GitHub runner since 2026-10-02 06:00 (one 429 first); works from Iran and from abroad through Psiphon, same price -- it blocks or rate-limits GitHub's addresses | **OPEN, their side** | health check 2026-10-03: last stored 10-01 21:01; isolated as designed; with Goldika's CDN copy discarded and Taline's intermittent, the runner sees 8-9 platforms |
-| The outcome backfill re-evaluates ~75-80 evaluations every run (the longest step, 3-4 min, 8 min at 13:01 on 10-02): horizons that cannot complete, e.g. 6 h into the overnight gap, are retried for 7 days | **OPEN, reliability phase** | health check 2026-10-03 |
-| `MAX_WORLD_GOLD` = $5,000/oz with gold near $4,150 | **OPEN** | section 38.7 -- reliability phase |
-| `kpi_coherence.test_27` can never fail: it searches `_code()` output for `name(`, which `_code` splits into tokens | **OPEN** | section 38.6 -- reliability phase |
-| Two stale unit tests fail on `main` (`tests/test_signal_state.py` import; `test_hysteresis_cooldown_same_alert`); CI runs only the KPI suite | **OPEN** | section 38.6 -- reliability phase |
-| News items whose link exceeds 500 characters were lost entirely (Google News and percent-encoded Persian links) | 2026-09-30 (Neon migration) | section 40 -- `news_events.url` widened to TEXT via `sql/neon_migration_news_url.sql`, verified on a temporary branch first; `kpi_coherence.test_33` keeps model and schema in line |
-| statsmodels 0.14.4 broken by the runner's newest scipy (1.16) and pandas (3): KPI suite red on `main`, the quant engine reported itself unavailable | 2026-10-05 (hotfix on main) | `SP_D_HANDOFF.md` section 28 -- `scipy==1.15.3` and `pandas==2.2.3` pinned with statsmodels |
-| First live PAPER run failed: the venue label, 21 characters, into `paper_accounts.venue` VARCHAR(20); the tests' SQLite does not enforce lengths | 2026-10-05 (hotfix on main) | `SP_D_HANDOFF.md` section 28 -- `paper.VENUE_LABEL` shortened; `kpi_paper.test_29` checks every text PAPER writes against its column |
-| Taline's frozen CDN copy is stored when it sits within its 1% band and within 1.0 pp of its usual position (six readings on 2026-10-06 09:01-14:01) | **OPEN** | `SP_D_HANDOFF.md` sections 20, 29 -- proposed first in the SP-D order |
-| `AFRAN_LAST` dated one to two sessions late: tablokhani's `closing_1d_ago` stored under the reading's day | **OPEN, small** | `SP_D_HANDOFF.md` section 29 -- with the next change to the room |
+`DOCUMENTATION_INDEX.md` says which file owns what, and `CLAUDE.md` is the entry point for Claude Code.
+The same order is stated there. Do not restate it in a fourth place.
 
+## 2. Purpose and boundaries
 
-## 1. Documentation Authority
+A decision-support system for the Iranian 18K physical-gold market. The owner, 2026-10-16: "the core
+goal of the project is to give information, and act as Decision Support System and provide Expert
+System Judgements based on data, information and fact." **It is not a trading bot and executes
+nothing.**
 
-| Source | Responsibility |
+The reader's four questions, the frame for every surface (`SP_D_HANDOFF.md` 36.6, 38.1):
+
+| Question | What the system can answer with evidence today |
 |---|---|
-| `PROJECT_MEMORY.md` | Canonical project architecture, implementation state, invariants, contracts, and roadmap |
-| `MASTER_PLAN_STATUS.md` | Human-readable master-plan status and milestone state |
-| `DOCUMENTATION_INDEX.md` | Documentation map and current implementation references |
-| `README.md` | Human-facing overview and repository map |
-| `Prompt_Guide.md` | Generic AI engineering behavior |
-| `skills/` | Specialist reusable operating rules |
-| `sql/neon_schema.sql` | Canonical target database schema |
-| `sql/neon_migration_*.sql` | Incremental migrations for the existing Neon database |
-| `src/`, `tests/`, `kpi/`, CI | Executable implementation evidence |
+| **where** to buy | the live platform prices and their spread |
+| **when** | buy now rather than wait for a dip; the deep-discount zone as a lead |
+| **how much** | gold or fixed income: the room's posture |
+| **what risk** | the trend and its 50-day breaks, gold demand, escalation news |
 
-When documentation conflicts, prefer the higher-authority source and then executable behavior as implementation evidence.
-
-Project-state changes must be synchronized here and in the appropriate continuity/state documentation.
-
-The former duplicated architecture-status document was consolidated into project memory and must not be recreated without an explicit architectural reason.
-
----
-
-# 2. Project Purpose
-
-Gold Premium Monitor is a decision-support analytical intelligence system for the Iranian 18K physical-gold market.
-
-It combines:
-
-- Iranian gold-platform prices
-- XAU/USD
-- USD/IRR
-- fair-price calculation
-- premium / discount (`Bubble`)
-- momentum and market dynamics
-- market structure
-- deterministic regime detection
-- historical market memory
-- structured news
-- canonical time-series observations
-- scheduled analysis
-- retrospective outcome evaluation
-- normalized evidence
-- structured interpretation
-- deterministic model-ready features
-- an analytical read model
-- downstream consumers
-- current deterministic decision authority
-- future prediction / expert intelligence
-
-It is **not an autonomous trading bot** and does not execute trades.
-
-Long-term architecture:
-
-```text
-COLLECTION
-    ↓
-VALIDATION
-    ↓
-OBSERVATION STORAGE
-    ↓
-ANALYTICAL ENGINE
-    ↓
-EVIDENCE ENGINE
-    ↓
-INTERPRETATION ENGINE
-    ↓
-FEATURE INTELLIGENCE
-    ↓
-ANALYTICAL READ MODEL
-    ↓
-READ-MODEL CONSUMERS
-    ↓
-DECISION ENGINE
-    ↓
-FUTURE INTELLIGENCE / PREDICTION
-```
-
----
-
-# 3. Core Architectural Boundaries
-
-The project distinguishes facts, evidence, interpretation, features, read models, decisions, and future prediction.
-
-```text
-FACTS
-raw observations
-    ↓
-EVIDENCE
-validated analytical package
-    ↓
-INTERPRETATION
-structured explanation
-    ↓
-FEATURES
-deterministic model-ready artifacts
-    ↓
-READ MODEL
-normalized downstream contract
-    ↓
-DECISION
-current deterministic authority
-    ↓
-FUTURE PREDICTION
-future intelligence only
-```
-
-Ownership:
-
-```text
-Facts          = collected observations
-Evidence       = validated analytical package
-Interpretation = explanation of evidence
-Features       = deterministic derived artifacts
-Read Model     = normalized downstream analytical contract
-Decision       = current deterministic BUY / WAIT / SELL authority
-Prediction     = future model output only
-```
-
-Non-negotiable invariants:
+**Invariants**, enforced by code and KPIs:
 
 ```text
 CHEAP ≠ BUY
@@ -203,2166 +62,343 @@ READ MODEL ≠ DECISION AUTHORITY
 PREDICTION ≠ FACTS / EVIDENCE / INTERPRETATION / FEATURES
 ```
 
-Collectors collect.
-
-Calculators calculate.
-
-Intelligence interprets.
-
-Feature builders derive.
-
-Read models organize.
-
-Presentation formats.
-
-Persistence stores.
-
-Unknown and insufficient data are valid states and are preferable to fabricated information.
-
----
-
-# 4. Current Project State
-
-Current authoritative state:
-
-```text
-MAIN
-└── SP-A COMPLETE / FROZEN
-
-SP-B
-├── Historical Intelligence COMPLETE
-├── News Intelligence COMPLETE
-├── PRE-SP-C.1 Canonical Time Series COMPLETE
-├── PRE-SP-C.2 Analysis Snapshot + Scheduler Foundation COMPLETE
-├── PRE-SP-C.3 Price Structure + Regime COMPLETE
-├── PRE-SP-C.4 Analysis Snapshot Integration COMPLETE
-├── PRE-SP-C.5 Outcome Evaluation Foundation COMPLETE
-├── PRE-SP-C.6 Evidence Package Foundation COMPLETE
-├── PRE-SP-C.7 Interpretation Intelligence Layer COMPLETE
-├── PRE-SP-C.8 Feature Intelligence Layer COMPLETE
-├── PRE-SP-C.9 Analytical Read Model COMPLETE
-└── PRE-SP-C.10 Read Model Integration & Audit Layer COMPLETE
-
-C14C
-└── COMPLETE — 21/21 KPI PASS
-
-UPDATE v1
-└── OPERATIONAL — lightweight user-triggered live update
-
-ANALYSIS WING
-└── RUNNING. cron-job.org dispatches hourly with mode=analyze,
-    verified 2026-09-15 at exact one-hour spacing inside a
-    06:00-21:00 Asia/Tehran window.
-
-SP-C
-└── OPEN — stabilization first, then the analytical leap
-
-CURRENT DIRECTION
-└── Make the data engine actually run, then derive valuation and base rates
-    from the system's own accumulated history.
-
-FUTURE
-└── Expert Judgment / Prediction capability
-```
-
-## 4.1 Verified production state
-
-Read directly from production Neon on 2026-09-13. These supersede any narrative
-claim elsewhere in the documentation set.
-
-```text
-analysis_snapshots      56 rows      2026-08-21 → 2026-09-12, 20 distinct days
-market_snapshots       278 rows      2026-08-04 → 2026-09-13, 41 distinct days
-outcome_evaluations    162 rows      100% INSUFFICIENT_DATA at 1h, 6h and 24h
-```
-
-Three findings follow from this.
-
-**The Analyze trigger was misrouted. Fixed 2026-09-13.** cron-job.org posts to the
-workflow dispatches endpoint, so `github.event_name` was `workflow_dispatch`,
-`SCHEDULED_RUN` resolved false, and `src/main.py` took the UPDATE path: the daily job
-produced a Telegram message and no analytical history. The workflow now accepts a
-`mode` input and the scheduler declares `mode=analyze`. Verified on 2026-09-15 with
-six consecutive one-hour gaps between scheduled snapshots.
-
-**Outcome evaluation never revisits a snapshot. Open defect.** Cadence was assumed to
-be the cause, but hourly collection has been running since 2026-09-14 and all 213
-evaluations remain `INSUFFICIENT_DATA`.
-
-`snapshot_builder.py` calls `run_outcome_evaluation_for_snapshot()` on the snapshot it
-has just created, whose +1h, +6h and +24h targets are all still in the future. The
-result can only ever be `INSUFFICIENT_DATA`. `backfill_outcome_evaluations()` exists,
-is documented as safe to run repeatedly and evaluates only snapshots lacking a
-complete evaluation, and is never invoked by the runtime.
-
-This is the same failure mode as the C14C news collector and the Analyze trigger:
-capability built, runtime path never reaching it. C.14B and C.14C sit downstream and
-have processed zero real cases as a consequence.
-
-**Static valuation thresholds carry no information.** Across all 278 observations the
-bubble ranged from -8.19% to -1.82%, so `buy_premium_percent: -1.5` was never crossed
-and `valuation_state` is CHEAP on 204/204 recorded states. The decision layers beneath
-do discriminate — 81 BUY candidates, coherent with 81 IMPROVING momentum and 81
-SUPPORTIVE conflict states — but hysteresis has suppressed every one, giving
-`final_decision` WAIT on 204/204.
-
-Valuation must therefore become relative to the bubble's own recent distribution rather
-than a fixed threshold. That is the SP-C leap.
-
-**Canonical series contamination.** `market_snapshots` records no distinction between
-scheduled runs and user-triggered `/Update` calls, so the two are mixed and cannot be
-separated retroactively. This violates the rule in `skills/data-and-neon.md` that
-irregular user-triggered calls must not become the canonical technical time series, and
-it will bias any percentile or base-rate calculation once the user base grows.
-
-### C14C status
-
-```text
-C14C = COMPLETE
-KPI = 21/21 PASS
-ARCHITECTURE BOUNDARY = PRESERVED
-NEON MIGRATION = NOT REQUIRED
-```
-
-C14C is part of the analytical foundation. It does not introduce:
-
-- reinforcement learning
-- online model learning
-- automatic model-weight changes
-- autonomous LLM authority
-- autonomous BUY/SELL authority
-
----
-
-# 5. SP-A — Frozen Decision Baseline
-
-The deterministic SP-A pipeline remains:
-
-```text
-Valuation
-→ Premium Direction
-→ Momentum
-→ Market Structure
-→ Conflict Matrix
-→ Candidate Decision
-→ SP-A Hysteresis
-→ Final Decision
-```
-
-For negative premium:
-
-```text
-more negative → DISCOUNT WIDENING
-less negative → DISCOUNT NARROWING
-stable        → DISCOUNT STABLE
-```
-
-Buyer-oriented momentum:
-
-```text
-DISCOUNT WIDENING → IMPROVING
-DISCOUNT NARROWING → WEAKENING
-DISCOUNT STABLE → NEUTRAL
-```
-
-Do not replace the explicit conflict matrix with an opaque weighted score without explicit approval.
-
----
-
-# 6. Decision and Alert Authority
-
-`final_decision` is the sole external BUY/SELL authority.
-
-```text
-Candidate: BUY
-Final: WAIT
-    ↓
-NO BUY ALERT
-```
-
-Legacy threshold evaluation may remain for backward-compatible tests, but it must not independently trigger external alerts.
-
-Telegram and email must preserve this invariant.
-
-The system remains decision-support, not execution.
-
----
-
-# 7. System Wings
-
-The project has two major operational wings.
-
-## 7.1 Live / UPDATE Wing
-
-Purpose:
-
-> What is happening now?
-
-Current user-triggered flow:
-
-```text
-/Update
-    ↓
-collect current market data
-    ↓
-validate
-    ↓
-perform minimum required calculations
-    ↓
-resolve canonical RUN / DAY baselines
-    ↓
-produce deterministic current market state
-    ↓
-Telegram presentation
-```
-
-UPDATE is:
-
-- user-triggered
-- irregular
-- current
-- lightweight
-- presentation-oriented
-- dependent on authoritative persisted data where required
-
-UPDATE must **not** execute the complete scheduled Analysis pipeline merely to answer a user request.
-
-Current UPDATE boundary:
-
-```text
-MARKET
-PRICE & BUBBLE DYNAMICS
-MARKET STRUCTURE
-PLATFORMS
-CURRENT DECISION
-```
-
-The current decision section may remain in UPDATE while the downstream analytical architecture evolves.
-
-### UPDATE baseline semantics
-
-**RUN**
-
-```text
-current observation
-vs
-latest previous SCHEDULED canonical market snapshot
-```
-
-RUN is not a comparison against arbitrary previous user calls. From 2026-09-14 this
-is enforced rather than merely stated: `collection_mode` distinguishes scheduled runs
-from user-triggered updates, and the baseline resolver selects only scheduled
-readings. Before that column existed the resolver took the latest record of any kind,
-so on the UPDATE path the baseline was the user's own previous request and RUN
-measured the interval between two clicks.
-
-**DAY**
-
-```text
-current observation
-vs
-first controlled canonical market snapshot of today
-```
-
-DAY uses the first **scheduled** `market_snapshots` record of the day. The migration
-anticipated here was completed on 2026-09-14, once the Analysis Wing began running on
-an hourly cadence. Both baselines fall back to a record of any collection mode when no
-scheduled record exists, so history predating the change still resolves.
-
-Do not use accumulated user-triggered UPDATE calls as the DAY baseline.
-
----
-
-# 8. UPDATE v1 — Current Analytical Semantics
-
-UPDATE v1 provides a compact current-state interpretation without pretending that empirical calibration already exists.
-
-## Price direction
-
-Price direction is independent of bubble movement.
-
-Possible states:
-
-```text
-RISING
-FALLING
-STABLE
-UNKNOWN
-```
-
-## Price pace
-
-Pace is intended to answer:
-
-> Is the market moving sharply or not sharply?
-
-Preferred semantic vocabulary:
-
-```text
-SHARP
-NOT SHARP
-STABLE
-N/A
-```
-
-Do not introduce "slope" as the user-facing concept.
-
-Where insufficient calibrated history exists:
-
-```text
-Pace = N/A
-```
-
-This is intentional.
-
-## Acceleration
-
-Acceleration describes change in movement behavior and must be based on a valid chronological representative series.
-
-Do not derive acceleration from the latest arbitrary raw platform rows because multiple platform observations may belong to the same collection run.
-
-Preferred basis:
-
-```text
-canonical market snapshots
-→ representative local-price series
-→ chronological acceleration
-```
-
-## Bubble
-
-Persian `حباب` is represented as:
-
-```text
-Bubble
-```
-
-Conceptually:
-
-```text
-positive bubble → market above fair price
-negative bubble → market below fair price
-```
-
-Bubble movement is based on distance from fair value, not simply the direction of market price.
-
-```text
-distance from fair increasing → INCREASING
-distance from fair decreasing → DECREASING
-distance from fair materially unchanged → STABLE
-```
-
-Current deadband is a convention and is not yet empirically calibrated.
-
-## Bubble pace
-
-Bubble pace requires enough valid chronological history.
-
-Until calibration is established:
-
-```text
-Bubble Pace = N/A
-```
-
-Do not fabricate a classification.
-
-## Candle
-
-User-facing candle classification is intentionally simplified:
-
-```text
-BULLISH
-BEARISH
-NEUTRAL
-```
-
-It must remain deterministic and must not become a second decision engine.
-
----
-
-# 9. UPDATE Interpretation Boundary
-
-Price direction and bubble movement are independent dimensions.
-
-Example:
-
-```text
-Local price = RISING
-Bubble = NEGATIVE
-Bubble movement = INCREASING
-```
-
-This is a valid state.
-
-It means local price is rising while the market is moving farther below fair value.
-
-The system may describe the observed relationship, but must not automatically convert it into psychological claims such as:
-
-```text
-platforms are sleeping
-market expects gold to rise
-buyers are waiting
-```
-
-unless such interpretation is explicitly supported by a later evidence/interpretation layer.
-
-Current deterministic interpretation should remain observational.
-
----
-
-# 10. Analysis Wing
-
-Purpose:
-
-> What does the system understand about the market at a scheduled analytical point?
-
-Scheduler contract:
-
-| Setting | Value |
-|---|---|
-| Timezone | `Asia/Tehran` |
-| Interval | 30 minutes |
-| Window | `08:00` inclusive → `21:00` exclusive |
-| Active days | configurable |
-
-Exact-boundary behavior:
-
-```text
-reference boundary already consumed
-09:00 → next window = 09:30
-```
-
-Conceptual flow:
-
-```text
-scheduled window
-→ source availability / freshness
-→ canonical observations
-→ technical structure
-→ regime
-→ historical/news context
-→ Analysis Snapshot
-→ Outcome Evaluation
-→ Evidence Package
-→ Interpretation
-→ Feature Layer
-→ Analytical Read Model
-→ downstream consumer
-→ Neon
-```
-
-User count must not multiply scheduled analysis execution.
-
-The Analysis Wing is the long-term source of controlled historical analytical evidence.
-
----
-
-# 11. Canonical Time Series
-
-`price_observations` is the canonical technical time-series layer.
-
-Conceptual instruments:
-
-```text
-XAUUSD
-USD/IRR
-REP_IRAN_GOLD
-PAXG
-```
-
-Technical analysis must consume actual price observations.
-
-Premium is an analytical relationship, not a substitute for the underlying price candle.
-
-Raw observations remain separate from interpreted states.
-
----
-
-# 12. Representative Iranian Gold Price
-
-The deterministic representative-price fallback is:
-
-```text
-Milli
-→ Ayyareh
-→ WallGold
-→ UNKNOWN
-```
-
-First valid source wins.
-
-The selected source must remain identifiable as provenance.
-
-This representative series is used where a single canonical Iranian-gold series is required.
-
-It is not the same thing as the platform-average market view.
-
----
-
-# 13. Iranian Platform Collection
-
-The project currently integrates Iranian gold-platform sources including, where configured and operational:
-
-```text
-HoorGold
-Parasteh
-Daric
-Taline
-Ayyareh
-Invi
-MioGold
-Eligold
-Goldika
-Milli
-WallGold
-```
-
-Source failures must remain isolated.
-
-Examples of source-specific normalization:
-
-```text
-Toman → Rial
-source-specific smaller unit → canonical IRR/gram
-```
-
-Unit normalization is a data-ingestion responsibility, not a market-model adjustment.
-
-Daric may timeout or fail independently without invalidating the remaining collection.
-
----
-
-# 14. Market Calculations
-
-Core market calculations include:
-
-```text
-Fair Price
-Platform Average
-Highest Platform Price
-Lowest Platform Price
-Platform Spread
-Bubble / Premium
-```
-
-Conceptually:
-
-```text
-Bubble % = (market price / fair price - 1) × 100
-```
-
-Negative values represent a discount.
-
-Positive values represent a premium.
-
-The distinction between:
-
-```text
-market price direction
-```
-
-and:
-
-```text
-bubble movement
-```
-
-must remain explicit.
-
----
-
-# 15. PRE-SP-C.2 — Analysis Snapshot + Scheduler Foundation
-
-Established:
-
-- `analysis_snapshots`
-- deterministic `source_run_id` idempotency
-- LIVE vs ANALYSIS snapshot distinction
-- scheduled analysis windows
-- 30-minute `Asia/Tehran` schedule
-- exact-boundary next-window semantics
-- canonical Neon persistence
-- final-decision alert authority
-- alert-routing regression coverage
-
-KPI:
-
-```text
-14/14 PASS
-```
-
----
-
-# 16. PRE-SP-C.3 — Price Structure + Regime
-
-KPI:
-
-```text
-20/20 PASS
-```
-
-Established:
-
-- representative Iranian price fallback
-- deterministic support/resistance
-- market regime classification
-
-Regime states:
-
-```text
-NORMAL
-FEAR
-PANIC
-RELIEF
-UNKNOWN
-```
-
-Evidence families:
-
-1. Premium stress
-2. Volatility stress
-3. USD / market-structure stress
-4. External-event stress
-
-Regime hysteresis is separate from SP-A decision hysteresis.
-
-Valid example:
-
-```text
-CHEAP + PANIC
-```
-
-Regime never issues BUY/SELL.
-
----
-
-# 17. PRE-SP-C.4 — Analysis Snapshot Integration
-
-Persisted C.4 state:
-
-```text
-regime_state
-technical_state_json
-previous_regime
-regime_candidate_state
-regime_confirmation_count
-```
-
-Cross-run regime hysteresis is reconstructed from persisted snapshot state.
-
-No separate regime table and no file cache are used.
-
-KPI:
-
-```text
-19/19 PASS
-```
-
-### Invi
-
-`src/collector/invi.py` normalizes the source value into the canonical IRR/gram scale.
-
-The source exposes a smaller unit and the collector normalizes it by:
-
-```text
-×1000
-```
-
-Invi is registered in the Iranian collector path but is not part of the representative-price fallback chain.
-
----
-
-# 18. PRE-SP-C.5 — Outcome Evaluation
-
-C.5 is retrospective measurement infrastructure.
-
-It does not predict and does not alter the current decision engine.
-
-Initial horizons:
-
-```text
-+1h
-+6h
-+24h
-```
-
-Evaluation:
-
-```text
-analysis snapshot
-    ↓
-target horizon
-    ↓
-nearest valid future canonical observation within tolerance
-    ↓
-movement + direction + actual observation time
-    ↓
-outcome_evaluations
-```
-
-Rules:
-
-- target is anchored to `analysis_timestamp`
-- future observation must be strictly after the snapshot timestamp
-- no interpolation
-- missing target data becomes `INSUFFICIENT_DATA`
-- one unavailable series does not invalidate other series
-- evaluation is idempotent by snapshot + horizon
-- historical backfill is supported
-- Invi does not enter representative-price outcome fallback
-
-Primary outcome series:
-
-```text
-REP_IRAN_GOLD
-XAUUSD
-USD/IRR
-```
-
-KPI:
-
-```text
-25/25 PASS
-```
-
-Persistence:
-
-```text
-outcome_evaluations
-```
-
-Uniqueness:
-
-```text
-(snapshot_id, horizon_hours)
-```
-
----
-
-# 19. PRE-SP-C.6 — Evidence Package
-
-C.6 creates a deterministic, auditable evidence package from persisted analytical outputs.
-
-Evidence families:
-
-```text
-valuation
-momentum
-technical_structure
-regime
-xau_usd
-usd_irr
-representative_gold
-platform_structure
-news_context
-historical_context
-outcome_context
-data_quality
-provenance
-```
-
-Requirements:
-
-- explicit schema version
-- deterministic validation
-- provenance
-- explicit missing/unknown handling
-- no BUY/SELL decision embedded as a substitute for the Decision Engine
-
-Persistence:
-
-```text
-analysis_snapshots.evidence_package_json
-```
-
-KPI:
-
-```text
-25/25 PASS
-```
-
-C.6 does not implement:
-
-```text
-multi-agent debate
-autonomous trading
-prediction
-```
-
----
-
-# 20. PRE-SP-C.7 — Interpretation Intelligence
-
-C.7 adds structured interpretation over deterministic evidence.
-
-Responsibilities:
-
-- explain validated evidence
-- describe observed conditions
-- surface conflicting evidence
-- express uncertainty
-- preserve provenance
-- keep facts and evidence unchanged
-
-It must not:
-
-- rewrite raw observations
-- fabricate market facts
-- invent technical levels
-- replace deterministic regime state
-- create independent BUY/SELL authority
-- contaminate historical evidence
-
-Persistence:
-
-```text
-analysis_snapshots.intelligence_result_json
-```
-
-KPI:
-
-```text
-25/25 PASS
-```
-
-Interpretation is not a second calculation engine.
-
----
-
-# 21. PRE-SP-C.8 — Feature Intelligence
-
-C.8 creates deterministic, explainable, model-ready feature structures.
-
-Feature families:
-
-## Trend
-
-- SMA / MA
-- EMA
-- price-vs-moving-average relationships
-- explicit insufficient-history handling
-
-## Momentum
-
-- premium velocity
-- premium acceleration
-- direction persistence
-- direction change / divergence context
-
-## Volatility
-
-- rolling volatility
-- range expansion
-- instability indicators
-
-## Regime
-
-- existing regime state
-- regime duration / transition context where available
-
-C.8 must reuse C.4 regime primitives.
-
-## Market relationships
-
-- XAU/USD direction
-- USD/IRR pressure
-- local-gold / external-market divergence
-
-## Structure
-
-- spread
-- platform consensus
-- consensus ratio
-- discount dominance
-
-Invariants:
-
-- deterministic
-- no look-ahead leakage
-- missing data explicit
-- insufficient history explicit
-- no BUY/WAIT/SELL output
-- schema version explicit
-- persistence round-trip capable
-- data quality explicit
-
-Persistence:
-
-```text
-analysis_snapshots.features_json
-```
-
-KPI:
-
-```text
-25/25 PASS
-```
-
-Implemented EMA/SMA feature windows include:
-
-```text
-7
-15
-30
-```
-
-for relevant representative-gold, XAU/USD, and USD/IRR series.
-
----
-
-# 22. PRE-SP-C.9 — Analytical Read Model
-
-C.9 creates a normalized, auditable, presentation-oriented read contract over:
-
-```text
-C.6 Evidence
-+
-C.7 Interpretation
-+
-C.8 Features
-```
-
-Flow:
-
-```text
-Evidence
-+
-Interpretation
-+
-Features
-    ↓
-Analytical Read Model
-    ↓
-future Telegram / API / dashboard consumers
-```
-
-The read model does not calculate, decide, or predict.
-
-Sections include:
-
-```text
-facts
-evidence_summary
-interpretation_summary
-features_summary
-uncertainty
-outcome_history
-decision
-provenance
-```
-
-Decision is read-only:
-
-```text
-source = existing_decision_engine
-```
-
-Persistence:
-
-```text
-analysis_snapshots.analysis_read_model_json
-```
-
-KPI:
-
-```text
-23/23 PASS
-```
-
----
-
-# 23. PRE-SP-C.10 — Read Model Integration & Audit
-
-C.10 establishes stable retrieval and historical audit around the persisted read model.
-
-Responsibilities:
-
-- retrieve by `analysis_snapshot_id`
-- classify completeness
-- preserve provenance
-- preserve evidence
-- preserve interpretation
-- preserve features
-- preserve outcomes
-- preserve decision context
-- reconstruct historical state without current-data leakage
-- preserve `UNKNOWN`
-- preserve `INSUFFICIENT_DATA`
-- keep `final_decision` read-only
-- perform no new market calculations
-- perform no prediction
-
-Completeness states:
-
-```text
-COMPLETE
-DEGRADED
-INSUFFICIENT_DATA
-INVALID
-```
-
-Historical reconstruction must use only persisted state associated with the selected snapshot and its outcome evaluations.
-
-KPI:
-
-```text
-22/22 PASS
-```
-
-No C.10 schema change was required.
-
----
-
-# 24. C14C — Current Completed Analytical Foundation
-
-C14C is complete.
-
-```text
-C14C
-21/21 KPI PASS
-```
-
-Architectural boundary:
-
-```text
-C14C strengthens analytical intelligence infrastructure.
-C14C does not authorize autonomous learning or prediction.
-```
-
-No Neon migration was required for C14C.
-
-The project should not interpret completion of C14C as evidence that prediction is ready.
-
-The next bottleneck is empirical evidence quality and accumulated historical outcomes, not simply another layer of code.
-
----
-
-# 25. Database Contract
-
-Neon PostgreSQL is the long-term historical store.
-
-| Table | Responsibility |
-|---|---|
-| `market_snapshots` | Existing market observations / canonical market state |
-| `platform_prices` | Platform evidence |
-| `market_states` | Deterministic interpreted market state |
-| `news_events` | Structured external events |
-| `price_observations` | Canonical raw technical time series |
-| `analysis_snapshots` | Scheduled analytical history and analytical packages |
-| `outcome_evaluations` | Retrospective +1h / +6h / +24h measurements |
-| `platform_candles` | 30-minute candles derived from platform readings (C.14A) |
-| `market_daily_candles` | Daily candles from external sources (tgju since 2026-09-30), never mixed with platform prices |
-
-### Hotfix migrations, applied 2026-09-30
-
-```text
-news_events.url        VARCHAR(500) -> TEXT       sql/neon_migration_news_url.sql
-market_daily_candles   new table                  sql/neon_migration_daily_candles.sql
-```
-
-`market_daily_candles` holds one row per source, instrument and completed Tehran
-trading day. First-seen values are never overwritten, and a candle whose low and high
-do not bound it is kept as published, flagged `INCONSISTENT`. Scheduled runs
-fill the history a page of 1,000 per run, oldest first, resuming from the stored count
-(18K gold from 2013, the dollar from 2011, about four runs; section 43); after that
-tgju is asked about once a day. `SP_C_HANDOFF.md` sections 40, 41.6 and 43.
-
-### SP-C.1 additions, applied 2026-09-14
-
-```text
-market_snapshots.collection_mode      scheduled | user | unknown
-price_observations.collection_mode    scheduled | user | unknown
-market_states.valuation_context_json  relative valuation behind each decision
-```
-
-Rows written before this migration carry `unknown` because the distinction was never
-recorded and cannot be reconstructed. Any statistic computed over that history is
-drawn from a sample biased toward the moments a user happened to look, and should be
-read with that in mind. Data written from 2026-09-14 onward separates the two.
-
-`valuation_context_json` exists so the decision scorecard can attribute an outcome to
-what the system actually knew at decision time, rather than to whatever the logic
-would compute when the scoring runs. It is JSONB so the context can evolve without a
-migration for each field.
-
-Verified additive: all seven table counts identical before and after.
-
-`analysis_snapshots` currently carries:
-
-```text
-regime_state
-technical_state_json
-previous_regime
-regime_candidate_state
-regime_confirmation_count
-evidence_package_json JSONB
-intelligence_result_json JSONB
-features_json JSONB
-analysis_read_model_json JSONB
-```
-
-JSONB indexes exist for the persisted analytical packages.
-
-Uniqueness:
-
-```text
-uq_outcome_eval_snapshot_horizon
-uq_analysis_snapshots_source_run_id
-```
-
-Snapshot type constraint:
-
-```text
-snapshot_type IN ('analysis', 'live')
-```
-
----
-
-# 26. Neon Migration Policy
-
-Schema authority is intentionally split:
-
-```text
-sql/neon_schema.sql
-    = complete canonical TARGET schema
-
-sql/neon_migration_*.sql
-    = incremental migration for EXISTING Neon
-```
-
-Never apply the complete target schema as a replacement migration against an already-populated production database.
-
-Any future schema change requires:
-
-```text
-explicit requirement
-→ incremental migration
-→ temporary-branch verification
-→ production application
-→ verification
-→ documentation/state synchronization
-```
-
-Current UPDATE v1 boundary:
-
-```text
-NO NEON MIGRATION REQUIRED
-```
-
-C14C boundary:
-
-```text
-NO NEON MIGRATION REQUIRED
-```
-
-Do not introduce a migration merely because a new feature exists. Demonstrate the persistence requirement first.
-
----
-
-# 27. Historical and News Intelligence
-
-Historical intelligence is descriptive context.
-
-News intelligence is structured external-event context.
-
-Neither independently calculates:
-
-```text
-fair price
-premium
-technical indicators
-BUY/SELL
-```
-
-News failures are non-blocking.
-
-News remains separate from market facts.
-
----
-
-# 28. LLM Boundary
-
-LLM may:
-
-- summarize structured context
-- interpret validated evidence
-- express uncertainty
-- explain relationships already present in the evidence
-
-LLM must not:
-
-- calculate fair price
-- calculate premium
-- calculate indicators
-- invent technical levels
-- invent historical statistics
-- override deterministic state
-- independently issue BUY/SELL
-- mutate historical facts
-- rewrite persisted evidence
-
-Future intelligence may use the deterministic evidence, feature, read-model, and outcome contracts as inputs.
-
----
-
-# 29. Current Forecast Boundary
-
-The forecast engine is operational as a pipeline but is correctly conservative when historical evidence is insufficient.
-
-Current valid state:
-
-```text
-1h  = INSUFFICIENT_DATA
-6h  = INSUFFICIENT_DATA
-24h = INSUFFICIENT_DATA
-```
-
-This is not a failure condition.
-
-It is the correct output when the system lacks sufficient empirical history.
-
-Do not replace `INSUFFICIENT_DATA` with a guessed forecast merely to make the system appear more intelligent.
-
----
-
-# 30. Forecast / EJS Direction
-
-The long-term objective is an Expert Judgment System / future intelligence capability.
-
-The intended progression is:
-
-```text
-historical observations
-→ deterministic features
-→ historical outcome labels
-→ empirical evaluation
-→ evidence weighting
-→ model / judgment architecture
-→ prediction
-```
-
-Before introducing prediction, the project needs sufficient empirical evidence to answer:
-
-- which signals actually matter
-- which combinations are predictive
-- how stable those relationships are
-- how performance changes by regime
-- how much weight should be assigned to each evidence family
-- where the system should abstain
-- how prediction quality is measured out-of-sample
-
-Prediction must remain downstream.
-
-It must never overwrite:
-
-```text
-facts
-evidence
-interpretation
-features
-read model
-historical decision record
-```
-
----
-
-# 31. Post-C14 Research Direction
-
-The next major phase should **not** begin as a blind implementation sprint.
-
-Priority is:
-
-```text
-RESEARCH
-→ EMPIRICAL EVIDENCE
-→ CALIBRATION
-→ ARCHITECTURE DECISION
-→ TARGETED IMPLEMENTATION
-```
-
-Current research areas include:
-
-## A. Momentum / pace calibration
-
-Empirically calibrate:
-
-```text
-SHARP
-NOT SHARP
-STABLE
-```
-
-and acceleration behavior using real production history.
-
-Do not hard-code arbitrary thresholds as if they were market truths.
-
-## B. Bubble dynamics
-
-Study:
-
-```text
-bubble level
-bubble velocity
-bubble acceleration
-price direction
-external-market movement
-```
-
-and identify meaningful regimes.
-
-## C. Forecast evaluation
-
-Build enough historical outcome coverage to evaluate whether current features have predictive value.
-
-## D. Evidence weighting
-
-Determine how:
-
-```text
-valuation
-momentum
-structure
-regime
-XAU/USD
-USD/IRR
-representative gold
-news
-historical context
-```
-
-should contribute to future judgment.
-
-## E. Iranian market-flow research
-
-Potential future sources include:
-
-```text
-Tindex
-TSE / market-flow sources
-Navasan API
-other validated Iranian-market datasets
-```
-
-A possible future extension is money-flow analysis for Iranian gold ETFs and related instruments.
-
-This is research scope, not current UPDATE scope.
-
----
-
-# 32. Telegram / Presentation Boundary
-
-Telegram is a presentation consumer.
-
-It is not:
-
-```text
-calculation engine
-evidence engine
-decision engine
-```
-
-The current UPDATE presentation should remain compact and readable.
-
-Desired conceptual sections:
-
-```text
-MARKET
-PRICE & BUBBLE DYNAMICS
-MARKET STRUCTURE
-PLATFORMS
-CURRENT DECISION
-```
-
-The presentation should expose useful RUN / DAY comparisons where valid.
-
-Do not create analytical logic solely inside Telegram formatting code.
-
-A duplicated application header is a presentation defect, not an architectural state change.
-
----
-
-# 33. Documentation Governance
-
-`PROJECT_MEMORY.md` is the canonical project-specific source of truth.
-
-Rules:
-
-1. Update `PROJECT_MEMORY.md` for every architecture/state milestone.
-2. Update `MASTER_PLAN_STATUS.md` when milestone/phase status changes.
-3. Update `DOCUMENTATION_INDEX.md` when documentation coverage or implementation references change.
-4. Update `README.md` when the human-facing system map or current phase changes.
-5. Update `Prompt_Guide.md` only when generic AI engineering behavior changes.
-6. Update specialist skills only when reusable operating behavior changes.
-7. Do not create duplicate sprint-status documents.
-8. Do not create redundant architecture summaries when the truth belongs here.
-9. Keep SQL schema/migration documentation aligned with Neon state.
-10. Keep `.project_state.json` synchronized with current phase, KPI, Neon state, next phase, and completion state.
-11. Executable evidence outranks prose when verifying implementation.
-12. Historical project context belongs in git history unless it is still architecturally relevant.
-13. Do not create a new documentation file merely to record a small implementation milestone.
-
----
-
-# 34. Project Continuity Protocol
-
-A new AI engineering session must reconstruct state from the repository.
-
-Required read order:
-
-```text
-.project_state.json
-    ↓
-PROJECT_MEMORY.md
-    ↓
-MASTER_PLAN_STATUS.md
-    ↓
-DOCUMENTATION_INDEX.md
-    ↓
-README.md
-    ↓
-Prompt_Guide.md
-    ↓
-PROJECT_ORCHESTRATION.md
-    ↓
-skills/
-    ↓
-relevant source / tests / KPI / SQL
-```
-
-Mandatory implementation handoff:
-
-```text
-inspect repository
-    ↓
-understand architecture boundary
-    ↓
-identify exact change surface
-    ↓
-audit schema impact
-    ↓
-implement minimally
-    ↓
-targeted KPI
-    ↓
-regression KPI
-    ↓
-smoke test
-    ↓
-database verification when applicable
-    ↓
-diff review
-    ↓
-documentation synchronization
-    ↓
-.project_state synchronization
-    ↓
-commit / branch review
-```
-
-No implementation should start from conversation memory alone when repository evidence is available.
-
----
-
-# 35. Verification Standard
-
-Every implementation change follows:
-
-```text
-inspect
-→ define change surface
-→ implement minimally
-→ targeted test
-→ regression
-→ KPI
-→ smoke test
-→ database verification when applicable
-→ diff review
-→ documentation sync
-→ continuity-state sync
-→ commit
-```
-
-Current verified KPI evidence, executed on SP-C and green in CI:
-
-```text
-FULL SUITE   19/19 files, 392 assertions PASS
-compileall   PASS
-```
-
-Two defects were found the first time the suite was executed as a whole rather than
-file by file:
-
-**C.2 had been failing since C.13.** Commit `ff4496d` made snapshot persistence
-idempotent by returning the existing id for a duplicate `source_run_id`, but the C.2
-KPI still asserted the pre-C.13 `-1` sentinel. Because prior-phase KPIs were not re-run,
-this documentation continued to record 14/14 PASS throughout. The implementation was
-correct and the stale assertion was corrected.
-
-**C.14B breaks on modern scikit-learn.** `requirements.txt` permits
-`scikit-learn>=1.3.0,<2.0.0`; versions from 1.7 removed the `multi_class` argument,
-raising `TypeError` in the logistic regression factory and failing 14 of 36 C.14B
-assertions. This was latent rather than harmless — the forecast path returns
-`INSUFFICIENT_DATA` before reaching the factory, so data starvation was masking it. It
-would have surfaced as a provenance error the moment cadence was fixed.
-
-Both were invisible to file-by-file local runs. This is the evidence behind the
-production liveness rule in `PROJECT_ORCHESTRATION.md`.
-
-For local KPI execution:
-
-```cmd
-git pull origin SP-C
-python kpi\run_all.py
-```
-
-`kpi/run_all.py` runs every suite in an isolated subprocess against an in-memory
-database and prints a consolidated result. Individual files may still be run directly,
-but on Windows they require `PYTHONIOENCODING=utf-8`: the scripts print status emoji,
-which raise `UnicodeEncodeError` under the console codepage *after* the assertions have
-already passed, reporting a passing suite as a failure. The runner sets this for its
-children, so prefer it.
-
-The same suite runs in CI via `.github/workflows/kpi-suite.yml` on SP-C pushes, pull
-requests, and manual dispatch. CI never receives `DATABASE_URL` and cannot reach
-production Neon.
-
-Note that the `Gold Premium Monitor` workflow is **not** sandboxed on any branch. It
-uses repository secrets, so running it from a feature branch still writes to production
-Neon and sends real Telegram messages.
-
----
-
-# 36. SP-B Closure Mapping
-
-Original SP-B names are architectural placeholders and do not require duplicate module boundaries.
-
-| Original | Current role |
-|---|---|
-| SP-B.3 | Analysis Wing / bounded interpretation |
-| SP-B.4 | Telegram analytical read models |
-| SP-B.5 | Combined read model over persisted analytical state |
-
-Do not create duplicate agent/radar layers solely to preserve historical sprint names.
-
----
-
-# 37. Future Consumer Contract
-
-The stable downstream ownership remains:
-
-```text
-FACTS
-    ↓
-EVIDENCE
-    ↓
-INTERPRETATION
-    ↓
-FEATURES
-    ↓
-READ MODEL
-    ↓
-CONSUMER
-    ↓
-DECISION AUTHORITY
-    ↓
-FUTURE PREDICTION
-```
-
-Consumers may include:
-
-```text
-Telegram
-API
-dashboard
-future intelligence interface
-```
-
-Consumers must not rebuild upstream analytical calculations.
-
----
-
-# 38. Architecture Regression Guardrails
-
-Any future change must explicitly answer:
-
-```text
-Does this change alter collection?
-Does this change alter canonical observations?
-Does this change alter calculation ownership?
-Does this change create a second decision authority?
-Does this change mix news with market facts?
-Does this change introduce look-ahead leakage?
-Does this change create a new persistence requirement?
-Does this change move logic into presentation?
-Does this change alter RUN / DAY semantics?
-Does this change make UPDATE execute the full Analysis pipeline?
-Does this change introduce prediction before empirical readiness?
-```
-
-If any answer is unclear, stop and inspect before coding.
-
-The project prioritizes preservation of architectural boundaries over implementation speed.
-
----
-
-# 39. Current Bottom Line
-
-As of the current project state:
-
-```text
-SP-A                 COMPLETE / FROZEN
-SP-B                 COMPLETE through C.10
-C14C                 COMPLETE — 21/21 KPI PASS
-UPDATE v1            OPERATIONAL
-NEWS INGESTION       OPERATIONAL
-FORECAST PIPELINE    OPERATIONAL / INSUFFICIENT_DATA
-NEON MIGRATION       NOT REQUIRED FOR C14C / UPDATE v1
-ARCHITECTURE         PRESERVED
-```
-
-The system has moved beyond basic collection and deterministic market-state construction.
-
-The current strategic bottleneck is:
-
-```text
-EMPIRICAL MARKET HISTORY
-+
-FORECAST OUTCOME HISTORY
-+
-CALIBRATION
-+
-EVIDENCE QUALITY
-```
-
-Therefore:
-
-```text
-DO NOT BLINDLY CODE THE NEXT SPRINT.
-```
-
-The next major implementation phase should follow research and evidence review.
-
-The long-term destination remains:
-
-```text
-COLLECT
-→ VALIDATE
-→ STORE
-→ ANALYZE
-→ EVALUATE
-→ LEARN FROM HISTORY
-→ BUILD EXPERT JUDGMENT
-→ PREDICT
-```
-
-while preserving the deterministic and auditable architecture underneath.
-
-
----
-
-## SP-C.5 — UPDATE presentation and the valuation basis (2026-09-16)
-
-Recorded in full in `SP_C_HANDOFF.md` section 15, including the measurements behind
-each decision. Summary of what is now authoritative:
-
-**Valuation basis.** The discount shown to a reader is the mean of the three cheapest
-platforms, not the single cheapest. The minimum sits more than 3 median absolute
-deviations below the median of the rest in 62% of 332 snapshots — a tail point, not a
-market level — and carried eight times as many >1 pp artefact jumps. The minimum is
-still resolved and displayed as the market low, the execution price.
-
-This is a **display-path change only**. `market_snapshots.premium_percent` is still
-computed from the single cheapest platform and remains what the decision engine,
-`outcome_evaluations` and `analysis_snapshots` consume. The two are deliberately split
-until a phase with its own approval recomputes the stored column. Any code comparing a
-displayed discount against a stored one must account for this.
-
-**Distribution sample.** The 30-day window prefers `collection_mode == "scheduled"`
-rows once there are at least 30 of them spanning at least 14 distinct local days.
-Both conditions are required: 30 readings at hourly cadence is under two days, and the
-Iranian Thursday-Friday weekend runs 0.28 and 0.40 pp deeper than the weekday median,
-so a seven-day span either contains a weekend or does not. The window is rebuilt from
-`platform_prices` on the trimmed basis so that reading and window never mix bases.
-
-**Time.** `src/timeutil.py` is the single definition of local time: a fixed UTC+3:30
-offset. Everything that stores a timestamp stores UTC; everything that displays one or
-groups by day converts first. This covers the message footer, the reference times,
-`trend_resolver` day grouping and its completed-days window, and the `vs Today`
-baseline. Grouping by the stored UTC date cut each day at 03:30 local.
-
-**Decision display.** UPDATE no longer prints BUY/WAIT/SELL. `final_decision` is
-unchanged as the sole alert authority and is still computed and stored every run; only
-its display moved, pending the ANALYZE message where the reasoning chain can accompany
-it.
-
-**Invariant unchanged and re-verified:** the 7D average is an average of daily
-averages, each day weighted equally regardless of reading count, and abstains rather
-than averaging a partial week.
-
-
----
-
-## SP-C.6 — three latches (2026-09-18)
-
-Full record in `SP_C_HANDOFF.md` section 16; failure patterns generalised in
-`LESSONS_LEARNED.md`. What is now authoritative:
-
-**The decision engine had never run.** `apply_hysteresis` suppressed a repeat of the
-same decision with no time bound, and `state.json` persists across runs, so the first
-BUY ever sent disabled every BUY after it. 100 of 100 BUY candidates held;
-`final_decision` was WAIT on all 264 stored decisions. The gate now honours
-`cooldown_hours` (default 24) against a persisted `last_alert_at`, and fails open on
-an unknown timestamp rather than reinstating the latch.
-
-**Correction to a previously recorded finding.** The decision scorecard's "edge 0.0"
-was recorded as evidence the strategy does not work. It is not. The scorecard scored
-`final_decision`, which was a constant, so it compared always-WAIT against always-WAIT.
-The conflict matrix, valuation bands and momentum logic are **untested in production**,
-not failed. Any future reading of that scorecard number must account for this.
-
-**Regime thresholds are now calibrated, not fixed.** `premium_magnitude > 2.0` fired on
-250 of 252 snapshots and `platform_spread > 500000` on 252 of 252, so `regime_state`
-read PANIC on all 96 analysis snapshots. `resolve_stress_thresholds` recalculates
-those two plus `premium_change` at the 80th percentile of the 30-day window; both now
-fire on 50 of 252. `volatility` and `usd_change` remain unverified constants and were
-deliberately not touched.
-
-**Collection had an unbounded subprocess.** `get_usd_sell_rate` ran a third-party CLI
-with no timeout, and 8 of 70 workflow runs were killed by the 20-minute job timeout
-after a network stall. That is the cause of the 2-3 hour gaps in hourly collection.
-Bounded at 60 seconds; the caller's existing fallback degrades USD/IRR to None.
-
-**Sequencing.** The repaired engine has not yet issued a decision. Track record,
-expectancy and the ANALYZE feedback loop all require a decision history that varies,
-so there is an observation period before anything is built on top.
-
-
----
-
-## SP-C.7 - reference distribution is settled, not live (2026-09-20)
-
-Full record in `SP_C_HANDOFF.md` section 17.
-
-`resolve_relative_valuation` draws its reference distribution from **completed local
-days only**, with the 30-day window measured back from that boundary, and excludes
-collection_mode 'user' rows from the fallback sample as well as the clean one. Two
-consequences any future change must preserve:
-
-- **`Deep discount` is constant within a local day** and steps once at the boundary.
-  It moved up to fifteen times in three days before this, because the percentile
-  index advances as the window grows and because the reader's own Update calls were
-  inside the window: pressing Update moved the number being read. (The rank itself
-  became `DEEP_DISCOUNT_PERCENTILE` in SP-C.13; the settling rule is unchanged.)
-- **`Bigger than X%` deliberately stays live.** It ranks the current reading; only
-  the distribution behind it is frozen.
-
-The reference therefore ignores the current partial day, matching the rule
-`trend_resolver` already applies to the 7D average.
-
-
----
-
-## SP-C.8 — world gold provenance, and a correction (2026-09-20)
-
-Full record in `SP_C_HANDOFF.md` section 18.
-
-**A cached world gold price is now distinguishable in storage.** `source` reads
-`kitco` when live and `kitco_cached` when served from a fallback, and `freshness` is
-evaluated against the value's real observation time instead of
-`evaluate_freshness(now, now, ...)`, which was FRESH by construction on all 3,316
-stored rows. Both fallbacks return `(price, observed_at)` rather than discarding the
-age. Platform observations deliberately keep collection-time freshness: a platform
-does not disclose the age of its own quote.
-
-**Correction to an alarm raised in this session.** 36 of 39 consecutive identical
-XAU/USD readings were reported as probable fallback abuse. They are market closure.
-XAU/USD repeats on 100% of weekend readings and 0-3% of weekdays; USD/IRR repeats on
-61-69% of Thursday and Friday readings. The severity of the provenance finding drops
-from High to Medium accordingly: the defect is real, but there is no evidence the
-fallback fires often.
-
-**Open, and larger than the above.** Closed-market readings are structurally
-different from open-market ones -- median gap 3.06% against 3.44% -- and nothing
-marks them. They sit in the same 30-day distribution, so a weekend reading is ranked
-against a pool that is 70% weekday. Measured distortion: the threshold is biased
-0.09 pp, and a weekend reading's rank moves 13.8 points on average when ranked within
-its own session instead. Session marking is approved in principle; the design is open.
-
-
----
-
-## Market sessions (2026-09-20)
-
-Full record in SP_C_HANDOFF.md section 19. Three things a future session must not get
-wrong:
-
-**Iran and the world keep opposite calendars.** Saturday is the first day of the
-Iranian working week. XAU/USD does not move at all on Sat/Sun; USD/IRR moves on 60-74%
-of those readings. On Thu/Fri -- the Iranian weekend -- it inverts: XAU moves on
-98-100% of readings and USD on 28-29%. The two drivers take turns.
-
-**Fair value is NOT frozen when world gold is closed.** Fair value is XAU x USD, and
-USD is live on Sat/Sun. Observed closures moved fair value by up to +4.02% and -3.41%
-with the world market shut throughout. Any statement that weekend fair value is stale
-is wrong.
-
-**Closed-market readings are deliberately pooled with open-market ones.** Investigated
-and rejected: the buyer's decision spans sessions, the systematic difference (0.28 pp)
-is smaller than the reopen uncertainty (0.52 pp), and Sat/Sun are Iran's most active
-days rather than degraded observations. No session column, no split ranking, no
-user-facing driver line. Re-test when a dozen reopen transitions exist; the current
-conclusion rests on six.
-
-**Open for ANALYZE:** outcome evaluation horizons are session-dependent. A 24h horizon
-spanning a closure measures Iranian-side movement alone. The feedback loop rests on
-those evaluations, so this needs testing before it is trusted.
-
-
----
-
-## SP-C.9 - collector ceiling (2026-09-21)
-
-Full record in `SP_C_HANDOFF.md` section 20.
-
-`collector/iran.get_market_prices` documented a 20-second global ceiling that did not
-bind: `future.cancel()` cannot cancel a started future, and the ThreadPoolExecutor
-context manager then called `shutdown(wait=True)`. Since `requests`' `timeout=` does
-not bound DNS resolution, a degraded network hung a collector thread and the whole run
-died at the job timeout with nothing written. Now daemon threads with one shared
-deadline; a hung collector costs one platform, not the run.
-
-**Fourth instance of a documented bound that did not bind** -- after the decision
-hysteresis, the regime hysteresis and the bonbast subprocess. When reviewing any
-timeout in this codebase, check that the mechanism can actually interrupt the thing it
-claims to cap.
-
-
----
-
-## SP-C.10 - news sources (2026-09-21)
-
-Full record in `SP_C_HANDOFF.md` section 21.
-
-**The news feed was collecting general Iranian news, not market news.** mehrnews.com
-supplied 1,987 of 2,278 items over seven days with zero relevant among them -- opium
-seizures, weather, basketball. Three further feeds (Tasnim, Eghtesad Online, CBI) were
-geoblocked from the GitHub runner and returned nothing. `EVENT_STRESS` had never fired
-because the sources could not produce a market event, not because the classifier was
-weak.
-
-Replaced with targeted Google News queries (gold price, iran rial currency, middle
-east strike OR attack) plus investing.com commodities and two Iranian economic papers.
-**A topic query sets signal-to-noise at the source** rather than ingesting a nation's
-news and filtering afterwards.
-
-**`news_events.source` now records feed identity** instead of the constant `rss`. The
-dedup key deliberately still hashes the historical `rss` namespace: it was always
-effectively a title hash, and changing it would re-key the corpus and break
-cross-feed deduplication.
-
-**2,861 mehrnews rows deleted** with before/after verification; all other table counts
-unchanged.
-
-**Unresolved:** donya-e-eqtesad.com and tejaratnews.com parse from inside Iran but are
-unproven from a GitHub runner. Check their per-source yield after a day of scheduled
-runs; silent geoblocking is what killed the previous three.
-
-
----
-
-## SP-C.11 - outcome premium leg (2026-09-21)
-
-Full record in `SP_C_HANDOFF.md` section 22.
-
-`_get_nearest_recorded_premium` applied its scheduled-preference to the whole window
-before choosing the nearest row, and bounded that window on one side only. A scheduled
-reading an hour from the target therefore shadowed an unscheduled one four minutes
-away, the fallback never ran, and the lookup returned `None` despite a usable row
-existing. 26 of 249 `COMPLETE` evaluations were written with no premium leg at all.
-
-**Proximity now decides; `scheduled` only breaks a tie**, and the window is bounded on
-both sides of the target. The preference still does the job it was written for --
-stopping a user's click from becoming an outcome -- without discarding good data.
-
-All 26 rows were repairable and have been backfilled. `COMPLETE` rows with a missing
-premium leg: 0. Row counts on every table unchanged.
-
-**Note for anyone consuming outcome_evaluations:** nothing in `src/` reads the premium
-leg yet -- `dataset.py` labels on `rep_gold_direction`. The ANALYZE feedback loop will
-be its first consumer.
-
-
----
-
-## SP-C.12 - ANALYZE and the push (2026-09-21)
-
-Full record in `SP_C_HANDOFF.md` section 23.
-
-**ANALYZE** reports what the record shows: what followed past readings at the current
-level, the 30-day distribution and deep zone, how fast the local price moves, and the
-sample everything rests on. No decision, no forecast. The decision record is built and
-hidden until it has a sample.
-
-**`/Analyze` is a read-only wing.** A third workflow mode, `report`, carried by its
-own `REPORT_ONLY` variable and returning before any collection. Required by
-`skills/telegram-product.md`: a user request must not silently become an Analysis Wing
-execution. Asserted by row counts, not by comment.
-
-**The push** fires when the discount reaches the 85th percentile of its own 30-day
-window and re-arms only below `fire - 1.5 x (p90 step size)`, floored at 0.25 pp. Both
-levels recomputed from completed days. The band is a width rather than a second
-percentile because a percentile pair's width drifted 0.24 to 0.84 pp against noise of
-0.46 pp, and at the narrow end would not have filtered anything.
-
-**The gate fails open.** Unknown armed state means armed. The flag lives in the same
-Actions cache whose loss latched `last_alert` into permanent WAIT. A lost cache must
-cost a duplicate message, never silence.
-
-**Neither surface recommends.** No BUY, SELL or WAIT in either, per the standing rule
-that external alerts are driven only by `final_decision`.
-
-**Measurement note:** deep-zone episodes break across gaps over three hours. The
-series has a nightly nine-hour hole, and bridging it reported a two-hour zone as
-fifteen.
-
-
----
-
-## SP-C.13 - one deep-discount level, shared by every surface (2026-09-21)
-
-Full record in `SP_C_HANDOFF.md` section 24.
-
-**The defect.** `Deep discount` named two different numbers on the same day: 3.29% in
-UPDATE (the 40th percentile of the signed gap) and 3.70% in ANALYZE and the push (the
-85th of the size). A reader at 3.40% was told deep by one surface, not deep by the
-other, and received no push. Found by the product owner reading the three production
-messages together.
-
-**The rule.** *The number a reader is shown is the number the system acts on.* Any
-future surface that prints a level must take it from the level that acts, not from a
-rank of its own.
-
-**One definition.** `bubble_position.DEEP_DISCOUNT_PERCENTILE = 85` and
-`bubble_position.deep_discount_threshold()` are the single source.
-`analyze_report.DEEP_ZONE_PERCENTILE` and `push_trigger.FIRE_PERCENTILE` are aliases.
-`analyze_report._percentile` is now an alias of `bubble_position._value_at_percentile`
-rather than a byte-identical copy. Do not reintroduce a local rank or a local
-percentile formula in any of these modules -- three equal constants in three files is
-the state that produced the defect, and `kpi_sp_c4.test_23c` / `kpi_sp_c6.test_24d`
-read the source to prevent it.
-
-**The pool is shared, the ranking pool is not.** The threshold is drawn from the
-settled non-user pool (`reference_readings`) on every surface. It deliberately does
-**not** follow the scheduled-only gate that `resolve_relative_valuation` applies to
-`Bigger than X%`: measured 2026-09-21, the two pools put p85 at 3.70% and 3.64%, and
-the gate opens 2026-09-28, so a shared rank over unshared pools would have split the
-number again within a week. Ranking and thresholding answer different questions; only
-the threshold must match across surfaces, because the push acts on it.
-
-**The threshold is a size, and only describes discounts.** `deep_at` is now a positive
-number. UPDATE prints the line, and the push fires, only when the current reading is
-below fair value. Re-arming stays sign-blind so a flip to premium re-arms rather than
-holds. Without this a premium regime would have alerted under the heading DEEP
-DISCOUNT. Latent only: all 437 readings on record are discounts.
-
-**Thresholds compared against readings are never rounded.** Gaps land on values like
-`8.999999999999996`; rounding to `9.0` lifted the level above its own source readings
-and a zone containing eight of them measured zero episodes. `fire_at`, `rearm_at` and
-the deep-zone threshold are unrounded. `band_pp` and `noise_pp` are displayed only and
-stay rounded.
-
-
----
-
-## SP-C.14 - cross-cutting coherence is now a test (2026-09-21)
-
-Full record in `SP_C_HANDOFF.md` section 25.
-
-**`kpi/kpi_coherence.py` checks modules against each other**, which no other KPI file
-does. Every file before it checks one module or one surface against the market, which
-is why 25 passing files coexisted with `Deep discount` meaning two numbers. Suite is
-now **26 files**.
-
-**Accepted divergences live in a register**, `ACCEPTED`, at the top of that file. Each
-entry must name what diverges, why it is tolerated and a document that records it, and
-the tests enforce all three. **An entry whose divergence has been fixed fails the
-suite**, so the register cannot go stale the way the defect index did.
-
-**Found on its first run:** a third byte-identical copy of the percentile formula in
-`regime.py` (now delegating); `caluclator/valuation.py` reading config keys that do not
-exist, so the configured sell threshold of 3.0 has never been in effect and editing
-config does nothing; `valuation_context_json` persisted on every run and read by
-nothing.
-
-**The valuation leg is a constant and this is open.** `valuation_state` is CHEAP on
-364 of 364 rows. On the 134 rows that also carry the percentile band, the two labels
-disagree 114 times -- CHEAP beside EXPENSIVE in the same row. Stored `premium_percent`
-spans -8.19% to -1.52% and the `-1.5` threshold has never been crossed in 438
-readings. One of the conflict matrix's three inputs carries no information. Replacing
-it is a foundation change to the SP-A pipeline and needs its own phase.
-
-**A correction to this file.** The defect index recorded `valuation_state read CHEAP on
-every reading` as resolved in SP-C.2. It was not: SP-C.2 fixed the reader's valuation
-and left the column the decision engine reads untouched. The row is corrected above.
-Future index entries name the class and list its open instances, not just the instance
-that was fixed.
-
-
----
-
-## SP-C.15 - the valuation leg carries information (2026-09-21)
-
-Full record in `SP_C_HANDOFF.md` section 26.
-
-**What was wrong.** `valuation_state` was CHEAP on 364 of 364 rows. Its fixed
-threshold of `-1.5` sat 0.02 pp outside the entire observed range of 438 readings, so
-it had never been crossed. It is the first input to the conflict matrix, so every
-decision the engine has made rested on two legs while reporting three.
-
-**The leg is now a rank with a direction gate.**
-`caluclator.valuation.classify_valuation` is the only place a valuation label is
-produced:
-
-```text
-CHEAP       rank < CHEAP_PERCENTILE       AND  premium <= buy_premium_percent
-EXPENSIVE   rank >= EXPENSIVE_PERCENTILE  AND  premium >= sell_premium_percent
-FAIR        anything else
-UNKNOWN     no rank -- too little history
-```
-
-**The direction gate is load-bearing, do not remove it.** A percentile-EXPENSIVE
-reading means "less discounted than usual", not "above fair value", and the matrix
-turns EXPENSIVE + WEAKENING into SELL. On rank alone this engine would issue SELL on a
-market trading 1.6% *below* fair value. On the record the sell gate never opens
-because the highest premium ever stored is -1.52%. That is correct, not degenerate:
-the world has not supplied the other case. See `LESSONS_LEARNED.md` section 13.
-
-**No fallback.** Below `MIN_OBSERVATIONS` the answer is UNKNOWN and the matrix
-abstains. A fallback that always answers is how this leg became a constant.
-
-**The reference is settled and excludes user rows**, on the SP-C.13 pool discipline,
-and ranks the **stored** `premium_percent` against a window of stored
-`premium_percent` (`stored_premium_series`). Ranking it against the trimmed basis
-would move it 0.55 pp on median with no market movement.
-
-**`build_signal_state` no longer classifies**, it receives. Ranking needs a window, a
-window needs a session, and a calculator must not open one. Omitting the argument
-yields UNKNOWN.
-
-**One classifier.** `bubble_position._classify_band` delegates to the same function,
-so `valuation_context_json` and `valuation_state` cannot contradict each other again;
-they disagreed on 114 of 134 rows. `TYPICAL` became `FAIR`.
-
-**Config keys that were never read.** `valuation.py` asked for `buy_premium` /
-`sell_premium`; config defines `buy_premium_percent` / `sell_premium_percent`. Both
-missed and fell through to hardcoded defaults, so the configured sell threshold of 3.0
-had never been in effect. Fixed. `cooldown_hours` is now defined at 24, the value
-already in force.
-
-**Measured over the record.** `CHEAP 366` becomes `CHEAP 111, FAIR 222, UNKNOWN 33`;
-candidates `BUY 131` becomes `BUY 63`; 91 of 366 candidates change. Collapsed to one
-observation per local day, CHEAP readings were followed by the discount narrowing
-78.6% of the time against 41.0% for FAIR. Descriptive, in-sample, not a validated
-edge.
-
-**Also fixed:** ANALYZE's projected `clean from` date was a day early. The window is
-settled, so the gate opens the day after the last missing scheduled day is banked.
-
-
----
-
-## SP-C.16 - the tidy pass (2026-09-21)
-
-Full record in `SP_C_HANDOFF.md` section 27.
-
-**`resolve_bubble_position` now settles its window.** It used `datetime.now()`, ranked
-against a window that ran to `now`, and counted user rows -- the SP-C.5 and SP-C.7
-defects, fixed once in a sibling and never back-ported. It uses `reference_readings`
-now, so the audit record in `valuation_context_json` is ranked the same way as the
-decision it accompanies. `kpi_coherence.test_18` asserts both resolvers settle.
-
-**One clock.** 74 calls to `datetime.now()` across 14 modules are now `utcnow`.
-Everything stored is UTC; the machine clock was correct only because CI runners are
-UTC. `kpi_pre_sp_c2.test_13` proved it -- a two-hour lookback reached back five and a
-half hours on a UTC+3:30 workstation and passed in CI. **No `datetime.now()` may
-appear anywhere in `src/`**; `kpi_coherence.test_19` enforces it.
-
-**One definition per tolerance.** `src/tolerances.py` holds `UNCHANGED_DEADBAND_PP`
-and `COMPARABLE_BAND_FRACTION`. They existed as six constants under four names across
-four modules. `kpi_coherence.test_20` forbids a local redefinition.
-
-**The news classifier was matching on image URLs.** `IRAN_US_NEGOTIATION` held 879 of
-1441 articles -- including an advertisement and a tourism piece -- because `"us"`
-matched as a bare substring inside base64 image tokens in RSS summary HTML. Fixed on
-four fronts: markup and long tokens are stripped before classification; matching is on
-word boundaries; specific rules need a subject **and** an action; Persian keywords
-added, since the two highest-volume sources publish in Persian and `طلا` appeared 6
-times in 1441 rows. Bare `"us"` is gone as a country token -- lowercased, it is also
-the English pronoun. 1070 rows re-classified in place; only classification columns
-were touched. `IRAN_US_NEGOTIATION` 879 -> 27, `UNKNOWN` 288 -> 904. **The rise in
-UNKNOWN is the improvement**; the old figure was bought by mislabelling.
-
-**Registered, not fixed -- both need a product decision:**
-
-- **The structure leg fires rarely.** `structure_state` is `DISCOUNT_DOMINANT` on
-  365 of 367 rows. **Corrected in SP-C.17:** that is not the same as carrying no
-  information. Measured, the leg separates at z = -2.04 on the seven days it fires
-  the other way, while platform spread, cheapest-to-median gap and breadth sit at
-  z = -0.98, 0.07 and 1.40 -- all within one standard error of chance. It stays, and
-  `PREMIUM_DOMINANT` must remain reachable. Section 28.
-- **The news LLM path has never run.** `classification_method` is KEYWORD on all rows.
-
-**News in ANALYZE: no, not yet.** Asked directly; answered with evidence. After the
-repair the classifier is 62% UNKNOWN, impact is UNKNOWN on 94% and direction on 91%,
-and busy news days differ from quiet days by 0.19 pp of intraday premium range on 22
-observations a side. A line in ANALYZE would lend a measured report's authority to
-that. Three-stage proposal in section 27.7: the repair (done), then measure daily
-article count as a rank against forward discount movement, then -- only if the
-separation is real -- one line in the DATA section phrased as a count and a rank, with
-no direction or sentiment.
-
-**Also fixed:** ANALYZE's projected `clean from` date was a day early; it reads
-2026-09-28 now, which is correct.
-
-
----
-
-## Current state (2026-10-15)
-
-Full record in `SP_D_HANDOFF.md` (SP-D, sections 1-35) and `SP_C_HANDOFF.md` (SP-C and
-the pre-SP-D hotfixes, closed). The machine-readable mirror is `.project_state.json`.
-
-```text
-branch        main is production. main and SP-D at SP-De's second batch since 2026-10-15 (the quant
-              fit, the 21:00 chart without the database, the spool; SP-D 35.1-35.4). Safe tags before each merge: v1.3safe
-              (SP-C), v1.4safe (Direction), v1.5safe (its section 8 fix), v1.6safe
-              (PAPER), v1.7safe = 2957699 (the go-live hotfix), v1.8safe (the node), v1.9safe (SP-Dd),
-              v1.10safe to v1.17safe (SP-De). SP-D work lands on sub-sprint branches (sp-de) and reaches
-              main only after the owner's review, safe tag first
-database      Neon suspended from 2026-10-13 21:00 Tehran to 2026-11-01 (the free plan's 5 GB transfer,
-              SP-D 34): runs stay green; what they cannot write waits in the spool (35.4); 21:00 sends
-              the chart from tgju (35.2)
-SP-D          Direction live since 2026-10-03 (sections 1-8): 06:00 and 13:00
-              panels, /Direction; first forecasts resolve in early November.
-              PAPER live since 2026-10-05 18:01 (sections 9-28): six accounts, the
-              room is the front office and the only one that pushes
-production    hourly ANALYZE 06:00-21:00 Tehran, every run green since the
-              2026-10-05 check; cron-job.org and the worker dispatch ref main
-KPI           30/30 files, 802 assertions, exit 0 (2026-10-06, 04a37e1); CI green
-decision      FAIR / WAIT on every reading since 10-05; all time WAIT 663, BUY 4
-platforms     9 of 11: Daric 403 from the runner since 10-03; Taline's frozen copy
-              stored when inside its band (section 29)
-room inputs   tgju candles daily; tablokhani TEDPIX and Afran; etfbaz at 21:00;
-              histories before production from src/seed
-not in prod   the LLM member (designed into the room, weight 1.0, SP-D 17-18; not
-              built); GDELT (tested, research only); the Iran-side node (Termux,
-              from 2026-10-07); broadcast (PARKED until the room and PAPER prove out)
-```
-
-**Open.** Taline's frozen copies; Daric refused from the runner, so PAPER trades on
-Goldika's 2.37% spread; `AFRAN_LAST` dated one to two sessions late. The reliability
-items in the index above (news dedup, `high_impact_count`, the outcome backfill's
-retries, `MAX_WORLD_GOLD`, the stale tests) are still open. The owner's order
-(2026-10-06, `SP_D_HANDOFF.md` section 29): Taline's frozen copies first; the Iran-side
-node on Termux and a total revamp of the Direction message from 2026-10-07; then the
-LLM member. Broadcast is parked.
+- **Ownership.** Collectors collect, calculators calculate, intelligence interprets, presentation
+  formats, persistence stores. A message never computes a market fact.
+- **Unknown over invented.** `UNKNOWN` and `INSUFFICIENT_DATA` are valid answers. On missing data: a
+  safe deterministic fallback with degraded provenance if one exists, otherwise abstain; never
+  extrapolate.
+- **The LLM** may summarise, label and express uncertainty over validated inputs. It never computes
+  a price, a premium or an indicator, never invents a level or a statistic, and never holds BUY/SELL
+  authority.
+- **Research informs design only.** No execution, no broker, no reinforcement learning, no model that
+  rewrites its own weights from feedback.
+- **Alerts.** `final_decision` is the sole BUY/SELL alert authority; a candidate never alerts. The
+  deep-discount push and the room's trades are separate, documented pushes. This rule is under review
+  (section 6).
+- **Wording** (owner): "heavily discounted", never "cheap"; increased and decreased; every change says
+  against what; one header per message.
+
+## 3. What runs
+
+Production is `main`, dispatched by cron-job.org and the Cloudflare worker with `ref: main`
+(`PROJECT_OPERATIONS.md`). One workflow, `gold-monitor.yml`, has four modes:
+
+| Mode | Trigger | What it does |
+|---|---|---|
+| UPDATE | `/Update` | collect, validate, the current discount and platforms; writes its reading as `user` |
+| ANALYZE | cron-job.org, hourly 06:00-21:00 Tehran | the scheduled run (section 4); `SCHEDULED_RUN=true` |
+| REPORT | `/Analyze` | reads the record, collects nothing; says the database is unreachable when it is |
+| DIRECTION | `/Direction` | sends the stored panel, or computes it live from tgju when none can be read |
+
+**What a reader receives:**
+
+| Surface | When | Module | State on 2026-10-16 |
+|---|---|---|---|
+| UPDATE | on demand | `alerts/telegram_update_v1.py` | live; a locked layout |
+| ANALYZE | on demand | `alerts/telegram_analyze.py` | live; honest when Neon is out of reach |
+| Direction | panel computed at 06:00 and 13:00, sent on `/Direction` | `analysis/direction.py`, `alerts/telegram_direction.py` | v7 (SP-D 35.11) |
+| BUY signal | when `final_decision` is BUY | `alerts/telegram_signal.py` | live; the confirmation holds every BUY while Neon is down |
+| Deep-discount push | scheduled runs | `analysis/push_trigger.py` | **parked** by the owner until Neon returns ("it may mislead the user") |
+| The room's trades | when the room trades | `alerts/telegram_paper.py` | live; the only PAPER account that pushes |
+| The 21:00 report and chart | first run from 21:00 | `alerts/telegram_paper.py`, `alerts/chart.py` | live; support and resistance with the patterns (37.5); sent from tgju when Neon is out of reach (35.2) |
+| Daily recap | — | `alerts/telegram_*`, `alerts/email_*` | **parked** 2026-10-15 (`config.email.send_daily_recap`) |
+
+**Parked, not deleted** (owner, 2026-10-16: the Analysis Wing "is to be rethought, not retired"):
+`config.analysis_wing` turns off the evidence package, interpretation, features and read model, the
+C.14A candles and the C.14B forecasts. Nothing a reader sees reads them. The whole wing took 82% of a
+run (4m46s of 5m50s on 10-12, SP-D 36.2). The snapshot's core and the outcome evaluations still run,
+and the outcome backfill is now the longest stage (37.2). `true` brings a part back.
+
+**Not in production:** the LLM member of the room, GDELT, broadcast to other readers (parked), the
+Telegram-channel news reader (`collector/news/telegram_channels.py`, research only), the room alert at
+3 of 8 (agreed, not built).
+
+## 4. The scheduled run
+
+`src/main.py`, in order:
+
+1. **Flush the spool** (section 7) before the run takes its time.
+2. **Collect**, each source isolated:
+   - eleven platforms under one deadline;
+   - world gold: gold-api.com, then Kitco's stream, then goldprice.org, under one 60-second deadline;
+   - the dollar from bonbast.
+3. **Validate** (`validation/data.py`). Sanity ranges, then the stale-quote rules: the source's own
+   price time, a repeat, a jump, and Taline's 1% band. They act on that reading only; `CLAUDE.md` gives
+   them in full.
+4. **Store the observations** (`price_observations`): the representative price, and BUY and SELL rows
+   for the two-sided platforms.
+5. **Decide**:
+   - fair value and the premium from the single cheapest platform;
+   - the valuation leg, as a rank;
+   - momentum, structure and the conflict matrix give the candidate;
+   - the confirmation, then hysteresis, give `final_decision`.
+6. **Persist** `market_snapshots`, `platform_prices` and `market_states`, or hold them in the spool.
+7. **Then:**
+   - news ingestion;
+   - tgju's daily candles;
+   - the room's inputs (tablokhani, etfbaz);
+   - the Direction panel (06:00 and 13:00);
+   - PAPER (trades, and at 21:00 the report);
+   - the evening fallback;
+   - the analysis snapshot's core and outcome evaluations;
+   - the deep-discount push.
+8. **Send** the BUY or SELL alert if `final_decision` gives one.
+
+A normal run took about 6 minutes before the wing was parked; the new time is measured once Neon is
+back. The runner is pinned to `ubuntu-24.04`.
+
+## 5. The data and what it means
+
+**Platforms.** Eleven Iranian platforms, collected from GitHub's runner. Daric refuses the runner
+(since 2026-10-03) and is read by the owner's phone. What each one's `price` means differs (SP-D
+37.7):
+
+| Platform | `price` | Both sides stored |
+|---|---|---|
+| Daric, Goldika | what a buyer pays | yes |
+| Taline | between its two sides | yes, from 10-16 |
+| Ayyareh | its published price; the fees give the sides | no: the representative chain reads it |
+| Milli, Invi, WallGold | one price, side not published | no |
+| MioGold, Parasteh, HoorGold, Eligold | a gallery's reference price, not a raw-gold price | no |
+
+So "the discount" compares mixed kinds of number. That is known and kept, because changing what
+`price` means would break every rank and level drawn from its history. A one-sided discount is to be
+measured before any change.
+
+**The quantities.**
+- **Fair value:** world gold × the dollar × 0.75 / 31.1035.
+- **The discount a reader sees:** the mean of the three cheapest platforms against fair value
+  (`analysis/bubble_position.cheap_basis_price`).
+- **The stored `premium_percent`:** from the single cheapest platform. The engine, outcomes and
+  snapshots read this one, and the split is deliberate (`SP_C_HANDOFF.md` 15.1).
+- **The deep-discount level:** one number for every surface, `deep_discount_threshold()` over the
+  settled non-user pool. Never rounded before a comparison (`SP_C_HANDOFF.md` 24).
+- **The representative price:** Milli, then Ayyareh, then WallGold, else UNKNOWN; first valid wins,
+  with provenance kept.
+
+**Time.** Stored in UTC, shown and grouped by day in Tehran time: `timeutil`, fixed UTC+3:30.
+`datetime.now()` is banned in `src/`. Morning readings, before about 11:00 Tehran, can carry
+yesterday's dollar (`SP_C_HANDOFF.md` 34.3).
+
+**Daily series** (`market_daily_candles`, never mixed with platform prices):
+- tgju: 18K from 2013, the dollar from 2011, world gold;
+- tablokhani: TEDPIX, Afran's close;
+- etfbaz, one reading a day: Tether, the dollar, melted gold, 18K, world gold, TEDPIX;
+- the phone: TSETMC's gold-fund money flow, via `iran_node_readings`;
+- `src/seed/`: the histories production cannot fetch, extended by these daily readings.
+
+Read daily candles through `persistence/candle_cache.py`.
+
+**News.** RSS feeds (`config.news.sources`) with a keyword classifier, which records `relevance`,
+`impact` and an event type, never a gold direction (UNKNOWN since 2026-09-21). Ingestion stops after
+three consecutive save failures (35.8). The labelling of a year of Telegram channels by an AI model
+(Groq, free tier) is research: it is in `research/`, not production.
+
+## 6. The decisions and their record
+
+**The decision engine:**
+
+```text
+valuation rank → premium direction → momentum → structure → conflict matrix → candidate
+→ confirmation → hysteresis (24 h, timed) → final_decision
+```
+
+- **Valuation** (`caluclator/valuation.classify_valuation`): a rank with a direction gate. CHEAP needs
+  a low rank and a premium at or below the buy gate; EXPENSIVE a high rank and a premium at or above
+  +3.0%, which no stored reading has reached (highest +0.75%). UNKNOWN below `MIN_OBSERVATIONS`.
+- **Confirmation**: the second-cheapest platform heavily discounted on its own 30-day record, today's
+  dollar and live world gold. It fails closed (`SP_C_HANDOFF.md` 37, 38).
+- **Its record.** WAIT on 663 readings and BUY on 4 to 2026-10-13. Its scorecard hit rate is 55.2%,
+  against 55.2% for always-WAIT: **an edge of 0.0** (SP-D 36.2).
+- **Proposed:** restructure it around measured evidence (SP-D 38.2). This changes the alert rule in
+  `CLAUDE.md`, so it waits for the owner's decision.
+
+**Direction** (`analysis/direction.py`):
+- the trend and its drivers;
+- **buy now or wait**: waiting for a 3% dip cost more in 12 of 13 years, the one robust timing fact on
+  record;
+- support and resistance, each with how often lines that far away held for 10 days;
+- WATCH: a break of the 50-day average, counted by separate breaks; the next month was weaker by 1 to 6
+  points;
+- GOLD DEMAND: the gold funds over 7 days against their usual (`analysis/gold_demand.py`).
+
+Its 20-day forecasts resolve from early November.
+
+**The room** (`analysis/room.py`): the PAPER front office's posture.
+- **The posture:** ALL_GOLD, or SWING_OUT (40% of the grams into Afran fixed income).
+- **Eight members and their weights:** brake 2.0, market state 1.5, fair gap 1.5, real dollar 1.5,
+  dollar 20d 1.0, chartist 1.0, world gold 60d 0.5, money flow 0.5.
+- **The vote:** it leaves at 60% of the weight with a view and comes back at 30%, reviewed every 10
+  trading days, with the stock index as the sharp eye.
+- **Replayed:** +5.0% to +9.0% median over holding per two years with money flow, +4.0% to +5.7%
+  without, ahead in 83-100% of windows. 18 overlapping windows are about three independent periods.
+- **PAPER** runs six accounts: the room and, beside it, the analyst, the quant, the cautious analyst,
+  buy-and-hold, and one that follows `final_decision`.
+
+**Chart patterns** (`caluclator/patterns.py`, SP-D 37.4-37.5):
+- **What it reads:** a 3% ZigZag; sideways ranges and their breaks (flag, breakout, breakdown); tests
+  of the 20-day EMA; double and triple tops and bottoms, head and shoulders, triangles, wedges.
+- **What it prints:** each pattern with its record on 18K since 2014 (`RECORD`) against the chance from
+  any day.
+- **What the record shows:**
+  - flags reached their target first in 14 of 19, against 45 in 100 from any day;
+  - double bottoms 19 of 24, against 69;
+  - the bearish patterns fail on 18K: double tops 3 of 12, against 33.
+
+## 7. Database and Neon
+
+Neon Postgres on the free plan:
+
+```text
+market_snapshots  platform_prices  market_states  price_observations  news_events
+analysis_snapshots  outcome_evaluations  platform_candles  market_daily_candles
+direction_snapshots  paper_accounts  paper_activity  iran_node_readings
+system_events  market_hypotheses
+```
+
+- **The transfer cap.** The free plan allows **5 GB of outbound transfer a month**. Exceeding it
+  suspended production from 2026-10-13 21:00 Tehran to 2026-11-01 (SP-D 34). A reader loads only the
+  columns it uses (`get_analysis_snapshots(columns=...)`, enforced by `kpi_coherence.test_36`), and
+  the health check watches the month-to-date figure (`PROJECT_OPERATIONS.md` 15).
+- **The spool.** While Neon is out of reach, what a run cannot write waits in `record_spool.jsonl` in
+  the Actions cache (`persistence/spool.py`, SP-D 35.4). Each scheduled run flushes it first. Held
+  readings are re-checked against the stale-quote rules before they are written (37.1).
+- **The outage, until Neon returns:**
+  - the 21:00 chart comes from tgju;
+  - `/Direction` is computed live;
+  - ANALYZE says the database is unreachable;
+  - the push is parked;
+  - the phone keeps its own spool.
+- **The phone** writes `iran_node_readings` as the role `iran_node`, which may only INSERT. Such a role
+  is made with SQL, never through Neon's API or console, whose roles join `neon_superuser`
+  (`PROJECT_OPERATIONS.md` 16).
+- **Migrations.** `sql/neon_schema.sql` is the target schema; `sql/neon_migration_*.sql` change the
+  live database. Any change goes: inspect production → incremental migration → a temporary Neon branch
+  → the owner's authorization → production → verify → docs. Never apply the target schema to
+  production. A phase that needs none records `NEON MIGRATION REQUIRED = NO`.
+
+## 8. What the research has established
+
+**Method** (the audit's test, SP-D 36):
+- count independent episodes, not overlapping days;
+- compare with a control drawn from every day;
+- commit the rules before the run;
+- show the sample size;
+- judge on one era and test on another.
+
+Built-ness and past effort count for nothing.
+
+**Measured:**
+
+| Finding | Evidence | Where |
+|---|---|---|
+| Buying now beats waiting for a 3% dip | 12 of 13 years | SP-D 1, 36.1 |
+| The decision engine has no edge | 55.2% against always-WAIT's 55.2% | 36.2 |
+| The room's gain rests on its chartist and dollar 20d | with five members it falls to +0.3% to +1.4% | 36.1 |
+| The money-flow member's edge came from the saffron fund | without it: 0 to +0.31 pp, from +0.67 to +1.42 | 36.2 |
+| In turbulence, a rush of buyers precedes a further 5% fall about twice as often; big buyers precede a rise | four combinations of twelve agree in both eras: leads, not edges | 37.6 |
+| The platforms do not catch up a jump in fair value | 63% of fair's move after 24 h, against 85% for all readings | 38.6 |
+| The deep-discount zone gives a head start | +1.16% in 24 h against +0.53% (11 episodes) | 36.1, suggestive |
+| The central bank's interventions met pressure, they did not reverse it | the dollar +1.81% over 3 days on 9 days against +0.65% | 36.2, 108 of 357 days labelled |
+| Escalation news separates | +1.20% the next day against +0.25% (22 days) | 36.2 |
+| Flags and double bottoms work on 18K; bearish patterns do not | section 6 | 37.4 |
+
+**Proposed, for the owner's decision** (SP-D 38):
+- **one advisor (C):** a daily brief that answers the four questions, each line with its evidence;
+- **the Analysis Wing** rebuilt as the discount laboratory;
+- **the decision engine** restructured.
+
+The agreed order for B: money flow, then the Analysis Wing, the decision engine, the price sides and
+the docs and tests, then C.
+
+## 9. Defects index
+
+Check here before reading a failure narrative in a handoff as live: the narratives read as current
+until the sentence that says otherwise.
+
+**Open:**
+
+| Defect | Status | Reference |
+|---|---|---|
+| Neon suspended for transfer to 2026-11-01; the spool's write-back, the transfer per run and the phone's spool are to be checked that day | time-bound | SP-D 34, 35.4, 37.1 |
+| The decision engine has no measured edge | owner's decision on 38.2 | SP-D 36.2 |
+| Morning readings priced on yesterday's dollar; dollar freshness stored as always fresh | research first | `SP_C_HANDOFF.md` 34.3 |
+| Daric refuses GitHub's runner | their side; the phone reads it | SP-D 29-31 |
+| Taline's frozen copy is stored when it sits within its band and its usual position | open | SP-D 20, 29 |
+| News dedup looks back 24 h while feeds keep items for days; Google News's " - Publisher" suffix defeats the title hash | open | `SP_C_HANDOFF.md` 33.3, 34.5 |
+| `high_impact_count` reads `relevance` for values only `impact` holds (always 0) | open; parked with the evidence package | `SP_C_HANDOFF.md` 33.3 |
+| The outcome backfill retries horizons that cannot complete for 7 days | open | health check 2026-10-03 |
+| `AFRAN_LAST` dated one to two sessions late (tablokhani's `closing_1d_ago`) | small; with the next change to the room | SP-D 29 |
+| `structure_state` DISCOUNT_DOMINANT on almost every row | measured, left alone; a rare-event detector | `SP_C_HANDOFF.md` 28, 34.6 |
+| The analysis snapshot's support and resistance are labelled by extremum type | unshown; readers get Direction's levels | `SP_C_HANDOFF.md` 41.1 |
+| Ayyareh and Eligold quote the same price in about 60% of readings | watch (owner: keep both) | `SP_C_HANDOFF.md` 44 |
+| The news LLM classification path has never run in production | open | `SP_C_HANDOFF.md` 27.5 |
+| 92 `datetime.utcnow()` calls, deprecated in Python 3.12 | open; the clean-up | SP-D 36.3 |
+
+**Closed, latest first** (the full SP-A to SP-C list is in the archived history):
+
+| Defect | Fixed | Reference |
+|---|---|---|
+| `kpi_coherence.test_27` could not fail; the unit tests ran nowhere and five had rotted | 2026-10-16 | SP-D 37.8 |
+| Held readings would skip the stale-quote rules on write-back | 2026-10-16 | SP-D 37.1 |
+| `SignalState` and `HistoricalQuery` defaulted to the machine clock; `rss.py`'s broken copy | 2026-10-16 | SP-D 37.3 |
+| Only Goldika's two sides were stored | 2026-10-16 | SP-D 37.7 |
+| Every run read whole snapshot documents: about 450 MB a day of transfer | 2026-10-14 | SP-D 34 |
+| `MAX_WORLD_GOLD` $5,000 with gold near $4,150 | 2026-10-06 ($20,000) | SP-D 30 |
+| PAPER's venue label too long for its column; statsmodels broken by new scipy and pandas | 2026-10-05 | SP-D 28 |
+| Stale CDN copies (Goldika's from 09-13) contaminated readings, pushes and regimes | 2026-10-02 and 10-03 | `SP_C_HANDOFF.md` 44, 45 |
+| The first live BUY rested on one stale quote | 2026-09-29 | `SP_C_HANDOFF.md` 37, 38 |
+| The Kitco stream hung runs to the job timeout | 2026-09-30 | `SP_C_HANDOFF.md` 42 |
+| `valuation_state` CHEAP and `regime_state` PANIC on every row; `final_decision` latched to WAIT | 2026-09-18 to 09-21 | `SP_C_HANDOFF.md` 16, 26 |
+| `Deep discount` meant two numbers on two surfaces | 2026-09-21 | `SP_C_HANDOFF.md` 24 |
+
+## 10. How work is done
+
+**The loop:**
+
+```text
+inspect → define the change surface → implement minimally → targeted test → regression
+(python tests/run_all.py, python kpi/run_all.py, compileall) → Neon verification when it applies
+→ diff review → docs and .project_state.json → commit
+```
+
+- **Talk, preview, lock, wire, document.** R&D and a full preview come before code that changes what a
+  reader sees. An agreed layout or framework is never changed without the owner's permission.
+- **Production liveness.** A component that has processed no real production case is IMPLEMENTED, not
+  COMPLETE: a KPI passes on fixtures and cannot see a path the runtime never reaches (lesson 4).
+- **A check must be seen to fail.** A test that has never rejected anything is quoted as evidence and
+  is none. Feed it a known offender (lesson 10).
+- **Measure the input as well as the output** before trusting a categorical column: `GROUP BY` both
+  (lessons 1-3, 15, 16).
+- **Cross-module assertions** belong in `kpi_coherence`. Its `ACCEPTED` register lists the deliberate
+  divergences, and an entry whose divergence is fixed fails the suite.
+- **Branches.**
+  - `main` is production.
+  - The sprint is SP-D, run in sub-sprints with one branch each (now `sp-de`).
+  - A batch reaches SP-D and `main` by fast-forward, with a safe tag on `main` first (`v1.19safe` is
+    the latest).
+  - The owner authorized on 2026-10-15 that approved work is tagged and pushed without asking again.
+  - A production defect is fixed on a short branch cut from `main`.
+- **Documents.**
+  - Update the file that owns the fact (`DOCUMENTATION_INDEX.md`). A sprint's record goes in its
+    handoff.
+  - This file changes when what runs changes.
+  - No new top-level status or architecture document.
+  - What is superseded goes to `archive/`, unchanged.
+- **Zero spending.** Free tiers only: Neon, GitHub Actions, Groq, Cloudflare, cron-job.org.
+
+## 11. Where things stand
+
+`.project_state.json` holds the live position, and `SP_D_HANDOFF.md`'s sub-sprint table lists each
+batch with its tag.
+
+On 2026-10-16:
+- **Branches:** `main` and SP-D at SP-De's B6 batch (v1.19safe before it).
+- **Neon:** suspended to 11-01.
+- **Tests:** unit tests 18 of 18 files, KPI suite 30 of 30, both run in CI.
+- **Next, in the agreed order of B:**
+  - the decision engine (B3) and ANALYZE (B5), after the owner's decisions;
+  - the news labels (B7);
+  - the money flow in turbulence;
+  - then the advisor (C).
+- **On 11-01:** the spool's write-back, Neon's transfer per run, and the phone's spool.

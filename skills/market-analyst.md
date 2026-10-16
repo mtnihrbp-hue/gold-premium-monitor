@@ -58,9 +58,9 @@ Do not use ambiguous phrases such as `Premium Expanding` or `Discount Deepening`
 The labels above are **internal analytical vocabulary**. They are correct in calculation
 code, state values, evidence packages, and persisted fields.
 
-They must **not** be surfaced raw in Telegram output. `C14_HANDOFF.md`,
-`C14C_HANDOFF.md`, `RESEARCH_ADOPTION.md` and `.project_state.json` all require
-user-facing text to prefer observable relationships:
+They must **not** be surfaced raw in Telegram output. The C.14 contracts (now in
+`archive/`), `RESEARCH_ADOPTION.md` and `.project_state.json` all require user-facing
+text to prefer observable relationships:
 
 ```text
 Iranian gold is increasing more slowly than its external drivers.
@@ -96,6 +96,10 @@ A deep discount on one platform is not a market-wide opportunity.
 
 The conflict matrix is explicit and testable. Do not replace it with a weighted score without explicit approval.
 
+Its record is the reason to restructure it, not to trust it. Its scorecard hit rate is 55.2%, against
+55.2% for always-WAIT (`SP_D_HANDOFF.md` 36.2). The restructure is proposed in 38.2 and waits for the
+owner's decision, because it changes the alert rule.
+
 ## Interpretation
 
 A deep discount is evidence of valuation, not proof of a buying opportunity.
@@ -104,18 +108,33 @@ A weakening discount can justify WAIT even when the market is very cheap.
 
 A BUY/SELL decision should be explainable in terms of observable evidence.
 
-## Future intelligence
+## The other analysts
 
-SP-B may add:
+Beside the decision engine (`PROJECT_MEMORY.md` section 6):
 
-- news events
-- macro context
-- support/resistance
-- historical analogues
-- market mood
-- market regime
+- **Direction** reads the trend, whether to buy now or wait, support and resistance, and the 50-day
+  breaks.
+- **The room** gives the PAPER posture, gold or fixed income, from eight members. It leaves only on a
+  broad agreement and comes back on doubt.
 
-These must inform the deterministic baseline rather than erase it.
+**In toman the default is gold.** Being out when 18K rises costs far more than being in when it pauses
+(lesson 28). A rule that leaves gold often trails holding.
+
+## Judging a signal
+
+The method behind every claim the system prints (`SP_D_HANDOFF.md` 36):
+
+- **Episodes, not days.** Count each episode once, from its first day. Overlapping days inflate the
+  evidence.
+- **A control.** Compare with the same measure from every day: in toman 18K is higher 20 days later on
+  two days in three.
+- **Rules first.** Commit the rules before the run, judge on one era, confirm on another.
+- **The sample size**, printed beside the result.
+- **A pattern from the textbook is a hypothesis on 18K.** Flags and double bottoms beat the control;
+  double tops and rising wedges fail (37.4).
+
+A good predictor can still be a bad member: test what it adds to the others, paired, not alone
+(lesson 21).
 
 ## Future LLM use
 

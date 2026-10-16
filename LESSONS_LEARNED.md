@@ -358,6 +358,15 @@ passes `node --check` and fails `node --check` on the same content named `.mjs`.
 never been seen to reject anything is indistinguishable from no check, and it is
 worse than none because it is quoted as evidence.
 
+The same shape twice more, in the tests themselves (`SP_D_HANDOFF.md` 37.3, 37.8).
+`kpi_coherence.test_27`, the guard against KPIs that reach the live network, searched
+for `get_invi_price(` in a token stream joined by newlines, where no call is ever
+written that way: it passed on every file for weeks. `test_19`'s new pattern was
+written through a shell heredoc that turned `\b` into a backspace, and passed
+vacuously until it was checked on samples. Both now carry a sample offender that must
+be caught. And the unit tests ran in no CI job at all: five had rotted, one against a
+removed function, while the suite they sat beside stayed green.
+
 **Interesting is not actionable.** An investigation into market sessions produced a
 genuinely novel finding -- Iran's trading calendar and the world gold calendar are
 almost exactly out of phase, so the two inputs driving fair value take turns. I
@@ -400,7 +409,9 @@ code was correct. The error was in the throwaway script used to review it, which
 exactly where nobody looks. Compute a cross-check by a second method and print both.
 
 **A phase with zero production cases is IMPLEMENTED, not COMPLETE.** Recorded in
-`PROJECT_ORCHESTRATION.md`. Green tests establish that code can work, not that it does.
+`PROJECT_MEMORY.md` section 10 and `skills/validation-and-release.md` (it was in
+`PROJECT_ORCHESTRATION.md`, archived 2026-10-16). Green tests establish that code can work,
+not that it does.
 
 
 ---
