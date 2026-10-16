@@ -13,11 +13,13 @@ import numpy as np
 
 RIAL_PER_M_TOMAN = 1e7
 COLORS = {"up": "#2e7d32", "down": "#c62828", "ema20": "#1565c0", "ema50": "#ef6c00", "support": "#2e7d32",
-          "resistance": "#c62828", "value_area": "#9e9e9e", "live": "#6a1b9a", "grid": "#e0e0e0", "fib": "#8d6e63"}
+          "resistance": "#c62828", "value_area": "#9e9e9e", "live": "#6a1b9a", "grid": "#e0e0e0", "fib": "#8d6e63",
+          "pattern": "#00838f", "target": "#00838f"}
 
 
 def render(dates, opens, highs, lows, closes, ema20=None, ema50=None, supports=(), resistances=(),
-           value_area=None, trades=(), live=None, title="18K", days=120, trend=None, fib=(), project=10):
+           value_area=None, trades=(), live=None, title="18K", days=120, trend=None, fib=(), project=10,
+           patterns=None):
     """PNG bytes. `supports`/`resistances`: prices (rial); `value_area`: {"val","vah","poc"};
     `trades`: (date, "BUY"|"SELL", price); `live`: today's price, drawn after the last candle;
     `trend`: caluclator.technical.trendlines() on the same arrays, drawn from their first
@@ -76,6 +78,26 @@ def render(dates, opens, highs, lows, closes, ema20=None, ema50=None, supports=(
                         color="white", fontsize=7, ha="center", va="center", fontweight="bold",
                         bbox=dict(boxstyle="circle,pad=0.25", fc=COLORS["up"] if action == "BUY" else COLORS["down"],
                                   ec="none"))
+    # the chart reader's findings (SP_D_HANDOFF.md section 37.4): ranges as boxes, events as markers,
+    # a live pattern's measured target as a dotted line; nothing is drawn unless passed
+    pat = patterns or {}
+    for start, end, lo, hi, label in pat.get("boxes", ()):
+        if end < ds[0]:
+            continue
+        x0 = index.get(start, 0) if start >= ds[0] else 0
+        x1 = index.get(end, len(c) - 1)
+        ax.add_patch(plt.Rectangle((x0 - 0.5, lo / RIAL_PER_M_TOMAN), x1 - x0 + 1, (hi - lo) / RIAL_PER_M_TOMAN,
+                                   facecolor=COLORS["pattern"], alpha=0.10, edgecolor=COLORS["pattern"], linewidth=0.9))
+        ax.text(x0, hi / RIAL_PER_M_TOMAN, label, color=COLORS["pattern"], fontsize=7, va="bottom")
+    for day, price, label in pat.get("marks", ()):
+        if day in index:
+            ax.annotate(label, (index[day], price / RIAL_PER_M_TOMAN), xytext=(0, -16), textcoords="offset points",
+                        color=COLORS["pattern"], fontsize=7, ha="center",
+                        arrowprops=dict(arrowstyle="->", color=COLORS["pattern"], lw=0.8))
+    for price, label in pat.get("targets", ()):
+        y = price / RIAL_PER_M_TOMAN
+        ax.axhline(y, color=COLORS["target"], linewidth=0.9, linestyle=(0, (4, 3)))
+        ax.text(len(c) + 1.5, y, f"{y:.2f} {label}", color=COLORS["target"], fontsize=7, va="center")
     if live:
         y = live / RIAL_PER_M_TOMAN
         ax.scatter([len(c)], [y], color=COLORS["live"], s=28, zorder=5)

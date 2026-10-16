@@ -3600,3 +3600,80 @@ parts back as they are redesigned rather than all on 11-01.
   confirmation already holds every candidate (it fails closed).
 
 `kpi_coherence` 39/39; suite 30/30.
+
+**37.4 Chart patterns and channels: a reader that sees them, and their record on 18K** (the owner's request
+of 37; research, a preview, nothing wired).
+
+**Why the chartist missed the move.** `caluclator/chartist.py` confirms a swing at 3 x ATR(14), at
+least 3% of the price; on 18K's ~2% ATR that is about 6%. It found no swing after the 15.65M low of
+06-16, so through a +68% rally its box stayed June's 15.65-20.34M. The September range, its test of the
+20-day and the breakout went unseen. On the record that sequence was:
+
+- **Sideways:** 23.0-24.6M from 09-09 to 09-27 (18 Shahrivar to 5 Mehr), after the August rally.
+- **The EMA test:** on 09-23 the low (23.46M) came within 1% of the 20-day (23.24M) and the close held
+  above it.
+- **The breakout:** a close at 24.40M on 09-28, then 26.84M.
+- **The same shape again:** 25.57-26.84M from 10-07, with the 20-day tested on 10-13 (low 25.57M
+  against 25.42M).
+
+**The reader** (`research/rd_patterns.py`, rules fixed in its docstring before the measurement).
+
+- **Swings:** a ZigZag at 3% on closes.
+- **Ranges:** 8+ days within 6% after an 8% move; breakouts and breakdowns at 0.5% beyond the edge,
+  with the range's height as the target.
+- **EMA20 tests:** in an uptrend, a low within 1% of the 20-day and a close above it.
+- **The flag:** a pole of 8% in 15 days, then a range of at most half the pole; the pole's height is
+  the target.
+- **On the swings:** double and triple tops and bottoms; head and shoulders and its inverse;
+  symmetrical, ascending and descending triangles; rising and falling wedges. These are the classic
+  patterns of learning.emofid.com, each confirmed on the close through its neckline or line, with
+  Emofid's measured targets.
+
+It finds the owner's sequence:
+
+- the ranges of 09-03 to 09-28 (23.06-24.40M) and of 09-29 onwards (25.27-26.74M);
+- EMA20 tests on 09-23 and 10-13;
+- a flag breakout on 09-29 (level 24.40M, target 28.88M, invalidated under 23.06M).
+
+**The record since 2014.** Each pattern is counted once (an episode). Its target is reached before its
+stop within 40 trading days, against a control: the same two distances tried from every fifth day of
+the same era (`research/rd_patterns_control.py`). 18K rose about 40-fold, so an upside target is often
+reached from any day.
+
+| Pattern | 2014-2020 | 2021-2026 |
+|---|---|---|
+| **flag** | **86% against 35% (7)** | **67% against 51% (12)** |
+| range breakout | 78% against 66% (18) | 76% against 73% (21) |
+| double bottom | 82% against 61% (11) | 77% against 76% (13) |
+| EMA20 test, 20 days later (no target) | +1.85% against +1.43% on all days (95) | +4.66% against +3.62% (72) |
+| double top (downside) | 50% against 34% (4) | **12% against 33% (8)** |
+| rising wedge (downside) | 0% against 4% (16) | 8% against 10% (25) |
+| range breakdown | 67% against 38% (6) | 50% against 46% (16) |
+| head and shoulders, triangles | 1-13 cases each, mixed | |
+
+Reading it:
+
+- **The flag is the one pattern ahead of its control in both eras.** Breakouts and double bottoms
+  "work" about as often as any day would in this uptrend.
+- **The bearish patterns did not follow through on 18K.** Since 2021 it was higher 20 days after 7 of
+  8 double tops.
+- So the reader can find and draw every pattern on Emofid's list. What it says about each must be
+  what the pattern did on 18K, not what the textbook promises.
+
+**The preview.** `research/preview_patterns.py` draws on the 21:00 chart through the renderer's new
+optional `patterns` overlay (`alerts/chart.py`: boxes, markers, dotted targets; inert unless passed):
+
+- the last two ranges as boxes;
+- the EMA20 tests and flag breakouts as markers;
+- the live flag's target as a dotted line.
+
+With the reading:
+
+```
+Sideways since 7 Mehr between 25.27M and 26.74M; tested the 20-day on 21 Mehr and held
+Flag breakout of 7 Mehr: its measured target is 28.88M while 18K stays above 23.06M
+A close above 26.74M breaks out of the range; under 25.27M breaks down.
+```
+
+Awaiting the owner. Once locked, the reader moves into `caluclator/` beside the chartist (calculators
+calculate), and the evening and 21:00 charts and Direction carry it, each pattern with its 18K record.
