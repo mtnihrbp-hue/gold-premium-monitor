@@ -4507,3 +4507,104 @@ msg"). For preview, not built.
     `state.json`, so this costs one short run. Alternatively, Status keeps its instant answer and the
     push carries the news.
 - Draft texts, in the owner's wording rules, are shown in the chat for review.
+- **Built** on the owner's "go ahead with the outage notice": the push, and Status reading the line
+  each scheduled run leaves as an annotation, with no extra run (37.15).
+
+## 40. R&D for the decision engine: scenarios and models (2026-10-16, for the owner's return)
+
+The owner, leaving: "R&D models, build scenarios and come up with some suggestion for decision engine,
+once back i will reply on 1 to 3 and also your new R&D."
+
+The question each scenario answers is the reader's: rial to convert into 18K. Four studies were run,
+each with its rules committed before it ran:
+- `rd_engine_replay.py`: 784d727, 9519d94;
+- `rd_when_scenarios.py` and `rd_where_and_hour.py`: 4edb48e, and 522d2d8 for the hour's follow-up;
+- `rd_when_model.py`: 1415e68.
+
+**40.1 WHEN: fixed rules on 18K's daily record, 2014-2026** (`research/rd_when_scenarios.py`).
+- **The test:** convert within 20 trading days; on independent windows, every 20th day; the cost
+  against buying at once.
+- **The carry:** with it, the waiting rial earns the fixed-income fund's return, from 2015-03.
+
+| Rule (with carry) | 2014-2019 mean | 2020-2026 mean | last 2 years | cheaper than at once | worst | verdict |
+|---|---|---|---|---|---|---|
+| wait for a 2% dip | +0.74% | +2.20% | +4.11% | 58% / 53% | +22.6% | COSTS |
+| wait for a 3% dip | +0.82% | +2.01% | +3.77% | 56% / 49% | +22.6% | COSTS |
+| wait for a 5% dip | +1.18% | +1.97% | +4.31% | 51% / 44% | +22.6% | COSTS |
+| wait for a deep gap (rank <= 20%) | -0.16% | +0.67% | +2.42% | 38% / 39% | +20.2% | MIXED |
+| wait out an 18K 50-day break | -0.08% | +0.14% | +0.10% | 13% / 9% | +8.7% | MIXED |
+| wait out a dollar 50-day break | -0.74% | +0.21% | -0.22% | 25% / 12% | +7.7% | MIXED |
+| split in four weeks | +0.57% | +0.91% | +2.37% | 49% / 43% | +17.7% | COSTS |
+| skip less-discounted days | +0.06% | +0.11% | +0.96% | 10% / 17% | +13.7% | COSTS |
+| skip a falling knife | +0.13% | +0.03% | -0.03% | 0% / 2% | +7.2% | COSTS |
+| **the engine's shape (deep and widening)** | +0.01% | +0.68% | +2.45% | 43% / 44% | +20.2% | COSTS |
+
+- **No rule beats buying at once.**
+- **The dip rules show the trap:** their median is often below zero, because waiting usually saves a
+  percent, but their worst case is about +20%, when the market jumps before the dip comes. That tail
+  is the rial's.
+- **The rules that wait out a break** rarely wait, and when they do the effect is a few tenths of a
+  point, changing sign between eras.
+- **The decision engine's own shape on daily data costs** +0.7% to +2.5% in the last six years.
+
+**40.2 WHEN: a learned model, walk-forward 2018-2026** (`research/rd_when_model.py`).
+- **The test:** each year is predicted from the years before, on 12 causal features (the gap and its
+  rank, 18K against its averages, returns, volatility, distance from the high, the dollar's trend, world
+  gold's). The reader waits 20 days when the model gives waiting better than 60%.
+
+| Model | AUC by year | waited | mean cost | years below 0 | verdict |
+|---|---|---|---|---|---|
+| logistic regression | 0.41-0.68 | 27% | +0.67% | 2 of 9 | NO |
+| gradient boosting | 0.23-0.72 | 36% | +1.17% | 3 of 9 | NO |
+
+- Waiting pays on 27% to 57% of days, depending on the year, and no model finds which ones in advance.
+- This agrees with R3 (section 3): whether 18K is higher in 20 days is not predictable.
+
+**40.3 WHERE: the platform is worth more than the hour** (`research/rd_where_and_hour.py`; 607
+readings, 62 days).
+- **The median platform** sits 1.06% above the cheapest (median 0.88%). The basis of three sits 0.53%
+  above it.
+- **Platform by platform:**
+  - Milli was the cheapest in 84% of readings, 0.05% above the cheapest on average;
+  - Goldika, a buyer's price, was 2.15% above;
+  - the gallery references were 0.9% to 1.3% above.
+- **The caveat** (37.7): the prices are of mixed kinds, so this is the spread a reader sees, not a
+  proven saving. Milli's side is not published.
+- **The hour.** Readings at 06-09 Tehran sat 0.40% below the day's mean, on 68% of 44 days, which passes
+  the rule. The follow-up split the days by direction:
+  - on up days the morning was 0.80% below the day's mean (90% of 29 days);
+  - on down days it was 0.37% above (15 days).
+- **The verdict:** the drift, not the hour. In a falling market the morning would be dear. "Buy in the
+  morning" is "buy now" again.
+
+**40.4 What the scenarios say together.**
+1. **WHEN:** no measured rule, and no model, beats buying at once:
+   - the record of 39.3 (two months, hourly);
+   - the daily record of 40.1 (twelve years, both eras);
+   - the walk-forward of 40.2.
+
+   The one hint left is the deep zone on hourly data: +0.25 pp mean, +0.67 pp median, 11 episodes, to
+   be re-measured after 11-01.
+2. **WHERE** is worth about a percent, every time, which is more than any timing rule offers. It needs
+   each platform's buyer's price (fees included) to be claimed rather than suggested.
+3. **HOW MUCH** is the room's question, and it has the only measured gain over holding: +4% to +6% per
+   two years, from leaving gold rarely and on broad agreement.
+4. **RISK** stays context: the 50-day breaks, the trend, turbulence. None of them earns a "wait".
+
+**40.5 Suggestions for the decision engine** (for the owner's decision with 39.6's three questions):
+
+| Scenario | What the engine says | Alerts | For | Against |
+|---|---|---|---|---|
+| **A. The advisor table** (recommended) | buy now, where (the cheapest buyer's price), how much (the room's posture), the risks; "heavily discounted now" when in the deep zone; no WAIT, no SELL | the room's trades; the deep zone, once it holds; SERVICE | every line has a measured basis; the default is the record's | retires the matrix's BUY alert, which changes `CLAUDE.md`'s rule |
+| B. The matrix, reframed as information | as now, but BUY reads as "heavily discounted and still widening", with no instruction | as now | no rule change | keeps a verdict that costs when followed (39.3, 40.1) |
+| C. The matrix as a record only | the matrix computes and stores; nothing is sent from it | the room's trades; SERVICE | the least to build | the reader loses the one timing hint (the deep zone) unless the push returns |
+| D. A learned WHEN model | — | — | — | rejected by 40.2 |
+
+- **Each of A to C keeps the confirmation checks** as data-quality gates on anything naming a platform.
+- **A would be built in the stages of 39.6:** the scorecard first, then the table beside the old chain,
+  with the replay on the full record after 11-01 as its gate.
+- **The work A needs that B and C do not:** each platform's buyer's price, for WHERE.
+  - Fees and sides are recorded for Goldika, Daric, Taline and Ayyareh.
+  - The other seven need their buy price found or marked unknown.
+
+**NEON MIGRATION REQUIRED = NO**; research only.
