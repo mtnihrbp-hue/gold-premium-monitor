@@ -96,6 +96,12 @@ work in an outage asks for `_read_session()` in `main` (or `mirror.read_session(
 does. A reader that needs another table needs that table in the copy first, with its window and its
 size measured.
 
+The reader is told: the SERVICE push announces an outage and its end, and Status carries the same
+line (`analysis/service.py`, 37.15). A green run is not a working database.
+
+The state cache's file list in `gold-monitor.yml` never changes (37.14). A new file gets its own cache
+step.
+
 The phone writes as the role `iran_node`, INSERT only, made with SQL, never through Neon's API or
 console, whose roles join `neon_superuser`.
 

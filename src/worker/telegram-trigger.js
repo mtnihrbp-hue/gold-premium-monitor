@@ -206,13 +206,49 @@ async function getWorkflowStatus(env) {
     }
 
     // run.name carries the workflow's run-name, which resolves to UPDATE or ANALYZE.
+    const service = await getServiceLine(env);
     return `${emoji} <b>Latest Run</b>\n` +
            `Wing: ${run.name || "n/a"}\n` +
            `Status: ${stateText}\n` +
            `Started: ${started} (Tehran)\n` +
+           (service ? `${service}\n` : "") +
            `<a href="${run.html_url}">View on GitHub →</a>`;
   } catch (e) {
     return `❌ Error: ${e.message}`;
+  }
+}
+
+// The service line the last scheduled run left (SP_D_HANDOFF.md section 37.15). A green run said
+// nothing about the database: every run of the October outage finished green. Each scheduled run
+// writes "::notice title=service::Service: ..." (src/main.py _service_watch), which GitHub keeps as an
+// annotation of its job. "" when it cannot be read, so Status still answers.
+async function getServiceLine(env) {
+  const headers = {
+    "Authorization": `Bearer ${env.GITHUB_TOKEN}`,
+    "Accept": "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "GoldMonitorBot/1.0",
+  };
+  try {
+    const runs = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}` +
+      `/actions/workflows/gold-monitor.yml/runs?per_page=20&branch=${TARGET_REF}&status=completed`, { headers });
+    if (!runs.ok) return "";
+    const run = ((await runs.json()).workflow_runs || []).find(r => r.name === "ANALYZE");
+    if (!run) return "";
+    const jobs = await fetch(run.jobs_url, { headers });
+    if (!jobs.ok) return "";
+    const job = ((await jobs.json()).jobs || [])[0];
+    if (!job) return "";
+    const notes = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/check-runs/${job.id}/annotations`,
+      { headers });
+    if (!notes.ok) return "";
+    const line = ((await notes.json()) || []).find(a => a.title === "service");
+    if (!line) return "";
+    const at = new Date(run.run_started_at).toLocaleString("en-GB", {
+      timeZone: "Asia/Tehran", hour: "2-digit", minute: "2-digit" });
+    return `${line.message} (the ${at} run)`;
+  } catch (e) {
+    return "";
   }
 }
 

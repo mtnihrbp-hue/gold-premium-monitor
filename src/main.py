@@ -1133,6 +1133,44 @@ def _paper_chart(session, analyst, live_sell):
         return None
 
 
+def _service_watch(state, now, world, world_from_fallback, usd, raw_markets):
+    """See each service in this scheduled run, announce a change once two runs agree, and leave the line
+    Telegram's Status shows (analysis/service.py, alerts/telegram_service.py, SP-D section 37.15). Runs
+    right after collection, before anything that can end the run. Never raises: a notice must not stop
+    the run it describes."""
+    try:
+        from alerts.telegram_service import build_message, send_service, status_line
+        from analysis import service
+        from persistence import mirror, spool
+
+        held = spool.held()
+        kinds = {}
+        for e in held:
+            kinds[e["kind"]] = kinds.get(e["kind"], 0) + 1
+        # the outage's start, from what the spool holds; news is dated by its publisher, not by the run
+        times = [e["payload"]["snapshot"]["timestamp"] if e["kind"] == "reading" else e["payload"].get("timestamp")
+                 for e in held if e["kind"] in ("reading", "observation")]
+        first = min((t for t in times if isinstance(t, datetime)), default=None)
+        observed = service.observe(world, world_from_fallback, usd, raw_markets, mirror.reachable(),
+                                   mirror.unreachable_reason(), first)
+        record = state.setdefault("service", {})
+        changes = service.update(record, observed, now)
+        database = record.get("database", {})
+        if not observed["database"]["ok"]:
+            database["kept"] = kinds          # all the spool holds while the database is out of reach
+        for name, change, rec in changes:
+            on_db = name == "database"
+            send_service(build_message(name, change, rec, now, kept=database.get("kept") if on_db else None,
+                                       left=kinds if on_db else None, mirror_built=mirror.built_at() is not None))
+            print(f"SERVICE: {name} {change}, announced")
+            if on_db and change == "back":
+                database.pop("kept", None)
+        print(f"::notice title=service::{status_line(record, now)}")
+        save_state(state)
+    except Exception as e:  # noqa: BLE001
+        print(f"SERVICE watch failed: {e}")
+
+
 def _refresh_mirror(now):
     """Bring the record mirror up to date from Neon, after this run's writes (persistence/mirror.py,
     SP_D_HANDOFF.md section 37.12). Nothing when unset or when Neon is out of reach."""
@@ -1529,6 +1567,8 @@ def main():
     for name, info in raw_markets.items():
         status = info.get("status", "UNKNOWN")
         print(f" {name:<15} {status.replace('ERROR: ', '') if status.startswith('ERROR: ') else status}")
+    if is_scheduled:
+        _service_watch(state, now, world, world_from_fallback, usd, raw_markets)
     try:
         markets = validate_market_prices(raw_markets, history=_recent_platform_history(now), now=now,
                                          holds=state.setdefault("quote_holds", {}))
@@ -1542,6 +1582,14 @@ def main():
 
     if world is None:
         send_telegram_unavailable(usd=usd, markets=markets, reason="World gold price unavailable. All APIs failed and no recent cached data.")
+        return
+    if usd is None:
+        # Without the dollar there is no fair value. calculate_fair_price(world, None) raised here and
+        # ended the run before anything was stored (SP-D section 37.15); the SERVICE notice tells the
+        # reader, so a scheduled run says nothing more.
+        print("\nERROR: Dollar rate unavailable. Skipping.")
+        if not is_scheduled:
+            send_telegram_unavailable(usd=usd, markets=markets, reason="Dollar rate unavailable.")
         return
 
     # calculate_fair_price inherits its unit from usd_irr, which bonbast reports in

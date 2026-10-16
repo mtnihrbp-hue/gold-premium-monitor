@@ -879,3 +879,21 @@ broad consensus, slowly (every two to four weeks), and its tail came from being 
 (2018: -21% in the worst window) (`SP_D_HANDOFF.md` sections 16, 17 and 22).
 
 **The rule.** The default is gold. Leaving needs agreement; coming back needs only doubt.
+
+## 29. A cache key that matches but an entry that does not
+
+**The pattern.** A store looks something up by a key and by a second identity it does not show. Change
+the second, and every earlier entry becomes invisible. The lookup reports a clean miss, and the run
+starts from nothing as if this were its first day.
+
+**Where it happened.** `actions/cache` ties an entry to its exact list of paths, beside its key.
+- On 2026-10-15, adding the spool's file to the state's list reset `state.json`.
+- On 2026-10-16, adding the record mirror's file did it again. That run started with an empty spool
+  while the database was out of reach, and three days of held readings were out of its sight
+  (`SP_D_HANDOFF.md` 37.14).
+- Both runs finished green.
+
+**The check.** A store's identity is everything that addresses it, not only what is printed as its
+key. Before changing one, read what it will match. After the change, check the first run's restore
+line ("Cache restored from key", and its size), not its conclusion. The state's list is now fixed by
+`kpi_coherence.test_52`; a new file gets a cache of its own.

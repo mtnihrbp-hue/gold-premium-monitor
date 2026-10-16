@@ -28,7 +28,9 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    37.9 the documents merged 2026-10-16 (v1.19safe);
                                                                    CLAUDE.md's tag line 2026-10-16 (v1.20safe, see 37.10);
                                                                    37.11-37.12 the labels, the mirror merged 2026-10-16 (v1.21safe);
-                                                                   37.13 the Iranian news, news held merged 2026-10-16 (v1.22safe)
+                                                                   37.13 the Iranian news, news held merged 2026-10-16 (v1.22safe);
+                                                                   37.14 the state cache restored merged 2026-10-16 (v1.23safe);
+                                                                   37.15 the SERVICE notice merged 2026-10-16 (v1.24safe)
        member, the LLM member
 ```
 
@@ -4243,6 +4245,85 @@ last through the temporary branch `probe-iran-news`, deleted):
 
 **From the next scheduled run until 11-01**, the news is kept. 10-13 to 10-16 is lost for the RSS
 feeds.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+**37.14 A defect of mine: the state cache's file list changed, and two runs started empty** (10-16).
+
+**Found** in the 17:00 run's log: "SPOOL: 15 held writes wait". Three days of outage should have meant
+hundreds.
+
+**The cause.**
+- `actions/cache` ties each entry to its exact list of paths.
+- 37.12 added `record_mirror.sqlite` to the state's list.
+- The run of 12:30 UTC therefore found no entry it could read ("Cache not found for input keys") and
+  started from an empty `state.json` and spool.
+- The entries list shows it: 6,297 bytes at 11:31, then 1,583 at 12:30.
+- **The same happened on 10-15 at 08:34**, when the spool's file was added. The entry fell from 3,155
+  to 586 bytes and `state.json` restarted, before anything was held.
+
+**What was out of reach:**
+- the spool from 10-13 21:00 Tehran to 10-16 11:31 UTC, about 60 runs of readings and observations;
+- `state.json`: its history, the quote holds, the cooldown's last alert and the push's state.
+
+It was not lost: the entry of 11:31 still exists under the old list.
+
+**Fixed** (242d40e, `v1.23safe` before it, merged at 13:41 UTC ahead of the 14:30 run):
+- The state's list is back to its three files, so the next run restores the entry of 11:31.
+- The mirror has its own cache step (`gold-monitor-mirror-`).
+- A one-off step reads the latest entry under the four-file list, sets its spool aside, and adds it
+  once to the restored spool. This is what the 12:30 and 13:30 runs held, the 207 news items among it.
+  `state.json` records it as done (`recovered_2026_10_16`). The step is removed after 11-01.
+- `kpi_coherence.test_52` fixes the list at its three files. It fails on the four-file list.
+- The lesson goes in `LESSONS_LEARNED.md`.
+
+**37.15 The SERVICE notice: a push when a service stops or comes back, and Status tells the truth**
+(10-16; the owner: "go ahead with the outage notice", on the drafts of 39.7).
+
+**Built:**
+- **What is watched** (`analysis/service.py`, pure): four services, seen by every scheduled run right
+  after it collects:
+  - the database (Neon answers);
+  - world gold (a live quote, not the fallback);
+  - the dollar (bonbast answered);
+  - the platforms (at least three answered, as UPDATE's discount needs).
+- **When it is announced:** a change goes out once, after two runs in a row agree. Every service
+  starts as working, so an outage already under way is announced by the second run that sees it. For
+  the database the date is the spool's oldest held reading: the present outage is announced as since
+  21 Mehr 21:00.
+- **The message** (`alerts/telegram_service.py`), in the drafts' words:
+  - **database out of reach:** since when; "(its free monthly limit)" when Neon says so; what works;
+    what is paused (BUY signals only while there is no record mirror to read); that prices and news are
+    kept; and, for the monthly limit, the day it resets;
+  - **database back:** after how long, and what was kept and written, or how much is still being
+    written;
+  - **world gold, dollar, platforms:** down and back, one line each. These five were not among the
+    three drafts and are written in the same style, for the owner's review.
+- **Status** (`src/worker/telegram-trigger.js`):
+  - each scheduled run leaves "::notice title=service::Service: ..." as an annotation of its job;
+  - the worker's Status reads it from the latest ANALYZE run and adds it below the run's line, for
+    example "Service: the database out of reach since 21 Mehr, 21:00. (the 17:00 run)";
+  - **the worker runs on Cloudflare, so the file must be pasted into its dashboard by the owner**;
+  - until then, Status is as before and the push already works.
+- **Found on the way:** a missing dollar raised in `calculate_fair_price(world, None)` and ended the run
+  before anything was stored.
+  - It now ends the run cleanly, as a missing world gold does.
+  - A user run is told the dollar is unavailable; a scheduled run leaves it to the SERVICE notice.
+
+**Tests:**
+- `kpi_coherence.test_53`: announced once after two runs, dated by the spool, the texts, and Status's
+  line.
+- `kpi_coherence.test_54`: the watch runs before validation and before the fair price; a missing dollar
+  ends the run; three runs send one push and save the state; the annotation and the worker's reader are
+  wired.
+- Six breaks were made in the code, among them a single run announcing, no date from the spool, the
+  watch moved or removed, and the dollar check removed. Each failed its test.
+- The worker passes `node --check` as a module, a check that was first seen to reject a broken file.
+- `kpi_coherence` 49/49, suite 30/30, unit tests 18/18.
+
+**What the reader will see.** With the database still out of reach, the second scheduled run after the
+merge sends:
+"The database is out of reach since 21 Mehr, 21:00 (its free monthly limit). ... Expected back: 10 Aban."
 
 **NEON MIGRATION REQUIRED = NO.**
 

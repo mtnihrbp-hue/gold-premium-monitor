@@ -31,6 +31,7 @@ WINDOW_DAYS = 61          # the stale-quote rule reads 60 days back (validation/
 REBUILD_DAYS = 7          # a full copy at least this often
 
 _reachable = None         # Neon probed once per process: True, False, or None before the probe
+_reason = ""              # the probe's error when Neon did not answer (the SERVICE notice reads it)
 _engine = None
 _meta = None
 
@@ -68,7 +69,7 @@ def _mirror_engine():
 def reachable():
     """True when Neon answers a trivial query. Probed once per process; a run that starts with Neon
     out of reach is treated as out of reach throughout, as its writes already are."""
-    global _reachable
+    global _reachable, _reason
     if _reachable is None:
         from sqlalchemy import text
         from database import connection
@@ -83,7 +84,13 @@ def reachable():
                 _reachable = True
             except Exception as e:  # noqa: BLE001 -- anything but an unreachable database reads as usual
                 _reachable = not unreachable(e)
+                _reason = str(e).strip().splitlines()[0][:300] if str(e).strip() else type(e).__name__
     return _reachable
+
+
+def unreachable_reason():
+    """Why the probe found Neon out of reach ("" when it answered or was not probed)."""
+    return _reason
 
 
 def _built_at(conn):

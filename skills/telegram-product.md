@@ -13,7 +13,11 @@ Implemented (`PROJECT_MEMORY.md` section 3):
   out of reach
 - `/Direction` — the trend, buy now or wait, support and resistance, what to watch, gold demand
 
+- `Status` — the latest run, and the service line the last scheduled run left (database, world gold,
+  dollar, platforms; `SP_D_HANDOFF.md` 37.15)
+
 Scheduled, not commanded:
+- SERVICE, when a service stops or comes back, once two runs agree;
 - the room's 21:00 report, with the day's chart as a photo;
 - the room's trades;
 - the BUY signal;

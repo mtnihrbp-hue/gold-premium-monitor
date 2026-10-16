@@ -102,6 +102,7 @@ Production is `main`, dispatched by cron-job.org and the Cloudflare worker with 
 | The room's trades | when the room trades | `alerts/telegram_paper.py` | live; the only PAPER account that pushes |
 | The 21:00 report and chart | first run from 21:00 | `alerts/telegram_paper.py`, `alerts/chart.py` | live; support and resistance with the patterns (37.5); sent from tgju when Neon is out of reach (35.2) |
 | Daily recap | — | `alerts/telegram_*`, `alerts/email_*` | **parked** 2026-10-15 (`config.email.send_daily_recap`) |
+| SERVICE | when the database, world gold, the dollar or the platforms stop or come back (two runs agreeing) | `analysis/service.py`, `alerts/telegram_service.py` | live from 10-16 (SP-D 37.15); Status shows the same line once the worker is pasted |
 
 **Parked, not deleted** (owner, 2026-10-16: the Analysis Wing "is to be rethought, not retired"):
 `config.analysis_wing` turns off the evidence package, interpretation, features and read model, the
@@ -281,6 +282,8 @@ system_events  market_hypotheses
   - UPDATE's context and baselines.
 
   A held reading is added to it, so the next run sees it. First filled on 11-01.
+- **The state cache's file list never changes:** another list cannot see the entries before it, and
+  the run starts empty (SP-D 37.14, `kpi_coherence.test_52`).
 - **The outage, until Neon returns:**
   - the 21:00 chart comes from tgju;
   - `/Direction` is computed live;
@@ -394,7 +397,7 @@ inspect → define the change surface → implement minimally → targeted test 
 - **Branches.**
   - `main` is production.
   - The sprint is SP-D, run in sub-sprints with one branch each (now `sp-de`).
-  - A batch reaches SP-D and `main` by fast-forward, with a safe tag on `main` first (`v1.22safe` is
+  - A batch reaches SP-D and `main` by fast-forward, with a safe tag on `main` first (`v1.24safe` is
     the latest).
   - The owner authorized on 2026-10-15 that approved work is tagged and pushed without asking again.
   - A production defect is fixed on a short branch cut from `main`.

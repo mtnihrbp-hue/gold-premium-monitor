@@ -1485,6 +1485,106 @@ class KPICoherence(unittest.TestCase):
             spool.NEWS_MAX_BYTES = ceiling
 
 
+    # -- the SERVICE notice (SP_D_HANDOFF.md section 37.15) ------------------------------
+
+    def test_53_a_service_change_is_announced_once_after_two_runs(self):
+        """Every run of the October outage finished green, so Telegram's Status said all was well (the
+        owner: "the user should be informed of any possible outage"). A change is announced once two
+        scheduled runs agree, dated from the first; an outage under way is dated by the spool's oldest
+        held write; the reader is told what still works, what waits, and when Neon's allowance returns."""
+        from analysis import service
+        from alerts.telegram_service import build_message, status_line
+        quota = "Your project has exceeded the data transfer quota. Upgrade your plan to increase limits."
+        markets = {f"P{k}": {"status": "OK"} for k in range(9)}
+        held_since = datetime(2026, 10, 13, 17, 30)                       # 21:00 Tehran
+        t = [datetime(2026, 10, 16, 12, 30) + timedelta(hours=k) for k in range(6)]
+        state = {}
+
+        def run(when, db_ok, world_ok=True):
+            seen = service.observe(4150.0 if world_ok else 4150.0, not world_ok, 270_000.0, markets, db_ok,
+                                   "" if db_ok else quota, None if db_ok else held_since)
+            return service.update(state, seen, when)
+
+        self.assertEqual(run(t[0], False), [], "one run is not enough")
+        changes = run(t[1], False)
+        self.assertEqual([(n, c) for n, c, _ in changes], [("database", "down")])
+        self.assertEqual(changes[0][2]["since"], held_since.isoformat(), "dated by the oldest held write")
+        self.assertEqual(run(t[2], False), [], "announced once")
+        self.assertEqual(run(t[3], True), [])
+        back = run(t[4], True)
+        self.assertEqual([(n, c) for n, c, _ in back], [("database", "back")])
+
+        down_text = build_message("database", "down", changes[0][2], t[1])
+        self.assertIn("The database is out of reach since 21 Mehr, 21:00 (its free monthly limit).", down_text)
+        self.assertIn("Working: UPDATE, DIRECTION, the 21:00 chart.", down_text)
+        self.assertIn("Paused: ANALYZE, the discount push, the room's report, BUY signals.", down_text)
+        self.assertIn("Expected back: 10 Aban.", down_text)
+        self.assertNotIn("BUY signals", build_message("database", "down", changes[0][2], t[1], mirror_built=True),
+                         "with the record mirror the confirmation runs, so BUY signals are not paused")
+        back_text = build_message("database", "back", back[0][2], datetime(2026, 11, 1, 2, 30),
+                                  kept={"reading": 290, "observation": 3000, "news": 6100}, left={})
+        self.assertIn("The database is back, after 18 days.", back_text)   # 21 Mehr 21:00 to 10 Aban 06:00
+        self.assertIn("Kept meanwhile, now written: 290 readings, 6,100 news items.", back_text)
+        waiting = build_message("database", "back", back[0][2], datetime(2026, 11, 1, 2, 30),
+                                kept={"reading": 290, "news": 6100}, left={"news": 40})
+        self.assertIn("40 more are still being written", waiting)
+        self.assertEqual(len(down_text) < 4096 and len(back_text) < 4096, True)
+
+        world = {"since": t[1].isoformat(), "was_since": None, "reason": "fallback"}
+        self.assertIn("World gold has not updated since 17:00; its last price is used.",
+                      build_message("world gold", "down", world, t[2]))
+        few = {"since": t[1].isoformat(), "was_since": None, "count": 2, "total": 11}
+        self.assertIn("Only 2 of 11 platforms answered since 17:00; the discount needs three.",
+                      build_message("platforms", "down", few, t[2]))
+        self.assertEqual(status_line({}, t[0]), "Service: all working.")
+        self.assertEqual(status_line({"database": {"ok": False, "since": held_since.isoformat()}}, t[1]),
+                         "Service: the database out of reach since 21 Mehr, 21:00.")
+
+    def test_54_the_watch_runs_first_and_status_reads_it(self):
+        """The watch sees the run before anything that can end it -- a missing dollar raised in
+        calculate_fair_price and ended runs before anything was stored -- sends each change once, and
+        leaves the line Telegram's Status reads from the run's annotations."""
+        import io
+        from contextlib import redirect_stdout
+        import main
+        import alerts.telegram_service as ts
+        from persistence import mirror, spool
+
+        body = inspect.getsource(main.main)
+        watch = body.index("_service_watch(state")
+        self.assertLess(watch, body.index("validate_market_prices("), "before validation can end the run")
+        self.assertLess(body.index("if usd is None:"), body.index("calculate_fair_price(world, usd)"),
+                        "a missing dollar ends the run cleanly")
+        self.assertIn("::notice title=service::", inspect.getsource(main._service_watch))
+        worker = (REPO / "src" / "worker" / "telegram-trigger.js").read_text(encoding="utf-8")
+        self.assertIn('a.title === "service"', worker)
+        self.assertIn("await getServiceLine(env)", worker)
+
+        self._spool_file()
+        spool.hold("reading", {"snapshot": {"timestamp": datetime(2026, 10, 13, 17, 30)}, "platform_prices": []})
+        sent, saved = [], []
+        real = (mirror.reachable, mirror.unreachable_reason, mirror.built_at, ts.send_service, main.save_state)
+        try:
+            mirror.reachable = lambda: False
+            mirror.unreachable_reason = lambda: "exceeded the data transfer quota"
+            mirror.built_at = lambda: None
+            ts.send_service = sent.append
+            main.save_state = saved.append
+            state = {}
+            markets = {f"P{k}": {"status": "OK"} for k in range(9)}
+            out = io.StringIO()
+            with redirect_stdout(out):
+                for hour in (12, 13, 14):
+                    main._service_watch(state, datetime(2026, 10, 16, hour, 30), 4150.0, False, 270_000.0, markets)
+            self.assertEqual(len(sent), 1, "one push for the outage")
+            self.assertIn("out of reach since 21 Mehr, 21:00", sent[0])
+            self.assertEqual(state["service"]["database"]["kept"], {"reading": 1})
+            self.assertIn("::notice title=service::Service: the database out of reach since 21 Mehr, 21:00.",
+                          out.getvalue())
+            self.assertEqual(len(saved), 3, "the state is saved by the watch itself")
+        finally:
+            mirror.reachable, mirror.unreachable_reason, mirror.built_at, ts.send_service, main.save_state = real
+
 if __name__ == "__main__":
     print("=" * 55)
     print("CROSS-CUTTING COHERENCE")
