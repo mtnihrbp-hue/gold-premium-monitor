@@ -3277,6 +3277,10 @@ ubuntu-24.04.
   5h20m budget, about 3 minutes a day against 30 seconds expected. Groq's free tier evidently caps
   the day as well as the minute. The days span 2,471 tokens at the median; none failed to parse.
   The rest resumes in later runs (the labeller skips labelled days).
+- **The Iran node** (step 8, read on the phone at 09:10 Tehran on 10-16): `wc -l ~/iran_node_spool.jsonl`
+  gave 1,010. That fits continuous collection since the suspension: about 60 hours, 240 readings of 4
+  platform rows, about 960, plus TSETMC's fund days at 19 a trading day. At about 400 rows a day the
+  spool holds about 7,500 by 11-01, under its 30,000 limit.
 - **Verdict.** Production does what it can without Neon: hourly runs green, the evening chart and
   /Direction working without it, the record held. **Open:**
   1. the push is blind while Neon is down;
