@@ -18,9 +18,12 @@ import time
 from datetime import date, datetime
 
 MAX_BYTES = 20_000_000       # about two months of the record; beyond it a write is not held
+# News is held too (the owner, 2026-10-16: "spool"; SP_D_HANDOFF.md section 37.13): about 0.7 MB a day
+# against the record's 0.1 MB, so it stops here and leaves the rest, about 40 days, to the record.
+NEWS_MAX_BYTES = 16_000_000
 FLUSH_SECONDS = 240          # a run writes held entries for at most this long; the rest wait
-BATCH = 50                   # observations go in batches; a reading or a day's input one at a time
-BATCHED = ("observation",)
+BATCH = 50                   # observations and news go in batches; a reading or a day's input one at a time
+BATCHED = ("observation", "news")
 
 
 def _path():
@@ -51,13 +54,15 @@ def _decode(obj):
 
 
 def hold(kind, payload):
-    """Keep one write for later: "reading", "observation" or "candles". True when held."""
+    """Keep one write for later: "reading", "observation", "candles" or "news". True when held."""
     path = _path()
     if path is None:
         return False
     try:
-        if os.path.exists(path) and os.path.getsize(path) > MAX_BYTES:
-            print(f"SPOOL full ({MAX_BYTES:,} bytes): a {kind} was not held")
+        limit = NEWS_MAX_BYTES if kind == "news" else MAX_BYTES
+        if os.path.exists(path) and os.path.getsize(path) > limit:
+            if kind != "news":      # news counts what it could not hold itself (collector/news/ingest.py)
+                print(f"SPOOL full ({limit:,} bytes): a {kind} was not held")
             return False
         line = json.dumps({"kind": kind, "payload": payload}, default=_encode, separators=(",", ":"))
         with open(path, "a", encoding="utf-8") as f:
@@ -82,6 +87,12 @@ def held():
                 except ValueError:
                     print("SPOOL: an unreadable line skipped")
     return entries
+
+
+def held_keys(kind, field):
+    """The values of `field` among the held entries of `kind`: the news ingestion's dedup keys, so an
+    item every run fetches again is held once."""
+    return {e["payload"].get(field) for e in held() if e["kind"] == kind and e["payload"].get(field)}
 
 
 def _keep(path, entries):

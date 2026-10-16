@@ -619,34 +619,49 @@ def save_news_event(news_event: dict) -> int:
         return -1
 
     try:
-        event = NewsEvent(
-            timestamp=news_event.get("published_at", datetime.utcnow()),
-            source=news_event.get("source", "unknown"),
-            url=news_event.get("url") or None,
-            dedup_key=news_event.get("dedup_key") or None,
-            raw_headline=news_event.get("title", ""),
-            raw_summary=news_event.get("summary") or None,
-            event_type=news_event.get("event_type", "UNKNOWN"),
-            topic=news_event.get("topic") or None,
-            relevance=news_event.get("relevance", "UNKNOWN"),
-            expected_usd_direction=news_event.get("expected_usd_direction") or None,
-            expected_gold_direction=news_event.get("expected_gold_direction") or None,
-            expected_duration=news_event.get("expected_duration") or None,
-            impact=news_event.get("impact") or None,
-            confidence=news_event.get("confidence") or None,
-            uncertainty_notes=news_event.get("uncertainty_notes") or None,
-            classification_method=news_event.get("classification_method", "KEYWORD"),
-            processed_at=datetime.utcnow(),
-        )
+        event = NewsEvent(**_news_fields(news_event), processed_at=datetime.utcnow())
         session.add(event)
         session.commit()
         return event.id
     except Exception as e:
-        print(f"DB save failed (save_news_event): {e}")
         session.rollback()
+        from persistence.spool import unreachable
+        if unreachable(e) and hold_news_event(news_event):
+            return 0                # held for the write-back
+        print(f"DB save failed (save_news_event): {e}")
         return -1
     finally:
         session.close()
+
+
+def _news_fields(news_event: dict) -> dict:
+    """A classified news item as the columns of news_events (all but processed_at)."""
+    return {
+        "timestamp": news_event.get("published_at", datetime.utcnow()),
+        "source": news_event.get("source", "unknown"),
+        "url": news_event.get("url") or None,
+        "dedup_key": news_event.get("dedup_key") or None,
+        "raw_headline": news_event.get("title", ""),
+        "raw_summary": news_event.get("summary") or None,
+        "event_type": news_event.get("event_type", "UNKNOWN"),
+        "topic": news_event.get("topic") or None,
+        "relevance": news_event.get("relevance", "UNKNOWN"),
+        "expected_usd_direction": news_event.get("expected_usd_direction") or None,
+        "expected_gold_direction": news_event.get("expected_gold_direction") or None,
+        "expected_duration": news_event.get("expected_duration") or None,
+        "impact": news_event.get("impact") or None,
+        "confidence": news_event.get("confidence") or None,
+        "uncertainty_notes": news_event.get("uncertainty_notes") or None,
+        "classification_method": news_event.get("classification_method", "KEYWORD"),
+    }
+
+
+def hold_news_event(news_event: dict) -> bool:
+    """Keep a classified news item for the write-back while the database is out of reach
+    (persistence/spool.py; the owner, 2026-10-16: "spool"; SP_D_HANDOFF.md section 37.13).
+    The feeds keep only their latest items, so news not held is not recoverable. True when held."""
+    from persistence import spool
+    return spool.hold("news", _news_fields(news_event))
 
 
 def news_event_exists(dedup_key: str) -> bool:
@@ -1565,7 +1580,20 @@ def spool_writers(session, entries):
     def candles(session, p):
         save_daily_candles(session, p["source"], p["instrument"], p["unit"], p["candles"], p["collected_at"])
 
-    return {"reading": reading, "observation": observation, "candles": candles}
+    # News already stored -- the same item fetched before the outage, or a flush that ended before its
+    # file was rewritten -- is skipped by its dedup key, read once for every held item (section 37.13).
+    from database.models import NewsEvent
+    keys = sorted({e["payload"]["dedup_key"] for e in entries if e["kind"] == "news" and e["payload"].get("dedup_key")})
+    stored_news = set()
+    for k in range(0, len(keys), 500):
+        stored_news |= {r[0] for r in session.query(NewsEvent.dedup_key).filter(NewsEvent.dedup_key.in_(keys[k:k + 500]))}
+
+    def news(session, p):
+        if p.get("dedup_key") in stored_news:
+            return
+        session.add(NewsEvent(**p, processed_at=datetime.utcnow()))
+
+    return {"reading": reading, "observation": observation, "candles": candles, "news": news}
 
 
 # -- DIRECTION (SP-D, SP_D_HANDOFF.md section 4) ------------------------------------------------

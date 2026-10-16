@@ -45,6 +45,12 @@ def fetch_rss_feed(url: str, timeout: int = 15) -> str:
         ),
     })
     response.raise_for_status()
+    # Served as text/xml without a charset, a feed is decoded by requests as ISO-8859-1, which turned
+    # cbi.ir's UTF-8 -- its byte-order mark and every Persian word -- into text that does not parse: the
+    # feed gave nothing (SP_D_HANDOFF.md section 37.13). Without a declared charset, XML's own default
+    # holds: UTF-8, a leading byte-order mark dropped. Every other feed declares one or decodes the same.
+    if "charset" not in (response.headers.get("content-type") or "").lower():
+        return response.content.decode("utf-8-sig", errors="replace")
     return response.text
 
 
@@ -57,7 +63,9 @@ def source_label(url: str) -> str:
     volume and none of the signal.
 
     Google News query feeds share a host, so the query is carried too; without it
-    three different topic feeds would be indistinguishable.
+    three different topic feeds would be indistinguishable. Tasnim's category feeds share
+    one too (/fa/rss/feeds/7/0/0/0 economy, /1/ politics), so a numbered feed carries its
+    number: tasnimnews.ir/feeds/7 (SP_D_HANDOFF.md section 37.13).
     """
     try:
         parsed = urlparse(url or "")
@@ -68,6 +76,9 @@ def source_label(url: str) -> str:
             query = (parse_qs(parsed.query).get("q") or [""])[0]
             topic = re.sub(r"\+?when:[^+]*", "", query).replace("+", " ").strip()
             return f"google:{topic}"[:200] if topic else "google"
+        numbered = re.search(r"/rss/feeds/([1-9][0-9]*)/", parsed.path or "")
+        if numbered:
+            return f"{host}/feeds/{numbered.group(1)}"[:200]
         return host[:200]
     except Exception as e:
         # This used to swallow a missing-import NameError and return "unknown" for

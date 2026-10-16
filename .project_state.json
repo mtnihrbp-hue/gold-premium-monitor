@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "project": "Gold Premium Monitor",
-  "active_branch": "sp-de; main and SP-D at SP-De's record mirror since 2026-10-16 (SP-D 37.12, v1.21safe before); main is production",
+  "active_branch": "sp-de; main and SP-D at SP-De's news batch since 2026-10-16 (SP-D 37.13, v1.22safe before); main is production",
   "current_phase": "SP-D (SP_D_HANDOFF.md): Direction live on main since 2026-10-03 (sections 1-8); the PAPER portfolio, the room as its front office, live on main since 2026-10-05 18:01 (sections 9-28); health check and record 2026-10-06 (section 29). Proposed next, for the owner's decision: Taline's frozen copies, the Iran-side node, the news leg with the LLM (section 29)",
   "current_phase_status": "SP-C CLOSED (merged 2026-09-28, 2b7c5f8; v1.3safe before). SP-D IN PROGRESS: Direction merged 2026-10-03 (v1.4safe before); PAPER merged 2026-10-05 15:57 (v1.6safe before); the go-live hotfix (scipy/pandas pins, venue label) fast-forwarded 17:07 (v1.7safe = 2957699 before). Production (cron-job.org and the Telegram worker) dispatches ref main. SP_D_HANDOFF.md sections 28-29.",
   "completed_phases": [
@@ -273,7 +273,7 @@
     "sp_c_status": "CLOSED -- merged into main 2026-09-28 (2b7c5f8); tag v1.3safe = main before the merge",
     "sp_d_status": "IN PROGRESS: Direction merged 2026-10-03, PAPER 2026-10-05; each batch reaches main only after the owner's review, with a safe tag on main first",
     "until_2026_10_03": "PAST. Owner direction 2026-09-29: SP-D is for the next phase; anything found before 2026-10-03 is fixed on main, through a short-lived branch cut from main and fast-forwarded after owner review.",
-    "latest_safe_tag": "v1.21safe (5c60d04, main before the record mirror, 2026-10-16). v1.20safe (6daa566) was made after its push (SP_D_HANDOFF.md 37.10); v1.10safe to v1.19safe SP-De's earlier batches"
+    "latest_safe_tag": "v1.22safe (fd1ddb1, main before the Iranian news sources and news held in an outage, 2026-10-16). v1.21safe before the mirror; v1.20safe (6daa566) was made after its push (SP_D_HANDOFF.md 37.10)"
   },
   "verified_production_state": {
     "verified_on": "2026-10-06 16:45 Tehran",
@@ -307,7 +307,7 @@
     ],
     "note": "Consolidated 2026-10-16 (SP_D_HANDOFF.md 37.9): the order is stated in PROJECT_MEMORY.md section 1 and CLAUDE.md. Prompt_Guide.md, PROJECT_ORCHESTRATION.md, MASTER_PLAN_STATUS.md, C14_HANDOFF.md, C14C_HANDOFF.md, C14C_IMPLEMENTATION.md, UPDATE_V1_IMPLEMENTATION.md and the old PROJECT_MEMORY.md (archive/PROJECT_MEMORY_HISTORY.md) are in archive/, unchanged."
   },
-  "next_gate": "2026-10-16: B in the owner's order, then C (SP_D_HANDOFF.md 36-38). Merged: the spool's re-check, the wing parked in part, /Analyze honest, the clock and rss defects (v1.15safe); patterns and channels (v1.16safe); both price sides (v1.17safe); the unit tests (v1.18safe); the docs (v1.19safe); the record mirror for the next outage (37.12). Running: the news labels, 152 of 357 days (37.11; escalation no longer separates). Next: the decision engine (B3) and ANALYZE (B5) after the owner decides 38.2; the news labels (B7); money flow in turbulence; then C. 2026-11-01: the spool's write-back, Neon's transfer per run, the phone's spool, the mirror's first fill.",
+  "next_gate": "2026-10-16: B in the owner's order, then C (SP_D_HANDOFF.md 36-38). Merged: the spool's re-check, the wing parked in part, /Analyze honest, the clock and rss defects (v1.15safe); patterns and channels (v1.16safe); both price sides (v1.17safe); the unit tests (v1.18safe); the docs (v1.19safe); the record mirror for the next outage (37.12); the Iranian news sources through GitHub and news held in an outage (37.13). Running: the news labels, 152 of 357 days (37.11; escalation no longer separates). Next: the decision engine (B3) and ANALYZE (B5) after the owner decides 38.2; the news labels (B7); money flow in turbulence; then C. 2026-11-01: the spool's write-back, Neon's transfer per run, the phone's spool, the mirror's first fill.",
   "operational_state": {
     "collection_cadence": "hourly since 2026-09-14 (was once daily)",
     "cron_job_id": 8179679,
@@ -379,10 +379,7 @@
     "News dedup, second gap (section 34.5): Google News appends ' - Publisher' to titles, so one story from two outlets hashes differently. Also classifier precision: war mentions in economic pieces get MILITARY_ESCALATION with impact HIGH -- fixing N2 (read impact) without a precision check would turn a constant zero into a noisy count.",
     "validation/data.MAX_WORLD_GOLD is $5,000/oz with gold near $4,150; a rally past it rejects every world-gold quote (section 38.7). Reliability phase.",
     "Deep-discount push has no second-platform confirmation of its own; the stale-Taline case is closed at validation (38.8). Decide in SP-D whether the push needs one.",
-    "TA step 3 data (SP_C_HANDOFF.md 41.6): tgju has flat candles (open = high = low = close) on 284 of 3,516 gold days and 388 of 3,964 dollar days, clustered in 2011-2014 and 2019-2023 (3 in 2,050 from 2024); candle-pattern base rates must exclude them or start in 2024. 10 candles are flagged INCONSISTENT, most at a cap in tgju's own feed in September 2025. Trading days per year stepped from ~240 to ~280 around 2019-2020.",
-    "Owner, from 37.12: during an outage, should the deep-discount push run on the record mirror, or stay parked as now?",
-    "Owner, from 37.11: hold news in the spool while Neon is down? The RSS feeds keep only their latest items, so 10-13 to 11-01 is missing for the Iranian sites.",
-    "Phone news (37.11): Tasnim and cbi.ir fail from the workstation in Iran too; test from the phone before building the reader. Donya-e-Eqtesad and Tejarat News already reach GitHub's runner."
+    "TA step 3 data (SP_C_HANDOFF.md 41.6): tgju has flat candles (open = high = low = close) on 284 of 3,516 gold days and 388 of 3,964 dollar days, clustered in 2011-2014 and 2019-2023 (3 in 2,050 from 2024); candle-pattern base rates must exclude them or start in 2024. 10 candles are flagged INCONSISTENT, most at a cap in tgju's own feed in September 2025. Trading days per year stepped from ~240 to ~280 around 2019-2020."
   ],
   "corrections": [
     "2026-10-02: from 10-01 10:01 Goldika's CDN served the non-Iranian runner a copy priced 2026-09-13 (6% below the market); the section 39 rule (repeat 3-48 h) let it through for three hours: a false deep-discount push, three live UPDATEs, BUY candidates held only by confirmation, a false PANIC regime; it had also entered on 09-25 and 09-28 (12 readings). The 09-29 Taline fix had not audited the other platforms from the runner's side. Fixed: source price time (Goldika, Milli), repeat within 60 days, a 3 pp jump hold, the push corroborated without its cheapest platform; 12 readings corrected in production at 12:10 Tehran with a backup. Section 44.",

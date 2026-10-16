@@ -27,7 +27,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    37.8 the unit tests merged 2026-10-16 (v1.18safe);
                                                                    37.9 the documents merged 2026-10-16 (v1.19safe);
                                                                    CLAUDE.md's tag line 2026-10-16 (v1.20safe, see 37.10);
-                                                                   37.11-37.12 the labels, the mirror merged 2026-10-16 (v1.21safe)
+                                                                   37.11-37.12 the labels, the mirror merged 2026-10-16 (v1.21safe);
+                                                                   37.13 the Iranian news, news held merged 2026-10-16 (v1.22safe)
        member, the LLM member
 ```
 
@@ -4170,6 +4171,78 @@ Each was seen to fail. Six breaks were made in the code, among them:
 - no rebuild after an outage.
 
 Each break failed its test. `kpi_coherence` 45/45, suite 30/30, unit tests 18/18.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+**37.13 The owner's answers; the Iranian news sources read by GitHub, and news held in an outage** (10-16).
+
+**The owner's answers to 37.10-37.12:**
+- **The deep-discount push during an outage:** "Agreed" to the default. It stays parked, and does not
+  run from the record mirror.
+- **News during an outage:** "spool".
+- **The phone test:**
+  - Tasnim's address is `tasnimnews.ir`, not `.com`. The phone read it: curl's "(23) failure writing
+    output" only means `head` closed the pipe after its 300 characters.
+  - cbi.ir answered the phone with its home page.
+
+**Where each source can be read** (probed 10-16 from the workstation, the phone and GitHub's runner, the
+last through the temporary branch `probe-iran-news`, deleted):
+
+| Feed | Runner | Items |
+|---|---|---|
+| Tasnim economy, `tasnimnews.ir/fa/rss/feeds/7/0/0/0` | 200 | 25, about 7 hours of news |
+| Tasnim politics, `/feeds/1/0/0/0` | 200 | 17-18, about 9 hours |
+| cbi.ir news, `NewsRss.aspx?ln=fa` | 200 | 10, four days of the bank's announcements |
+| cbi.ir rates, `exratesrss.aspx` | 200 | 47, rates rather than news |
+| Mehr, ISNA, IRNA | 200 | 30 each |
+| `tasnimnews.com` | the name no longer resolves | — |
+
+- **The runner reaches every one.** The two retired on 09-21 failed for other reasons than geoblocking:
+  Tasnim's `.com` name is gone, and cbi.ir rejects some user agents. It refused the workstation's mobile
+  one and accepts production's.
+- **The phone is not needed for news.** No phone code is written.
+- Tasnim's all-stories feed covers under an hour, which an hourly run would miss, so its two categories
+  are read instead.
+
+**Built:**
+- **The sources** (`config.news.sources`): Tasnim economy, Tasnim politics and cbi.ir's news, the
+  owner's list of 10-15. Donya-e-Eqtesad and Tejarat News were already read. Mehr, ISNA and IRNA are
+  not added ("not to over pollute").
+- **cbi.ir's feed parsed to nothing.** It is served as `text/xml` without a charset, so `requests`
+  decoded its UTF-8 as ISO-8859-1. The byte-order mark and every Persian word came out as mojibake.
+  - `rss.fetch_rss_feed` now decodes the bytes as UTF-8 when no charset is declared, which is XML's own
+    default, and drops a byte-order mark.
+  - Of the twelve feeds, only cbi.ir's decodes differently: the other three without a charset come out
+    the same either way.
+  - The first attempt stripped the byte-order mark from the decoded text. It changed nothing, and its
+    test passed without it, so it was replaced. The test now serves the real case: text/xml without a
+    charset, a byte-order mark, a Persian title.
+- **Tasnim's two feeds share a host.** `rss.source_label` gives a numbered feed its number
+  (`tasnimnews.ir/feeds/7`, `/feeds/1`), and no existing label changes.
+- **News held in an outage** (`persistence/spool.py`, `repository.save_news_event`/`hold_news_event`,
+  `collector/news/ingest.py`):
+  - A save that finds the database out of reach holds the item and returns 0. The rest of the run is
+    held without asking the database again, which replaces the 3-failure breaker for this case. The
+    breaker stays for other failures.
+  - Each run's dedup keys include the held items' keys, so an item fetched by every run is held once.
+  - The write-back stores each item with its own time, in batches of 50, skipping a key already
+    stored.
+  - **Its share:** news is held only while the spool is under 16 MB (`NEWS_MAX_BYTES`), of its 20 MB. At
+    about 1.1 KB an item and roughly 600 new items a day, that is about 0.7 MB a day, against the
+    record's 0.1 MB. A 19-day outage then fits, and the record keeps 4 MB, about 40 days.
+- **`kpi_sp_c5.test_37`** retired "cbi.ir" by host. Its reason, "connection reset, and it is rate data
+  not news", was about the rate feed, so it now retires `cbi.ir/exratesrss.aspx`.
+
+**Tests.**
+- `kpi_coherence.test_51`: held, held once, written back once with its own time; an already-stored
+  item skipped; news stops at its ceiling while the record still fits.
+- `tests/test_news_collector.py`: the charset case, the labels, and the ingestion holding the rest of
+  the run without asking the database.
+- Seven breaks were made in the code; each failed its test. Suite 30/30, `kpi_coherence` 46/46, unit
+  tests 18/18 files (the news file 20/20).
+
+**From the next scheduled run until 11-01**, the news is kept. 10-13 to 10-16 is lost for the RSS
+feeds.
 
 **NEON MIGRATION REQUIRED = NO.**
 

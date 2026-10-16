@@ -11,7 +11,8 @@ from datetime import datetime
 
 from collector.news.rss import collect_rss_feed
 from intelligence.event_classifier import classify_news_item
-from database.repository import save_news_event, get_recent_dedup_keys
+from database.repository import save_news_event, get_recent_dedup_keys, hold_news_event
+from persistence.spool import held_keys
 
 
 MAX_CONSECUTIVE_FAILED = 3
@@ -43,9 +44,13 @@ def run_news_ingestion(config: Dict[str, Any]) -> Dict[str, Any]:
     # Three failed saves in a row and the rest of the run stores nothing: while Neon was suspended
     # (SP_D_HANDOFF.md sections 34, 35.3) each item spent about a second failing, 2.5 minutes a run.
     consecutive_failed, skipped = 0, 0
+    # Once a save finds the database out of reach and the item is held (save_news_event returns 0), the
+    # rest of the run is held without asking the database again (SP_D_HANDOFF.md section 37.13).
+    database_out, held, not_held = False, 0, 0
 
-    # Batch dedup: one query for all recent keys instead of N+1 exists checks
-    recent_keys: Set[str] = get_recent_dedup_keys(hours=24)
+    # Batch dedup: one query for all recent keys instead of N+1 exists checks; with the items already
+    # held, so an item every run fetches again during an outage is held once
+    recent_keys: Set[str] = get_recent_dedup_keys(hours=24) | held_keys("news", "dedup_key")
 
     # -----------------------------------------------------------------------
     # Phase 1: Parallel I/O-bound fetch
@@ -104,12 +109,24 @@ def run_news_ingestion(config: Dict[str, Any]) -> Dict[str, Any]:
                     total_duplicate += 1
                     continue
 
+                if database_out:
+                    if hold_news_event(classified):
+                        held += 1
+                        recent_keys.add(dedup_key)
+                    else:
+                        not_held += 1
+                    continue
+
                 event_id = save_news_event(classified)
                 if event_id > 0:
                     source_result["new"] += 1
                     total_new += 1
                     consecutive_failed = 0
                     recent_keys.add(dedup_key)  # prevent intra-run duplicates
+                elif event_id == 0:
+                    held += 1
+                    database_out = True
+                    recent_keys.add(dedup_key)
                 else:
                     source_result["failed"] += 1
                     total_failed += 1
@@ -124,6 +141,9 @@ def run_news_ingestion(config: Dict[str, Any]) -> Dict[str, Any]:
 
     if skipped:
         print(f"NEWS: {MAX_CONSECUTIVE_FAILED} saves failed in a row; {skipped} items of this run not stored")
+    if held or not_held:
+        print(f"NEWS: the database is out of reach; {held} new items held for later"
+              + (f", {not_held} not held (the spool's news share is full)" if not_held else ""))
     return {
         "status": "OK",
         "sources": results,
@@ -131,5 +151,6 @@ def run_news_ingestion(config: Dict[str, Any]) -> Dict[str, Any]:
         "total_duplicate": total_duplicate,
         "total_failed": total_failed,
         "total_skipped": skipped,
+        "total_held": held,
         "processed_at": datetime.utcnow().isoformat(),
     }

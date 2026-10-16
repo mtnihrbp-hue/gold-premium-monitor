@@ -47,7 +47,10 @@
       "https://news.google.com/rss/search?q=middle+east+strike+OR+attack+when:2d&hl=en-US&gl=US&ceid=US:en",
       "https://donya-e-eqtesad.com/rss",
       "https://tejaratnews.com/feed",
-      "https://www.tehrantimes.com/rss"
+      "https://www.tehrantimes.com/rss",
+      "https://www.tasnimnews.ir/fa/rss/feeds/7/0/0/0",
+      "https://www.tasnimnews.ir/fa/rss/feeds/1/0/0/0",
+      "https://www.cbi.ir/NewsRss.aspx?ln=fa"
     ],
     "fetch_interval_minutes": 30,
     "classification_mode": "keyword",

@@ -117,8 +117,10 @@ If the LLM is unavailable:
 - **RSS feeds**, read by GitHub's runner (`config.news.sources`).
 - **Telegram channels**, read from GitHub's side, because t.me is blocked from Iran
   (`collector/news/telegram_channels.py`; research so far).
-- **Iranian sites that refuse the runner** (cbi.ir, Tasnim, Donya-e-Eqtesad) are read by the owner's
-  phone (`iran_node/`), as TSETMC is.
+- **The Iranian sites** (Tasnim, cbi.ir, Donya-e-Eqtesad, Tejarat News) are read by GitHub's runner too.
+  Tasnim moved to `tasnimnews.ir`, and cbi.ir rejects some user agents and serves no charset. Before
+  routing a source to the phone (`iran_node/`, as TSETMC is), probe it from the runner
+  (`SP_D_HANDOFF.md` 37.13).
 
 The keyword classifier gives the event type and impact, never a gold direction (UNKNOWN since
 2026-09-21). Keywords cannot find events: in a year with a war, "military" matched 253 of 357 days.

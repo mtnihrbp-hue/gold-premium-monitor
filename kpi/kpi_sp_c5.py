@@ -665,7 +665,10 @@ class KPISPC5(unittest.TestCase):
             ("mehrnews.com", "2,861 rows, 0 relevant"),
             ("tasnimnews.com", "geoblocked from outside Iran"),
             ("eghtesadonline.com", "returns 0 items"),
-            ("cbi.ir", "connection reset, and it is rate data not news"),
+            # The rate feed, not the site: cbi.ir's news feed (NewsRss.aspx) is back on the owner's request
+            # of 2026-10-15, reached by the runner with production's user agent on 10-16 (SP_D_HANDOFF.md
+            # section 37.13). The reset of 09-21 was most likely a rejected user agent.
+            ("cbi.ir/exratesrss.aspx", "connection reset, and it is rate data not news"),
         ):
             self.assertNotIn(retired, joined, f"{retired} was retired: {why}")
 

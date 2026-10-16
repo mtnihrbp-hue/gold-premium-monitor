@@ -190,9 +190,13 @@ yesterday's dollar (`SP_C_HANDOFF.md` 34.3).
 
 Read daily candles through `persistence/candle_cache.py`.
 
-**News.** RSS feeds (`config.news.sources`) with a keyword classifier, which records `relevance`,
-`impact` and an event type, never a gold direction (UNKNOWN since 2026-09-21). Ingestion stops after
-three consecutive save failures (35.8). The labelling of a year of Telegram channels by an AI model
+**News.** RSS feeds (`config.news.sources`), all read by GitHub's runner:
+- international feeds and Google News queries;
+- Donya-e-Eqtesad and Tejarat News;
+- from 10-16, Tasnim's economy and politics feeds and cbi.ir's news (SP-D 37.13).
+
+A keyword classifier records `relevance`, `impact` and an event type, never a gold direction (UNKNOWN
+since 2026-09-21). While Neon is out of reach the items are held in the spool, each once. The labelling of a year of Telegram channels by an AI model
 (Groq, free tier) is research: it is in `research/`, not production.
 
 ## 6. The decisions and their record
@@ -263,7 +267,8 @@ system_events  market_hypotheses
   the health check watches the month-to-date figure (`PROJECT_OPERATIONS.md` 15).
 - **The spool.** While Neon is out of reach, what a run cannot write waits in `record_spool.jsonl` in
   the Actions cache (`persistence/spool.py`, SP-D 35.4). Each scheduled run flushes it first. Held
-  readings are re-checked against the stale-quote rules before they are written (37.1).
+  readings are re-checked against the stale-quote rules before they are written (37.1). News is held
+  too, up to 16 MB of the spool's 20 (37.13).
 - **The record mirror.** The last 61 days of `market_snapshots` and `platform_prices`, copied by each
   scheduled run that reaches Neon into `record_mirror.sqlite` (`persistence/mirror.py`, SP-D 37.12;
   0.88 MB). While Neon is out of reach the outage-sensitive readers use it, read-only:
@@ -384,7 +389,7 @@ inspect → define the change surface → implement minimally → targeted test 
 - **Branches.**
   - `main` is production.
   - The sprint is SP-D, run in sub-sprints with one branch each (now `sp-de`).
-  - A batch reaches SP-D and `main` by fast-forward, with a safe tag on `main` first (`v1.21safe` is
+  - A batch reaches SP-D and `main` by fast-forward, with a safe tag on `main` first (`v1.22safe` is
     the latest).
   - The owner authorized on 2026-10-15 that approved work is tagged and pushed without asking again.
   - A production defect is fixed on a short branch cut from `main`.

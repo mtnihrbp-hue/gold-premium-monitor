@@ -1403,6 +1403,75 @@ class KPICoherence(unittest.TestCase):
         self.assertIn("record_mirror.sqlite", workflow.split("key: gold-monitor-state-")[0], "cached with state.json")
         self.assertIn("RECORD_MIRROR_FILE: record_mirror.sqlite", workflow)
 
+    def test_51_news_is_held_once_while_the_database_is_out_of_reach_and_written_back_once(self):
+        """The feeds keep only their latest items, so news a run cannot store is lost (SP_D_HANDOFF.md
+        section 37.11); the owner, 2026-10-16: "spool". A save that finds Neon out of reach holds the
+        item; its key keeps the next runs from holding it again; the write-back stores it once, with its
+        own time, and skips an item already stored. News stops at its own ceiling, which leaves the rest
+        of the spool to the record."""
+        import io
+        from contextlib import redirect_stdout
+        from database import repository as repo
+        from database.models import NewsEvent
+        from persistence import spool
+
+        self._spool_file()
+        published = datetime(2026, 10, 16, 12, 25, 20)
+        item = {"published_at": published, "source": "tasnimnews.ir/feeds/7", "url": "https://www.tasnimnews.ir/a",
+                "dedup_key": "kpi51-a", "title": "a held headline", "summary": "s", "event_type": "UNKNOWN",
+                "relevance": "UNKNOWN", "classification_method": "KEYWORD"}
+
+        class Down:
+            def __init__(self, error):
+                self.error = error
+            def add(self, _):
+                pass
+            def commit(self):
+                raise self.error
+            def rollback(self):
+                pass
+            def close(self):
+                pass
+
+        real = repo.get_session
+        try:
+            repo.get_session = lambda: Down(self._quota_error())
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(repo.save_news_event(item), 0, "held, not failed")
+        finally:
+            repo.get_session = real
+        self.assertEqual(spool.held_keys("news", "dedup_key"), {"kpi51-a"})
+
+        s = _test_get_session()
+        try:
+            s.query(NewsEvent).filter(NewsEvent.dedup_key.like("kpi51-%")).delete(synchronize_session=False)
+            s.add(NewsEvent(timestamp=published, source="x", dedup_key="kpi51-b", raw_headline="already stored",
+                            event_type="UNKNOWN", relevance="UNKNOWN", classification_method="KEYWORD",
+                            processed_at=published))
+            s.commit()
+            self.assertTrue(repo.hold_news_event({**item, "dedup_key": "kpi51-b", "title": "stored before"}))
+            entries = spool.held()
+            with redirect_stdout(io.StringIO()):
+                written, dropped, left = spool.flush(s, repo.spool_writers(s, entries), entries)
+            self.assertEqual((written, dropped, left), (2, 0, 0))
+            rows = s.query(NewsEvent).filter(NewsEvent.dedup_key.like("kpi51-%")).all()
+            self.assertEqual(sorted(r.dedup_key for r in rows), ["kpi51-a", "kpi51-b"], "each once")
+            held_row = [r for r in rows if r.dedup_key == "kpi51-a"][0]
+            self.assertEqual((held_row.timestamp, held_row.source), (published, "tasnimnews.ir/feeds/7"))
+            s.query(NewsEvent).filter(NewsEvent.dedup_key.like("kpi51-%")).delete(synchronize_session=False)
+            s.commit()
+        finally:
+            s.close()
+
+        ceiling = spool.NEWS_MAX_BYTES
+        try:
+            spool.NEWS_MAX_BYTES = 10
+            self.assertTrue(spool.hold("observation", {"timestamp": published}), "the record still fits")
+            self.assertFalse(repo.hold_news_event(item), "news stops at its own ceiling")
+        finally:
+            spool.NEWS_MAX_BYTES = ceiling
+
+
 if __name__ == "__main__":
     print("=" * 55)
     print("CROSS-CUTTING COHERENCE")
