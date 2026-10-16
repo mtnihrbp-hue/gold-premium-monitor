@@ -32,6 +32,10 @@ Rules, fixed before the run:
 - Verdict, decided now: a rule "picks better moments" only when its episodes' mean +24h basis change
   is at least 0.5 pp above the control's on at least 8 episodes. Fewer episodes: INSUFFICIENT.
   Otherwise: NO EDGE.
+- Added after the first run, before its own (committed first): the cost of following the engine. A
+  reader deciding on a Tehran day whose first reading says WAIT, who waits for the engine's next final
+  BUY and buys then, against buying at that first reading: the basis change between the two, per day
+  (one a day, so days do not overlap). Days with no later BUY in the record are censored and counted.
 
 Run: python research/rd_engine_replay.py
 """
@@ -196,6 +200,25 @@ def main():
     print("\nthe scorecard's rule at +24h (BUY right when the discount shrank, WAIT right when it grew)")
     for label, (right, n) in hits.items():
         print(f"  {label:<15} {right}/{n} = {right / n:.1%}" if n else f"  {label:<15} n=0")
+
+    # the cost of following the engine: wait from a day's first WAIT to its next final BUY
+    from timeutil import local_date
+    costs, censored, seen = [], 0, set()
+    for i, r in enumerate(rows):
+        day = local_date(r["ts"])
+        if day in seen or r["final"] != "WAIT":
+            continue
+        seen.add(day)
+        j = next((k for k in range(i + 1, len(rows)) if rows[k]["final"] == "BUY"), None)
+        if j is None:
+            censored += 1
+            continue
+        costs.append(((rows[j]["basis"] / r["basis"] - 1) * 100, (rows[j]["ts"] - r["ts"]).total_seconds() / 86400))
+    if costs:
+        paid = [c for c, _ in costs]
+        print(f"\nwaiting for the engine's next BUY, from each day's first WAIT ({len(costs)} days, {censored} censored):")
+        print(f"  paid {mean(paid):+.2f}% on average (median {median(paid):+.2f}%), after {median(d for _, d in costs):.1f} days "
+              f"(median); cheaper than buying at once on {sum(c < 0 for c in paid)} of {len(paid)} days")
 
     print("\nverdicts (+24h, decided before the run):")
     for label, verdict in verdicts.items():
