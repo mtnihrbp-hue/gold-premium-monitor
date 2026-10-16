@@ -56,7 +56,10 @@ def main():
         fri = last_before(t_days, s)
         if not last or not fri or (s - last).days > 4 or fri <= last:
             continue
-        tether = usdt[fri] / usdt[last] - 1
+        t_last = last_before(t_days, last + timedelta(days=1))   # Tether's close on or before L
+        if not t_last or fri <= t_last:
+            continue
+        tether = usdt[fri] / usdt[t_last] - 1
         rows.append((s, tether, usd[s] / usd[last] - 1, gold[s] / gold[last] - 1))
     print(f"{len(rows)} weekends with Tether moving over them, {rows[0][0]} .. {rows[-1][0]}")
     verdict = []
