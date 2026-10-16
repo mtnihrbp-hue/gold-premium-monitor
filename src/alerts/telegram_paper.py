@@ -109,9 +109,9 @@ def build_room_trade_message(action, grams, price, venue, at_utc, view, after, f
 
 
 def build_room_report_message(day, venue, sell, sell_note, holding, units, fund_price, fund_estimated, value,
-                              base, base_day, hold, trades, view):
+                              base, base_day, hold, trades, view, demand=None):
     """The room's 21:00 report. `hold`: (value, quarter base) of buy-and-hold; `trades`: today's
-    trades as (action, grams, price, venue, local HH:MM)."""
+    trades as (action, grams, price, venue, local HH:MM); `demand`: main._gold_demand's reading."""
     lines = [f"<b>GOLDPremium: PAPER</b> · {persian_day(day, year=True)}, 21:00"]
     if view and view.get("phase_line"):
         lines.append(f"Phase: {view['phase_line']}")
@@ -130,11 +130,63 @@ def build_room_report_message(day, venue, sell, sell_note, holding, units, fund_
     if hold:
         h_value, h_base = hold
         lines.append(f"Holding instead: {_signed((h_value / h_base - 1) * 100)}")
-    band = (view or {}).get("band20")
-    if band:
-        lines.append(f"Next 20 trading days: most likely {_m(band[0])} to {_m(band[1])}")
+    # the buyers' line in place of the 20-day range (owner, 2026-10-16: a range gives nothing to decide on;
+    # SP_D_HANDOFF.md section 37.5)
+    buyers = demand_line(demand, day)
+    if buyers:
+        lines.append(buyers)
     lines.append(_room_line(view))
     return "\n".join(lines)
+
+
+def demand_line(demand, day):
+    """One line of the gold funds' last 7 days for the 21:00 report: how many bought against the usual, and
+    whether that or the money is unusual for the past year; None when stale or missing (section 37.5)."""
+    if not demand or not demand.get("as_of") or not demand.get("people", {}).get("state"):
+        return None
+    from datetime import date as _date
+    if (day - _date.fromisoformat(demand["as_of"])).days > 7:
+        return None
+    people, money = demand["people"], demand["money"]
+    word = {"HIGH": "a rush", "LOW": "few buyers"}.get(people["state"], "normal")
+    line = (f"Gold funds, 7 days: {demand['buyers_per_day']:,.0f} buyers a day, {people['value']:.1f} times the usual "
+            f"({word})")
+    if money.get("state") in ("HIGH", "LOW"):
+        line += f"; money {'heavily in' if money['state'] == 'HIGH' else 'heavily out'}"
+    return line
+
+
+def pattern_lines(found):
+    """The pattern reader's words for a caption (section 37.4): the range the price is in, its EMA20 test, a
+    live flag with its target, and any pattern of the last 10 days with its record on 18K."""
+    from caluclator.patterns import FLAG_RECORD, POINTS, RECORD, name
+    out = []
+    current = [r for r in (found or {}).get("ranges", []) if r[4]]
+    if current:
+        start, _end, lo, hi, _running = current[-1]
+        line = f"Sideways since {persian_day(start)} between {_m(lo)} and {_m(hi)}"
+        if found.get("tests"):
+            line += f"; tested the 20-day on {persian_day(found['tests'][-1])} and held"
+        out.append(line)
+    flag = (found or {}).get("flag")
+    if flag:
+        day, _level, target, stop = flag
+        hit, n, control = FLAG_RECORD
+        out.append(f"Flag of {persian_day(day)}: target {_m(target)} while above {_m(stop)} "
+                   f"({hit} of {n} flags since 2014 got there first)")
+    events = (found or {}).get("events", [])
+    if events:
+        latest = events[-1][0]
+        seen = set()
+        for day, kind, *_r in events:
+            base = kind.replace(" (up)", "").replace(" (down)", "")
+            if base in ("FLAG", "EMA20 TEST") or base not in RECORD or base in seen or (latest - day).days > 14:
+                continue
+            seen.add(base)
+            hit, n, control = RECORD[base]
+            out.append(f"{name(kind).capitalize()} of {persian_day(day)}, in the books a sign of a {'rise' if POINTS[base] == 'up' else 'fall'}: "
+                       f"on 18K {hit} of {n} since 2014 reached their target first (about {control} in 100 from any day)")
+    return out
 
 
 def build_evening_message(day, reading):
@@ -162,6 +214,7 @@ def build_evening_message(day, reading):
         d50 = reading["ema50"][0]
         was = f"{abs(was20):.1f}%" + ("" if side(was20) == side(d20) else f" {side(was20)}")
         lines.append(f"{abs(d20):.1f}% {side(d20)} the 20-day (was {was}), {abs(d50):.0f}% {side(d50)} the 50-day")
+        lines.extend(pattern_lines(reading.get("patterns")))
     lines.append("PAPER resumes when the database is back")
     return "\n".join(lines)
 

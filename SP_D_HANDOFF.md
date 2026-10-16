@@ -21,7 +21,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    35.5-35.6 merged 2026-10-15 (v1.12safe);
                                                                    35.8 merged 2026-10-15 (v1.13safe);
                                                                    35.11 Direction v7 merged 2026-10-15 (v1.14safe);
-                                                                   36 the audit; 37.1-37.3 merged 2026-10-16 (v1.15safe)
+                                                                   36 the audit; 37.1-37.3 merged 2026-10-16 (v1.15safe);
+                                                                   37.4-37.5 the patterns merged 2026-10-16 (v1.16safe)
        member, the LLM member
 ```
 
@@ -3677,3 +3678,61 @@ A close above 26.74M breaks out of the range; under 25.27M breaks down.
 
 Awaiting the owner. Once locked, the reader moves into `caluclator/` beside the chartist (calculators
 calculate), and the evening and 21:00 charts and Direction carry it, each pattern with its 18K record.
+
+**37.5 The patterns wired: both worlds on one chart; the buyers' line in the room report** (10-16).
+
+**The owner.**
+- On the chart: "the pattern chart is ok, but i like the last one better, especially, we spent loads of
+  time and energy to give a life to resistance and support lines ... maybe having good of both worlds
+  works much better."
+- On the room report: "you can drop the line, but instead we can bring in the buyers power line we
+  talked before."
+- On the order of B: "agreed on 3, move on full horse power."
+
+**The reader** (`caluclator/patterns.py`, beside the chartist). The rules are research/rd_patterns.py's,
+unchanged, so their record applies:
+- `zigzag` (3%), `ranges`, `range_breaks` (flag, breakout, breakdown), `ema_tests` and
+  `swing_patterns`;
+- `read(dates, high, low, close)` returns:
+  - the last two ranges, the last one marked running while the price is still in it;
+  - the last 60 days' events;
+  - the live flag (target not reached, stop not broken);
+  - the EMA20 tests inside the current range.
+- `RECORD` holds each pattern's 18K figures from 37.4 and `POINTS` where the textbooks expect it to go.
+- `name()` drops the direction words ("rising wedge", not "rising wedge (down)"): on the chart they
+  read as a forecast the record does not support.
+
+**The chart** (`main._chart_png`: the 21:00 PAPER chart and the evening fallback alike). It keeps
+everything it drew: EMA20 and EMA50, the swing supports and resistances, the trend lines with their
+projections, the Fibonacci levels, the trades and the live price. It adds `_pattern_overlay`:
+- the two ranges as shaded boxes, labelled with their Persian dates;
+- the events since the first of them as markers, named plainly;
+- the live flag's target as a dotted line.
+
+**The evening caption** (`telegram_paper.pattern_lines`) adds, after its EMA line:
+- the current range and its EMA20 test;
+- the live flag with its target, its stop and "14 of 19 flags since 2014 got there first";
+- any pattern of the last 14 days with its record and the books' direction. On 10-16: "Rising wedge of
+  21 Mehr, in the books a sign of a fall: on 18K 2 of 41 since 2014 reached their target first (about 8
+  in 100 from any day)".
+
+The caption is 559 characters, against Telegram's 1,024.
+
+**The room report.** "Next 20 trading days: most likely X to Y" is dropped. In its place is
+`telegram_paper.demand_line`, Direction's GOLD DEMAND in one line: "Gold funds, 7 days: 86,414 buyers a
+day, 1.7 times the usual (a rush)", plus "money heavily in / out" when that reading is unusual. It is left
+out when its last day is more than 7 days old; `main._gold_demand(session)` feeds it. The room still
+computes `band20` and stores it with its view; nothing prints it.
+
+**Tests** (`kpi_paper` 47/47, suite 30/30):
+- `test_39`: a 20% pole, a range, and a breakout out of the 6% band read as a flag with the pole's
+  height as target and the range's low as stop; an EMA20 test at a planted dip, and only there;
+- `test_40`: plain names; every record has its direction;
+- `test_41`: the chart receives the boxes, the flag's target and still the trend lines; the evening
+  caption carries the flag with its record;
+- `test_42`: the room report has the buyers' line, not the range, and leaves a stale reading out;
+- `test_25` updated: no range line.
+
+Learned from the fixtures and kept: a range grows while every close stays within 6% of the others, so a
+breakout is recognized once the price leaves that band. That is how the September breakout read (24.40M
+to 25.27M, 9.6% off the range's low).

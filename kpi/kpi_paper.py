@@ -600,8 +600,9 @@ class KPIPaper(unittest.TestCase):
         self.assertIn("Paid from Afran", back)
         plain = re.sub(r"</?[bi]>", "", report)
         for part in ("Phase: sideways after a rise", "Posture: 3 g in gold,", "in Afran (fixed income)",
-                     "Next 20 trading days: most likely", "The room: 5 of 7 lean to fixed income, 1 to gold"):
+                     "The room: 5 of 7 lean to fixed income, 1 to gold"):
             self.assertIn(part, plain)
+        self.assertNotIn("Next 20 trading days", plain, "dropped for the buyers' line (owner, 2026-10-16)")
 
     def test_26_the_collectors_never_raise_and_read_their_pages(self):
         import requests
@@ -902,6 +903,90 @@ class KPIPaper(unittest.TestCase):
                                  "PAPER resumes when the database is back"])
         bare = build_evening_message(date(2026, 10, 15), None)
         self.assertIn("Chart reading: not enough history", bare)
+
+
+    # -- the pattern reader (SP_D_HANDOFF.md sections 37.4-37.5) ----------------------------
+
+    def _rally_range_breakout(self):
+        """A sharp rally of 20% over 5 days (the pole), a range of 10 days within 2%, then a close 8% above it:
+        a range grows while every close stays within 6% of the others, so a breakout leaves that band.
+        A slower rally lets the range absorb its last days, and the reader rightly calls it a plain breakout."""
+        c = [100.0 * 1.001 ** k for k in range(120)]
+        for k in range(5):
+            c.append(c[-1] * 1.038)
+        top = c[-1]
+        for k in range(10):
+            c.append(top * (0.985 if k % 2 else 0.995))
+        c.append(top * 1.08)
+        dates = [date(2025, 1, 1) + timedelta(days=k) for k in range(len(c))]
+        return dates, [x * 1.004 for x in c], [x * 0.996 for x in c], c
+
+    def test_39_the_reader_finds_the_range_the_flag_and_the_ema_test(self):
+        import numpy as np
+        from caluclator import patterns as pt
+        dates, h, l, c = self._rally_range_breakout()
+        r = pt.read(dates, h, l, c)
+        kinds = [e[1] for e in r["events"]]
+        self.assertIn("FLAG", kinds, "a pole of 15% and a range of at most half of it: a flag")
+        self.assertIsNotNone(r["flag"], "its target is not reached yet: the flag is live")
+        day, level, target, stop = r["flag"]
+        self.assertEqual(day, dates[-1])
+        self.assertGreater(target, c[-1], "the pole's height above the breakout")
+        self.assertAlmostEqual(stop, pt.ranges(np.array(c))[-1][2], msg="invalid under the range's low")
+        steep = np.array([100.0 * 1.01 ** k for k in range(150)])  # lows stay far above the lagging 20-day
+        e20 = __import__("talib").EMA(steep, 20)
+        k = 120
+        lows = steep * 0.996
+        lows[k] = e20[k] * 0.999                      # a dip to the 20-day that closes above it
+        tests = pt.ema_tests(steep * 1.004, lows, steep)
+        self.assertEqual([e[0] for e in tests], [k], "a low at the 20-day, a close above it, in an uptrend: an EMA20 test")
+
+    def test_40_the_names_carry_no_forecast(self):
+        from caluclator import patterns as pt
+        self.assertEqual(pt.name("RISING WEDGE (down)"), "rising wedge")
+        self.assertEqual(pt.name("FLAG"), "flag breakout")
+        for kind, (hit, n, control) in pt.RECORD.items():
+            self.assertLessEqual(hit, n)
+            self.assertIn(kind, pt.POINTS, "the caption says where the books expect it to go")
+        self.assertEqual(pt.RECORD["FLAG"], pt.FLAG_RECORD)
+
+    def test_41_the_chart_and_the_evening_caption_carry_the_reading(self):
+        import main
+        import alerts.chart as chart
+        from alerts.telegram_paper import pattern_lines
+        from persistence.candle_cache import Candle
+        dates, h, l, c = self._rally_range_breakout()
+        dates = [date(2025, 1, 1) + timedelta(days=k) for k in range(len(c) + 200)][-len(c):]
+        rows = [Candle(d_, x, hh, ll, x, "COMPLETE") for d_, hh, ll, x in zip(dates, h, l, c)]
+        rows = [Candle(dates[0] - timedelta(days=200 - k), c[0], h[0], l[0], c[0], "COMPLETE") for k in range(200)] + rows
+        seen, real = {}, chart.render
+        chart.render = lambda *a, **k: seen.update(k) or b"\x89PNG"
+        try:
+            with redirect_stdout(io.StringIO()):
+                png = main._chart_png(rows, (), c[-1], "18K daily")
+        finally:
+            chart.render = real
+        self.assertEqual(png, b"\x89PNG")
+        self.assertTrue(seen["patterns"]["boxes"], "the range is drawn")
+        self.assertIn("flag target", [t[1] for t in seen["patterns"]["targets"]])
+        self.assertIn("trend", seen, "and everything the chart drew before (owner: both worlds)")
+        found = main._evening_reading(rows, c[-1])["patterns"]
+        lines = pattern_lines(found)
+        self.assertTrue(any(x.startswith("Flag of ") and "flags since 2014 got there first" in x for x in lines))
+
+    def test_42_the_room_report_has_the_buyers_line_not_the_range(self):
+        from alerts.telegram_paper import build_room_report_message, demand_line
+        view = {"posture": "ALL_GOLD", "reasons": [], "next_review": "2026-10-19", "members": {}, "for_fixed_income": [],
+                "for_gold": [], "band20": [240_000_000, 290_000_000, 230_000_000, 300_000_000, 265_000_000]}
+        demand = {"as_of": "2026-10-03", "buyers_per_day": 86_414.0, "people": {"value": 1.67, "state": "HIGH"},
+                  "money": {"value": 0.06, "state": "NORMAL"}, "size": {"value": 0.57, "state": "NORMAL"}}
+        args = (DAY, "Goldika", SELL, "", 3, 0.0, None, False, 3 * SELL, p.START_CASH_IRR, DAY, None, [], view)
+        plain = re.sub(r"</?[bi]>", "", build_room_report_message(*args, demand=demand))
+        self.assertNotIn("Next 20 trading days", plain, "the range gives nothing to decide on (owner, 2026-10-16)")
+        self.assertIn("Gold funds, 7 days: 86,414 buyers a day, 1.7 times the usual (a rush)", plain)
+        stale = dict(demand, as_of="2026-09-20")
+        self.assertIsNone(demand_line(stale, DAY), "a reading more than a week old is left out")
+        self.assertNotIn("Gold funds", re.sub(r"</?[bi]>", "", build_room_report_message(*args)))
 
 
 if __name__ == "__main__":

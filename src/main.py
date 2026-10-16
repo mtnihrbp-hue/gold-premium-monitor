@@ -1033,7 +1033,8 @@ def _paper_report(session, accounts, day, quote, sig, now, view=None, fund=(None
     hold = lines.get(paper.HOLD)
     if front_name == paper.ROOM:
         text = build_room_report_message(day, venue, sell, note, holding, units, fund_price, fund_estimated, value,
-                                         base, base_day, (hold[5], hold[2]) if hold else None, trades, view)
+                                         base, base_day, (hold[5], hold[2]) if hold else None, trades, view,
+                                         demand=_gold_demand(session))
     else:
         prev = paper_latest(session, front.id, kinds=("EVAL", "TRADE"))
         plan = (prev.inputs or {}).get("plan") if prev is not None else None
@@ -1072,10 +1073,28 @@ def _chart_png(rows, trades, live, title):
         fib = fibonacci(c[start[-1]], c[start[-1]:].max()) if direction[-1] == "up" else []
         return render(dates, o, h, l, c, ema20=talib.EMA(c, 20), ema50=talib.EMA(c, 50),
                       supports=[x["price"] for x in supports[:3]], resistances=[x["price"] for x in resistances[:2]],
-                      trades=trades, live=live, title=title, trend=trend, fib=fib)
+                      trades=trades, live=live, title=title, trend=trend, fib=fib, patterns=_pattern_overlay(dates, h, l, c))
     except Exception as e:
         print(f"Chart unavailable: {e}")
         return None
+
+
+def _pattern_overlay(dates, h, l, c):
+    """The pattern reader's findings for the chart (caluclator/patterns.py, SP-D section 37.4): the last two
+    ranges as boxes, the events since the first of them as markers, a live flag's target. {} on failure."""
+    try:
+        from caluclator import patterns
+        from timeutil import persian_day
+        r = patterns.read(dates, h, l, c)
+        boxes = [(s, e, lo, hi, f"range since {persian_day(s)}" if running else f"range {persian_day(s)}-{persian_day(e)}")
+                 for s, e, lo, hi, running in r["ranges"]]
+        first = r["ranges"][0][0] if r["ranges"] else dates[-60]
+        marks = [(day, level, patterns.name(kind)) for day, kind, level, _t, _s in r["events"] if day >= first]
+        targets = [(r["flag"][2], "flag target")] if r["flag"] else []
+        return {"boxes": boxes, "marks": marks, "targets": targets}
+    except Exception as e:
+        print(f"Chart patterns unavailable: {e}")
+        return {}
 
 
 def _paper_chart(session, analyst, live_sell):
@@ -1134,7 +1153,9 @@ def _evening_reading(rows, live):
     series = np.append(c, float(live)) if live else c
     e20, e50 = talib.EMA(series, 20), talib.EMA(series, 50)
     dist = lambda e, k: float((series[k] / e[k] - 1) * 100)
-    return {"price": float(series[-1]), "live": bool(live), "as_of": rows[-1].trade_date,
+    from caluclator import patterns
+    found = patterns.read([r.trade_date for r in rows], h, l, c)
+    return {"price": float(series[-1]), "live": bool(live), "as_of": rows[-1].trade_date, "patterns": found,
             "phase": read["phase"], "channel": read.get("channel"),
             "swing": (rows[known[-1][1]].trade_date, float(known[-1][2]), known[-1][3]) if known else None,
             "ema20": (dist(e20, -1), dist(e20, -2)), "ema50": (dist(e50, -1), dist(e50, -2))}
