@@ -3243,3 +3243,43 @@ ubuntu-24.04.
 - **KPIs:** `kpi_direction` 43/43; tests 22 and 23 were updated for the dropped lines, and tests 29-34
   are new: the layout, the line rates, WATCH's state, demand's flags, staleness and the loader. Suite
   30/30.
+
+**35.12 Health check 2026-10-16, 08:51 Tehran** (PROJECT_OPERATIONS.md section 15).
+
+- **Runs.** Every hour from 06:00 to 21:00 Tehran on 10-15, and 06:00, 07:00 and 08:00 on 10-16:
+  ANALYZE on `main`, all `success`, 1-3 minutes each (short, because every database call fails
+  fast). /Direction at 00:11 ran on v7.
+- **Neon.** It still refuses: "Your account or project has exceeded the quota", until the 11-01
+  reset. Steps 2, 3, 5, 6, 7 and 8 (the database's rows) cannot run, and step 9 (transfer) means
+  nothing until the new period.
+- **Logs.** They are readable again, through the job-log API
+  (`gh api --allow-escape-sequences repos/.../actions/jobs/<id>/logs`); the log host
+  `results-receiver` still times out.
+  - 21:00 on 10-15: "EVENING sent without the database: 1000 tgju candles to 2026-10-14, chart yes",
+    the photo delivered (the owner confirmed it).
+  - 00:11: "DIRECTION: computed live from tgju (OK)", sent.
+  - 06:00 on 10-16: no message went out, so the recap is parked as decided.
+  - The spool grows about 14-15 writes a run (30 held at 21:00, 50 at 06:00, 79 at 08:00). The
+    room's inputs are held once a day. The news breaker skipped 156 items after three failed saves.
+- **Platforms.** 10 of 11 valid at 08:00. Daric is refused by the runner (403), and its phone route
+  needs Neon. **The stale-quote check is skipped every run** ("Platform history unavailable"):
+  without Neon's history the repeat and jump rules cannot run, and they fail open. Frozen copies
+  (Taline, HoorGold, section 31) can therefore reach UPDATE and the spool. The spool will write
+  those readings back on 11-01 unchecked unless they are re-checked first. That is open, for the
+  audit.
+- **The push cannot fire.** At 08:00 the discount was 2.93% (basis), 2.74% without the cheapest
+  platform, and the stored premium -3.12%; the push said `NO_DATA`. The last level computed before
+  the suspension (20:00 on 10-13) was `fire_at` 3.1704614467926606 and `rearm_at`
+  2.2590539162434133. No push has been missed: 2.93 is below 3.17. The market is 0.24 points from
+  the level, though, and a deepening before 11-01 would go unannounced. Proposed to the owner: hold
+  that level, dated 10-13, for the push until Neon returns.
+- **The labels.** The AI model labelled 108 of 357 days (2025-10-15 to 2026-02-08) in the job's
+  5h20m budget, about 3 minutes a day against 30 seconds expected. Groq's free tier evidently caps
+  the day as well as the minute. The days span 2,471 tokens at the median; none failed to parse.
+  The rest resumes in later runs (the labeller skips labelled days).
+- **Verdict.** Production does what it can without Neon: hourly runs green, the evening chart and
+  /Direction working without it, the record held. **Open:**
+  1. the push is blind while Neon is down;
+  2. the held readings bypass the stale-quote rules;
+  3. Daric is absent;
+  4. 249 days remain unlabelled.
