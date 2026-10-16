@@ -3894,3 +3894,26 @@ measured before any change.
 - Tests: `kpi_coherence.test_45` (who is stored two-sided; no member of the representative chain is) and
   `test_46` (Taline's parser on Persian digits, a reversed pair, nothing). `kpi_coherence` 41/41, suite
   30/30.
+
+**38.6 The first laboratory measurement: the platforms do not catch up a fair jump**
+(`research/rd_platform_lag.py`, rules in its docstring; `hourly.json`, 2026-08-04 to 10-04).
+
+- **The sample.** 15 jumps of 1% or more in fair value between consecutive readings (12 up, 3 down),
+  counted once per 12 hours.
+
+| After the jump | Share of fair's move the platforms made up | On all readings (the control) |
+|---|---|---|
+| 1 hour | 37% | 34% |
+| 3 hours | 49% | 40% |
+| 6 hours | 34% | 59% |
+| 24 hours | 63% | 85% |
+
+- **The discount stayed.** It was -2.37% at the jump and -2.46% a day later.
+- **What it means.** After a fair jump, nearly all of them dollar moves here, the platforms followed
+  *less* than usual, not more. There is no "wait a few hours for the platforms to catch up" edge for the
+  WHEN rules (38.2), and nothing to exploit in the other direction either. The jump in fair value is
+  partly not followed at all: the platforms may track a dollar other than Bonbast's.
+- **To re-measure** on the full hourly record after 11-01, with the dollar's own sources (Tether from
+  tgju; the node's TSETMC funds) beside Bonbast.
+- **For the advisor:** WHEN starts from "buy now" (waiting for a dip cost more in 12 of 13 years). The
+  deep zone stays a push, without a claim of what follows, until the full record speaks.
