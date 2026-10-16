@@ -47,7 +47,7 @@ So each label carries the direction it asserts, which is the rule from
 `LESSONS_LEARNED.md` section 12: a magnitude is not a direction.
 
     CHEAP       rank in the cheapest band   AND   actually below fair value
-    EXPENSIVE   rank in the dearest band    AND   actually above fair value
+    EXPENSIVE   rank in the most expensive band    AND   actually above fair value
     FAIR        anything else
     UNKNOWN     no rank -- too little history to place the reading
 

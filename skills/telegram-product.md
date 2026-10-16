@@ -157,8 +157,11 @@ once he/she reads the msg, gets informed, and can make a decision."
 
 - **The discount** "increased" or "decreased", never "widening", "deepening" or "shrinking". It is
   shown as a positive number below fair value; a premium has its own words, above fair value.
-- **Plain words:** "cheaper" and "more expensive", "typical" rather than "median", "heavily
-  discounted" rather than "cheap".
+- **Plain words:** "typical" rather than "median"; "heavily discounted" rather than "cheap" for the
+  discount's size.
+- **Never "dear", "dearer" or "dearest"**, in messages, docs or chat: "expensive", "more expensive",
+  "most expensive". For prices going down: "cheaper" or "down trend" (owner, 2026-10-16, restating an
+  earlier agreement).
 - **Every change says against what:** the last scheduled run, today's first reading, 7 days. Seven days
   is the system's convention for averages a reader sees.
 - **A figure with a record shows the record** ("14 of 19 flags since 2014"), not a confidence word. A

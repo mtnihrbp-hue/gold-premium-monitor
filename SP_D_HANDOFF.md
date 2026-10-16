@@ -3335,7 +3335,7 @@ Built-ness, test counts and past effort count for nothing here.
 |---|---|---|---|
 | **The room, 7 members** (without money flow) | gold or fixed income | Beat holding by +4.0% to +5.7% median over two-year windows (18 Afran windows, Daric's cost), ahead in 83-100% of them, worst -3.3%; at Goldika's cost +1.3% to +3.1%. `rd_room_simpler.py`, below. | 18 overlapping windows are about three independent periods. |
 | **Buy now, don't wait for a dip** (Direction) | when to buy | Waiting for a 3% dip cost more in 12 of 13 years (section 1; the panel's `convert`). | The one robust timing fact on record. |
-| **The live platform prices** (UPDATE) | where to buy | Today's spread is 1.9% between the cheapest and the dearest platform (10-15). That is money a buyer saves for certain. | The price sides are mixed: see 36.3. |
+| **The live platform prices** (UPDATE) | where to buy | Today's spread is 1.9% between the cheapest and the most expensive platform (10-15). That is money a buyer saves for certain. | The price sides are mixed: see 36.3. |
 | **The 50-day breaks** (Direction WATCH) | when the trend turns | Counted by separate breaks, a weaker month by 1 to 6 points (section 35.11). | 5 to 35 breaks a cell. |
 | **Gold demand** (Direction) | context | Descriptive. It catches May 2026's heavy buying and December 2025's heavy selling (35.11). | No forecast, by design. |
 | **The deep-discount zone** (the push) | when, within days | After the first deep reading of each episode, the platforms rose +1.16% in 24 hours against +0.53% for all readings (11 episodes, 08-04 to 10-04, `research/data/hourly.json`). Bought the same day, the deep zone saved only +0.05% (median). | Suggestive, not established. Re-measure on the full record after 11-01. |
@@ -4589,7 +4589,7 @@ readings, 62 days).
   the rule. The follow-up split the days by direction:
   - on up days the morning was 0.80% below the day's mean (90% of 29 days);
   - on down days it was 0.37% above (15 days).
-- **The verdict:** the drift, not the hour. In a falling market the morning would be dear. "Buy in the
+- **The verdict:** the drift, not the hour. In a down trend the morning would be the more expensive time. "Buy in the
   morning" is "buy now" again.
 
 **40.4 What the scenarios say together.**
