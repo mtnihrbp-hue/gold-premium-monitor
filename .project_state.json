@@ -273,7 +273,7 @@
     "sp_c_status": "CLOSED -- merged into main 2026-09-28 (2b7c5f8); tag v1.3safe = main before the merge",
     "sp_d_status": "IN PROGRESS: Direction merged 2026-10-03, PAPER 2026-10-05; each batch reaches main only after the owner's review, with a safe tag on main first",
     "until_2026_10_03": "PAST. Owner direction 2026-09-29: SP-D is for the next phase; anything found before 2026-10-03 is fixed on main, through a short-lived branch cut from main and fast-forwarded after owner review.",
-    "latest_safe_tag": "v1.19safe (main before the B6 documents batch, 2026-10-16; v1.10safe to v1.18safe were SP-De's earlier batches)"
+    "latest_safe_tag": "v1.20safe (6daa566, main before CLAUDE.md's tag-line fix 5c60d04; made after that push, SP_D_HANDOFF.md 37.10). v1.19safe before the documents batch; v1.10safe to v1.18safe SP-De's earlier batches"
   },
   "verified_production_state": {
     "verified_on": "2026-10-06 16:45 Tehran",

@@ -375,7 +375,7 @@ inspect → define the change surface → implement minimally → targeted test 
 - **Branches.**
   - `main` is production.
   - The sprint is SP-D, run in sub-sprints with one branch each (now `sp-de`).
-  - A batch reaches SP-D and `main` by fast-forward, with a safe tag on `main` first (`v1.19safe` is
+  - A batch reaches SP-D and `main` by fast-forward, with a safe tag on `main` first (`v1.20safe` is
     the latest).
   - The owner authorized on 2026-10-15 that approved work is tagged and pushed without asking again.
   - A production defect is fixed on a short branch cut from `main`.

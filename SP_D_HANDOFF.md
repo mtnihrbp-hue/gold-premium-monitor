@@ -25,7 +25,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    37.4-37.5 the patterns merged 2026-10-16 (v1.16safe);
                                                                    37.7 both price sides merged 2026-10-16 (v1.17safe);
                                                                    37.8 the unit tests merged 2026-10-16 (v1.18safe);
-                                                                   37.9 the documents merged 2026-10-16 (v1.19safe)
+                                                                   37.9 the documents merged 2026-10-16 (v1.19safe);
+                                                                   CLAUDE.md's tag line 2026-10-16 (v1.20safe, see 37.10)
        member, the LLM member
 ```
 
@@ -4012,6 +4013,51 @@ files are replaced:
 - **llm-news-intelligence:** Groq's caps, where news comes from, what has been measured.
 
 No code changed. Suite 30/30 (840 assertions across 29 files), unit tests 18/18.
+
+**37.10 A rule broken, and the owner's question: the phone as the database** (10-16).
+
+**The safe tag.** A one-line fix to `CLAUDE.md` (5c60d04, its stale "latest safe tag" line) was pushed
+to `main` without a safe tag first. `v1.20safe` was then put on `main` as it stood before the push
+(6daa566), so the rollback point exists, but it was made after the merge, not before. The rule has no
+exemption for documents. Small fixes now wait on SP-D for the next batch.
+
+**The question.** The owner: "while the neon is down, can we use my phone as db via the termux thing
+we have. how much space do we need, check the possibility."
+
+**Space is not the constraint.**
+- Neon's free plan caps a project's storage at 0.5 GB, so the database is under that by construction.
+  The exact size cannot be read while the project is suspended: Neon's API does not answer this
+  workstation's tools.
+- PostgreSQL is a Termux package. An S10 has 128 GB or more.
+
+**Reaching the phone is the constraint.**
+- GitHub's runner would have to connect into a phone on a home connection in Iran, normally behind
+  the ISP's NAT. That needs a tunnel or a forwarded port.
+- A free tunnel from Iran is unproven, under the filtering and the sanctions both.
+- Every run would then depend on the phone being up, on Wi-Fi and powered.
+
+**It would start empty.**
+- Neon's rows cannot be copied out while the project is suspended. Its compute does not start, so
+  there is nothing to dump.
+- A phone database would hold only the outage's own data, which the spool already keeps.
+- So the parts the outage stops would stay stopped:
+  - the valuation rank, the deep-discount level and the confirmation need the 30-day pool;
+  - PAPER needs its accounts since 10-05.
+
+**It would fork the record.** Two databases written in the same weeks, PAPER's accounts among them,
+would have to be merged into Neon on 11-01. The spool already writes back with deduplication and the
+stale-quote re-check.
+
+**What would help instead** (for the owner's decision):
+- **A mirror of what runs read**, on GitHub's side like the candle cache: the settled 30-day pool, the
+  platforms' 14-day history, PAPER's latest account rows, filled from Neon whenever it answers.
+  - It is small, under a megabyte.
+  - It would let the next outage keep the confirmation, the deep-discount level and PAPER running.
+  - It would also cut Neon's transfer, the cause of this outage.
+  - Built and measured after 11-01, when there is something to fill it from.
+- **The phone's TSETMC readings during an outage**, pushed through GitHub, which the phone reaches.
+  - Only GOLD DEMAND would gain before 11-01, since PAPER is stopped.
+  - It needs a write token on the phone.
 
 **38.6 The first laboratory measurement: the platforms do not catch up a fair jump**
 (`research/rd_platform_lag.py`, rules in its docstring; `hourly.json`, 2026-08-04 to 10-04).
