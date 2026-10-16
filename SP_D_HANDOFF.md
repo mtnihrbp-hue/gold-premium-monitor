@@ -3770,3 +3770,82 @@ turbulence".
     2023-2026, so the room's test stays honest.
 
   The member stays at 0.5 meanwhile (the owner, 37).
+
+## 38. Proposal: one advisor, built on measured evidence (2026-10-16, for the owner's decision)
+
+The owner's decisions of 37 run together. One question decides all of them, so they are proposed together:
+- the decision engine restructured ("the logic behind is messy and not standard");
+- the Analysis Wing rethought ("built for the discount analysis ... we didn't design it well");
+- the advisor (C).
+
+The question: **what does a buyer of 18K need to decide, and what can the record answer?**
+
+**38.1 The four questions, and the method that answers them.** A standard method fits this project better
+than either of today's two:
+
+- **Today's decision engine** is a fixed matrix of categorical states with hand-set transitions. It has no
+  measured edge (55.2% against always-WAIT), and it cannot say why in numbers.
+- **The C.14B forecaster** is a classifier whose output no one read, and whose skill was never shown.
+
+The proposed method is the **decision table of an evidence-based expert system**:
+
+- For each choice a reader actually faces, the record's outcome of each action on past days in the
+  same state is shown, counted by episodes, with its sample size.
+- A short rule base turns the table into a verdict. Every rule is written down with the evidence that
+  admitted it, and every verdict prints the rules that fired.
+
+This is what BUY NOW OR WAIT already does (waiting for a 3% dip came 27 in 100 and cost more in 12 of
+13 years). The proposal makes it the whole engine.
+
+| Question | Actions compared | Evidence it rests on (measured, or to measure) |
+|---|---|---|
+| **Where** to buy | each platform, at its buyer's price | the live prices, both sides (B4); the fees; the platform's own staleness record |
+| **When** | now / wait for a dip / wait for the discount to deepen | waiting for a dip cost more in 12 of 13 years (robust); the deep-discount zone's head start (+0.6 pp in 24 hours, 11 episodes: to confirm on the full record); the platforms' lag behind a dollar move (to measure) |
+| **How much** | all gold / part in fixed income | the room (+4.0% to +5.7% against holding over two-year windows; about three independent periods) |
+| **What risk** | what would change the answer | the 50-day breaks (a weaker month by 1 to 6 points), the range edges and the flag's stop (37.4), turbulence with a rush of buyers (another 5% fall twice as often, 37.6), escalation news (+1.2% the next day, 37 and 36.2) |
+
+**38.2 The decision engine, restructured.** The categorical chain (valuation, premium direction,
+momentum, structure, conflict, candidate, confirmation, hysteresis) is replaced, as the alert authority,
+by the WHEN rule base.
+
+- **"Buy now"** is the default verdict, because the record says waiting costs.
+- **"Wait a few hours"** applies only where a measured edge exists, for example the platforms lagging a
+  dollar jump, if B confirms it.
+- **"Heavily discounted now"** remains the push.
+- **SELL** has no measured basis at all and is retired until one exists.
+
+The confirmation checks keep their place: a verdict that rests on one platform, a stale dollar or a dead
+world gold is held. The old chain keeps computing beside it until the new engine's scorecard (wired in B3)
+has its first quarter. The two are then compared on the record, and the owner decides. This changes
+`CLAUDE.md`'s alert rule (`final_decision` is the sole BUY/SELL authority), which is why it is the owner's
+decision and not done here.
+
+**38.3 The Analysis Wing, rebuilt as the discount laboratory.** Its purpose stays: the discount. Its
+output becomes facts the advisor uses, stored small (no JSON columns):
+
+1. **The lag:** after the dollar or world gold moves, how many hours the platforms take to follow, and
+   how much of the move they make up. This is the "when" edge the discount was always about, measured
+   by episode on the hourly record.
+2. **The deep zone:** episodes, durations (as ANALYZE does now, with censoring) and what follows them.
+   Head start or nothing, decided on the full record after 11-01.
+3. **The spread:** each platform's buy-sell spread, once both sides are collected. A round trip's true
+   cost, and whether "the cheapest" is cheapest to a buyer.
+4. **Its own scorecard:** each WHEN verdict scored against the price 1, 3 and 20 days later.
+   `decision_scorecard.py` exists but never runs; it would be wired in.
+
+The parked parts (interpretation, C.14A candles, C.14B forecasts) stay parked. What the laboratory needs
+it builds anew, on the outcome evaluations kept running.
+
+**38.4 The advisor (C).** One message a morning and on demand, answering the four questions in that
+order, each with its evidence in one line. It is Direction v7 grown into the brief that the owner and
+§35's critique pointed to, with the patterns, gold demand and news in it. UPDATE stays the live price
+check. The push stays for the deep zone, and becomes the WHEN alert once the lag edge is confirmed. The
+room keeps its 21:00 report.
+
+**38.5 The order, if the owner agrees.**
+1. **B4, both price sides** (about a day): the "where" answer needs it, and so does the spread.
+2. **38.3's measurements on the hourly record** (the lag, the head start). They can begin on the
+   research copy now (`research/data/hourly.json`, August to October) and be confirmed on the full record
+   after 11-01.
+3. **38.2's engine, with its scorecard,** beside the old chain.
+4. **C's message:** a preview first, as always.
