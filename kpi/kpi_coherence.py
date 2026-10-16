@@ -1407,7 +1407,7 @@ class KPICoherence(unittest.TestCase):
     def test_52_the_state_cache_keeps_its_list_of_files(self):
         """A cache entry belongs to its exact list of paths. Adding record_mirror.sqlite to the state's
         list made every earlier entry invisible: the run of 2026-10-16 12:30 UTC started from an empty
-        state.json and spool, and three days of held readings were out of reach (SP_D_HANDOFF.md section
+        state.json and spool, and the readings held since 10-15 were out of reach (SP_D_HANDOFF.md section
         37.14). The list is fixed; a new file gets its own cache step."""
         import re as _re
         workflow = (REPO / ".github" / "workflows" / "gold-monitor.yml").read_text(encoding="utf-8").replace("\r\n", "\n")
@@ -1579,9 +1579,28 @@ class KPICoherence(unittest.TestCase):
             self.assertEqual(len(sent), 1, "one push for the outage")
             self.assertIn("out of reach since 21 Mehr, 21:00", sent[0])
             self.assertEqual(state["service"]["database"]["kept"], {"reading": 1})
+            self.assertEqual(len(saved), 3, "the state is saved by the watch itself")
+
+            # the spool began after the outage did (10-15): its oldest reading must not date it
+            self._spool_file()
+            spool.hold("reading", {"snapshot": {"timestamp": datetime(2026, 10, 15, 8, 34)}, "platform_prices": []})
+            later_spool, sent[:] = {}, []
+            with redirect_stdout(io.StringIO()):
+                for hour in (12, 13):
+                    main._service_watch(later_spool, datetime(2026, 10, 16, hour, 30), 4150.0, False, 270_000.0, markets)
+            self.assertIn("out of reach since 21 Mehr, 21:00", sent[0], "dated from the record, not the spool")
+            # once a run has seen Neon answer, a later outage is dated by its own runs
+            mirror.reachable = lambda: True
+            seen_ok = {}
+            with redirect_stdout(io.StringIO()):
+                main._service_watch(seen_ok, datetime(2026, 10, 20, 8, 30), 4150.0, False, 270_000.0, markets)
+                mirror.reachable = lambda: False
+                sent[:] = []
+                for hour in (9, 10):
+                    main._service_watch(seen_ok, datetime(2026, 10, 20, hour, 30), 4150.0, False, 270_000.0, markets)
+            self.assertIn("out of reach since 23 Mehr", sent[0], "the spool's own reading of 10-15 dates it")
             self.assertIn("::notice title=service::Service: the database out of reach since 21 Mehr, 21:00.",
                           out.getvalue())
-            self.assertEqual(len(saved), 3, "the state is saved by the watch itself")
         finally:
             mirror.reachable, mirror.unreachable_reason, mirror.built_at, ts.send_service, main.save_state = real
 

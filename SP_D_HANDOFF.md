@@ -30,7 +30,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    37.11-37.12 the labels, the mirror merged 2026-10-16 (v1.21safe);
                                                                    37.13 the Iranian news, news held merged 2026-10-16 (v1.22safe);
                                                                    37.14 the state cache restored merged 2026-10-16 (v1.23safe);
-                                                                   37.15 the SERVICE notice merged 2026-10-16 (v1.24safe)
+                                                                   37.15 the SERVICE notice merged 2026-10-16 (v1.24safe);
+                                                                   its outage date from the record merged 2026-10-16 (v1.25safe)
        member, the LLM member
 ```
 
@@ -4263,10 +4264,13 @@ hundreds.
   to 586 bytes and `state.json` restarted, before anything was held.
 
 **What was out of reach:**
-- the spool from 10-13 21:00 Tehran to 10-16 11:31 UTC, about 60 runs of readings and observations;
+- the spool from 10-15 08:34 UTC, when it began (35.4), to 10-16 11:31: 205 held writes, about 27 runs.
+  Readings from the outage's start, 10-13 21:00 Tehran, to 10-15 were never held, because the spool did
+  not yet exist;
 - `state.json`: its history, the quote holds, the cooldown's last alert and the push's state.
 
-It was not lost: the entry of 11:31 still exists under the old list.
+It was not lost: the entry of 11:31 still exists under the old list. (The commit messages of 242d40e and
+2b21ed2 say "three days"; it was one.)
 
 **Fixed** (242d40e, `v1.23safe` before it, merged at 13:41 UTC ahead of the 14:30 run):
 - The state's list is back to its three files, so the next run restores the entry of 11:31.
@@ -4276,6 +4280,13 @@ It was not lost: the entry of 11:31 still exists under the old list.
   `state.json` records it as done (`recovered_2026_10_16`). The step is removed after 11-01.
 - `kpi_coherence.test_52` fixes the list at its three files. It fails on the four-file list.
 - The lesson goes in `LESSONS_LEARNED.md`.
+
+**Verified** on the run of 14:30 UTC (2b21ed2):
+- it restored the entry of 11:31 (6,297 bytes);
+- it found the four-file entry and added its 236 held writes: two runs' readings and observations, and
+  207 news items;
+- the spool then held 441 writes ("SPOOL: 441 held writes wait"), with 24 more news items held by that
+  run.
 
 **37.15 The SERVICE notice: a push when a service stops or comes back, and Status tells the truth**
 (10-16; the owner: "go ahead with the outage notice", on the drafts of 39.7).
@@ -4288,9 +4299,13 @@ It was not lost: the entry of 11:31 still exists under the old list.
   - the dollar (bonbast answered);
   - the platforms (at least three answered, as UPDATE's discount needs).
 - **When it is announced:** a change goes out once, after two runs in a row agree. Every service
-  starts as working, so an outage already under way is announced by the second run that sees it. For
-  the database the date is the spool's oldest held reading: the present outage is announced as since
-  21 Mehr 21:00.
+  starts as working, so an outage already under way is announced by the second run that sees it.
+  - **The date** is the first failing run, or the spool's oldest held reading if that is earlier.
+  - **The outage under way** began before the spool existed. Its oldest reading is from 23 Mehr, so it
+    is dated from the record instead: `main.NEON_SUSPENDED_AT`, 21 Mehr 21:00 (section 34).
+  - That date applies only while no run has seen Neon answer (`last_ok`), and only until 11-01.
+  - The first version took the spool's date alone. The run of 14:30 would have announced "since 23 Mehr,
+    12:04". It was corrected, with its test, before the second run sent anything.
 - **The message** (`alerts/telegram_service.py`), in the drafts' words:
   - **database out of reach:** since when; "(its free monthly limit)" when Neon says so; what works;
     what is paused (BUY signals only while there is no record mirror to read); that prices and news are

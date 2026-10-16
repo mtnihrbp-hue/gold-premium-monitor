@@ -889,7 +889,8 @@ starts from nothing as if this were its first day.
 **Where it happened.** `actions/cache` ties an entry to its exact list of paths, beside its key.
 - On 2026-10-15, adding the spool's file to the state's list reset `state.json`.
 - On 2026-10-16, adding the record mirror's file did it again. That run started with an empty spool
-  while the database was out of reach, and three days of held readings were out of its sight
+  while the database was out of reach, and the day of readings held since the spool began was out of
+  its sight
   (`SP_D_HANDOFF.md` 37.14).
 - Both runs finished green.
 

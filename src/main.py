@@ -1133,6 +1133,12 @@ def _paper_chart(session, analyst, live_sell):
         return None
 
 
+# The outage under way began before the spool existed (SP-D sections 34, 35.4): Neon refused from
+# 2026-10-13 21:00 Tehran, the spool held from 10-15. Its start is taken from the record, while no run has
+# seen Neon answer since. Inert from 11-01; remove then (section 37.15).
+NEON_SUSPENDED_AT = datetime(2026, 10, 13, 17, 30)
+
+
 def _service_watch(state, now, world, world_from_fallback, usd, raw_markets):
     """See each service in this scheduled run, announce a change once two runs agree, and leave the line
     Telegram's Status shows (analysis/service.py, alerts/telegram_service.py, SP-D section 37.15). Runs
@@ -1151,9 +1157,15 @@ def _service_watch(state, now, world, world_from_fallback, usd, raw_markets):
         times = [e["payload"]["snapshot"]["timestamp"] if e["kind"] == "reading" else e["payload"].get("timestamp")
                  for e in held if e["kind"] in ("reading", "observation")]
         first = min((t for t in times if isinstance(t, datetime)), default=None)
-        observed = service.observe(world, world_from_fallback, usd, raw_markets, mirror.reachable(),
-                                   mirror.unreachable_reason(), first)
         record = state.setdefault("service", {})
+        reachable = mirror.reachable()
+        if reachable:
+            record.setdefault("database", {"ok": True, "since": None, "pending": 0, "pending_since": None})
+            record["database"]["last_ok"] = now.isoformat()
+        elif now < datetime(2026, 11, 1) and not record.get("database", {}).get("last_ok"):
+            first = min(first, NEON_SUSPENDED_AT) if first else NEON_SUSPENDED_AT
+        observed = service.observe(world, world_from_fallback, usd, raw_markets, reachable,
+                                   mirror.unreachable_reason(), first)
         changes = service.update(record, observed, now)
         database = record.get("database", {})
         if not observed["database"]["ok"]:

@@ -273,7 +273,7 @@
     "sp_c_status": "CLOSED -- merged into main 2026-09-28 (2b7c5f8); tag v1.3safe = main before the merge",
     "sp_d_status": "IN PROGRESS: Direction merged 2026-10-03, PAPER 2026-10-05; each batch reaches main only after the owner's review, with a safe tag on main first",
     "until_2026_10_03": "PAST. Owner direction 2026-09-29: SP-D is for the next phase; anything found before 2026-10-03 is fixed on main, through a short-lived branch cut from main and fast-forwarded after owner review.",
-    "latest_safe_tag": "v1.24safe (242d40e, main before the SERVICE notice, 2026-10-16). v1.23safe before the state cache's restore; v1.20safe (6daa566) was made after its push (SP_D_HANDOFF.md 37.10)"
+    "latest_safe_tag": "v1.25safe (2b21ed2, main before the SERVICE notice's outage date, 2026-10-16). v1.24safe before the notice; v1.20safe (6daa566) was made after its push (SP_D_HANDOFF.md 37.10)"
   },
   "verified_production_state": {
     "verified_on": "2026-10-06 16:45 Tehran",

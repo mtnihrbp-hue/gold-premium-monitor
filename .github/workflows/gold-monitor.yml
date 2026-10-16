@@ -97,7 +97,7 @@ jobs:
         with:
           # NEVER change this list. A cache entry belongs to its exact list of paths: a run with a
           # different list cannot see the entries saved before it and starts from an empty state.json
-          # and spool. Adding a file here lost the spool's first three days on 2026-10-16
+          # and spool. Adding a file here hid the spool's first day from the runs of 2026-10-16
           # (SP_D_HANDOFF.md section 37.14; kpi_coherence.test_52). A new file gets its own cache step.
           # candle_cache.json: the daily candles kept between runs, so a run fetches only the new
           # days (src/persistence/candle_cache.py; Neon's monthly transfer, SP_D_HANDOFF.md 34).
