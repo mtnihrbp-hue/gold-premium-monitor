@@ -3736,3 +3736,37 @@ computes `band20` and stores it with its view; nothing prints it.
 Learned from the fixtures and kept: a range grows while every close stays within 6% of the others, so a
 breakout is recognized once the price leaves that band. That is how the September breakout read (24.40M
 to 25.27M, 9.6% off the range's low).
+
+**37.6 Money flow in turbulent times** (`research/rd_flow_turbulence.py`, its rules committed before the run).
+The owner: the money flow is "precious", and the buying and selling power "sits very well in the times of
+turbulence".
+
+- **The design.**
+  - 18 gold funds, saffron out; the readings of `gold_demand` over 7 days, ranked against the trailing year.
+  - A turbulent day: 18K's 20-day volatility in the top 20% of its year, or 18K 10% or more under its
+    year's high close. That covers 56-65% of days, which is too broad to be a sharp regime.
+  - Outcomes are counted from the first day of each episode, against all turbulent days, in 2019-2022
+    and 2023-2026.
+- **What agrees in both eras.**
+
+  | In turbulence | 2019-2022 | 2023-2026 |
+  |---|---|---|
+  | a rush of buyers (people HIGH) | another 5% fall within 20 days after 50% (6 episodes) | 43% (14); the turbulent base is 24% in both eras |
+  | few buyers (people LOW) | another 5% fall after 0% (11) | 6% (32) |
+  | big buyers (size HIGH) | +17.4% over 60 days (8) | +24.2% (11); the base is +5.3% and +7.4% |
+  | heavy net money in (money HIGH) | +0.5% over 20 days (8) | -0.7% (7); the base is +1.6% and +2.7% |
+
+  Heavy money out and sellers bigger are mixed.
+- **The owner's case fits.** Heavy money came in on 05-13 to 05-20, 2026, while 18K fell, before turbulence
+  was flagged. 18K fell another 7-15% over the next 20 days, then made its low on 06-16, when sellers
+  were bigger.
+- **The caveat.** Twelve combinations were tested per era, and four agree in both, partly by chance
+  perhaps. They are leads to be confirmed forward, not edges.
+- **Where they can go.**
+  - Into GOLD DEMAND, as context with their counts when the market is turbulent. For example: "a rush
+    of buyers in a turbulent market: another 5% fall followed within a month in 9 of 20 such rushes,
+    about twice the usual".
+  - Or into a money-flow member that votes only in turbulence. Designed on 2019-2022 and judged on
+    2023-2026, so the room's test stays honest.
+
+  The member stays at 0.5 meanwhile (the owner, 37).
