@@ -234,6 +234,31 @@ def _code(path):
     return "\n".join(kept)
 
 
+def _calls_and_rebinds(source):
+    """The functions a file calls, and the names it rebinds: assignment targets
+    (each element of a tuple assignment too) and the targets of `patch(...)`.
+
+    Read from the syntax tree, not the text. `test_27` matched text against
+    `_code`, whose tokens are joined by newlines, so `get_invi_price(` never
+    matched and the test could not fail (SP_D_HANDOFF.md 37.8).
+    """
+    import ast as _ast
+
+    calls, rebinds = set(), set()
+    for node in _ast.walk(_ast.parse(source)):
+        if isinstance(node, _ast.Call):
+            func = node.func
+            name = func.attr if isinstance(func, _ast.Attribute) else getattr(func, "id", "")
+            calls.add(name)
+            if name == "patch" and node.args and isinstance(node.args[0], _ast.Constant):
+                rebinds.add(str(node.args[0].value))
+        elif isinstance(node, _ast.Assign):
+            for target in node.targets:
+                for element in (target.elts if isinstance(target, _ast.Tuple) else [target]):
+                    rebinds.add(_ast.unparse(element))
+    return calls, rebinds
+
+
 def _config():
     return json.loads((REPO / "config" / "config.json").read_text(encoding="utf-8"))
 
@@ -589,22 +614,38 @@ class KPICoherence(unittest.TestCase):
 
         The rule: a KPI may name a collector entry point only if the same file also
         rebinds the transport it uses.
+
+        Until 2026-10-16 this matched text that had no `name(` in it and passed on
+        every file; it is read from the syntax tree now, and a sample offender below
+        must be caught (SP_D_HANDOFF.md 37.8).
         """
         entry_points = {
-            "get_invi_price": ("requests.get =", "invi.requests.get ="),
-            "get_world_gold_price": ("requests.get =", "kitco.requests.get ="),
-            "get_usd_sell_rate": ("subprocess.run =",),
-            "get_market_prices": ("COLLECTORS =", "iran.COLLECTORS ="),
-            "fetch_feed": ("requests.get =", "feedparser.parse ="),
+            "get_invi_price": ("requests.get",),
+            "get_world_gold_price": ("requests.get", "SOURCES"),
+            "get_usd_sell_rate": ("subprocess.run",),
+            "get_market_prices": ("COLLECTORS",),
+            "fetch_feed": ("requests.get", "feedparser.parse"),
         }
-        offenders = []
+
+        def offenders_in(source):
+            calls, rebinds = _calls_and_rebinds(source)
+            found = []
+            for symbol, transports in entry_points.items():
+                if symbol in calls and not any(
+                        name == t or name.endswith("." + t) for name in rebinds for t in transports):
+                    found.append(symbol)
+            return found
+
+        self.assertEqual(offenders_in("import collector.invi as invi\ninvi.get_invi_price()\n"),
+                         ["get_invi_price"], "the check cannot see an unsubstituted call")
+        self.assertEqual(offenders_in("import collector.invi as invi\n"
+                                      "invi.requests.get, x = fake, 1\ninvi.get_invi_price()\n"), [])
+        offenders, checked = [], 0
         for path in sorted(REPO.glob("kpi/*.py")):
-            body = _code(path)
-            for symbol, substitutions in entry_points.items():
-                if f"{symbol}(" not in body:
-                    continue
-                if not any(sub in body for sub in substitutions):
-                    offenders.append(f"{path.name}:{symbol}")
+            found = offenders_in(_read(path))
+            checked += bool(_calls_and_rebinds(_read(path))[0] & set(entry_points))
+            offenders += [f"{path.name}:{symbol}" for symbol in found]
+        self.assertGreater(checked, 0, "no KPI calls a collector: the check has nothing to read")
         self.assertEqual(offenders, [],
                          "a KPI calls a collector without substituting its transport")
 

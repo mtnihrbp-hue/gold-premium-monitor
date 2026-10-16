@@ -1,6 +1,6 @@
 """Unit tests for the SP-A signal state pipeline.
 
-26 existing + 7 new regression tests — no database, no network, no ML.
+20+ deterministic tests — no database, no network, no ML.
 """
 
 import sys
@@ -8,21 +8,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from caluclator.valuation import evaluate_valuation
+from caluclator.valuation import classify_valuation
 from caluclator.momentum import get_premium_direction, evaluate_momentum
 from caluclator.structure import evaluate_structure
 from caluclator.conflict import evaluate_conflict
 from caluclator.signals import apply_hysteresis
 from caluclator.signal_state import build_signal_state, SignalState
-from alerts.telegram import (
-    send_alert,
-    send_manual_update,
-    send_data_unavailable,
-    send_processing,
-    send_daily_recap,
-    format_decision_section,
-)
-from alerts.helpers import format_momentum_block
 
 
 # ---------------------------------------------------------------------------
@@ -31,25 +22,29 @@ from alerts.helpers import format_momentum_block
 
 def test_valuation_cheap():
     """premium = -4.0, threshold = -1.5 → CHEAP"""
-    result = evaluate_valuation(-4.0, {"buy_premium": -1.5, "sell_premium": 2.0})
+    result = classify_valuation(10, -4.0, cheap_rank=40, expensive_rank=80,
+                                buy_at=-1.5, sell_at=3.0)
     assert result == "CHEAP", f"Expected CHEAP, got {result}"
 
 
 def test_valuation_expensive():
     """premium = 3.0, threshold = 2.0 → EXPENSIVE"""
-    result = evaluate_valuation(3.0, {"buy_premium": -1.5, "sell_premium": 2.0})
+    result = classify_valuation(95, 3.0, cheap_rank=40, expensive_rank=80,
+                                buy_at=-1.5, sell_at=3.0)
     assert result == "EXPENSIVE", f"Expected EXPENSIVE, got {result}"
 
 
 def test_valuation_fair():
     """premium = 0.5 → FAIR"""
-    result = evaluate_valuation(0.5, {"buy_premium": -1.5, "sell_premium": 2.0})
+    result = classify_valuation(50, 0.5, cheap_rank=40, expensive_rank=80,
+                                buy_at=-1.5, sell_at=3.0)
     assert result == "FAIR", f"Expected FAIR, got {result}"
 
 
 def test_valuation_unknown():
     """premium = None → UNKNOWN"""
-    result = evaluate_valuation(None, {"buy_premium": -1.5, "sell_premium": 2.0})
+    result = classify_valuation(None, None, cheap_rank=40, expensive_rank=80,
+                                buy_at=-1.5, sell_at=3.0)
     assert result == "UNKNOWN", f"Expected UNKNOWN, got {result}"
 
 
@@ -193,9 +188,15 @@ def test_conflict_unknown():
 # ---------------------------------------------------------------------------
 
 def test_hysteresis_cooldown_same_alert():
-    """Candidate=BUY, last_alert=BUY → WAIT (cooldown)"""
-    result = apply_hysteresis("BUY", "BUY", {})
+    """Candidate=BUY, last_alert=BUY an hour ago -> WAIT (inside the cooldown); its time unknown -> BUY.
+    The cooldown is timed since SP-C: the old latch held 100 of 100 BUYs (caluclator/signals.py)."""
+    from datetime import datetime, timedelta
+    now = datetime(2026, 10, 16, 9)
+    result = apply_hysteresis("BUY", "BUY", {}, last_alert_at=now - timedelta(hours=1), now=now)
     assert result == "WAIT", f"Expected WAIT, got {result}"
+    result = apply_hysteresis("BUY", "BUY", {}, last_alert_at=now - timedelta(hours=25), now=now)
+    assert result == "BUY", f"Expected BUY after the cooldown, got {result}"
+    assert apply_hysteresis("BUY", "BUY", {}) == "BUY", "an unknown last-alert time fails open"
 
 
 def test_hysteresis_passes_new_alert():
@@ -247,9 +248,10 @@ def test_build_signal_state_integration():
         lowest_price=90.0,
         markets=markets,
         previous_premium=-2.0,
-        thresholds={"buy_premium": -1.5, "sell_premium": 2.0},
+        thresholds={"buy_premium_percent": -1.5, "sell_premium_percent": 3.0},
         last_alert=None,
         snapshot_id=0,
+        valuation="CHEAP",
     )
     assert state.valuation == "CHEAP"
     assert state.momentum == "IMPROVING"
@@ -260,146 +262,6 @@ def test_build_signal_state_integration():
     assert state.final_decision == "BUY"
     assert state.platforms_below_fair == 2
     assert state.platforms_above_fair == 1
-
-
-# ---------------------------------------------------------------------------
-# 9. SP-A STABILIZATION — Regression Tests (7 tests)
-# ---------------------------------------------------------------------------
-
-def test_telegram_api_available():
-    """All 5 public Telegram functions must be importable and callable."""
-    assert callable(send_alert)
-    assert callable(send_manual_update)
-    assert callable(send_data_unavailable)
-    assert callable(send_processing)
-    assert callable(send_daily_recap)
-    assert callable(format_decision_section)
-
-
-def test_no_duplicate_header():
-    """GOLDPremium: must appear exactly once in a formatted message."""
-    import alerts.telegram as tg
-
-    captured = []
-    original = tg._send
-    tg._send = captured.append
-
-    try:
-        tg.send_manual_update(
-            world=2400,
-            usd=85000,
-            fair=194853736,
-            lowest=186580000,
-            premium=-4.25,
-            markets={"test": {"price": 186580000, "status": "OK"}},
-        )
-        assert len(captured) == 1
-        message = captured[0]
-        count = message.count("GOLDPremium:")
-        assert count == 1, f"Expected 1 GOLDPremium:, found {count}"
-    finally:
-        tg._send = original
-
-
-def test_canonical_terminology():
-    """Legacy momentum phrases must not appear; canonical terms must."""
-    momentum = {
-        "premium_vs_today": {"diff": -0.5, "count": 5},
-        "verbal_direction": "Toward Buy",
-    }
-    block = format_momentum_block(momentum)
-    text = "\n".join(block)
-    assert "Discount Deepening" not in text, f"Legacy phrase found: {text}"
-    assert "Premium Expanding" not in text, f"Legacy phrase found: {text}"
-    assert "Discount Widening" in text or "Premium Widening" in text or "STABLE" in text
-
-
-def test_candidate_preserved():
-    """Candidate decision must be visible in Telegram output."""
-    state = SignalState(
-        premium=-3.0,
-        fair_price=100.0,
-        lowest_price=90.0,
-        valuation="CHEAP",
-        momentum="IMPROVING",
-        premium_direction="DISCOUNT_WIDENING",
-        structure="DISCOUNT_DOMINANT",
-        conflict="SUPPORTIVE",
-        candidate_decision="BUY",
-        final_decision="BUY",
-        reason="Test",
-    )
-    text = format_decision_section(state)
-    assert "Candidate:" in text
-    assert "BUY" in text
-
-
-def test_final_preserved():
-    """Final decision must be visible in Telegram output."""
-    state = SignalState(
-        premium=-3.0,
-        fair_price=100.0,
-        lowest_price=90.0,
-        valuation="CHEAP",
-        momentum="IMPROVING",
-        premium_direction="DISCOUNT_WIDENING",
-        structure="DISCOUNT_DOMINANT",
-        conflict="SUPPORTIVE",
-        candidate_decision="BUY",
-        final_decision="BUY",
-        reason="Test",
-    )
-    text = format_decision_section(state)
-    assert "Final:" in text
-
-
-def test_candidate_final_can_differ():
-    """Hysteresis must cause candidate and final to legitimately differ."""
-    markets = {
-        "a": {"price": 90.0, "status": "OK"},
-        "b": {"price": 95.0, "status": "OK"},
-        "c": {"price": 110.0, "status": "OK"},
-    }
-    # First alert: candidate=BUY, final=BUY (no last_alert)
-    state1 = build_signal_state(
-        premium=-3.0,
-        fair_price=100.0,
-        lowest_price=90.0,
-        markets=markets,
-        previous_premium=-2.0,
-        thresholds={"buy_premium": -1.5, "sell_premium": 2.0},
-        last_alert=None,
-    )
-    assert state1.candidate_decision == "BUY"
-    assert state1.final_decision == "BUY"
-
-    # Second alert with same last_alert: candidate=BUY, final=WAIT (hysteresis)
-    state2 = build_signal_state(
-        premium=-3.5,
-        fair_price=100.0,
-        lowest_price=90.0,
-        markets=markets,
-        previous_premium=-3.0,
-        thresholds={"buy_premium": -1.5, "sell_premium": 2.0},
-        last_alert="BUY",
-    )
-    assert state2.candidate_decision == "BUY"
-    assert state2.final_decision == "WAIT"
-    assert "hysteresis" in state2.reason.lower() or "transition" in state2.reason.lower()
-
-
-def test_hysteresis_intact():
-    """Existing hysteresis behavior must remain unchanged."""
-    # BUY → same last_alert = WAIT
-    assert apply_hysteresis("BUY", "BUY", {}) == "WAIT"
-    # SELL → same last_alert = WAIT
-    assert apply_hysteresis("SELL", "SELL", {}) == "WAIT"
-    # BUY → no last_alert = BUY
-    assert apply_hysteresis("BUY", None, {}) == "BUY"
-    # WAIT → any last_alert = WAIT
-    assert apply_hysteresis("WAIT", "BUY", {}) == "WAIT"
-    assert apply_hysteresis("WAIT", "SELL", {}) == "WAIT"
-    assert apply_hysteresis("WAIT", None, {}) == "WAIT"
 
 
 if __name__ == "__main__":
@@ -430,14 +292,6 @@ if __name__ == "__main__":
         test_platform_average,
         test_platform_spread,
         test_build_signal_state_integration,
-        # Regression tests
-        test_telegram_api_available,
-        test_no_duplicate_header,
-        test_canonical_terminology,
-        test_candidate_preserved,
-        test_final_preserved,
-        test_candidate_final_can_differ,
-        test_hysteresis_intact,
     ]
 
     passed = 0

@@ -1,6 +1,10 @@
+import sys
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from alerts.resend_mail import send_alert as send_email_alert
 from alerts.telegram import send_alert as send_telegram_alert

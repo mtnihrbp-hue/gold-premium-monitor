@@ -42,7 +42,7 @@ class TestRepresentativePrice(unittest.TestCase):
         self.session.close()
 
     def _save_obs(self, source, price, freshness="FRESH", minutes_ago=0):
-        ts = datetime.now() - timedelta(minutes=minutes_ago)
+        ts = datetime.utcnow() - timedelta(minutes=minutes_ago)
         save_price_observation("REP_IRAN_GOLD", source, ts, price, freshness)
 
     # --- 1. Milli available → Milli selected ---
@@ -110,7 +110,7 @@ class TestSupportResistance(unittest.TestCase):
         self.session.close()
 
     def _seed_prices(self, prices):
-        now = datetime.now()
+        now = datetime.utcnow()
         for i, p in enumerate(prices):
             ts = now - timedelta(hours=len(prices) - i)
             save_price_observation("REP_IRAN_GOLD", "milli", ts, float(p), "FRESH")
@@ -244,10 +244,12 @@ class TestRegimeClassifier(unittest.TestCase):
         self.assertEqual(result.state, "PANIC")
 
         self.classifier._hysteresis_enabled = True
+        # relief is stress easing after a panic: fewer than two stressed families and a small change
+        # (analysis/regime.py _candidate_from_stress); the same evidence as the panic cannot be relief
         relief_evidence = {
-            "premium_percent": 3.0,
-            "volatility": 2.0,
-            "premium_change": 0.2,
+            "premium_percent": 0.5,
+            "volatility": 0.2,
+            "premium_change": 0.1,
             "previous_regime": "PANIC",
         }
         result1 = self.classifier.classify(relief_evidence)

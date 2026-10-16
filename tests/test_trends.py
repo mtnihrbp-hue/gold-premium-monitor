@@ -82,7 +82,9 @@ def test_7day_ma_uses_last_7():
 
 def test_trend_summary_structure():
     """get_trend_summary returns expected keys."""
-    history = _make_history([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])
+    # ma7 is the 7-day average of the fair price, one value a day (caluclator/trends.py since 2026-08-04)
+    history = [{"premium": -2.0, "fair_price": float(v), "timestamp": f"2026-08-{v + 1:02d}T10:00:00"}
+               for v in range(8)]
     summary = get_trend_summary(history)
     assert "arrow" in summary
     assert "arrow_diff" in summary

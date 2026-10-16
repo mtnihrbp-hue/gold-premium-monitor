@@ -39,7 +39,7 @@ class TestPreSPC4(unittest.TestCase):
         self.session.close()
 
     def _seed_market_data(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         sid = save_market_snapshot(
             timestamp=now,
             fair_price=1900000.0,
@@ -80,14 +80,14 @@ class TestPreSPC4(unittest.TestCase):
         return sid, ms.id
 
     def test_snapshot_includes_regime_state(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         oid = build_analysis_snapshot(analysis_timestamp=now)
         self.assertGreater(oid, 0)
         latest = get_latest_analysis_snapshot()
         self.assertIn(latest.regime_state, ["NORMAL", "FEAR", "PANIC", "RELIEF", "UNKNOWN"])
 
     def test_snapshot_includes_technical_json(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         build_analysis_snapshot(analysis_timestamp=now)
         latest = get_latest_analysis_snapshot()
         self.assertIsNotNone(latest.technical_state_json)
@@ -96,7 +96,7 @@ class TestPreSPC4(unittest.TestCase):
         self.assertIn("resistance_levels", latest.technical_state_json)
 
     def test_representative_price_in_snapshot(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         build_analysis_snapshot(analysis_timestamp=now)
         latest = get_latest_analysis_snapshot()
         tech = latest.technical_state_json
@@ -105,7 +105,7 @@ class TestPreSPC4(unittest.TestCase):
         self.assertEqual(tech["representative_price"]["status"], "AVAILABLE")
 
     def test_support_resistance_persisted(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         build_analysis_snapshot(analysis_timestamp=now)
         latest = get_latest_analysis_snapshot()
         tech = latest.technical_state_json
@@ -113,21 +113,21 @@ class TestPreSPC4(unittest.TestCase):
         self.assertIsNotNone(tech["resistance_levels"])
 
     def test_regime_persisted(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         build_analysis_snapshot(analysis_timestamp=now)
         latest = get_latest_analysis_snapshot()
         self.assertIsNotNone(latest.regime_state)
         self.assertIn(latest.regime_state, ["NORMAL", "FEAR", "PANIC", "RELIEF", "UNKNOWN"])
 
     def test_regime_evidence_persisted(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         build_analysis_snapshot(analysis_timestamp=now)
         latest = get_latest_analysis_snapshot()
         dq = latest.data_quality_json or {}
         self.assertIn("regime", dq)
 
     def test_hysteresis_survives_recreation(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         oid1 = build_analysis_snapshot(analysis_timestamp=now)
         self.assertGreater(oid1, 0)
         snap1 = get_latest_analysis_snapshot()
@@ -142,7 +142,7 @@ class TestPreSPC4(unittest.TestCase):
         self.assertEqual(classifier._confirmation_count, snap1.regime_confirmation_count or 0)
 
     def test_second_run_reconstructs_regime(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         build_analysis_snapshot(analysis_timestamp=now)
         snap1 = get_latest_analysis_snapshot()
         first_regime = snap1.regime_state
@@ -153,7 +153,7 @@ class TestPreSPC4(unittest.TestCase):
         self.assertEqual(snap2.previous_regime, first_regime)
 
     def test_confirmation_count_survives(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         build_analysis_snapshot(analysis_timestamp=now)
         snap1 = get_latest_analysis_snapshot()
         later = now + timedelta(minutes=30)
@@ -162,7 +162,7 @@ class TestPreSPC4(unittest.TestCase):
         self.assertIsNotNone(snap2.regime_confirmation_count)
 
     def test_regime_transition_deterministic(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         build_analysis_snapshot(analysis_timestamp=now)
         oid_dup = build_analysis_snapshot(analysis_timestamp=now)
         self.assertEqual(oid_dup, -1)
@@ -172,14 +172,14 @@ class TestPreSPC4(unittest.TestCase):
             if table.name == "price_observations":
                 self.session.execute(table.delete())
         self.session.commit()
-        now = datetime.now()
+        now = datetime.utcnow()
         build_analysis_snapshot(analysis_timestamp=now)
         latest = get_latest_analysis_snapshot()
         tech = latest.technical_state_json
         self.assertEqual(tech["structure_status"], "INSUFFICIENT_DATA")
 
     def test_c2_snapshot_behavior_intact(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         oid = build_analysis_snapshot(analysis_timestamp=now)
         self.assertGreater(oid, 0)
         latest = get_latest_analysis_snapshot()
@@ -227,13 +227,13 @@ class TestPreSPC4(unittest.TestCase):
         self.assertEqual(s1.status, s2.status)
 
     def test_regime_no_decision(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         build_analysis_snapshot(analysis_timestamp=now)
         latest = get_latest_analysis_snapshot()
         self.assertNotIn(latest.regime_state, ["BUY", "SELL", "WAIT"])
 
     def test_candidate_final_separation(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         build_analysis_snapshot(analysis_timestamp=now)
         latest = get_latest_analysis_snapshot()
         self.assertIsNotNone(latest.market_state_id)

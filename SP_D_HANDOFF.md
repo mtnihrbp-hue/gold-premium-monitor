@@ -3895,6 +3895,49 @@ measured before any change.
   `test_46` (Taline's parser on Persian digits, a reversed pair, nothing). `kpi_coherence` 41/41, suite
   30/30.
 
+**37.8 The unit tests: one folder, run in CI** (B6, first part; 10-16).
+
+**One folder.**
+- `src/tests/` is merged into `tests/`. Seven files moved, two (`test_event_classifier`,
+  `test_signal_state`) replaced by their `src/tests` versions (the `tests/` copies had a SyntaxError and an
+  import of a removed function), and three duplicates removed.
+- `test_alert_routing` gained the path bootstrap the others have.
+
+**Brought up to the code's documented behaviour.** The code did not change; these tests assert behaviour
+that was changed on purpose:
+- `test_event_classifier`:
+  - a keyword's gold direction is `UNKNOWN` since 09-21;
+  - the classifier returns the item with its labels, so the schema test's item carries a url and a source.
+- `test_signal_state`: the cooldown is timed. A repeat BUY an hour after the last is held, after 25 hours
+  it passes, and with the last alert's time unknown it fails open.
+- `test_trends`: `ma7` is the 7-day average of the fair price, one value a day; the test built premiums on
+  one day.
+- `test_pre_sp_c3`: the relief case used the panic's own evidence. Relief is stress easing, so its evidence
+  now eases.
+
+**The tests' clock.**
+- Five files stamped their rows with `datetime.now()` while the repository filters against `utcnow()`.
+- `test_price_observations.test_hours_filtering` failed on this machine (UTC+3:30) and would pass on a UTC
+  runner: the bug of SP-C.16, in the tests.
+- All five use `utcnow()` now.
+
+**Run in CI.**
+- `tests/run_all.py`, the companion of `kpi/run_all.py`: each file in its own process, an in-memory
+  database, UTF-8, pass on exit 0.
+- `kpi-suite.yml` runs it after the KPI suite.
+- `test-task-c.yml` is removed: its two files run in that step.
+
+**`kpi_coherence.test_27` could not fail.**
+- It matched `get_invi_price(` against `_code()`, whose tokens are joined by newlines, so no call ever
+  matched.
+- It is read from the syntax tree now: the calls, and the names rebound by assignment (each element of a
+  tuple assignment too) or `patch()`.
+- Two sample sources check it: an unsubstituted call must be caught, a substituted one must pass.
+- On the real files it finds five calls in two files, all substituted. `kpi_sp_c5` rebinds `kitco.SOURCES` and
+  `iran.COLLECTORS` by tuple assignment, which the old text patterns could not have recognised either.
+
+Unit tests 18/18 files, `kpi_coherence` 41/41, suite 30/30, compile clean.
+
 **38.6 The first laboratory measurement: the platforms do not catch up a fair jump**
 (`research/rd_platform_lag.py`, rules in its docstring; `hourly.json`, 2026-08-04 to 10-04).
 

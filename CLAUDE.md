@@ -36,7 +36,7 @@ Run the app locally (manual `/Update`-style run):
 python src/main.py
 ```
 
-Run a single test or KPI file (all use `unittest`, run directly — not via pytest):
+Run a single test or KPI file (run directly — not via pytest):
 ```
 python tests/test_momentum.py
 python kpi/kpi_pre_sp_c14c.py
@@ -49,6 +49,11 @@ python kpi/run_all.py
 
 It runs each suite in an isolated subprocess against an in-memory database and forces UTF-8 for child output. That last part matters on Windows: the KPI scripts print status emoji which raise `UnicodeEncodeError` under the console codepage *after* assertions pass, making a passing suite report as failed. Prefer the runner over invoking files individually.
 
+Run the unit tests (18 files in `tests/`, one folder since 2026-10-16; `src/tests/` was merged into it):
+```
+python tests/run_all.py
+```
+
 Compile check (also run in CI):
 ```
 python -m compileall src
@@ -60,9 +65,8 @@ pip install -r requirements.txt
 ```
 
 CI workflows (`.github/workflows/`):
-- `kpi-suite.yml` — full KPI suite + `compileall`, on `main`, SP-C and SP-D pushes, PRs, and manual dispatch. Never given `DATABASE_URL`, so it cannot reach production Neon. Safe to run freely.
+- `kpi-suite.yml` — full KPI suite + unit tests + `compileall`, on `main`, SP-C and SP-D pushes, PRs, and manual dispatch. Never given `DATABASE_URL`, so it cannot reach production Neon. Safe to run freely.
 - `gold-monitor.yml` — the live app (`src/main.py`). **Not sandboxed on any branch**: it uses repository secrets, so running it from a feature branch still writes to production Neon and sends real Telegram messages. Treat every run as production.
-- `test-task-c.yml` — runs two unit test files on manual dispatch.
 
 Required environment variables (see `.github/workflows/gold-monitor.yml` and `src/database/connection.py`, `src/alerts/*`): `DATABASE_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `RESEND_API_KEY`, `EMAIL_TO`. `SCHEDULED_RUN=true` switches `src/main.py` from the lightweight UPDATE path into the full scheduled Analysis path.
 

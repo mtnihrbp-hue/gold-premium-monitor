@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "project": "Gold Premium Monitor",
-  "active_branch": "sp-de; main and SP-D at SP-De's B1 batch since 2026-10-16 (v1.15safe before); main is production",
+  "active_branch": "sp-de; main and SP-D at SP-De's B6 tests batch since 2026-10-16 (SP-D 37.8; v1.18safe before); main is production",
   "current_phase": "SP-D (SP_D_HANDOFF.md): Direction live on main since 2026-10-03 (sections 1-8); the PAPER portfolio, the room as its front office, live on main since 2026-10-05 18:01 (sections 9-28); health check and record 2026-10-06 (section 29). Proposed next, for the owner's decision: Taline's frozen copies, the Iran-side node, the news leg with the LLM (section 29)",
   "current_phase_status": "SP-C CLOSED (merged 2026-09-28, 2b7c5f8; v1.3safe before). SP-D IN PROGRESS: Direction merged 2026-10-03 (v1.4safe before); PAPER merged 2026-10-05 15:57 (v1.6safe before); the go-live hotfix (scipy/pandas pins, venue label) fast-forwarded 17:07 (v1.7safe = 2957699 before). Production (cron-job.org and the Telegram worker) dispatches ref main. SP_D_HANDOFF.md sections 28-29.",
   "completed_phases": [
@@ -273,7 +273,7 @@
     "sp_c_status": "CLOSED -- merged into main 2026-09-28 (2b7c5f8); tag v1.3safe = main before the merge",
     "sp_d_status": "IN PROGRESS: Direction merged 2026-10-03, PAPER 2026-10-05; each batch reaches main only after the owner's review, with a safe tag on main first",
     "until_2026_10_03": "PAST. Owner direction 2026-09-29: SP-D is for the next phase; anything found before 2026-10-03 is fixed on main, through a short-lived branch cut from main and fast-forwarded after owner review.",
-    "latest_safe_tag": "v1.9safe (main before SP-Dd, 2026-10-15)"
+    "latest_safe_tag": "v1.18safe (main before the B6 tests batch, 2026-10-16; v1.10safe to v1.17safe were SP-De's earlier batches)"
   },
   "verified_production_state": {
     "verified_on": "2026-10-06 16:45 Tehran",
@@ -384,7 +384,6 @@
     "Morning dollar (section 34.3): USD/IRR input barely changes before ~11:00 Tehran (1 change in 39 readings at 07/09/10:00) while platforms reprice from early morning, so morning readings (5 of 16 scheduled runs a day) price today's gold on yesterday's dollar; the 10:00->13:00 USD step was >=0.9% on 5 of 14 days. Both premiums on record are most likely this. USD freshness is stored as always fresh ((now, now) in main.py). Research first: a second dollar source over more days, and the bias on the pool and ranks; then choose a remedy. Place in the post-merge order is the owner's call.",
     "Daric (section 34.4): RESOLVED on their side 2026-09-28 15:01 Tehran; no action taken.",
     "News dedup, second gap (section 34.5): Google News appends ' - Publisher' to titles, so one story from two outlets hashes differently. Also classifier precision: war mentions in economic pieces get MILITARY_ESCALATION with impact HIGH -- fixing N2 (read impact) without a precision check would turn a constant zero into a noisy count.",
-    "Stale tests (section 38.6): kpi_coherence.test_27 cannot fail (searches _code output for 'name('); tests/test_signal_state.py import error; src/tests test_hysteresis_cooldown_same_alert failing on main. Reliability phase.",
     "validation/data.MAX_WORLD_GOLD is $5,000/oz with gold near $4,150; a rally past it rejects every world-gold quote (section 38.7). Reliability phase.",
     "Deep-discount push has no second-platform confirmation of its own; the stale-Taline case is closed at validation (38.8). Decide in SP-D whether the push needs one.",
     "TA step 3 data (SP_C_HANDOFF.md 41.6): tgju has flat candles (open = high = low = close) on 284 of 3,516 gold days and 388 of 3,964 dollar days, clustered in 2011-2014 and 2019-2023 (3 in 2,050 from 2024); candle-pattern base rates must exclude them or start in 2024. 10 candles are flagged INCONSISTENT, most at a cap in tgju's own feed in September 2025. Trading days per year stepped from ~240 to ~280 around 2019-2020."

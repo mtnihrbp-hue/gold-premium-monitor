@@ -40,7 +40,7 @@ class TestPriceObservations(unittest.TestCase):
         obs = PriceObservation(
             instrument="XAUUSD",
             source="test",
-            timestamp=datetime.now(),
+            timestamp=datetime.utcnow(),
             price=2400.0,
             freshness="FRESH",
             collection_run_id="run_test",
@@ -56,7 +56,7 @@ class TestPriceObservations(unittest.TestCase):
         oid = save_price_observation(
             instrument="XAUUSD",
             source="kitco",
-            timestamp=datetime.now(),
+            timestamp=datetime.utcnow(),
             price=2400.50,
             freshness="FRESH",
             collection_run_id="run_1",
@@ -71,7 +71,7 @@ class TestPriceObservations(unittest.TestCase):
         oid = save_price_observation(
             instrument="USD/IRR",
             source="bonbast",
-            timestamp=datetime.now(),
+            timestamp=datetime.utcnow(),
             price=50000.0,
             freshness="FRESH",
             collection_run_id="run_1",
@@ -86,7 +86,7 @@ class TestPriceObservations(unittest.TestCase):
         oid = save_price_observation(
             instrument="REP_IRAN_GOLD",
             source="milli",
-            timestamp=datetime.now(),
+            timestamp=datetime.utcnow(),
             price=1900000.0,
             freshness="FRESH",
             collection_run_id="run_1",
@@ -101,7 +101,7 @@ class TestPriceObservations(unittest.TestCase):
         oid = save_price_observation(
             instrument="PAXG",
             source="paxg_api",
-            timestamp=datetime.now(),
+            timestamp=datetime.utcnow(),
             price=2400.0,
             freshness="UNKNOWN",
             collection_run_id="run_1",
@@ -113,12 +113,12 @@ class TestPriceObservations(unittest.TestCase):
 
     # --- KPI-6: Freshness behaves deterministically ---
     def test_freshness_fresh(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         result = evaluate_freshness(now, now, stale_threshold_minutes=15)
         self.assertEqual(result, "FRESH")
 
     def test_freshness_stale(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         old = now - timedelta(minutes=20)
         result = evaluate_freshness(old, now, stale_threshold_minutes=15)
         self.assertEqual(result, "STALE")
@@ -128,14 +128,14 @@ class TestPriceObservations(unittest.TestCase):
         self.assertEqual(result, "UNKNOWN")
 
     def test_freshness_unknown_future(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         future = now + timedelta(minutes=5)
         result = evaluate_freshness(future, now, stale_threshold_minutes=15)
         self.assertEqual(result, "UNKNOWN")
 
     # --- KPI-7: Instrument filtering works ---
     def test_instrument_filtering(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         save_price_observation("XAUUSD", "kitco", now, 2400.0, "FRESH", "run_1")
         save_price_observation("USD/IRR", "bonbast", now, 50000.0, "FRESH", "run_1")
         save_price_observation("REP_IRAN_GOLD", "milli", now, 1900000.0, "FRESH", "run_1")
@@ -154,7 +154,7 @@ class TestPriceObservations(unittest.TestCase):
 
     # --- KPI-8: Timestamp ordering works ---
     def test_timestamp_ordering(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         save_price_observation("XAUUSD", "kitco", now - timedelta(hours=2), 2390.0, "FRESH", "run_1")
         save_price_observation("XAUUSD", "kitco", now - timedelta(hours=1), 2395.0, "FRESH", "run_1")
         save_price_observation("XAUUSD", "kitco", now, 2400.0, "FRESH", "run_1")
@@ -167,14 +167,14 @@ class TestPriceObservations(unittest.TestCase):
 
     # --- KPI-9: Collection run ID preserved ---
     def test_collection_run_id_preserved(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         save_price_observation("XAUUSD", "kitco", now, 2400.0, "FRESH", "run_abc123")
         latest = get_latest_price_observation(instrument="XAUUSD")
         self.assertIsNotNone(latest)
         self.assertEqual(latest.collection_run_id, "run_abc123")
 
     def test_collection_run_id_non_empty(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         oid = save_price_observation("XAUUSD", "kitco", now, 2400.0, "FRESH", "run_xyz")
         self.assertGreater(oid, 0)
         obs = self.session.query(PriceObservation).filter_by(id=oid).first()
@@ -195,7 +195,7 @@ class TestPriceObservations(unittest.TestCase):
 
     # --- Cross-contamination guard ---
     def test_no_cross_contamination(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         save_price_observation("XAUUSD", "kitco", now, 2400.0, "FRESH", "run_1")
         save_price_observation("USD/IRR", "bonbast", now, 50000.0, "FRESH", "run_1")
         save_price_observation("REP_IRAN_GOLD", "milli", now, 1900000.0, "FRESH", "run_1")
@@ -208,7 +208,7 @@ class TestPriceObservations(unittest.TestCase):
 
     # --- Source filtering ---
     def test_source_filtering(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         save_price_observation("REP_IRAN_GOLD", "milli", now, 1900000.0, "FRESH", "run_1")
         save_price_observation("REP_IRAN_GOLD", "ayyareh", now, 1905000.0, "FRESH", "run_1")
 
@@ -218,7 +218,7 @@ class TestPriceObservations(unittest.TestCase):
 
     # --- Hours filtering ---
     def test_hours_filtering(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         save_price_observation("XAUUSD", "kitco", now - timedelta(hours=3), 2380.0, "FRESH", "run_1")
         save_price_observation("XAUUSD", "kitco", now - timedelta(minutes=30), 2395.0, "FRESH", "run_1")
 

@@ -40,7 +40,7 @@ class TestDatabaseOperations(unittest.TestCase):
 
     def test_save_and_read_snapshot(self):
         sid = save_market_snapshot(
-            timestamp=datetime.now(),
+            timestamp=datetime.utcnow(),
             fair_price=100000000,
             premium_percent=-2.5,
             world_gold_usd=2400.0,
@@ -53,7 +53,7 @@ class TestDatabaseOperations(unittest.TestCase):
         self.assertEqual(float(latest.premium_percent), -2.5)
 
     def test_get_snapshots_time_range(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         save_market_snapshot(
             timestamp=now - timedelta(days=1),
             fair_price=100000000,
@@ -68,7 +68,7 @@ class TestDatabaseOperations(unittest.TestCase):
         self.assertEqual(len(recent), 1)
 
     def test_daily_premium_stats(self):
-        today = datetime.now().date()
+        today = datetime.utcnow().date()
         base = datetime.combine(today, datetime.min.time())
         for i, premium in enumerate([-3.0, -4.0, -3.5]):
             save_market_snapshot(
@@ -86,12 +86,12 @@ class TestDatabaseOperations(unittest.TestCase):
         self.assertEqual(stats["close"], -3.5)
 
     def test_daily_premium_stats_no_data(self):
-        future_date = datetime.now().date() + timedelta(days=10)
+        future_date = datetime.utcnow().date() + timedelta(days=10)
         stats = get_daily_premium_stats(future_date, self.session)
         self.assertIsNone(stats)
 
     def test_premium_momentum_context(self):
-        today = datetime.now().date()
+        today = datetime.utcnow().date()
         yesterday = today - timedelta(days=1)
         base_today = datetime.combine(today, datetime.min.time())
         base_yesterday = datetime.combine(yesterday, datetime.min.time())
@@ -127,7 +127,7 @@ class TestDatabaseOperations(unittest.TestCase):
 
     def test_verbal_direction_uses_today_diff(self):
         """When today data exists, verbal direction must match today label."""
-        today = datetime.now().date()
+        today = datetime.utcnow().date()
         base = datetime.combine(today, datetime.min.time())
         for i, premium in enumerate([-4.0, -4.2, -3.8]):
             save_market_snapshot(
@@ -150,7 +150,7 @@ class TestDatabaseOperations(unittest.TestCase):
 
     def test_verbal_direction_uses_yesterday_when_today_missing(self):
         """When today data is missing, fall back to yesterday diff."""
-        yesterday = datetime.now().date() - timedelta(days=1)
+        yesterday = datetime.utcnow().date() - timedelta(days=1)
         base_yesterday = datetime.combine(yesterday, datetime.min.time())
         save_market_snapshot(
             timestamp=base_yesterday + timedelta(hours=12),
@@ -168,7 +168,7 @@ class TestDatabaseOperations(unittest.TestCase):
     # --- Refinement R1: Input directions ---
 
     def test_input_directions_world_and_usd(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         for i in range(3):
             save_market_snapshot(
                 timestamp=now - timedelta(hours=i),
@@ -198,7 +198,7 @@ class TestDatabaseOperations(unittest.TestCase):
         self.assertEqual(directions["usd"]["arrow"], "→")
 
     def test_input_directions_stale_detection(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         for i in range(5):
             save_market_snapshot(
                 timestamp=now - timedelta(hours=i),

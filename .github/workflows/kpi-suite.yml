@@ -1,6 +1,6 @@
 name: KPI Suite
 
-# Regression net for the executable phase specifications in kpi/.
+# Regression net for the executable phase specifications in kpi/ and the unit tests in tests/.
 # Runs against an isolated in-memory database and never receives DATABASE_URL,
 # so it cannot reach production Neon.
 
@@ -51,3 +51,9 @@ jobs:
           DATABASE_URL: "sqlite:///:memory:"
           PYTHONIOENCODING: "utf-8"
         run: python kpi/run_all.py
+
+      - name: Unit tests
+        env:
+          DATABASE_URL: "sqlite:///:memory:"
+          PYTHONIOENCODING: "utf-8"
+        run: python tests/run_all.py

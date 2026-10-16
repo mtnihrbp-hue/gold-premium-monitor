@@ -83,7 +83,7 @@ def test_similarity_exact_match():
         valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
         premium_direction="DISCOUNT_WIDENING", conflict_state="SUPPORTIVE",
         candidate_decision="BUY", final_decision="BUY",
-        timestamp=datetime.now() - timedelta(days=5),
+        timestamp=datetime.utcnow() - timedelta(days=5),
         platforms_below_fair=2, platforms_above_fair=1, platform_spread=5000,
         snapshot=MockSnapshot(premium_percent=-3.2),
     )
@@ -372,14 +372,14 @@ def test_similarity_one_soft_filter_fails():
 def test_rank_by_premium_distance():
     """Closer premium first."""
     s1 = SimilarStateResult(
-        state_id=1, snapshot_id=1, timestamp=datetime.now(),
+        state_id=1, snapshot_id=1, timestamp=datetime.utcnow(),
         premium_percent=-3.0, valuation="CHEAP", momentum="IMPROVING",
         premium_direction="DISCOUNT_WIDENING", structure="DISCOUNT_DOMINANT",
         conflict="SUPPORTIVE", candidate_decision="BUY", final_decision="BUY",
         premium_distance=0.5, days_ago=10,
     )
     s2 = SimilarStateResult(
-        state_id=2, snapshot_id=2, timestamp=datetime.now(),
+        state_id=2, snapshot_id=2, timestamp=datetime.utcnow(),
         premium_percent=-3.5, valuation="CHEAP", momentum="IMPROVING",
         premium_direction="DISCOUNT_WIDENING", structure="DISCOUNT_DOMINANT",
         conflict="SUPPORTIVE", candidate_decision="BUY", final_decision="BUY",
@@ -394,14 +394,14 @@ def test_rank_by_premium_distance():
 def test_rank_tiebreaker_recency():
     """Same premium distance → more recent first."""
     s1 = SimilarStateResult(
-        state_id=1, snapshot_id=1, timestamp=datetime.now() - timedelta(days=5),
+        state_id=1, snapshot_id=1, timestamp=datetime.utcnow() - timedelta(days=5),
         premium_percent=-3.0, valuation="CHEAP", momentum="IMPROVING",
         premium_direction="DISCOUNT_WIDENING", structure="DISCOUNT_DOMINANT",
         conflict="SUPPORTIVE", candidate_decision="BUY", final_decision="BUY",
         premium_distance=0.5, days_ago=5,
     )
     s2 = SimilarStateResult(
-        state_id=2, snapshot_id=2, timestamp=datetime.now() - timedelta(days=2),
+        state_id=2, snapshot_id=2, timestamp=datetime.utcnow() - timedelta(days=2),
         premium_percent=-3.0, valuation="CHEAP", momentum="IMPROVING",
         premium_direction="DISCOUNT_WIDENING", structure="DISCOUNT_DOMINANT",
         conflict="SUPPORTIVE", candidate_decision="BUY", final_decision="BUY",
@@ -424,19 +424,19 @@ def test_comparison_finds_matches():
             id=1, snapshot_id=10,
             valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
             snapshot=MockSnapshot(premium_percent=-3.1),
-            timestamp=datetime.now() - timedelta(days=5),
+            timestamp=datetime.utcnow() - timedelta(days=5),
         ),
         MockState(
             id=2, snapshot_id=11,
             valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
             snapshot=MockSnapshot(premium_percent=-3.5),
-            timestamp=datetime.now() - timedelta(days=3),
+            timestamp=datetime.utcnow() - timedelta(days=3),
         ),
         MockState(
             id=3, snapshot_id=12,
             valuation_state="FAIR", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
             snapshot=MockSnapshot(premium_percent=-3.0),
-            timestamp=datetime.now() - timedelta(days=1),
+            timestamp=datetime.utcnow() - timedelta(days=1),
         ),
     ]
     comparison = build_historical_comparison(ref, candidates, config={"premium_tolerance": 1.0, "max_results": 20})
@@ -470,7 +470,7 @@ def test_comparison_respects_max_results():
             id=i, snapshot_id=i,
             valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
             snapshot=MockSnapshot(premium_percent=-3.0 - i * 0.05),
-            timestamp=datetime.now() - timedelta(days=i),
+            timestamp=datetime.utcnow() - timedelta(days=i),
         ))
     comparison = build_historical_comparison(ref, candidates, config={"premium_tolerance": 2.0, "max_results": 5})
     assert comparison.match_count == 5, f"Expected 5, got {comparison.match_count}"
@@ -485,7 +485,7 @@ def test_comparison_sufficient_data_threshold():
             id=i, snapshot_id=i,
             valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
             snapshot=MockSnapshot(premium_percent=-3.0 - i * 0.1),
-            timestamp=datetime.now() - timedelta(days=i),
+            timestamp=datetime.utcnow() - timedelta(days=i),
         )
         for i in range(3)
     ]
@@ -502,7 +502,7 @@ def test_comparison_insufficient_data():
             id=1, snapshot_id=1,
             valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
             snapshot=MockSnapshot(premium_percent=-3.1),
-            timestamp=datetime.now() - timedelta(days=1),
+            timestamp=datetime.utcnow() - timedelta(days=1),
         ),
     ]
     comparison = build_historical_comparison(ref, candidates)
@@ -522,7 +522,7 @@ def test_text_output_contains_reference():
             id=1, snapshot_id=1,
             valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
             snapshot=MockSnapshot(premium_percent=-3.1),
-            timestamp=datetime.now() - timedelta(days=5),
+            timestamp=datetime.utcnow() - timedelta(days=5),
             platforms_below_fair=2, platforms_above_fair=1, platform_spread=5000,
         ),
     ]
@@ -552,7 +552,7 @@ def test_text_output_insufficient_warning():
             id=1, snapshot_id=1,
             valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
             snapshot=MockSnapshot(premium_percent=-3.1),
-            timestamp=datetime.now() - timedelta(days=5),
+            timestamp=datetime.utcnow() - timedelta(days=5),
         ),
     ]
     comparison = build_historical_comparison(ref, candidates)
@@ -569,7 +569,7 @@ def test_text_output_no_prediction():
             id=1, snapshot_id=1,
             valuation_state="CHEAP", momentum_state="IMPROVING", structure_state="DISCOUNT_DOMINANT",
             snapshot=MockSnapshot(premium_percent=-3.1),
-            timestamp=datetime.now() - timedelta(days=5),
+            timestamp=datetime.utcnow() - timedelta(days=5),
         ),
     ]
     comparison = build_historical_comparison(ref, candidates)

@@ -85,7 +85,8 @@ def test_relevant_gold_global():
     result = classify_news_item(item)
     assert result["relevance"] == "RELEVANT"
     assert result["event_type"] == "GLOBAL_GOLD_EVENT"
-    assert result["expected_gold_direction"] == "RISING"
+    # A keyword cannot tell which way gold goes; UNKNOWN since 2026-09-21 (SP_C_HANDOFF.md, the tidy pass)
+    assert result["expected_gold_direction"] == "UNKNOWN"
     print("PASS: test_relevant_gold_global")
 
 
@@ -187,7 +188,8 @@ def test_classify_batch():
 
 def test_output_schema_complete():
     """Classified output contains all required fields."""
-    item = {"title": "Sanctions Announced", "summary": ""}
+    # the classifier returns the item merged with its labels: the item's url and source are carried through
+    item = {"title": "Sanctions Announced", "summary": "", "url": "https://example.com/a", "source": "example"}
     result = classify_news_item(item)
     required = [
         "title", "summary", "url", "source",
@@ -228,7 +230,7 @@ if __name__ == "__main__":
     for t in tests:
         try:
             t()
-n            passed += 1
+            passed += 1
         except AssertionError as e:
             print(f"FAIL: {t.__name__}: {e}")
             failed += 1
