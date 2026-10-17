@@ -4897,3 +4897,74 @@ run logs instead.
     ~/iran_node_spool.jsonl`, 1,010 on 10-16 morning).
 - **10-17, later:** the owner pasted the worker into Cloudflare, so Status now carries the service line.
   The phone's spool is to be checked in the afternoon.
+
+## 44. Sideways channels, the owner's doubt measured (2026-10-17)
+
+The owner: "I agree with you, but with caution. i have doubt on you for this one. the backtest has
+repeatedly confirmed the hold, but the problem as i have raised several times, is the times the gold enter a
+sideway channel. and now the only way you are relying upon is the EMA method, not bad but not much relible.
+how we can fix this. and im suprised why with all the information you have you cant come up with a
+solution."
+
+**44.1 What was already known** (section 16, 2026-10-04, `research/rd_sideways.py`):
+- the room's sideways rule (the 60-day efficiency ratio under a random walk's) flagged 74% of the days of
+  the 1405 channel;
+- inside sideways, 18K earned about what fixed income earns (+1.70% against +1.61% over 20 days);
+- breakouts did not say which way the next leg goes: up-breaks were followed by an ordinary month, and
+  down-breaks were mostly false in toman;
+- "sideways: 50% out" lost -4% to -23% against holding.
+
+The room does not rest on the EMA: it is eight members, the market-state (sideways) member among them, and
+it leaves only on broad agreement (section 27).
+
+**44.2 The box, tested today** (`research/rd_sideways_box.py`, rules committed in 1b0ee51 before the run).
+- **A defect of mine on the way:** the study was first written over section 16's `rd_sideways.py`. That file
+  was restored unchanged (f4bd4b9), and the new study is `rd_sideways_box.py`.
+- **The time spent in each state, and what followed** (18K's next month while on, against the fund's):
+
+| Detector | Days on | 18K's next month while on | The fund's | 18K while off |
+|---|---|---|---|---|
+| the pattern reader's box | 16% | **+6.18%** | +1.85% | +3.84% |
+| the room's sideways rule | 28% | +1.64% | +1.88% | +5.23% |
+| 18K and the dollar both in a box | 7% | **+7.11%** | +1.95% | +3.99% |
+
+- **A box in 18K is a pause inside an uptrend.** The month after it was stronger than usual: the flags and
+  breakouts of 37.4, again.
+- **The room's sideways rule** finds the flat stretches, where gold and the fund earn about the same.
+
+**The reader's record** (two-year windows, both costs; median for 2015-2019 | 2020-2024 starts):
+
+| Policy | 40% of the holding, Daric | 40%, Goldika |
+|---|---|---|
+| park the box | -9.1% / -4.0%, ahead 8% | -17.4% / -14.6% |
+| park on the room's sideways rule | **+8.6% / -0.6%**, ahead 58%, worst -6.2% | -1.7% / -10.9% |
+| park when both are in a box | -6.6% / -3.4% | -13.1% / -7.7% |
+| trade the box (out in its upper third, back in its lower third or on an up-break) | -11.8% / -7.1%, ahead 2% | -20.7% / -15.9% |
+
+The 100% versions lose more.
+
+- **The verdict:** NOT WORTH FOLLOWING, all of them. The closest, parking 40% on the room's sideways rule,
+  is ahead in 2015-2019 only.
+- **Trading the box** sells into the pause before the next leg and buys back above where it sold.
+
+**44.3 How the room handled the 1405 channel** (`rd_room_stays.py`, 42.3):
+- out 40% from 2026-03-18 to 05-25: 56 days, 18K +2.6%, the fund +5.7%, a gain of +1.19% on the whole
+  holding;
+- out from 07-21 to 08-06: +0.26%;
+- all in gold from 08-06, before the jump of mid-August (+20% in 20 days, section 16).
+
+**44.4 What it means.**
+- The fix for sideways is not a sideways rule. In toman a box is usually a pause, and leaving it costs the
+  jump.
+- The flat stretches that do exist pay gold and the fund about the same, so the gain from parking in them
+  is small and sits in their first weeks.
+- That is what the room does: the sideways reading is one vote among eight, it moves 40%, and it comes back
+  when the votes turn. It parked twice in the 1405 channel and was in gold for the jump.
+- What the advisor can add for a reader is the sight of it:
+  - "the room is out: sideways, no new high";
+  - "a box since 7 Mehr between 25.27M and 26.74M; on 18K, breaks up from a box reached their target first
+    30 of 39 times".
+
+  It is not another exit.
+
+**NEON MIGRATION REQUIRED = NO**; research only.
