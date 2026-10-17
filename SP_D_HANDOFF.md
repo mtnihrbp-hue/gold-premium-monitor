@@ -32,7 +32,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    37.14 the state cache restored merged 2026-10-16 (v1.23safe);
                                                                    37.15 the SERVICE notice merged 2026-10-16 (v1.24safe);
                                                                    its outage date from the record merged 2026-10-16 (v1.25safe);
-                                                                   39-45 the research, the news dedup, the documents merged 2026-10-17 (v1.26safe)
+                                                                   39-45 the research, the news dedup, the documents merged 2026-10-17 (v1.26safe);
+                                                                   46 the previews revised, on sp-de
        member, the LLM member
 ```
 
@@ -5028,3 +5029,77 @@ The 100% versions lose more.
 - **The day Neon returns:** `PROJECT_OPERATIONS.md` section 17, the checklist for 11-01.
 
 **NEON MIGRATION REQUIRED = NO.**
+
+## 46. The previews revised: the money as times the usual week, the room's stays, the box, the send time (2026-10-17)
+
+The owner, on the previews of 45:
+- the headline price: the three cheapest platforms (agreed); the chart and its levels stay on tgju;
+- "instead of dipped, lets say touched the 20D Avg";
+- the patterns that did not work on 18K (the rising wedge, the double top) are dropped (agreed);
+- "Money in: x times of average last 7D, in a normal range. so we need some statsticall analysis as well";
+- the room's stays: "11 times the move paid; 5 times gold jumped ... what does it mean?";
+- the box: "A close above 26.74M opens road to 28.21M; below 25.27M, may lead to 23.80M. and with a
+  possibility rate";
+- the send time: "the gold etfs start at 12 and end at 18 ... sending at 12:15 may give the user a chance
+  to even buy a stock or share from tse. but 14 is ok as well."
+
+**46.1 The money as "times the usual"** (`research/rd_money_week.py`, rules committed in 3e37827 before the
+run; the funds' seed, 2017-07 to 2026-10-03).
+- **The day against the 7 days before it** (the owner's words read literally) is undefined on 31% of fund
+  days: the 7 days before were net out. Where defined it swings from -2.3 to +5.0 times (10th to 90th
+  percentile). Not usable.
+- **The week against the usual week** (W: the 7 days' net individual money in, against 7 times the mean
+  daily net of the 250 fund days before them). The usual week was positive on every day since 2019.
+  - The normal range, the middle 80% of the past year to 10-03: **-2.8 to +5.0 times**.
+  - On 10-03: 11,328B toman in over 7 days, against a usual week of 2,118B: **5.3 times, rank 92%,
+    unusual**.
+  - **It disagrees with Direction's money reading on 16% of days**, and on 10-03 itself: gold_demand's
+    money (the net as a share of the 7 days' buying and selling) ranked 77%, normal. Two "normal" verdicts
+    for one quantity would repeat the defect of the deep discount (CLAUDE.md), so one of them must go.
+- **What followed** (18K over the next 20 tgju days; halves split at 2023-11-05):
+
+| W's state | First half: episodes, 20-day, 5% fall | Second half | Every day (first / second) |
+|---|---|---|---|
+| unusual in (top 10%) | 6, +4.96%, 17% | 15, +7.05%, 7% | +2.52%, 24% / +6.72%, 19% |
+| unusual out (bottom 10%) | 12, +1.86%, 42% | 8, +3.52%, 25% | |
+
+  - W's quintiles show no ordering in either half.
+  - Since 2024-10, 11 completed weeks of unusual money in: 10 were followed by a rise (+2.4% to +19.3%),
+    one by a fall (2026-02-22, -11.2%).
+- **The verdicts:** DESCRIBES ONLY, for both ends; a half has fewer than 10 episodes. Heavy money in has
+  not been a warning. Heavy money out came before weaker months with more falls, too few to claim: a lead.
+- **The rush of buyers** (gold_demand's people reading) is the measured warning (41.4); on 10-03 it read
+  1.67 times the usual, rank 91%: a rush, in a calm market.
+
+**46.2 The room's stays, in full** (`rd_room_stays.py`, 42.3):
+- 11 of 16 gained. While the room was out, 18K fell or rose less than the fund: from +0.04% to +7.55% on
+  the whole holding (2018-10-28 to 2019-01-19, 18K -11.4%).
+- 5 cost:
+  - three were 2018-2019's jumps, 18K +16.2%, +24.1% and +15.6% while out: -5.39%, -7.59% and -4.88%;
+  - two were about even, -0.19% and -0.23%.
+- Since 2020, 8 of 9 gained and one was even.
+- "+5% to +9%" is the room as built against holding, the median over the 18 two-year windows from 2020
+  at Daric's cost, ahead in 83-100% of them (42.2).
+
+**46.3 The box with its rate** (37.4): a break up's target is the box's height above its top, a break
+down's the height below its bottom. Within 40 trading days, before closing back through the box's other
+edge:
+- breaks up reached it 30 of 39 times (any day 66-73%);
+- breaks down 12 of 22 (any day 38-46%);
+- flags 14 of 19 (any day 35-51%).
+The rate after a break up is mostly the uptrend's own. The levels are the useful part.
+
+**46.4 The send time.**
+- **The gold funds trade 12:00 to 18:00 Tehran.** Ayyar's minute bars (`research/data/tsetmc_intraday`)
+  run 12:00-17:59 from 2025-04 to 2026-02 and again from 2026-08. They were shorter in the spring of
+  2026: 11:45-13:30 in March, then to 15:30 and 17:00.
+- **tablokhani** had not updated for Saturday's session by 19:30 Tehran (watched every 10 minutes from
+  18:10).
+- So at any time before about 18:00, the funds' figures are the last complete session. A partial session
+  cannot be set against full-day history, and GitHub's runner cannot see TSETMC's intraday figures.
+- The send time is therefore set by what the reader can still act on, and by the dollar:
+  - from about 12:10 the reader has the funds' whole session and the stock market's last minutes;
+  - the dollar counts as today's between 11:00 and 13:00 only if it has moved since the open (the signal
+    confirmation's rule).
+
+**NEON MIGRATION REQUIRED = NO**; research and previews only.
