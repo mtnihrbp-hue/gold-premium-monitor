@@ -381,9 +381,7 @@
     "Deep-discount push has no second-platform confirmation of its own; the stale-Taline case is closed at validation (38.8). Decide in SP-D whether the push needs one.",
     "TA step 3 data (SP_C_HANDOFF.md 41.6): tgju has flat candles (open = high = low = close) on 284 of 3,516 gold days and 388 of 3,964 dollar days, clustered in 2011-2014 and 2019-2023 (3 in 2,050 from 2024); candle-pattern base rates must exclude them or start in 2024. 10 candles are flagged INCONSISTENT, most at a cap in tgju's own feed in September 2025. Trading days per year stepped from ~240 to ~280 around 2019-2020.",
     "Owner, from SP-D 39.6: the decision engine -- the decision table (B3a scorecard, B3b table beside the old chain), retire BUY/SELL alerts now, or wire only the scorecard? The replay on the full record as the gate instead of a quarter? Retire the matrix's BUY alert when the table goes live (changes CLAUDE.md)?",
-    "Owner: paste src/worker/telegram-trigger.js into Cloudflare's dashboard, so Status shows the service line (SP-D 37.15). The SERVICE push works without it.",
     "Owner, from SP-D 40.5: the decision engine's scenario -- A the advisor table (recommended), B the matrix reframed as information, C the matrix as a record only; with 39.6's three questions.",
-    "2026-10-17 morning: remind the owner to paste src/worker/telegram-trigger.js into Cloudflare (asked 10-16).",
     "Owner, from SP-D 42.7: the decision engine as three readers' answers -- buy now and where (rial), the room (holder), a WATCH section with measured rates; preview first; with 39.6 and 40.5."
   ],
   "corrections": [

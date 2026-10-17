@@ -4895,3 +4895,5 @@ run logs instead.
   - Open: Neon until 11-01; Daric refusing the runner.
   - The owner: paste the worker (37.15) into Cloudflare, and check the phone's spool (`wc -l
     ~/iran_node_spool.jsonl`, 1,010 on 10-16 morning).
+- **10-17, later:** the owner pasted the worker into Cloudflare, so Status now carries the service line.
+  The phone's spool is to be checked in the afternoon.

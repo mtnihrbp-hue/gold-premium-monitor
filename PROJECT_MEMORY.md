@@ -102,7 +102,7 @@ Production is `main`, dispatched by cron-job.org and the Cloudflare worker with 
 | The room's trades | when the room trades | `alerts/telegram_paper.py` | live; the only PAPER account that pushes |
 | The 21:00 report and chart | first run from 21:00 | `alerts/telegram_paper.py`, `alerts/chart.py` | live; support and resistance with the patterns (37.5); sent from tgju when Neon is out of reach (35.2) |
 | Daily recap | — | `alerts/telegram_*`, `alerts/email_*` | **parked** 2026-10-15 (`config.email.send_daily_recap`) |
-| SERVICE | when the database, world gold, the dollar or the platforms stop or come back (two runs agreeing) | `analysis/service.py`, `alerts/telegram_service.py` | live from 10-16 (SP-D 37.15); Status shows the same line once the worker is pasted |
+| SERVICE | when the database, world gold, the dollar or the platforms stop or come back (two runs agreeing) | `analysis/service.py`, `alerts/telegram_service.py` | live from 10-16 (SP-D 37.15); Status shows the same line (the worker pasted 10-17) |
 
 **Parked, not deleted** (owner, 2026-10-16: the Analysis Wing "is to be rethought, not retired"):
 `config.analysis_wing` turns off the evidence package, interpretation, features and read model, the
