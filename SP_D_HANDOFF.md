@@ -4860,3 +4860,38 @@ decision). Three readers, three questions:
     that relief loosens the dollar. Eight days are too few to claim.
   - **The model's own "dollar down"** call (40 days) was still followed by +1.20% over 3 days, against
     +0.53% after its "up". It still has no skill.
+
+## 43. Health check 2026-10-17, 09:50 Tehran (PROJECT_OPERATIONS.md section 15)
+
+Neon is suspended to 11-01, so steps 2, 3 and 5 to 9 cannot query the database. They are read from the
+run logs instead.
+
+- **Runs.** 24 since 10-16 09:00, all `success` on `main`.
+  - Every hourly ANALYZE from 09:00 to 21:00 on 10-16 and from 06:00 to 09:00 on 10-17 is there.
+  - The owner's UPDATE (10:00, 14:35, 18:42), DIRECTION (11:42, 14:38, 09:04) and REPORT (10:10)
+    dispatches sit between them.
+  - Runs take about 1.5 to 2 minutes while the database is out of reach.
+- **The SERVICE notice:**
+  - announced once, 10-16 19:01 ("out of reach since 21 Mehr, 21:00");
+  - every run since leaves the same service line.
+- **The spool:** 571 held writes at 21:00, 627 at 06:00, 757 at 09:00, news included. The state cache
+  entry is 151 KB compressed, against a 20 MB ceiling.
+- **The recovery step** reports "nothing to recover" on every run: its marker holds.
+- **News:** 35 to 63 new items held per run, from all twelve feeds.
+- **The 21:00 chart** was sent without the database (1,000 tgju candles to 10-15).
+- **/Direction** (09:04) was computed live from tgju and sent.
+- **Platforms**, read from the logs' CALCULATE sections, 10-16 19:00 to 10-17 09:00:
+  - Daric answered 403 on every run; the node's copy is unreachable while Neon is down.
+  - HoorGold timed out once (06:00).
+  - Flat while the others moved: HoorGold 263.50M for 14 hours, MioGold 261.75M all night, Parasteh
+    262.95M, and Ayyareh and Eligold 262.16M from 06:00 to 09:00.
+    - The first three are gallery reference prices, set once a day by nature (37.7).
+    - Ayyareh and Eligold flat before about 11:00 is the known morning pattern.
+    - None of them is among the three cheapest (Milli, WallGold, Invi), so the discount is unaffected.
+- **Decisions:** valuation UNKNOWN (no pool without the database), so every reading is WAIT. The premium
+  is -2.5% to -2.6%. PAPER cannot run without the database.
+- **The labelling:** the fifth run is under way, from 05:45 Tehran.
+- **Verdict:** healthy within the outage.
+  - Open: Neon until 11-01; Daric refusing the runner.
+  - The owner: paste the worker (37.15) into Cloudflare, and check the phone's spool (`wc -l
+    ~/iran_node_spool.jsonl`, 1,010 on 10-16 morning).
