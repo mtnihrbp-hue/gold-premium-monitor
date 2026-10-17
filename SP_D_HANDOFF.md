@@ -4846,3 +4846,17 @@ decision). Three readers, three questions:
 - the replay of 39.3 on three months.
 
 **NEON MIGRATION REQUIRED = NO**; research only.
+
+**42.8 Addendum, 10-17 05:43: the labels at 198 days.**
+- **The labelling:** the fourth run labelled 28 days, to 2026-05-09; 198 of 357 are done. The fifth
+  started at 02:15 UTC.
+- **Re-measured**, with the verdict rules unchanged (`rd_news_labels.py`, `rd_cbi_horizons.py`):
+  - **Interventions:** no new intervention days were labelled after 03-24. Definition A still has 6
+    episodes, and B's verdict is still not shown at any horizon. 41.3 stands.
+  - **Escalation,** now 100 days: the dollar +0.14% the next day and +0.01% over 3 days, against +0.29%
+    and +1.00% on days without. It does not separate as a rise, which agrees with 37.11.
+  - **"Sanctions eased"** reaches 8 days for the first time: the dollar -2.38% the next day (fell on
+    62%), -1.05% over 3 days, against +0.15% and +0.53% on all days. A lead that fits the owner's view
+    that relief loosens the dollar. Eight days are too few to claim.
+  - **The model's own "dollar down"** call (40 days) was still followed by +1.20% over 3 days, against
+    +0.53% after its "up". It still has no skill.
