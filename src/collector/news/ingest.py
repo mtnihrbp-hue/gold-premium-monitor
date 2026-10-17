@@ -11,7 +11,7 @@ from datetime import datetime
 
 from collector.news.rss import collect_rss_feed
 from intelligence.event_classifier import classify_news_item
-from database.repository import save_news_event, get_recent_dedup_keys, hold_news_event
+from database.repository import save_news_event, get_stored_dedup_keys, hold_news_event
 from persistence.spool import held_keys
 
 
@@ -48,9 +48,6 @@ def run_news_ingestion(config: Dict[str, Any]) -> Dict[str, Any]:
     # rest of the run is held without asking the database again (SP_D_HANDOFF.md section 37.13).
     database_out, held, not_held = False, 0, 0
 
-    # Batch dedup: one query for all recent keys instead of N+1 exists checks; with the items already
-    # held, so an item every run fetches again during an outage is held once
-    recent_keys: Set[str] = get_recent_dedup_keys(hours=24) | held_keys("news", "dedup_key")
 
     # -----------------------------------------------------------------------
     # Phase 1: Parallel I/O-bound fetch
@@ -73,6 +70,12 @@ def run_news_ingestion(config: Dict[str, Any]) -> Dict[str, Any]:
                 fetched[url] = items
             except Exception as e:
                 fetched[url] = e
+
+    # Batch dedup: one query for the keys this run fetched, whatever their age, instead of N+1 exists
+    # checks or a 24-hour window the feeds outlive (SP_D_HANDOFF.md section 45); with the items already
+    # held, so an item every run fetches again during an outage is held once
+    fetched_keys = {item.get("dedup_key") for items in fetched.values() if isinstance(items, list) for item in items}
+    recent_keys: Set[str] = get_stored_dedup_keys(fetched_keys) | held_keys("news", "dedup_key")
 
     # -----------------------------------------------------------------------
     # Phase 2: Sequential processing (DB writes must be serialized)

@@ -605,3 +605,33 @@ The role is made by SQL, never through Neon's API or console: a role made there 
 `neon_superuser`, which reads and writes every table. Keep the phone on its charger and
 Wi-Fi, Termux's battery setting on Unrestricted, and do not tap Exit on Termux's
 notification (it stops the schedule).
+
+## 17. When Neon returns (written 2026-10-17 for 2026-11-01)
+
+Neon's free plan resets its monthly transfer on the first of the month (UTC), so the scheduled run of
+06:00 Tehran on 2026-11-01 (10 Aban) is the first that can reach it. In order:
+
+1. **Before 06:00:** read `data_transfer_bytes` (section 15, step 9) as the month's zero.
+2. **The 06:00 run** (its log; `SP_D_HANDOFF.md` 35.4, 37.1, 37.13):
+   - `SPOOL: N held writes stored, D rejected, L still held`, with D at 0;
+   - the re-check's `SPOOL re-check ... deferred` lines;
+   - the spool holds about 1,500 writes or more, news included, and a run writes for at most 240 seconds,
+     so L reaches 0 over one to three runs.
+3. **The SERVICE notice:** the second run that reaches Neon sends "The database is back, after 18 days",
+   with what was kept (37.15). Status's line turns to "Service: all working."
+4. **The record mirror's first fill:** `MIRROR: N rows copied` (37.12). From then on the cache step
+   `gold-monitor-mirror-` saves a file of about 0.9 MB.
+5. **The phone:** its own spool (`~/iran_node_spool.jsonl`) flushes on its next 15-minute read. Then
+   `iran_node_readings` holds the outage's TSETMC and Daric rows, which section 15 step 8 checks.
+6. **Freshness and decisions** (section 15, steps 2 to 7):
+   - one market snapshot per held reading, at its own time;
+   - the valuation leg ranked again (not UNKNOWN);
+   - PAPER's 21:00 report back, with its money-flow line;
+   - `/Analyze` answering from the record.
+7. **The transfer after the 07:00 run:** the difference from step 1 is one run plus the write-back.
+   Project the month against the 5 GB.
+8. **The same week:**
+   - remove the one-off recovery step in `gold-monitor.yml` (37.14);
+   - re-run on the full record the engine replay (`research/rd_engine_replay.py`, 39.3), the deep zone,
+     and the platforms' Fridays against Tether (42.4);
+   - delete `probe-news-labels` once the labels are complete and backed up.

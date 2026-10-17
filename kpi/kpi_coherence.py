@@ -1604,6 +1604,41 @@ class KPICoherence(unittest.TestCase):
         finally:
             mirror.reachable, mirror.unreachable_reason, mirror.built_at, ts.send_service, main.save_state = real
 
+    def test_55_an_old_news_item_is_not_stored_again(self):
+        """The ingestion's dedup looked back 24 hours while the feeds keep items for weeks, so 330 of 2,294 rows
+        from 09-22 were re-inserts (SP_C_HANDOFF.md 33.3, N1). It now asks which of the keys it fetched are
+        stored, whatever their age (SP_D_HANDOFF.md section 45)."""
+        import inspect as _inspect
+        from collector.news import ingest
+        from database import repository as repo
+        from database.models import NewsEvent
+        s = _test_get_session()
+        try:
+            s.query(NewsEvent).filter(NewsEvent.dedup_key.like("kpi55-%")).delete(synchronize_session=False)
+            old = NOW - timedelta(days=30)
+            s.add(NewsEvent(timestamp=old, source="goldbroker.com", dedup_key="kpi55-old", raw_headline="a month old",
+                            event_type="UNKNOWN", relevance="UNKNOWN", classification_method="KEYWORD",
+                            processed_at=old, created_at=old))
+            s.commit()
+        finally:
+            s.close()
+        real = repo.get_session
+        try:
+            repo.get_session = _test_get_session          # the repository's own binding, as test_38 does
+            self.assertEqual(repo.get_stored_dedup_keys({"kpi55-old", "kpi55-new", None}), {"kpi55-old"})
+            self.assertEqual(repo.get_stored_dedup_keys(set()), set())
+        finally:
+            repo.get_session = real
+        body = _inspect.getsource(ingest.run_news_ingestion)
+        self.assertIn("get_stored_dedup_keys(fetched_keys)", body)
+        self.assertNotIn("hours=", body, "no time window")
+        s = _test_get_session()
+        try:
+            s.query(NewsEvent).filter(NewsEvent.dedup_key.like("kpi55-%")).delete(synchronize_session=False)
+            s.commit()
+        finally:
+            s.close()
+
 if __name__ == "__main__":
     print("=" * 55)
     print("CROSS-CUTTING COHERENCE")

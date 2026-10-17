@@ -355,7 +355,7 @@ until the sentence that says otherwise.
 | Morning readings priced on yesterday's dollar; dollar freshness stored as always fresh | research first | `SP_C_HANDOFF.md` 34.3 |
 | Daric refuses GitHub's runner | their side; the phone reads it | SP-D 29-31 |
 | Taline's frozen copy is stored when it sits within its band and its usual position | open | SP-D 20, 29 |
-| News dedup looks back 24 h while feeds keep items for days; Google News's " - Publisher" suffix defeats the title hash | open | `SP_C_HANDOFF.md` 33.3, 34.5 |
+| Google News's " - Publisher" suffix defeats the title hash (one story from two outlets) | open | `SP_C_HANDOFF.md` 34.5 |
 | `high_impact_count` reads `relevance` for values only `impact` holds (always 0) | open; parked with the evidence package | `SP_C_HANDOFF.md` 33.3 |
 | The outcome backfill retries horizons that cannot complete for 7 days | open | health check 2026-10-03 |
 | `AFRAN_LAST` dated one to two sessions late (tablokhani's `closing_1d_ago`) | small; with the next change to the room | SP-D 29 |
@@ -369,6 +369,7 @@ until the sentence that says otherwise.
 
 | Defect | Fixed | Reference |
 |---|---|---|
+| News re-inserted when older than the 24-hour dedup window (330 of 2,294 rows) | 2026-10-17 | SP-D 45 |
 | `kpi_coherence.test_27` could not fail; the unit tests ran nowhere and five had rotted | 2026-10-16 | SP-D 37.8 |
 | Held readings would skip the stale-quote rules on write-back | 2026-10-16 | SP-D 37.1 |
 | `SignalState` and `HistoricalQuery` defaulted to the machine clock; `rss.py`'s broken copy | 2026-10-16 | SP-D 37.3 |

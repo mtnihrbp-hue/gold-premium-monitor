@@ -31,7 +31,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    37.13 the Iranian news, news held merged 2026-10-16 (v1.22safe);
                                                                    37.14 the state cache restored merged 2026-10-16 (v1.23safe);
                                                                    37.15 the SERVICE notice merged 2026-10-16 (v1.24safe);
-                                                                   its outage date from the record merged 2026-10-16 (v1.25safe)
+                                                                   its outage date from the record merged 2026-10-16 (v1.25safe);
+                                                                   39-45 the research, the news dedup, the documents merged 2026-10-17 (v1.26safe)
        member, the LLM member
 ```
 
@@ -4968,3 +4969,62 @@ The 100% versions lose more.
   It is not another exit.
 
 **NEON MIGRATION REQUIRED = NO**; research only.
+
+## 45. The owner's answers of 10-17, and the day's batch
+
+**The owner's answers:**
+1. **The decision engine:** "I agree with you, but with caution". The doubt on sideways channels was
+   measured in section 44.
+2. **ANALYZE** waits for the database, unless the new engine needs it. It does not: the advisor is its
+   own message.
+3. **The five outage texts:** approved. They were shown to the owner as rendered.
+4. **The advisor's preview, and the 1 November checklist:** confirmed.
+5. **The documents merge, and tidying the state file:** approved.
+6. **The news dedup window:** "nice catch".
+7. **Status in Telegram:** confirmed by the owner after the worker was pasted.
+8. **New:** the nightly message is to be redrafted and polished, "especially the cash flow part, dont know
+   why you keep missing that part".
+
+**Why the money flow was missing from the nightly message.**
+- The buyers' line (37.5) lives in PAPER's room report, which needs the database.
+- The outage's evening message (35.2, `alerts/telegram_paper.build_evening_message`) was built without it.
+- Its data also cannot be fresh in an outage: the funds' flows reach the system through the phone, which
+  writes to Neon, and the seed ends on 10-03.
+
+**A second source, from GitHub's side** (probed 10-17):
+- tablokhani's `public/smart-money-averages` gives, per fund, individuals' 10-day average buyers and
+  sellers a day and their per-head buy and sell. These are TSETMC's client types:
+
+  | Ayyar | buyers a day | sellers a day | per head, buy / sell (million toman) |
+  |---|---|---|---|
+  | TSETMC, 10 days to 10-03 | 45,765 | 21,456 | 179.1 / 326.9 |
+  | tablokhani, 10 days to 10-16 | 43,654 | 22,900 | 190.79 / 328.81 |
+
+- Production already fetches it every run and drops it (35.7).
+- `hot-money/{fund}/daily`'s "proceeds" do not match TSETMC's individuals' net, so they are not used.
+- **Over the seed's 18 funds today:**
+  - 75,533 buyers a day, rank 86% of the past year, 1.26 times the usual;
+  - per head, buyers 161M against sellers 269M toman (power 0.60, rank 38%);
+  - net 6,172B toman in over 10 days, rank 75%.
+- The collector's own list of 18 differs from the seed's by two funds each way (گنج and رز against درنا
+  and گلدیس). The seed's list is the one ranked.
+- The redrafted nightly message is previewed in the chat before anything is wired.
+
+**Built:**
+- **The news dedup** (`repository.get_stored_dedup_keys`, `collector/news/ingest.py`).
+  - The ingestion asks which of the keys it fetched are already stored, whatever their age, in chunks of
+    500. It replaces the 24-hour window that the feeds outlive (`SP_C_HANDOFF.md` 33.3, N1: 330 of 2,294
+    rows re-inserted).
+  - The query returns only what matches, so it costs less transfer than the day of keys it replaces.
+  - `get_recent_dedup_keys` is removed.
+  - Tests:
+    - `kpi_coherence.test_55`: an item stored 30 days ago is found; there is no time window in the
+      ingestion. It fails with the window put back;
+    - the unit tests' mocks follow the function.
+- **The state file:** 25 of its 44 open items were closed or superseded. They moved to `closed_items`,
+  each with its reason, and the three decision-engine questions became one.
+- **GitHub:** the temporary workflows `probe-iran-news`, `probe-telegram` and `probe-telegram-history`
+  were disabled. Every probe is now disabled but `probe-news-labels`.
+- **The day Neon returns:** `PROJECT_OPERATIONS.md` section 17, the checklist for 11-01.
+
+**NEON MIGRATION REQUIRED = NO.**

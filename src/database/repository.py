@@ -692,31 +692,34 @@ def news_event_exists(dedup_key: str) -> bool:
     finally:
         session.close()
 
-def get_recent_dedup_keys(hours: int = 24) -> Set[str]:
-    """Return a set of dedup_keys for news events created within the last N hours.
-    
-    Used for batch deduplication during ingestion to eliminate N+1 exists queries.
+def get_stored_dedup_keys(keys) -> Set[str]:
+    """Which of `keys` news_events already holds.
+
+    Replaces the 24-hour window that ingestion used to load (get_recent_dedup_keys). The feeds keep items for
+    days or weeks -- goldbroker's a median 26 days old when collected -- so an item older than the window was
+    stored again: 330 of 2,294 rows from 09-22 (SP_C_HANDOFF.md 33.3, N1; SP_D_HANDOFF.md section 45). This
+    asks only for the keys a run fetched, in chunks of 500, so the transfer is what matches, not a day's
+    history.
     """
     from database.models import NewsEvent
 
+    wanted = sorted({k for k in keys if k})
+    if not wanted:
+        return set()
     session = get_session()
     if session is None:
         return set()
-
     try:
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
-        rows = session.query(NewsEvent.dedup_key).filter(
-            NewsEvent.created_at >= cutoff,
-            NewsEvent.dedup_key.isnot(None)
-        ).all()
-        return {row[0] for row in rows if row[0]}
+        found = set()
+        for i in range(0, len(wanted), 500):
+            found |= {r[0] for r in session.query(NewsEvent.dedup_key)
+                      .filter(NewsEvent.dedup_key.in_(wanted[i:i + 500]))}
+        return found
     except Exception as e:
-        print(f"DB query failed (get_recent_dedup_keys): {e}")
+        print(f"DB query failed (get_stored_dedup_keys): {e}")
         return set()
     finally:
         session.close()
-
-
 
 def get_recent_news_events(hours: int = 24, limit: int = 100) -> list:
     """Get recent news events ordered by timestamp desc.

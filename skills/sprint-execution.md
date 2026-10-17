@@ -58,7 +58,7 @@ A sprint is complete only when:
 The owner reviews the work, including any new message's layout, before it reaches `main`.
 
 A batch reaches SP-D and `main` by fast-forward, and **`main` is tagged with a safe tag first**
-(`v1.25safe` the latest), pushed before the merge, so production always has an instant rollback point.
+(`v1.26safe` the latest), pushed before the merge, so production always has an instant rollback point.
 
 Standing authorization (owner, 2026-10-15): work the owner has approved is tagged and pushed to SP-D
 and `main` without asking again. It covers the push, not the approval: work the owner has not

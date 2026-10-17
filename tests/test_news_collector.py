@@ -213,7 +213,7 @@ def test_ingest_orchestrator_persists_new_items():
     import collector.news.ingest as ingest_module
     original_collect = ingest_module.collect_rss_feed
     original_classify = ingest_module.classify_news_item
-    original_keys = ingest_module.get_recent_dedup_keys
+    original_keys = ingest_module.get_stored_dedup_keys
     original_save = ingest_module.save_news_event
 
     def mock_collect(url, timeout=15):
@@ -227,7 +227,7 @@ def test_ingest_orchestrator_persists_new_items():
         return {**item, "event_type": "TEST", "relevance": "RELEVANT",
                 "classification_method": "KEYWORD"}
 
-    def mock_keys(hours=24):
+    def mock_keys(keys):
         return set()
 
     def mock_save(event):
@@ -236,7 +236,7 @@ def test_ingest_orchestrator_persists_new_items():
     try:
         ingest_module.collect_rss_feed = mock_collect
         ingest_module.classify_news_item = mock_classify
-        ingest_module.get_recent_dedup_keys = mock_keys
+        ingest_module.get_stored_dedup_keys = mock_keys
         ingest_module.save_news_event = mock_save
 
         from collector.news.ingest import run_news_ingestion
@@ -253,7 +253,7 @@ def test_ingest_orchestrator_persists_new_items():
     finally:
         ingest_module.collect_rss_feed = original_collect
         ingest_module.classify_news_item = original_classify
-        ingest_module.get_recent_dedup_keys = original_keys
+        ingest_module.get_stored_dedup_keys = original_keys
         ingest_module.save_news_event = original_save
     print("PASS: test_ingest_orchestrator_persists_new_items")
 
@@ -262,7 +262,7 @@ def test_ingest_skips_duplicates():
     """Duplicate dedup_key items are skipped via batch dedup."""
     import collector.news.ingest as ingest_module
     original_collect = ingest_module.collect_rss_feed
-    original_keys = ingest_module.get_recent_dedup_keys
+    original_keys = ingest_module.get_stored_dedup_keys
     original_save = ingest_module.save_news_event
 
     def mock_collect(url, timeout=15):
@@ -272,7 +272,7 @@ def test_ingest_skips_duplicates():
              "collected_at": datetime.now(timezone.utc), "dedup_key": "dupkey"},
         ]
 
-    def mock_keys(hours=24):
+    def mock_keys(keys):
         return {"dupkey"}
 
     def mock_save(event):
@@ -280,7 +280,7 @@ def test_ingest_skips_duplicates():
 
     try:
         ingest_module.collect_rss_feed = mock_collect
-        ingest_module.get_recent_dedup_keys = mock_keys
+        ingest_module.get_stored_dedup_keys = mock_keys
         ingest_module.save_news_event = mock_save
 
         from collector.news.ingest import run_news_ingestion
@@ -295,7 +295,7 @@ def test_ingest_skips_duplicates():
         assert result["total_duplicate"] == 1
     finally:
         ingest_module.collect_rss_feed = original_collect
-        ingest_module.get_recent_dedup_keys = original_keys
+        ingest_module.get_stored_dedup_keys = original_keys
         ingest_module.save_news_event = original_save
     print("PASS: test_ingest_skips_duplicates")
 
@@ -315,14 +315,14 @@ def test_ingest_non_blocking_on_source_failure():
         ]
 
     original_classify = ingest_module.classify_news_item
-    original_keys = ingest_module.get_recent_dedup_keys
+    original_keys = ingest_module.get_stored_dedup_keys
     original_save = ingest_module.save_news_event
 
     def mock_classify(item):
         return {**item, "event_type": "TEST", "relevance": "RELEVANT",
                 "classification_method": "KEYWORD"}
 
-    def mock_keys(hours=24):
+    def mock_keys(keys):
         return set()
 
     def mock_save(event):
@@ -331,7 +331,7 @@ def test_ingest_non_blocking_on_source_failure():
     try:
         ingest_module.collect_rss_feed = mock_collect
         ingest_module.classify_news_item = mock_classify
-        ingest_module.get_recent_dedup_keys = mock_keys
+        ingest_module.get_stored_dedup_keys = mock_keys
         ingest_module.save_news_event = mock_save
 
         from collector.news.ingest import run_news_ingestion
@@ -349,7 +349,7 @@ def test_ingest_non_blocking_on_source_failure():
     finally:
         ingest_module.collect_rss_feed = original_collect
         ingest_module.classify_news_item = original_classify
-        ingest_module.get_recent_dedup_keys = original_keys
+        ingest_module.get_stored_dedup_keys = original_keys
         ingest_module.save_news_event = original_save
     print("PASS: test_ingest_non_blocking_on_source_failure")
 # ---------------------------------------------------------------------------
@@ -359,11 +359,11 @@ def test_ingest_non_blocking_on_source_failure():
 def test_ingest_stops_saving_when_the_database_is_out_of_reach():
     """Three failed saves in a row and the run stores nothing more (SP_D_HANDOFF.md section 35.8)."""
     import collector.news.ingest as ingest_module
-    saved = (ingest_module.get_recent_dedup_keys, ingest_module.collect_rss_feed, ingest_module.save_news_event)
+    saved = (ingest_module.get_stored_dedup_keys, ingest_module.collect_rss_feed, ingest_module.save_news_event)
     items = [{"title": f"item {k}", "url": f"http://x/{k}", "source": "x", "dedup_key": f"k{k}"} for k in range(10)]
     calls = []
     try:
-        ingest_module.get_recent_dedup_keys = lambda hours=24: set()
+        ingest_module.get_stored_dedup_keys = lambda keys: set()
         ingest_module.collect_rss_feed = lambda url, timeout=None: items
         ingest_module.save_news_event = lambda event: calls.append(event) or -1
         result = ingest_module.run_news_ingestion({"news": {"enabled": True, "sources": ["http://a", "http://b"],
@@ -371,7 +371,7 @@ def test_ingest_stops_saving_when_the_database_is_out_of_reach():
         assert len(calls) == ingest_module.MAX_CONSECUTIVE_FAILED, len(calls)
         assert result["total_failed"] == 3 and result["total_skipped"] == 17
     finally:
-        ingest_module.get_recent_dedup_keys, ingest_module.collect_rss_feed, ingest_module.save_news_event = saved
+        ingest_module.get_stored_dedup_keys, ingest_module.collect_rss_feed, ingest_module.save_news_event = saved
     print("PASS: test_ingest_stops_saving_when_the_database_is_out_of_reach")
 
 
@@ -418,12 +418,12 @@ def test_ingest_holds_the_rest_once_the_database_is_out_of_reach():
     run is held without asking the database again, and an item already held is not held twice
     (section 37.13)."""
     import collector.news.ingest as ingest_module
-    saved = (ingest_module.get_recent_dedup_keys, ingest_module.collect_rss_feed, ingest_module.save_news_event,
+    saved = (ingest_module.get_stored_dedup_keys, ingest_module.collect_rss_feed, ingest_module.save_news_event,
              ingest_module.hold_news_event, ingest_module.held_keys)
     items = [{"title": f"item {k}", "url": f"http://x/{k}", "source": "x", "dedup_key": f"k{k}"} for k in range(10)]
     saves, holds = [], []
     try:
-        ingest_module.get_recent_dedup_keys = lambda hours=24: set()
+        ingest_module.get_stored_dedup_keys = lambda keys: set()
         ingest_module.held_keys = lambda kind, field: {"k1", "k2"}
         ingest_module.collect_rss_feed = lambda url, timeout=None: items
         ingest_module.save_news_event = lambda event: saves.append(event) or 0
@@ -434,7 +434,7 @@ def test_ingest_holds_the_rest_once_the_database_is_out_of_reach():
         assert len(holds) == 7, len(holds)
         assert result["total_held"] == 8 and result["total_duplicate"] == 2, result
     finally:
-        (ingest_module.get_recent_dedup_keys, ingest_module.collect_rss_feed, ingest_module.save_news_event,
+        (ingest_module.get_stored_dedup_keys, ingest_module.collect_rss_feed, ingest_module.save_news_event,
          ingest_module.hold_news_event, ingest_module.held_keys) = saved
     print("PASS: test_ingest_holds_the_rest_once_the_database_is_out_of_reach")
 
