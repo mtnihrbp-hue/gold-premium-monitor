@@ -820,16 +820,18 @@ class KPIPaper(unittest.TestCase):
         import main
         import alerts.telegram_paper as tp
         import persistence.candle_cache as cc
+        from collector import tablokhani as tk
         sent, calls = [], []
-        saved = (main._database_reachable, tp.send_paper_report, cc.direct)
+        saved = (main._database_reachable, tp.send_paper_report, cc.direct, tk.collect)
         main._database_reachable = lambda: calls.append("checked") or reachable
         tp.send_paper_report = lambda text, png=None: sent.append((text, png))
         cc.direct = lambda instrument, today: calls.append((instrument, today)) or self._wave()
+        tk.collect = lambda: {"flows": {s: (1e12, 4_000.0, 0.9e12, 2_000.0) for s in tk.GOLD_FUNDS}}   # no network
         try:
             with redirect_stdout(io.StringIO()):
                 main._evening_fallback(_markets(), now, state)
         finally:
-            main._database_reachable, tp.send_paper_report, cc.direct = saved
+            main._database_reachable, tp.send_paper_report, cc.direct, tk.collect = saved
         return sent, calls
 
     def test_35_the_evening_chart_goes_out_without_the_database(self):
@@ -846,8 +848,9 @@ class KPIPaper(unittest.TestCase):
         self.assertEqual(png[1:4], b"PNG", "the chart, drawn from tgju's own candles")
         self.assertIn(("TGJU_GOLD_18K", date(2026, 10, 15)), calls, "18K's candles before today")
         plain = re.sub(r"</?[bi]>", "", text)
-        for part in ("GOLDPremium: EVENING", "23 Mehr 1405, 21:00", "18K ", "the 20-day (was", "the 50-day",
-                     "Channel ", "PAPER resumes when the database is back"):
+        for part in ("GOLDPremium: EVENING", "23 Mehr 1405, 21:00", "18K ", "the 20-day average (yesterday", "the 50-day",
+                     " channel, ", "GOLD FUNDS · individuals, last 10 sessions (tablokhani)",
+                     "The room's report returns with the database"):
             self.assertIn(part, plain)
         for char in "<>&":
             self.assertNotIn(char, plain)
@@ -897,12 +900,17 @@ class KPIPaper(unittest.TestCase):
                    "ema20": (0.8, -1.2), "ema50": (10.2, 9.0)}
         lines = re.sub(r"</?[bi]>", "", build_evening_message(date(2026, 10, 15), reading)).splitlines()
         self.assertEqual(lines, ["GOLDPremium: EVENING · 23 Mehr 1405, 21:00",
-                                 "18K 26.34M · rising (markup), up from 15.65M on 26 Khordad",
-                                 "Channel +0.55%/day, price in its lower half",
-                                 "0.8% above the 20-day (was 1.2% below), 10% above the 50-day",
-                                 "PAPER resumes when the database is back"])
+                                 "18K 26.34M (market, tgju) · rising, up from 15.65M on 26 Khordad",
+                                 "Rising channel, +0.55% a day; price in its lower half",
+                                 "0.8% above the 20-day average (yesterday 1.2% below), 10% above the 50-day",
+                                 "",
+                                 "The room's report returns with the database"])
         bare = build_evening_message(date(2026, 10, 15), None)
         self.assertIn("Chart reading: not enough history", bare)
+        # the locked layout of 2026-10-17 (SP_D_HANDOFF.md section 47): the funds' block, then the expected return
+        full = build_evening_message(date(2026, 10, 15), reading, ["<b>GOLD FUNDS</b> · individuals, x"], date(2026, 11, 1))
+        self.assertTrue(full.endswith("GOLD FUNDS</b> · individuals, x\n\nThe room's report returns with the database "
+                                      "(expected 10 Aban)"), full)
 
 
     # -- the pattern reader (SP_D_HANDOFF.md sections 37.4-37.5) ----------------------------
@@ -972,21 +980,115 @@ class KPIPaper(unittest.TestCase):
         self.assertIn("trend", seen, "and everything the chart drew before (owner: both worlds)")
         found = main._evening_reading(rows, c[-1])["patterns"]
         lines = pattern_lines(found)
-        self.assertTrue(any(x.startswith("Flag of ") and "flags since 2014 got there first" in x for x in lines))
+        self.assertTrue(any(x.startswith("Flag of ") for x in lines))
+        self.assertIn("past flags got there within 2 months", "\n".join(lines))
 
-    def test_42_the_room_report_has_the_buyers_line_not_the_range(self):
-        from alerts.telegram_paper import build_room_report_message, demand_line
+    def _seed_demand(self):
+        import json as _json
+        from analysis import gold_demand
+        seed = _json.load(open(os.path.join(SRC_DIR, "seed", "gold_fund_daily.json"), encoding="utf-8"))["days"]
+        days = sorted(seed)
+        return gold_demand.assess(days, [seed[d][:4] for d in days])
+
+    def test_42_the_room_report_has_the_funds_block_not_the_range(self):
+        from alerts.telegram_paper import build_room_report_message, demand_block
         view = {"posture": "ALL_GOLD", "reasons": [], "next_review": "2026-10-19", "members": {}, "for_fixed_income": [],
                 "for_gold": [], "band20": [240_000_000, 290_000_000, 230_000_000, 300_000_000, 265_000_000]}
-        demand = {"as_of": "2026-10-03", "buyers_per_day": 86_414.0, "people": {"value": 1.67, "state": "HIGH"},
-                  "money": {"value": 0.06, "state": "NORMAL"}, "size": {"value": 0.57, "state": "NORMAL"}}
+        demand = self._seed_demand()                     # the seed's last week, to 2026-10-03
         args = (DAY, "Goldika", SELL, "", 3, 0.0, None, False, 3 * SELL, p.START_CASH_IRR, DAY, None, [], view)
         plain = re.sub(r"</?[bi]>", "", build_room_report_message(*args, demand=demand))
         self.assertNotIn("Next 20 trading days", plain, "the range gives nothing to decide on (owner, 2026-10-16)")
-        self.assertIn("Gold funds, 7 days: 86,414 buyers a day, 1.7 times the usual (a rush)", plain)
+        # the block of the evening's locked preview (owner, 2026-10-17; SP_D_HANDOFF.md sections 46-47)
+        self.assertIn("GOLD FUNDS · individuals, 7 days to 11 Mehr\n"
+                      "Money: 11,328B toman in, 5.3 times the usual week; above the normal range (up to 4.9 times)\n"
+                      "Buyers: 86,414 a day, 1.7 times the usual; a rush\n"
+                      "Per head: buyers 162M, sellers 284M toman (sellers bigger, as usual)", plain)
         stale = dict(demand, as_of="2026-09-20")
-        self.assertIsNone(demand_line(stale, DAY), "a reading more than a week old is left out")
-        self.assertNotIn("Gold funds", re.sub(r"</?[bi]>", "", build_room_report_message(*args)))
+        self.assertEqual(demand_block(stale, DAY), [], "a reading more than a week old is left out")
+        self.assertNotIn("GOLD FUNDS", re.sub(r"</?[bi]>", "", build_room_report_message(*args)))
+
+    def test_43_the_stand_in_reads_the_seeds_funds_from_tablokhani(self):
+        """While the database, and with it the phone's days, is out of reach, the evening's funds come from
+        tablokhani's 10-day averages over the seed's 18 funds, read against the seed (owner, 2026-10-17)."""
+        import main
+        from collector import tablokhani as tk
+        from analysis import gold_demand
+        node = open(os.path.join(SRC_DIR, "..", "iran_node", "node.py"), encoding="utf-8").read()
+        listed = re.search(r"GOLD_FUNDS = \((.*?)\)\n\n", node, re.S).group(1)
+        phone = {s.replace("ي", "ی").replace("ك", "ک") for s in re.findall(r'"\d+", "([^"]+)"', listed)} - {"سافرون"}
+        self.assertEqual(set(tk.GOLD_FUNDS), phone, "tablokhani's list is the seed's and the phone's 18 funds")
+        flows = {s: (1e12, 4_000.0, 0.9e12, 2_000.0) for s in tk.GOLD_FUNDS}
+        dm = main._tablokhani_demand(flows)
+        self.assertEqual((dm["window"], dm["as_of"]), (10, None), "10 sessions, no date of its own")
+        self.assertAlmostEqual(dm["net_rial"], 18 * 0.1e12 * 10)
+        self.assertAlmostEqual(dm["buyers_per_day"], 18 * 4_000.0)
+        self.assertEqual(main._tablokhani_demand(dict(list(flows.items())[:gold_demand.MIN_FUNDS - 1])), {})
+        from alerts.gold_funds import block
+        lines = block(dm, title="last 10 sessions (tablokhani)")
+        self.assertEqual(re.sub(r"</?[bi]>", "", lines[0]), "GOLD FUNDS · individuals, last 10 sessions (tablokhani)")
+        self.assertIn("times the usual 10 sessions", lines[1])
+
+    def test_44_only_the_patterns_that_worked_on_18k_are_shown(self):
+        """The rising wedge reached its target 2 times in 41, the double top 3 in 12: the books' reading is not
+        shown (owner, 2026-10-17). A box is shown with the road out of each side and its record."""
+        from alerts.telegram_paper import SHOWN, odds, pattern_lines
+        from caluclator.patterns import RECORD
+        d = lambda k: date(2026, 10, k)
+        found = {"ranges": [(d(1), d(15), 252_700_000.0, 267_400_000.0, True)], "tests": [d(13)], "flag": None,
+                 "events": [(d(3), "RISING WEDGE (down)", 260e6, 240e6, 270e6),
+                            (d(4), "DOUBLE TOP (down)", 260e6, 240e6, 270e6),
+                            (d(5), "DOUBLE BOTTOM (up)", 255e6, 275e6, 245e6)]}
+        lines = pattern_lines(found)
+        text = "\n".join(lines)
+        self.assertNotIn("wedge", text.lower())
+        self.assertNotIn("double top", text.lower())
+        self.assertIn("Double bottom on 13 Mehr: opens the road to 27.50M", text)
+        self.assertEqual(lines[:4], [
+            "Touched the 20-day average on 21 Mehr and bounced (after such bounces the next month was a little "
+            "stronger than usual)",
+            "In a box since 9 Mehr, 25.27M to 26.74M",
+            "  Close above 26.74M: opens the road to 28.21M (3 in 4 got there)",
+            "  Close below 25.27M: may lead to 23.80M (about half got there)"])
+        hidden = {kind for kind, (hit, n, _c) in RECORD.items() if hit / n <= SHOWN}
+        self.assertEqual(hidden, {"RISING WEDGE", "DOUBLE TOP", "FALLING WEDGE"})
+        self.assertEqual((odds(30, 39), odds(12, 22)), ("3 in 4", "about half"))
+
+    def test_45_the_evening_keeps_its_chart_when_the_funds_make_it_too_long(self):
+        import main
+        import alerts.telegram_paper as tp
+        import persistence.candle_cache as cc
+        from collector import tablokhani as tk
+        reading = {"price": 262_600_000.0, "live": False, "as_of": date(2026, 10, 15), "phase": "MARKUP", "patterns": None,
+                   "channel": {"slope_pct_day": 0.55, "position": 0.3}, "swing": (date(2026, 6, 16), 156_500_000.0, "L"),
+                   "ema20": (2.7, 2.2), "ema50": (10.2, 9.0)}
+        sent = []
+        real = (main._database_reachable, main._chart_png, main._evening_reading, cc.direct, tk.collect,
+                tp.send_paper_report, tp.send_paper, tp.CAPTION_LIMIT)
+        try:
+            main._database_reachable = lambda: False
+            main._chart_png = lambda *a, **k: b"PNG"
+            main._evening_reading = lambda rows, live: reading
+            cc.direct = lambda *a, **k: [__import__("types").SimpleNamespace(trade_date=date(2026, 10, 15))]
+            tk.collect = lambda: {"flows": {s: (1e12, 4_000.0, 0.9e12, 2_000.0) for s in tk.GOLD_FUNDS}}
+            tp.send_paper_report = lambda text, png=None: sent.append(("chart", text))
+            tp.send_paper = lambda text: sent.append(("text", text))
+            state = {"service": {"database": {"last": {"reason": "exceeded the data transfer quota"}}}}
+            now = datetime(2026, 10, 17, 17, 40)                          # 21:10 Tehran
+            with redirect_stdout(io.StringIO()):
+                main._evening_fallback({}, now, dict(state))
+            self.assertEqual([k for k, _ in sent], ["chart"])
+            self.assertIn("GOLD FUNDS</b> · individuals, last 10 sessions (tablokhani)", sent[0][1])
+            self.assertIn("(expected 10 Aban)", sent[0][1])
+            sent.clear()
+            tp.CAPTION_LIMIT = 300
+            with redirect_stdout(io.StringIO()):
+                main._evening_fallback({}, now, dict(state))
+            self.assertEqual([k for k, _ in sent], ["chart", "text"], "the chart is kept; the funds follow on their own")
+            self.assertNotIn("GOLD FUNDS", sent[0][1])
+            self.assertTrue(sent[1][1].startswith("<b>GOLD FUNDS</b>"))
+        finally:
+            (main._database_reachable, main._chart_png, main._evening_reading, cc.direct, tk.collect,
+             tp.send_paper_report, tp.send_paper, tp.CAPTION_LIMIT) = real
 
 
 if __name__ == "__main__":

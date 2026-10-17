@@ -516,7 +516,7 @@ class KPIDirection(unittest.TestCase):
         days = [date(2024, 1, 1) + timedelta(days=k) for k in range(n)]
         sums = []
         for k in range(n):
-            bv, bc = 1e12 * (1 + 0.1 * rng.standard_normal()), 50_000 * (1 + 0.1 * rng.standard_normal())
+            bv, bc = 1.1e12 * (1 + 0.1 * rng.standard_normal()), 50_000 * (1 + 0.1 * rng.standard_normal())
             sv, sc = 1e12 * (1 + 0.1 * rng.standard_normal()), 30_000 * (1 + 0.1 * rng.standard_normal())
             if spike and k >= n - 7:
                 bv, bc = bv * spike, bc * spike
@@ -543,6 +543,8 @@ class KPIDirection(unittest.TestCase):
         p.computed_at = f"{days[-1] + timedelta(days=1)}T05:00:00"
         section = re.sub(r"</?[bi]>", "", _demand(p))
         self.assertIn("Money: heavy buying, a net", section)
+        self.assertRegex(section, r"toman in, \d+\.\d times the usual week; more than in 9 of 10 weeks",
+                         "the money as times the usual week, the evening's words (SP_D_HANDOFF.md section 47)")
         self.assertIn("People: a rush,", section)
         self.assertLess(len(re.sub(r"</?[bi]>", "", build_direction_message(p))), 1500)
         p.computed_at = f"{days[-1] + timedelta(days=10)}T05:00:00"

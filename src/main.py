@@ -707,6 +707,28 @@ def _gold_demand(session):
         return {}
 
 
+TABLOKHANI_WINDOW = 10      # tablokhani publishes 10-day averages only
+
+
+def _tablokhani_demand(flows):
+    """The gold funds' last 10 sessions from tablokhani (collector/tablokhani.py's "flows"), read against the
+    seed's history: the stand-in for the 7-day reading while the database, and with it the phone's days,
+    is out of reach (owner, 2026-10-17; SP-D section 47). The seed's 18 funds, a reading only when
+    gold_demand.MIN_FUNDS of them are there; {} otherwise or on failure."""
+    from analysis import gold_demand
+    try:
+        if len(flows) < gold_demand.MIN_FUNDS:
+            return {}
+        seed = json.load(open(os.path.join(SEED_DIR, "gold_fund_daily.json"), encoding="utf-8"))
+        days = sorted(seed["days"])
+        latest = [sum(f[k] for f in flows.values()) * TABLOKHANI_WINDOW for k in range(4)]
+        return gold_demand.assess(days, [seed["days"][d][:4] for d in days], window=TABLOKHANI_WINDOW,
+                                  latest=latest)
+    except Exception as e:
+        print(f"GOLD FUNDS (tablokhani) unavailable: {e}")
+        return {}
+
+
 def _paper_run(markets, signal_state, now):
     """The PAPER portfolio's run (SP-D, SP_D_HANDOFF.md sections 9-10): evaluate the four
     accounts, trade where the contract allows, push the brave analyst's trades, and from
@@ -1260,8 +1282,13 @@ def _evening_fallback(markets, now, state):
             return
         if _database_reachable():
             return
-        from alerts.telegram_paper import build_evening_message, send_paper_report
+        from alerts.gold_funds import block
+        import re
+        from alerts.telegram_paper import CAPTION_LIMIT, build_evening_message, send_paper, send_paper_report
+        from alerts.telegram_service import QUOTA, _first_of_next_month
+        from collector import tablokhani
         from persistence.candle_cache import direct
+        from timeutil import to_tehran
 
         rows = direct(GOLD, day)
         live = live_gold_price(markets)
@@ -1270,11 +1297,25 @@ def _evening_fallback(markets, now, state):
         if png is None and reading is None:
             print(f"EVENING: {len(rows)} tgju candles, too few for the chart; nothing sent")
             return
-        send_paper_report(build_evening_message(day, reading), png)
+        # the gold funds from tablokhani while the phone's days cannot be read (section 47); the expected
+        # return as the SERVICE notice gives it, only when the outage is the free plan's monthly limit
+        funds = block(_tablokhani_demand(tablokhani.collect()["flows"]),
+                      title=f"last {TABLOKHANI_WINDOW} sessions (tablokhani)")
+        db = ((state or {}).get("service") or {}).get("database") or {}
+        quota = QUOTA in (((db.get("last") or {}).get("reason")) or "")
+        back_on = to_tehran(_first_of_next_month(now)).date() if quota else None
+        text = build_evening_message(day, reading, funds, back_on)
+        if png and funds and len(re.sub(r"</?[bi]>", "", text)) > CAPTION_LIMIT:
+            # too long for the chart's caption: the chart with its reading, then the funds on their own,
+            # rather than the text without the chart
+            send_paper_report(build_evening_message(day, reading, None, back_on), png)
+            send_paper("\n".join(funds))
+        else:
+            send_paper_report(text, png)
         if state is not None:
             state["evening_fallback_date"] = day.isoformat()
         print(f"EVENING sent without the database: {len(rows)} tgju candles to {rows[-1].trade_date}, "
-              f"chart {'yes' if png else 'no'}")
+              f"chart {'yes' if png else 'no'}, gold funds {'yes' if funds else 'no'}")
     except Exception as e:
         print(f"EVENING failed: {e}")
 

@@ -33,7 +33,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    37.15 the SERVICE notice merged 2026-10-16 (v1.24safe);
                                                                    its outage date from the record merged 2026-10-16 (v1.25safe);
                                                                    39-45 the research, the news dedup, the documents merged 2026-10-17 (v1.26safe);
-                                                                   46 the previews revised, on sp-de
+                                                                   46-47 the previews revised, the funds' block wired
        member, the LLM member
 ```
 
@@ -5103,3 +5103,114 @@ The rate after a break up is mostly the uptrend's own. The levels are the useful
     confirmation's rule).
 
 **NEON MIGRATION REQUIRED = NO**; research and previews only.
+
+## 47. The funds' block wired; sudden moves in the funds' money measured (2026-10-17 evening)
+
+The owner, on 46:
+- Direction's money line in the new form, "so all three messages agree": "ok";
+- tablokhani's 10-day figures until the database is back: "Yes";
+- both previews locked "with the above caveats":
+  - "Buy now: waiting for a 3% dip cost more in 12 of 13 years" to read "waiting for a 3% drop is risky in
+    92% of times" (47.4);
+  - the room's three bullets dropped as not indicative; "Since 2020: 8 of 9 paid. Over two-year spans since
+    2020 the room ended 5% to 9% ahead of just holding gold" is vague (47.4).
+- New: "a sudden rush in gold etf trends, can we measure this and report it at night or in direction ...
+  then a push msg even can be sent, is this good ? and also is it possible to be drafted accurately (more
+  than 90% assurance)".
+
+**47.1 Sudden moves in the funds' money** (`research/rd_flow_spikes.py`, rules committed in 7310ddd before the
+run; the seed's days, 2017-08 to 2026-10-03; halves split at 2023-02-19; 18K over the next 20 tgju days).
+
+| Detector | Episodes (a year) | 18K into the day | 20 days after (every day) | 18K its way after 20 days | 5% fall (every day) | Verdict |
+|---|---|---|---|---|---|---|
+| money jump: the day's net 3 sd above its last 20 days | 18 (3.3) / 20 (5.5) | +1.40% / +1.23% | +7.14% (+4.57%) / +4.90% (+5.46%) | 72% / 65% | 22% (23%) / 20% (21%) | describes only |
+| money drop: 3 sd below | 11 / 6 | -0.26% / -0.30% | +5.27% / +3.79% | 27% / 50% | 27% / 33% | too few |
+| **money top 2%: the day's net in the top 2% of its year** | 12 (2.2) / 23 (6.4) | +1.03% / +1.00% | **+8.27% (+4.57%) / +7.24% (+5.46%)** | 75% / 78% | 25% (23%) / 17% (21%) | **LEANS UP** |
+| money bottom 2% | 12 / 17 | -0.26% / -0.55% | -0.41% / +4.99% | 42% / 29% (lower) | 42% / 24% | describes only |
+| buyers jump: the day's buyers 3 sd above their last 20 days | 25 / 16 | +0.45% / +1.73% | +5.63% / +4.96% | 72% / 69% | 20% / 31% | describes only |
+
+On every day, 18K was higher 20 days later 71% / 73% of the time.
+
+- **No detector reaches the owner's 90%.** The best, the top-2% day, was followed by a higher 18K a month
+  later 75-78% of the time, against 71-73% on any day.
+- **The money follows the price.** On these days 18K had already risen +1.0% to +1.7% into the day, against
+  +0.2% to +0.4% on any day. It is a reaction more than a lead, and a push sent after the 18:00 close comes
+  after the move.
+- **The one verdict, LEANS UP, is thin.** The top-2% day's next month beat every day's by +3.7 points in the
+  first half and +1.8 in the second; the bar was 1.5. It is a mean over 12 and 23 episodes.
+- **A 90% claim could not be checked on this record anyway.** With 12 to 23 episodes per half, 18 of 20
+  (90%) has a 95% interval of about 68-99%.
+- **The verdict for the owner's question:** a sudden move can be seen exactly: it is TSETMC's own daily
+  figures. What it means for the price cannot be stated at 90%. Proposed:
+  - a line in the evening and the next advisor on the days it fires, 2 to 6 a year, with its rate;
+  - no push. The push is kept for the deep discount, which the system acts on.
+  - Waits for the owner. The day's figures reach the system only through the phone, so it works from
+    11-01.
+
+**47.2 Built** (the owner's locks of 46, `NEON MIGRATION REQUIRED = NO`):
+- **One money reading** (`analysis/gold_demand.py`):
+  - the money is the 7 days' net against the usual week (46.1), with the normal range (`band`), the usual
+    week and the per-head figures;
+  - `assess(..., window, latest)` reads another source's window against the seed's yardsticks;
+  - people and size are unchanged; their last 250 values are the same.
+- **The words** (`alerts/gold_funds.py`, new): the GOLD FUNDS block of the locked preview, and the money's
+  "N times the usual week" phrase.
+  - Direction's GOLD DEMAND keeps its layout and adds the phrase.
+  - The room's 21:00 report shows the block in place of its one buyers' line (`demand_block`).
+  - Old Direction panels, stored with the share, show no phrase.
+- **The evening message** (`telegram_paper.build_evening_message`, `pattern_lines`), the locked preview:
+  - "18K ... (market, tgju)": the live price is the platforms' median at tgju's level;
+  - "Rising channel, +0.55% a day";
+  - "the 20-day average (yesterday ...)";
+  - "Touched the 20-day average on ... and bounced";
+  - the box with the road out of each side and its record: "3 in 4", "about half";
+  - the flag "(14 of 19 past flags got there within 2 months)";
+  - a pattern's line only when more than half of its past ones on 18K reached their target. The rising
+    wedge, the double top and the falling wedge are left out;
+  - the funds' block, then "The room's report returns with the database (expected 10 Aban)". The date is
+    the SERVICE notice's, given only when the outage is the free plan's limit.
+  - **When the caption is over Telegram's 1,024 characters,** the chart goes with the reading and the funds
+    follow as a message of their own, rather than the text without the chart. Today's renders at 928.
+- **The stand-in** while the database is out of reach (`main._tablokhani_demand`):
+  - tablokhani's 10-day averages over the seed's 18 funds, read against the seed's 10-day windows;
+  - labelled "last 10 sessions (tablokhani)";
+  - left out when fewer than 14 funds are there.
+  - `collector/tablokhani.py`'s list is now the seed's and the phone's 18 funds: درنا and گلدیس in place of
+    گنج and رز, which tablokhani does not list. Each fund's averages come back in rial a day.
+  - Rendered on 10-17 at 20:00:
+    - money 6,332B toman in, 1.9 times the usual 10 sessions, normal;
+    - buyers 72,742 a day, 1.3 times the usual, normal;
+    - per head, buyers 155M against sellers 265M.
+- **Tests:**
+  - `kpi_coherence.test_56`: one money reading. Its multiple is recomputed by hand, 10-03 reads HIGH, and
+    Direction and the evening both say "11,328B toman in, 5.3 times the usual week". It fails with the old
+    share put back;
+  - `kpi_paper.test_42`-`45`: the room's block, the stand-in's funds against the phone's list, only the
+    patterns that worked, the chart kept when the caption is too long;
+  - `test_35` stubs tablokhani, so no test reaches the network;
+  - `kpi_direction`'s fixture market brings money in, as every year since 2019 did.
+- **Regression:** KPI 30/30, unit tests 18/18, compileall.
+
+**47.3 Found: a gold fund outside the record.**
+- گنج (صندوق س. سيماي كاردان) is a gold fund on tablokhani's own list. Over the 10 sessions to 10-17 it
+  had about 4% of individuals' buying (4,654 buyers a day).
+- It is in neither the seed nor the phone's list (`iran_node/node.py`), so the 7-day reading leaves it out.
+- **To fix:** its history pulled from Iran, the seed rebuilt, and the phone's list extended together, so the
+  series stays one.
+
+**47.4 The advisor's two lines, against the record.**
+- **"Waiting for a 3% drop is risky in 92% of times" is not what was measured.**
+  - 92% (12 of 13) is of **years**: in 12 of 13 years, waiting cost more on average.
+  - Per occasion, waiting was cheaper about half the time: 56% and 49% of windows (40.1).
+  - It costs because the misses are large: when the drop does not come, the price runs away (worst
+    +22.6%).
+  - Proposed: "Buy now: waiting for a 3% drop cost more in 92% of years."
+- **The room, plainly** (42.2, 42.3):
+  - "Since 2020, 8 of its 9 moves to fixed income paid off."
+  - "Following it for any two years since 2020 left you typically 5% to 9% richer than just holding gold."
+- Both await the owner. The advisor itself waits for the database (11-01).
+
+**47.5 tablokhani's update time:** it took Saturday's session between 19:30 and 19:40 Tehran, watched every 10
+minutes from 18:10. The 21:00 evening sees the day's session, and the advisor at 12:05 the day before's.
+
+**NEON MIGRATION REQUIRED = NO.**

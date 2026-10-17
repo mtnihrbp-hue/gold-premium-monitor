@@ -11,6 +11,12 @@ endpoints its own pages read, no key:
 
 Today's values only; production stores one reading a day and the history before it comes from
 src/seed (research/build_seeds.py). Collects only; main stores. Never raises.
+
+The gold funds are the seed's 18 (src/seed/gold_fund_daily.json, the phone's list in iran_node/node.py),
+so their 10-day figures stand in for the 7-day reading while the database is out of reach
+(SP_D_HANDOFF.md section 47). Each fund's averages come back in rial a day: the per-head figures are
+million toman. Until 2026-10-17 the list had گنج and رز in place of درنا and گلدیس; گنج, a gold fund
+with about 4% of individuals' buying, is in neither the seed nor the phone's list (section 47).
 """
 
 import requests
@@ -21,7 +27,8 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 TIMEOUT = (5, 15)
 AFRAN = "افران"
 GOLD_FUNDS = ("عیار", "طلا", "زر", "گوهر", "کهربا", "آلتون", "مثقال", "نفیس", "جواهر", "زروان", "تابش", "ناب",
-              "قیراط", "درخشان", "لیان", "گنج", "زرفام", "رز")
+              "قیراط", "درخشان", "لیان", "درنا", "زرفام", "گلدیس")
+MILLION_TOMAN = 1e7                      # rial
 
 
 def _number(text):
@@ -32,8 +39,9 @@ def _number(text):
 
 
 def collect():
-    """{"tedpix", "tse_state", "afran_close", "funds": {symbol: {...}}, "errors": [...]}."""
-    out = {"tedpix": None, "tse_state": None, "afran_close": None, "funds": {}, "errors": []}
+    """{"tedpix", "tse_state", "afran_close", "funds": {symbol: {...}}, "flows": {symbol: (buy value, buyers,
+    sell value, sellers)}, "errors": [...]}: "flows" are individuals' 10-day averages a day, values in rial."""
+    out = {"tedpix": None, "tse_state": None, "afran_close": None, "funds": {}, "flows": {}, "errors": []}
     try:
         r = requests.get(f"{BASE}/market-indices", headers=HEADERS, timeout=TIMEOUT)
         r.raise_for_status()
@@ -49,6 +57,12 @@ def collect():
         afran = data.get(AFRAN) or {}
         out["afran_close"] = _number(afran.get("closing_1d_ago"))
         out["funds"] = {s: data[s] for s in GOLD_FUNDS if s in data}
+        for s, f in out["funds"].items():
+            nums = [_number(f.get(k)) for k in ("avg_real_buy_count_10d", "avg_per_capita_buy_10d",
+                                                 "avg_real_sell_count_10d", "avg_per_capita_sell_10d")]
+            if all(x is not None for x in nums):
+                bc, pb, sc, ps = nums
+                out["flows"][s] = (bc * pb * MILLION_TOMAN, bc, sc * ps * MILLION_TOMAN, sc)
     except Exception as e:  # noqa: BLE001
         out["errors"].append(f"smart-money-averages: {type(e).__name__}")
     return out

@@ -130,77 +130,100 @@ def build_room_report_message(day, venue, sell, sell_note, holding, units, fund_
     if hold:
         h_value, h_base = hold
         lines.append(f"Holding instead: {_signed((h_value / h_base - 1) * 100)}")
-    # the buyers' line in place of the 20-day range (owner, 2026-10-16: a range gives nothing to decide on;
-    # SP_D_HANDOFF.md section 37.5)
-    buyers = demand_line(demand, day)
-    if buyers:
-        lines.append(buyers)
     lines.append(_room_line(view))
+    # the gold funds' block in place of the buyers' line (owner, 2026-10-17: "the cash flow part"; sections
+    # 37.5, 46-47), the words the evening and Direction share
+    funds = demand_block(demand, day)
+    if funds:
+        lines += [""] + funds
     return "\n".join(lines)
 
 
-def demand_line(demand, day):
-    """One line of the gold funds' last 7 days for the 21:00 report: how many bought against the usual, and
-    whether that or the money is unusual for the past year; None when stale or missing (section 37.5)."""
-    if not demand or not demand.get("as_of") or not demand.get("people", {}).get("state"):
-        return None
+def demand_block(demand, day):
+    """The gold funds' last 7 days for the 21:00 report (alerts/gold_funds.block); [] when stale or missing."""
+    if not demand or not demand.get("as_of"):
+        return []
     from datetime import date as _date
     if (day - _date.fromisoformat(demand["as_of"])).days > 7:
-        return None
-    people, money = demand["people"], demand["money"]
-    word = {"HIGH": "a rush", "LOW": "few buyers"}.get(people["state"], "normal")
-    line = (f"Gold funds, 7 days: {demand['buyers_per_day']:,.0f} buyers a day, {people['value']:.1f} times the usual "
-            f"({word})")
-    if money.get("state") in ("HIGH", "LOW"):
-        line += f"; money {'heavily in' if money['state'] == 'HIGH' else 'heavily out'}"
-    return line
+        return []
+    from alerts.gold_funds import block
+    return block(demand)
+
+
+SHOWN = 0.5        # a pattern's line is shown when more than half of its past ones on 18K reached their target
+
+
+def odds(hit, n):
+    """A record in plain words for the box's two sides: '3 in 4', 'about half'."""
+    words = ((1 / 4, "1 in 4"), (1 / 3, "1 in 3"), (1 / 2, "about half"), (2 / 3, "2 in 3"), (3 / 4, "3 in 4"),
+             (4 / 5, "4 in 5"), (9 / 10, "9 in 10"))
+    return min(words, key=lambda w: abs(w[0] - hit / n))[1]
+
+
+EVENT_WORDS = {"RANGE BREAKOUT": ("Broke up out of the box on {day}: opens the road to {target}", "past breaks up"),
+               "RANGE BREAKDOWN": ("Broke down out of the box on {day}: may lead to {target}", "past breaks down"),
+               "DOUBLE BOTTOM": ("Double bottom on {day}: opens the road to {target}", "past ones")}
 
 
 def pattern_lines(found):
-    """The pattern reader's words for a caption (section 37.4): the range the price is in, its EMA20 test, a
-    live flag with its target, and any pattern of the last 10 days with its record on 18K."""
-    from caluclator.patterns import FLAG_RECORD, POINTS, RECORD, name
+    """The pattern reader's words for a caption (sections 37.4, 46): its last test of the 20-day average, the
+    box the price is in with the road out of each side, a live flag, and the patterns of the last 10 days
+    that worked on 18K -- more than half of the past ones reached their target, so the rising wedge, the
+    double top and the falling wedge are left out (owner, 2026-10-17). Each with its record on 18K: the
+    target reached within 40 trading days, before a close back through the pattern's other side."""
+    from caluclator.patterns import FLAG_RECORD, RECORD, name
     out = []
-    current = [r for r in (found or {}).get("ranges", []) if r[4]]
+    found = found or {}
+    current = [r for r in found.get("ranges", []) if r[4]]
+    if current and found.get("tests"):
+        out.append(f"Touched the 20-day average on {persian_day(found['tests'][-1])} and bounced "
+                   "(after such bounces the next month was a little stronger than usual)")
     if current:
         start, _end, lo, hi, _running = current[-1]
-        line = f"Sideways since {persian_day(start)} between {_m(lo)} and {_m(hi)}"
-        if found.get("tests"):
-            line += f"; tested the 20-day on {persian_day(found['tests'][-1])} and held"
-        out.append(line)
-    flag = (found or {}).get("flag")
+        height = hi - lo
+        up, down = RECORD["RANGE BREAKOUT"], RECORD["RANGE BREAKDOWN"]
+        out += [f"In a box since {persian_day(start)}, {_m(lo)} to {_m(hi)}",
+                f"  Close above {_m(hi)}: opens the road to {_m(hi + height)} ({odds(*up[:2])} got there)",
+                f"  Close below {_m(lo)}: may lead to {_m(lo - height)} ({odds(*down[:2])} got there)"]
+    flag = found.get("flag")
     if flag:
         day, _level, target, stop = flag
-        hit, n, control = FLAG_RECORD
-        out.append(f"Flag of {persian_day(day)}: target {_m(target)} while above {_m(stop)} "
-                   f"({hit} of {n} flags since 2014 got there first)")
-    events = (found or {}).get("events", [])
+        hit, n, _control = FLAG_RECORD
+        out += [f"Flag of {persian_day(day)}: target {_m(target)} while above {_m(stop)}",
+                f"  ({hit} of {n} past flags got there within 2 months)"]
+    events = found.get("events", [])
     if events:
         latest = events[-1][0]
         seen = set()
-        for day, kind, *_r in events:
+        for day, kind, _level, target, *_r in events:
             base = kind.replace(" (up)", "").replace(" (down)", "")
-            if base in ("FLAG", "EMA20 TEST") or base not in RECORD or base in seen or (latest - day).days > 14:
+            if (base in ("FLAG", "EMA20 TEST") or base not in RECORD or base in seen or target is None
+                    or (latest - day).days > 14 or RECORD[base][0] / RECORD[base][1] <= SHOWN):
+                continue
+            if current and base in ("RANGE BREAKOUT", "RANGE BREAKDOWN") and day >= current[-1][0]:
                 continue
             seen.add(base)
-            hit, n, control = RECORD[base]
-            out.append(f"{name(kind).capitalize()} of {persian_day(day)}, in the books a sign of a {'rise' if POINTS[base] == 'up' else 'fall'}: "
-                       f"on 18K {hit} of {n} since 2014 reached their target first (about {control} in 100 from any day)")
+            hit, n, _control = RECORD[base]
+            text, who = EVENT_WORDS.get(base, (f"{name(kind).capitalize()} on {{day}}: target {{target}}", "past ones"))
+            out += [text.format(day=persian_day(day), target=_m(target)),
+                    f"  ({hit} of {n} {who} got there within 2 months)"]
     return out
 
 
-def build_evening_message(day, reading):
-    """The 21:00 caption when the database cannot be read and PAPER cannot run (SP-D section
-    35.2): the chart's reading in three lines. `reading`: main._evening_reading, or None."""
+def build_evening_message(day, reading, funds=None, back_on=None):
+    """The 21:00 caption when the database cannot be read and PAPER cannot run (SP-D sections 35.2,
+    46-47): the chart's reading, then the gold funds' block. `reading`: main._evening_reading, or None;
+    `funds`: the block's lines (alerts/gold_funds.block), or None; `back_on`: the date the database is
+    expected back, or None."""
     from caluclator.chartist import PHASE_WORDS
     side = lambda v: "above" if v >= 0 else "below"
     lines = [f"<b>GOLDPremium: EVENING</b> · {persian_day(day, year=True)}, 21:00"]
     if reading is None:
         lines.append("Chart reading: not enough history")
     else:
-        head = f"18K {_m(reading['price'])}"
+        head = f"18K {_m(reading['price'])} (market, tgju)"
         if reading["phase"]:
-            head += f" · {PHASE_WORDS[reading['phase']]}"
+            head += f" · {PHASE_WORDS[reading['phase']].split(' (')[0]}"
         if reading["swing"]:
             swing_day, swing_price, kind = reading["swing"]
             head += f", {'up' if kind == 'L' else 'down'} from {_m(swing_price)} on {persian_day(swing_day)}"
@@ -209,13 +232,17 @@ def build_evening_message(day, reading):
         if channel:
             where = ("above its top line" if channel["position"] > 1 else "below its bottom line" if channel["position"] < 0
                      else "in its upper half" if channel["position"] > 0.5 else "in its lower half")
-            lines.append(f"Channel {channel['slope_pct_day']:+.2f}%/day, price {where}".replace("-", "−"))
+            slope = channel["slope_pct_day"]
+            lines.append(f"{'Rising' if slope >= 0 else 'Falling'} channel, {slope:+.2f}% a day; price {where}".replace("-", "−"))
         d20, was20 = reading["ema20"]
         d50 = reading["ema50"][0]
         was = f"{abs(was20):.1f}%" + ("" if side(was20) == side(d20) else f" {side(was20)}")
-        lines.append(f"{abs(d20):.1f}% {side(d20)} the 20-day (was {was}), {abs(d50):.0f}% {side(d50)} the 50-day")
+        lines.append(f"{abs(d20):.1f}% {side(d20)} the 20-day average (yesterday {was}), {abs(d50):.0f}% {side(d50)} the 50-day")
         lines.extend(pattern_lines(reading.get("patterns")))
-    lines.append("PAPER resumes when the database is back")
+    if funds:
+        lines += [""] + list(funds)
+    lines += ["", "The room's report returns with the database"
+              + (f" (expected {persian_day(back_on)})" if back_on else "")]
     return "\n".join(lines)
 
 

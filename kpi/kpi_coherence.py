@@ -1639,6 +1639,36 @@ class KPICoherence(unittest.TestCase):
         finally:
             s.close()
 
+    def test_56_one_money_reading_in_every_message(self):
+        """Direction's money, the net as a share of buying and selling, and the money as times the usual week
+        disagreed on 16% of days, and on 2026-10-03 itself: normal against unusual (SP_D_HANDOFF.md 46.1).
+        gold_demand keeps the one reading; Direction, the evening and the room's report word it through
+        alerts/gold_funds (section 47)."""
+        import inspect as _inspect
+        import json as _json
+        import main
+        from analysis import gold_demand as g
+        from alerts import gold_funds, telegram_direction, telegram_paper
+        from analysis.direction import DirectionPanel
+        seed = _json.load(open(os.path.join(main.SEED_DIR, "gold_fund_daily.json"), encoding="utf-8"))["days"]
+        days = sorted(seed)
+        dm = g.assess(days, [seed[d][:4] for d in days])
+        net = [seed[d][0] - seed[d][2] for d in days]
+        self.assertAlmostEqual(dm["money"]["value"], sum(net[-7:]) / (7 * sum(net[-257:-7]) / 250), places=9,
+                               msg="the 7 days' net against 7 times the mean daily net of the 250 days before")
+        self.assertEqual((dm["as_of"], dm["money"]["state"]), ("2026-10-03", "HIGH"))   # rd_money_week.py: rank 92%
+        self.assertIn("usual_phrase", _inspect.getsource(telegram_direction._demand))
+        self.assertIn("gold_funds import block", _inspect.getsource(telegram_paper.demand_block))
+        self.assertIn("gold_funds import block", _inspect.getsource(main._evening_fallback))
+        panel = DirectionPanel()
+        panel.demand, panel.computed_at = dm, "2026-10-04T05:00:00"
+        direction = telegram_direction._demand(panel)
+        evening = "\n".join(gold_funds.block(dm))
+        for text in (direction, evening):
+            self.assertIn("11,328B toman in, 5.3 times the usual week", text)
+        self.assertIn("more than in 9 of 10 weeks", direction)
+        self.assertIn("above the normal range", evening)
+
 if __name__ == "__main__":
     print("=" * 55)
     print("CROSS-CUTTING COHERENCE")

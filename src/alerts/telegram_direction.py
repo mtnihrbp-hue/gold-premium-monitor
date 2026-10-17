@@ -167,12 +167,17 @@ def _demand(p):
     lines = [f"<b>GOLD DEMAND</b> (gold funds, 7 days to {_day(dm['as_of'])})"]
     net = dm["net_rial"] / 1e10                                                   # billion toman
     money = dm["money"]["state"]
+    # the money as times the usual week, the reading and words the evening and the room's report share
+    # (alerts/gold_funds.py, SP_D_HANDOFF.md section 47)
+    from alerts.gold_funds import usual_phrase
+    usual = usual_phrase(dm)
+    usual = (f", {usual}" if net >= 0 else f" ({usual})") if usual else ""
     if money == "HIGH":
-        lines.append(f"Money: heavy buying, a net {net:,.0f}B toman in; more than in 9 of 10 weeks of the past year.")
+        lines.append(f"Money: heavy buying, a net {net:,.0f}B toman in{usual}; more than in 9 of 10 weeks of the past year.")
     elif money == "LOW":
-        lines.append(f"Money: heavy selling, a net {abs(net):,.0f}B toman out; more than in 9 of 10 weeks of the past year.")
+        lines.append(f"Money: heavy selling, a net {abs(net):,.0f}B toman out{usual}; more than in 9 of 10 weeks of the past year.")
     else:
-        lines.append(f"Money: individuals {'put in' if net >= 0 else 'took out'} a net {abs(net):,.0f}B toman; "
+        lines.append(f"Money: individuals {'put in' if net >= 0 else 'took out'} a net {abs(net):,.0f}B toman{usual}; "
                      f"normal for the past year.")
     people, n, ratio = dm["people"]["state"], dm["buyers_per_day"], dm["people"]["value"]
     if people == "HIGH":

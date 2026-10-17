@@ -75,12 +75,12 @@
   },
   "latest_verified_kpi": {
     "phase": "FULL SUITE",
-    "verified_on": "2026-10-16",
+    "verified_on": "2026-10-17",
     "files_passed": 30,
     "files_total": 30,
     "assertions": "840 across 29 files; kpi_update_telegram_v1.py reports no count",
     "status": "PASS",
-    "evidence_source": "python kpi/run_all.py at ec9774e plus the docs batch (sp-de) against an isolated in-memory database, runner exit status 0; python tests/run_all.py 18/18 files",
+    "evidence_source": "python kpi/run_all.py on sp-de with SP_D_HANDOFF.md section 47 (the funds' block) against an isolated in-memory database, 30/30 files; python tests/run_all.py 18/18 files; compileall",
     "notes": [
       "C.2 had been failing since commit ff4496d (C.13 idempotency fix) while documentation recorded 14/14 PASS; the stale assertion was corrected on SP-C.",
       "KPI scripts print status emoji and crash with UnicodeEncodeError under the Windows console codepage after assertions pass. kpi/run_all.py forces UTF-8 for child processes.",
@@ -273,7 +273,7 @@
     "sp_c_status": "CLOSED -- merged into main 2026-09-28 (2b7c5f8); tag v1.3safe = main before the merge",
     "sp_d_status": "IN PROGRESS: Direction merged 2026-10-03, PAPER 2026-10-05; each batch reaches main only after the owner's review, with a safe tag on main first",
     "until_2026_10_03": "PAST. Owner direction 2026-09-29: SP-D is for the next phase; anything found before 2026-10-03 is fixed on main, through a short-lived branch cut from main and fast-forwarded after owner review.",
-    "latest_safe_tag": "v1.26safe (883b079, main before the news dedup fix, the research of sections 39-44 and the documents, 2026-10-17)"
+    "latest_safe_tag": "v1.27safe (1361ff3, main before the gold funds' block, the one money reading and the evening's locked layout, 2026-10-17)"
   },
   "verified_production_state": {
     "verified_on": "2026-10-06 16:45 Tehran",
@@ -355,7 +355,10 @@
     "Morning dollar (section 34.3): USD/IRR input barely changes before ~11:00 Tehran (1 change in 39 readings at 07/09/10:00) while platforms reprice from early morning, so morning readings (5 of 16 scheduled runs a day) price today's gold on yesterday's dollar; the 10:00->13:00 USD step was >=0.9% on 5 of 14 days. Both premiums on record are most likely this. USD freshness is stored as always fresh ((now, now) in main.py). Research first: a second dollar source over more days, and the bias on the pool and ranks; then choose a remedy. Place in the post-merge order is the owner's call.",
     "News dedup, second gap (section 34.5): Google News appends ' - Publisher' to titles, so one story from two outlets hashes differently. Also classifier precision: war mentions in economic pieces get MILITARY_ESCALATION with impact HIGH -- fixing N2 (read impact) without a precision check would turn a constant zero into a noisy count.",
     "TA step 3 data (SP_C_HANDOFF.md 41.6): tgju has flat candles (open = high = low = close) on 284 of 3,516 gold days and 388 of 3,964 dollar days, clustered in 2011-2014 and 2019-2023 (3 in 2,050 from 2024); candle-pattern base rates must exclude them or start in 2024. 10 candles are flagged INCONSISTENT, most at a cap in tgju's own feed in September 2025. Trading days per year stepped from ~240 to ~280 around 2019-2020.",
-    "Owner: the decision engine (SP-D 39.6, 40.5, 42.7, 44) -- the advisor as three readers' answers (buy now and where; the room for gold or fixed income; a WATCH section with measured rates), built beside the old chain, gated by the replay on the full record after 11-01, the old BUY alert retired when it goes live (changes CLAUDE.md's alert rule). Agreed 'with caution' on 10-17; the preview comes first."
+    "Owner: the decision engine (SP-D 39.6, 40.5, 42.7, 44) -- the advisor as three readers' answers (buy now and where; the room for gold or fixed income; a WATCH section with measured rates), built beside the old chain, gated by the replay on the full record after 11-01, the old BUY alert retired when it goes live (changes CLAUDE.md's alert rule). Agreed 'with caution' on 10-17; the preview comes first.",
+    "Sudden moves in the gold funds' money (SP_D_HANDOFF.md 47.1, rd_flow_spikes.py): seen exactly from TSETMC's daily figures; none reaches the owner's 90% (the best, a top-2% day, 75-78% against 71-73%); one LEANS UP, thin. Proposed: a line in the evening and the next advisor on the 2-6 days a year it fires, no push. Awaits the owner; works from 11-01 (the day's figures come through the phone).",
+    "The advisor's two lines (SP_D_HANDOFF.md 47.4): 'waiting for a 3% drop is risky in 92% of times' misstates the record (92% is of years; per occasion about half); proposed 'cost more in 92% of years'; the room's lines rewritten plainly. Await the owner; the advisor waits for the database.",
+    "Gold fund گنج (SP_D_HANDOFF.md 47.3): about 4% of individuals' buying, in neither the seed nor the phone's list. Pull its history from Iran, rebuild the seed and extend the phone's list together."
   ],
   "corrections": [
     "2026-10-02: from 10-01 10:01 Goldika's CDN served the non-Iranian runner a copy priced 2026-09-13 (6% below the market); the section 39 rule (repeat 3-48 h) let it through for three hours: a false deep-discount push, three live UPDATEs, BUY candidates held only by confirmation, a false PANIC regime; it had also entered on 09-25 and 09-28 (12 readings). The 09-29 Taline fix had not audited the other platforms from the runner's side. Fixed: source price time (Goldika, Milli), repeat within 60 days, a 3 pp jump hold, the push corroborated without its cheapest platform; 12 readings corrected in production at 12:10 Tehran with a backup. Section 44.",

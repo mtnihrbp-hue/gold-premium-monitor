@@ -100,7 +100,7 @@ Production is `main`, dispatched by cron-job.org and the Cloudflare worker with 
 | BUY signal | when `final_decision` is BUY | `alerts/telegram_signal.py` | live; the confirmation holds every BUY while Neon is down |
 | Deep-discount push | scheduled runs | `analysis/push_trigger.py` | **parked** by the owner until Neon returns ("it may mislead the user") |
 | The room's trades | when the room trades | `alerts/telegram_paper.py` | live; the only PAPER account that pushes |
-| The 21:00 report and chart | first run from 21:00 | `alerts/telegram_paper.py`, `alerts/chart.py` | live; support and resistance with the patterns (37.5); sent from tgju when Neon is out of reach (35.2) |
+| The 21:00 report and chart | first run from 21:00 | `alerts/telegram_paper.py`, `alerts/chart.py` | live; support and resistance with the patterns (37.5); sent from tgju when Neon is out of reach (35.2), with the gold funds' block from tablokhani's 10 sessions (47); the room's report carries the 7-day block (47) |
 | Daily recap | — | `alerts/telegram_*`, `alerts/email_*` | **parked** 2026-10-15 (`config.email.send_daily_recap`) |
 | SERVICE | when the database, world gold, the dollar or the platforms stop or come back (two runs agreeing) | `analysis/service.py`, `alerts/telegram_service.py` | live from 10-16 (SP-D 37.15); Status shows the same line (the worker pasted 10-17) |
 
@@ -231,7 +231,9 @@ valuation rank → premium direction → momentum → structure → conflict mat
 - support and resistance, each with how often lines that far away held for 10 days;
 - WATCH: a break of the 50-day average, counted by separate breaks; the next month was weaker by 1 to 6
   points;
-- GOLD DEMAND: the gold funds over 7 days against their usual (`analysis/gold_demand.py`).
+- GOLD DEMAND: the gold funds over 7 days against their usual (`analysis/gold_demand.py`). The money is
+  the 7 days' net as times the usual week, one reading that the evening's GOLD FUNDS block and the room's
+  report show too (`alerts/gold_funds.py`, SP-D 46-47). It describes; neither end told what 18K did next.
 
 Its 20-day forecasts resolve from early November.
 
@@ -249,8 +251,10 @@ Its 20-day forecasts resolve from early November.
 **Chart patterns** (`caluclator/patterns.py`, SP-D 37.4-37.5):
 - **What it reads:** a 3% ZigZag; sideways ranges and their breaks (flag, breakout, breakdown); tests
   of the 20-day EMA; double and triple tops and bottoms, head and shoulders, triangles, wedges.
-- **What it prints:** each pattern with its record on 18K since 2014 (`RECORD`) against the chance from
-  any day.
+- **What it prints:** each pattern with its record on 18K since 2014 (`RECORD`): the target reached
+  within 2 months. A pattern is shown only when more than half of its past ones got there, so the rising
+  wedge, the double top and the falling wedge are not (SP-D 47). A box is shown with the road out of each
+  side: "3 in 4" broke up to their target, "about half" down.
 - **What the record shows:**
   - flags reached their target first in 14 of 19, against 45 in 100 from any day;
   - double bottoms 19 of 24, against 69;
