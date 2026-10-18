@@ -5548,3 +5548,43 @@ only that alert, Telegram and email).
 - The young funds, the money-flow weight and the deep-discount push stay as the owner set them.
 
 **NEON MIGRATION REQUIRED = NO.**
+
+## 51. The external audit, version 1 (2026-10-18): verified against the code
+
+**The report:** "Gold Premium Monitor -- Technical and Financial Audit", 2026-10-18, on commit 7d5995b, given by
+the owner for feedback. It has 15 engineering findings (A1-A15) and 13 financial and method findings
+(B1-B13), with a remediation plan from P0 to P3.
+
+**Checked here against the code** (each claim read in the file it cites):
+
+| Finding | Claim | Checked |
+|---|---|---|
+| A1 | the Telegram webhook checks only the chat id, no secret token header | true (`src/worker/telegram-trigger.js`) |
+| A2 | a classic PAT with `repo` scope; the README says fine-grained tokens do not work | true (`src/worker/README.md` line 55) |
+| A3 | no `concurrency:` on the production workflow | true |
+| A4 | state, the spool and the mirror live only in `actions/cache@v4`, which saves only when the job succeeds | true |
+| A6 | `_send` catches every error and returns nothing | true (`alerts/telegram.py`) |
+| A7 | every reading, a user's /Update included, enters `state["history"]`, and the next scheduled run takes its previous premium from it | true (`main.py` 1671) |
+| A8 | no unique keys on `market_snapshots`, `platform_prices`, `price_observations`, `iran_node_readings`, `news_events` | true (`sql/neon_schema.sql`); it matters for the 11-01 write-back |
+| A9 | a permanently rejected row stops the phone's queue; closed days without a record are asked for every hour | true (`iran_node/node.py`) |
+| A13 | the cadence: every 30 minutes from 08:00 in `PROJECT_OPERATIONS.md` section 3 and `config.json`; hourly 06:00-21:00 in fact | true, a stale section |
+| A15 | the deep-discount threshold ranks `abs(gap)`; `MIN_FUNDS` 14 and `FLOW_MIN_FUNDS` 15 for the same 19 funds | true |
+| B3 | the BUY engine has no measured edge | true (39.3); the alert is parked since 50.1, after the audited commit |
+| B4 | the room's harness trades at the close that produced the signal | true: `rd_committee_2y.py` "lag 0, the owner's contract". The room's published +4.1% to +7.2% is an upper bound |
+| B6 | the brake is mu / variance against cash at zero | true (`quant.growth_share`): no half-variance term, no fixed-income yield |
+| B7 | patterns are shown on hit rate, not on lift over their control | true: the rule set in 49.2. Against `RECORD`'s controls only the flag shows lift |
+| B8 | the fund-flow seed is nearly empty in 2020-2021, and its fund count grows from 1 to 19 | true: 2020 has 5 days, 2021 52; the median fund count runs 1, 3, 4, 4, 5, 7, 11, 13, 18, 19 from 2017 to 2026 |
+
+**What B8 does to this week's studies** (46.1, 47.1, 48.4):
+- they ranked fund days across the 2020-2021 gap, so windows and ranks there joined 2019 to 2021;
+- their first halves are affected, and their second halves (from 2022-2023) are not.
+- The readings the messages show now rank the last 250 fund days (2025-2026, 18-19 funds), so the evening's
+  and Direction's money lines are not affected.
+- The studies are to be re-run with the gap marked missing and the funds normalised per fund.
+
+**Not checked:** the counts of A10-A12 and A14; Ayyareh's fee (B2); PAPER's fills (B9).
+
+The positions and the plan are given to the owner. Their decisions follow in the next section.
+
+**NEON MIGRATION REQUIRED = NO** (for this record; A8's fix will need one).
+
