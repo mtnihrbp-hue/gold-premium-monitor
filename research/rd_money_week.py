@@ -33,6 +33,11 @@ Rules, fixed before the run:
     DESCRIBES ONLY otherwise: the reading says where the week stands, not what comes next
 
 Run: python research/rd_money_week.py   (reads tgju from the workstation directly)
+
+Amendment of 2026-10-18 (SP_D_HANDOFF.md section 53), fixed before the re-run: with a date argument
+(`python research/rd_money_week.py 2021-10-18`) the funds' days before it are left out. The funds' history has a gap from
+2019-10-30 to 2021-10-18 with 5 stray days in 2020, and 1 to 4 funds before it (the external audit's B8), so
+windows, usual weeks and ranks joined 2019 to 2021. The rules are otherwise unchanged.
 """
 
 import json
@@ -49,6 +54,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "src"))
 from rd_news_events import series  # noqa: E402
 
 WEEK, YEAR, MIN_RANK, UNUSUAL = 7, 250, 100, 10
+SINCE = date.fromisoformat(sys.argv[1]) if len(sys.argv) > 1 else None   # the amendment of section 53
 AHEAD, FALL, GAP = 20, -0.05, 10
 
 
@@ -65,7 +71,7 @@ def state_of(rank):
 
 def load_funds():
     seed = json.load(open(os.path.join(HERE, "..", "src", "seed", "gold_fund_daily.json"), encoding="utf-8"))
-    days = sorted(date.fromisoformat(k) for k in seed["days"])
+    days = sorted(d for d in (date.fromisoformat(k) for k in seed["days"]) if SINCE is None or d >= SINCE)
     a = np.array([seed["days"][d.isoformat()][:4] for d in days], dtype=float)
     return days, a
 
