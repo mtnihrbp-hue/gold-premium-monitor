@@ -735,30 +735,33 @@ class KPIPaper(unittest.TestCase):
                                   status="OK", detail=day, received_at=at,
                                   payload={"insCode": code, "recDate": int(day), "buy_I_Value": bv, "buy_I_Count": bc,
                                            "sell_I_Value": sv, "sell_I_Count": sc}))
-        t0 = datetime(2026, 10, 7, 9, 0)
-        for code in funds:                                  # 10-04: every fund; one stale copy replaced
-            add("20261004", code, 100.0, 10, 50.0, 10, t0)
-        add("20261004", funds[0], 300.0, 10, 50.0, 10, t0 + timedelta(hours=1))
-        for code in funds[:10]:                             # 10-05: ten funds, too few
-            add("20261005", code, 100.0, 10, 50.0, 10, t0)
-        add("20261003", funds[0], 999.0, 1, 1.0, 1, t0)     # the seed's own last day: not replaced
+        end = date.fromisoformat(max(seed["power"]))       # the seed's last day (refreshed, section 48)
+        day1, day2 = end + timedelta(days=1), end + timedelta(days=2)
+        t0 = datetime.combine(day2, datetime.min.time()) + timedelta(hours=9)
+        for code in funds:                                  # day 1: every fund; one stale copy replaced
+            add(day1.strftime("%Y%m%d"), code, 100.0, 10, 50.0, 10, t0)
+        add(day1.strftime("%Y%m%d"), funds[0], 300.0, 10, 50.0, 10, t0 + timedelta(hours=1))
+        for code in funds[:10]:                             # day 2: ten funds, too few
+            add(day2.strftime("%Y%m%d"), code, 100.0, 10, 50.0, 10, t0)
+        add(end.strftime("%Y%m%d"), funds[0], 999.0, 1, 1.0, 1, t0)     # the seed's own last day: not replaced
         s.commit()
         days, power = main._room_flow(s)
         got = dict(zip(days, power))
         n = len(funds)
         expect = ((100.0 * (n - 1) + 300.0) / (10 * n)) / ((50.0 * n) / (10 * n))
-        self.assertAlmostEqual(got[date(2026, 10, 4)], expect, places=12)
-        self.assertNotIn(date(2026, 10, 5), got, "ten of nineteen funds is not a day")
-        self.assertAlmostEqual(got[date(2026, 10, 3)], seed["power"]["2026-10-03"], places=12)
+        self.assertAlmostEqual(got[day1], expect, places=12)
+        self.assertNotIn(day2, got, "ten of the funds is not a day")
+        self.assertAlmostEqual(got[end], seed["power"][end.isoformat()], places=12)
         s.close()
 
     def test_32_the_room_reads_the_flow_and_fails_safe(self):
         import json as _json
         import main
         seed = _json.load(open(os.path.join(SRC_DIR, "seed", "gold_fund_flows.json")))
-        self.assertEqual(len(seed["funds"]), 19)
+        self.assertEqual(len(seed["funds"]), 20, "the 19 of section 33 and گنج (section 48)")
+        self.assertIn("58514988269776425", seed["funds"])
         self.assertGreater(len(seed["power"]), 1500)
-        self.assertEqual(max(seed["power"]), "2026-10-03")
+        self.assertGreaterEqual(max(seed["power"]), "2026-10-17")
         source = inspect.getsource(main._room_state)
         self.assertIn("room.money_flow(dates, *_room_flow(session))", source)
         self.assertIn("flow=flow", source)
@@ -983,18 +986,20 @@ class KPIPaper(unittest.TestCase):
         self.assertTrue(any(x.startswith("Flag of ") for x in lines))
         self.assertIn("past flags got there within 2 months", "\n".join(lines))
 
-    def _seed_demand(self):
-        import json as _json
-        from analysis import gold_demand
-        seed = _json.load(open(os.path.join(SRC_DIR, "seed", "gold_fund_daily.json"), encoding="utf-8"))["days"]
-        days = sorted(seed)
-        return gold_demand.assess(days, [seed[d][:4] for d in days])
+    def _week_demand(self):
+        """gold_demand.assess's reading of the 7 days to 2026-10-03 as the old seed gave it, fixed here so the
+        layout is checked apart from the seed, which is refreshed (section 48)."""
+        return {"as_of": "2026-10-03", "window": 7, "net_rial": 113_277_138_687_149.0, "buyers_per_day": 86_414.29,
+                "usual_rial": 21_178_567_232_895.0, "band": [-2.78, 4.93], "per_head_rial": [1_620_399_514.0, 2_835_609_471.0],
+                "money": {"value": 5.3487, "rank": 92.4, "state": "HIGH"},
+                "people": {"value": 1.6736, "rank": 91.2, "state": "HIGH"},
+                "size": {"value": 0.5714, "rank": 32.4, "state": "NORMAL"}}
 
     def test_42_the_room_report_has_the_funds_block_not_the_range(self):
         from alerts.telegram_paper import build_room_report_message, demand_block
         view = {"posture": "ALL_GOLD", "reasons": [], "next_review": "2026-10-19", "members": {}, "for_fixed_income": [],
                 "for_gold": [], "band20": [240_000_000, 290_000_000, 230_000_000, 300_000_000, 265_000_000]}
-        demand = self._seed_demand()                     # the seed's last week, to 2026-10-03
+        demand = self._week_demand()
         args = (DAY, "Goldika", SELL, "", 3, 0.0, None, False, 3 * SELL, p.START_CASH_IRR, DAY, None, [], view)
         plain = re.sub(r"</?[bi]>", "", build_room_report_message(*args, demand=demand))
         self.assertNotIn("Next 20 trading days", plain, "the range gives nothing to decide on (owner, 2026-10-16)")
@@ -1020,8 +1025,10 @@ class KPIPaper(unittest.TestCase):
         flows = {s: (1e12, 4_000.0, 0.9e12, 2_000.0) for s in tk.GOLD_FUNDS}
         dm = main._tablokhani_demand(flows)
         self.assertEqual((dm["window"], dm["as_of"]), (10, None), "10 sessions, no date of its own")
-        self.assertAlmostEqual(dm["net_rial"], 18 * 0.1e12 * 10)
-        self.assertAlmostEqual(dm["buyers_per_day"], 18 * 4_000.0)
+        n = len(tk.GOLD_FUNDS)
+        self.assertEqual(n, 19, "the seed's 18 and گنج (section 48)")
+        self.assertAlmostEqual(dm["net_rial"], n * 0.1e12 * 10)
+        self.assertAlmostEqual(dm["buyers_per_day"], n * 4_000.0)
         self.assertEqual(main._tablokhani_demand(dict(list(flows.items())[:gold_demand.MIN_FUNDS - 1])), {})
         from alerts.gold_funds import block
         lines = block(dm, title="last 10 sessions (tablokhani)")
@@ -1052,6 +1059,23 @@ class KPIPaper(unittest.TestCase):
         hidden = {kind for kind, (hit, n, _c) in RECORD.items() if hit / n <= SHOWN}
         self.assertEqual(hidden, {"RISING WEDGE", "DOUBLE TOP", "FALLING WEDGE"})
         self.assertEqual((odds(30, 39), odds(12, 22)), ("3 in 4", "about half"))
+
+    def test_46_the_chart_is_drawn_without_a_live_price(self):
+        """With every platform down there is no live price; the levels split at the last close (section 48)."""
+        import main
+        import alerts.chart as chart
+        from persistence.candle_cache import Candle
+        dates, h, l, c = self._rally_range_breakout()
+        rows = [Candle(date(2024, 1, 1) + timedelta(days=k), x, hh, ll, x, "COMPLETE")
+                for k, (hh, ll, x) in enumerate(zip([h[0]] * 200 + h, [l[0]] * 200 + l, [c[0]] * 200 + c))]
+        seen, real = {}, chart.render
+        chart.render = lambda *a, **k: seen.update(k) or b"\x89PNG"
+        try:
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(main._chart_png(rows, (), None, "18K daily"), b"\x89PNG")
+        finally:
+            chart.render = real
+        self.assertIsNone(seen["live"])
 
     def test_45_the_evening_keeps_its_chart_when_the_funds_make_it_too_long(self):
         import main

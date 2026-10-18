@@ -595,6 +595,10 @@ INSERT (`SP_D_HANDOFF.md` sections 30-31).
 code        iran_node/node.py (Python + requests), iran_node/setup.sh (one-time setup)
 on phone    ~/gold-premium-monitor (git clone -b sp-d-iran-node), ~/.iran_node.env (NEON_URL, NODE)
 schedule    cronie, every 15 minutes; Termux:Boot restarts it after a reboot
+reads       Daric; Taline, HoorGold, MioGold (compared with production); TSETMC's closed days of the 20 gold
+            funds (each hour's first quarter, source tsetmc); from 2026-10-18 TSETMC's live flow of the same
+            funds, 12:00-18:15 Saturday-Wednesday, about 520 rows a trading day (source tsetmc_live, research
+            only; SP_D_HANDOFF.md 48.2)
 local       ~/iran_node.log; ~/iran_node_spool.jsonl holds what could not be sent
 update      cd ~/gold-premium-monitor && git pull
 production  main._daric_from_node: the newest OK reading of the last 30 minutes, when

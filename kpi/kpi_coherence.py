@@ -1651,7 +1651,7 @@ class KPICoherence(unittest.TestCase):
         from alerts import gold_funds, telegram_direction, telegram_paper
         from analysis.direction import DirectionPanel
         seed = _json.load(open(os.path.join(main.SEED_DIR, "gold_fund_daily.json"), encoding="utf-8"))["days"]
-        days = sorted(seed)
+        days = [d for d in sorted(seed) if d <= "2026-10-03"]       # the week rd_money_week.py read
         dm = g.assess(days, [seed[d][:4] for d in days])
         net = [seed[d][0] - seed[d][2] for d in days]
         self.assertAlmostEqual(dm["money"]["value"], sum(net[-7:]) / (7 * sum(net[-257:-7]) / 250), places=9,
@@ -1664,10 +1664,66 @@ class KPICoherence(unittest.TestCase):
         panel.demand, panel.computed_at = dm, "2026-10-04T05:00:00"
         direction = telegram_direction._demand(panel)
         evening = "\n".join(gold_funds.block(dm))
+        said = f"{dm['net_rial'] / 1e10:,.0f}B toman in, {dm['money']['value']:.1f} times the usual week"
         for text in (direction, evening):
-            self.assertIn("11,328B toman in, 5.3 times the usual week", text)
+            self.assertIn(said, text)
         self.assertIn("more than in 9 of 10 weeks", direction)
         self.assertIn("above the normal range", evening)
+
+    def test_57_the_phone_reads_the_seeds_funds_and_its_live_rows_stay_research(self):
+        """The phone's funds are the seed's, گنج included (SP_D_HANDOFF.md section 48), so production's history
+        and the phone's days stay one series. Its live read of the session is asked only from 12:00 to 18:15
+        Tehran, Saturday to Wednesday, and is stored as "tsetmc_live", which no production reader asks for."""
+        import json as _json
+        import re as _re
+        import sys as _sys
+        from datetime import datetime as _dt
+        _sys.path.insert(0, str(REPO / "iran_node"))
+        import node
+        flows = _json.loads((REPO / "src" / "seed" / "gold_fund_flows.json").read_text(encoding="utf-8"))
+        daily = _json.loads((REPO / "src" / "seed" / "gold_fund_daily.json").read_text(encoding="utf-8"))
+        codes = {c for c, _s in node.GOLD_FUNDS}
+        self.assertEqual(codes, set(flows["funds"]), "the phone's funds are the buyer-power seed's")
+        self.assertEqual(codes - {"51200575796028449"}, set(daily["funds"]), "and the demand seed's, saffron aside")
+        self.assertIn("58514988269776425", codes, "گنج")
+        asked = []
+        real = node.requests.get
+
+        class _R:
+            def __init__(self, data):
+                self.data = data
+
+            def json(self):
+                return self.data
+
+        def fake(url, **k):
+            asked.append(url)
+            code = url.split("/")[-1] if "ClosingPrice" in url else url.split("/")[-3]
+            if "ClientType" in url:
+                return _R({"clientType": {key: 1.0 for key in node.LIVE_FLOW_KEYS}})
+            traded = 0.0 if code == node.GOLD_FUNDS[0][0] else 5e6
+            return _R({"closingPriceInfo": {"dEven": 20261018, "hEven": 130500, "pDrCotVal": 712000.0,
+                                            "qTotTran5J": traded, "qTotCap": traded * 712000, "zTotTran": 900,
+                                            "priceYesterday": 712879.0, "noise": "dropped"}})
+        node.requests.get = fake
+        try:
+            self.assertEqual(node.read_tsetmc_live(tehran=_dt(2026, 10, 22, 13, 0)), [], "Thursday")
+            self.assertEqual(node.read_tsetmc_live(tehran=_dt(2026, 10, 18, 11, 59)), [], "before the session")
+            self.assertEqual(node.read_tsetmc_live(tehran=_dt(2026, 10, 18, 18, 16)), [], "after it")
+            self.assertEqual(asked, [], "nothing is asked outside the session")
+            rows = node.read_tsetmc_live(tehran=_dt(2026, 10, 18, 13, 5))
+        finally:
+            node.requests.get = real
+        self.assertEqual(len(rows), len(node.GOLD_FUNDS) - 1, "a fund with no trade yet gives no row")
+        self.assertEqual({r["source"] for r in rows}, {"tsetmc_live"})
+        self.assertEqual(set(rows[0]["payload"]), set(node.LIVE_FLOW_KEYS) | set(node.LIVE_PRICE_KEYS))
+        self.assertEqual(rows[0]["detail"], "20261018-130500")
+        # production asks the node's table by exact source, and never for the live rows
+        callers = []
+        for path in (REPO / "src").rglob("*.py"):
+            callers += _re.findall(r'get_node_rows\(\w+, "(\w+)"', path.read_text(encoding="utf-8"))
+        self.assertTrue(callers)
+        self.assertNotIn("tsetmc_live", callers)
 
 if __name__ == "__main__":
     print("=" * 55)

@@ -33,7 +33,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    37.15 the SERVICE notice merged 2026-10-16 (v1.24safe);
                                                                    its outage date from the record merged 2026-10-16 (v1.25safe);
                                                                    39-45 the research, the news dedup, the documents merged 2026-10-17 (v1.26safe);
-                                                                   46-47 the previews revised, the funds' block wired
+                                                                   46-47 the previews revised, the funds' block wired (v1.27safe);
+                                                                   48 گنج, the phone's live read, resistance lines, smart money
        member, the LLM member
 ```
 
@@ -5214,3 +5215,158 @@ On every day, 18K was higher 20 days later 71% / 73% of the time.
 minutes from 18:10. The 21:00 evening sees the day's session, and the advisor at 12:05 the day before's.
 
 **NEON MIGRATION REQUIRED = NO.**
+
+## 48. گنج added; the phone records the session; resistance lines and smart money measured (2026-10-17/18)
+
+The owner, on 47 (10-17 evening):
+- "yes add Ganj";
+- "the rest is ok": the advisor's lines of 47.4 are locked. They read "Buy now: waiting for a 3% drop cost
+  more in 92% of years", and the room's lines as rewritten;
+- "the case for rush is mis taken by you. one question, are we collecting the tsemc data hourly on a business
+  day or only after the market closes. if it is hourly the data is much more valuable for identifying hot
+  money. and also do an R&D for hot money or smart money. maybe we can find something there that gives us a
+  hint";
+- "the resistance line in the nightly chart. the previous one was a long term one, this one is short term, i
+  like the long term one more, why ? bacuse it has been tested many times, argue ?"
+
+**48.1 گنج (صندوق س. سيماي كاردان, insCode 58514988269776425).**
+- **Why it was missing:** `research/fetch_tsetmc_gold_funds.py` searched for it but kept only titles naming
+  gold or a commodity, and this title names neither. It is now named in `GOLD_BY_SYMBOL`.
+- **Fetched from Iran on 10-18:** every fund refreshed to 2026-10-17, 20 with saffron. Six young gold funds
+  with under 250 days of prices are still skipped, as before.
+  - TSETMC has since dropped 2022-02-08 (724 buyers, a broken day) from its history, and the seed follows.
+- **The seeds rebuilt to 2026-10-17:** `gold_fund_daily.json` (19 funds) and `gold_fund_flows.json` (20).
+  - Production appends the phone's days after 10-17.
+  - The phone's days from 10-04 to 10-17 are now in the seed itself.
+- **The effect:**
+  - the money-flow member's lean changes on 17 of 1,607 days, at its threshold;
+  - the room's 16 stays replay identically (`rd_room_stays.py`, which reads the refreshed data);
+  - the week to 10-03 reads 12,653B toman in, 5.8 times the usual week, rank 93%. Before: 11,328B, 5.3
+    times, 92%.
+- **The lists:**
+  - the phone's `GOLD_FUNDS`: 20;
+  - `collector/tablokhani.py`: 19.
+  - The minimums are unchanged: `gold_demand.MIN_FUNDS` 14 and `room.FLOW_MIN_FUNDS` 15.
+- **Coverage:**
+  - tablokhani lists 35 gold funds. These 19 hold about 93% of individuals' 10-day buying, up from about
+    89%.
+  - 16 young funds hold the rest: جام طلا 1.6%, رز ترنج 1.3%, ریتون 1.0%, the others under 1% each.
+  - Adding them is a separate decision: each enters the sum on its first day, which inflates a "times the
+    usual" reading while it is new.
+- **Tests:** `kpi_coherence.test_57` (the phone's funds are the seeds'); `kpi_paper.test_31`, `32` and `43`
+  follow the seed instead of pinning 10-03.
+
+**48.2 What the phone reads, and the rush.**
+- **Until now, closed days only.** `GetClientTypeHistory`, once an hour in the first quarter, for the last 7
+  days. Nothing inside the session.
+- **The owner's rush is inside the session:** money of individuals that suddenly jumps while the funds
+  trade. 47.1 measured whole days, so it answered another question.
+  - TSETMC keeps no intraday history of who bought: only trades, prices and the book (section 24). The
+    intraday split exists only if it is recorded as it happens.
+- **Built:** `iran_node/node.py` `read_tsetmc_live`.
+  - **What:** each fund's individuals' and institutions' buy and sell volume and counts so far, with its
+    price, volume, value and trades so far (`ClientType/GetClientType/{code}/1/0`,
+    `ClosingPrice/GetClosingPriceInfo/{code}`).
+  - **When:** every run from 12:00 to 18:15 Tehran, Saturday to Wednesday.
+  - **Stored as** source `tsetmc_live`, which no production reader asks for.
+  - **Guarded:** a failure is logged and the run carries on, so it can never cost Daric's reading.
+  - **Size:**
+    - about 520 rows a trading day of about 250 bytes, about 35 MB a year in `iran_node_readings`;
+    - until 11-01, about 5,000 more rows in the phone's spool (limit 30,000).
+  - **Tested** from Iran on 10-18 (`kpi_coherence.test_57`): it asks nothing outside the session, a fund
+    without a trade gives no row, and production's readers never ask for these rows.
+- **To measure, after about 60 sessions (mid-January):** a jump in individuals' money inside the session
+  against its own pace that day, and what 18K, the platforms and the fund did over the rest of the day and
+  the next. Pre-registered when the data is there.
+
+**48.3 Resistance lines: touches or distance** (`research/rd_trendline_touches.py`, rules committed in 8d09161
+before the run; tgju 18K, every 5th day; lines as the chart draws them).
+- **What changed on the chart:**
+  - to 10-08 the rule's line ran from 07-18 (19.15M) to 09-10 (24.37M), touched 4-5 times;
+  - from 10-12, once the high of 10-06 was confirmed, it ran from 09-10 to 10-06, touched twice.
+  - The rule takes the line closest above the price; touches do not count.
+
+| Lines broken within 20 days, by distance above the price | 2 touches | 3 touches | 4+ touches |
+|---|---|---|---|
+| 2014-2019, 0-3% | 58% (140) | 60% (98) | 62% (74) |
+| 2014-2019, 3-8% | 40% (91) | 32% (74) | 31% (42) |
+| 2014-2019, 8%+ | 16% (58) | 13% (30) | 44% (9) |
+| 2020-2026, 0-3% | 87% (108) | 88% (43) | 100% (7) |
+| 2020-2026, 3-8% | 59% (113) | 50% (48) | 86% (7) |
+| 2020-2026, 8%+ | 13% (143) | 12% (60) | 0% (16) |
+
+- **The chart's rule against the most touched line:**
+  - 2014-2019: broke 51% against 36%, at 5.3% against 6.7% above the price;
+  - 2020-2026: 49% against 41%, at 9.8% against 11.2%.
+- **After a break,** 18K's next 20 days were no better for a line touched more: +0.3% to +1.1% against +2.6%
+  on every day, and +5.1% to +5.9% against +4.6%.
+- **The verdict: MIXED.**
+  - At the same distance from the price, the lines tested more did not break less within 3% of it.
+  - 3-8% away, in 2014-2019 the 4+-touch lines broke 9 points less often, under the 10 fixed in advance.
+  - 2020-2026 has too few 4+-touch lines to judge, because the trend is steep.
+- **The case against "tested many times":**
+  - a line's chance of breaking is its distance from the price (`LESSONS_LEARNED.md` section 20: a line's
+    accuracy is its distance);
+  - the most touched line holds more often because it sits farther away.
+  - Flat levels showed a small edge for 3+ tests (resistance 55% against 61%, support 19% against 26%,
+    section 1); the sloped lines here do not.
+- **For the owner's choice:**
+  - A: keep the closest line, the next obstacle;
+  - B: the most touched line;
+  - C: both, the most touched thin and dashed.
+  - None is more reliable on the record. Recommended: C, labelled without "strong", so the channel the
+    owner reads stays visible and the next obstacle stays marked. Previewed before it is wired.
+
+**48.4 Smart money: big tickets and buyer power** (`research/rd_smart_money.py`, rules committed in 33ce836
+before the run).
+- **The data:** the 19 funds' individuals, ranked against their own year, 2017-12 to 2026-10-17. The halves
+  are split at 2023-05-07.
+
+| Detector (a day in its year's top or bottom 5%) | Episodes | 18K's next 20 days (every day) | Its way after 20 days | Verdict |
+|---|---|---|---|---|
+| big buyers: per-head buy | 28 / 38 | +6.67% (+4.65%) / +5.63% (+5.59%) | 79% / 66% | describes only |
+| big sellers: per-head sell | 30 / 38 | +6.54% / +5.57% | 20% / 29% lower | describes only |
+| buyers in control: buyer power top 5% | 16 / 24 | +2.21% / +5.22% | 44% / 71% | describes only |
+| **sellers in control: buyer power bottom 5%** | 19 / 22 | **+1.98% (+4.65%) / +3.75% (+5.59%)** | 42% / 27% lower | **LEANS DOWN** |
+| smart money in: big buyers and buyers in control | 8 / 17 | +2.07% / +5.89% | 50% / 82% | too few |
+
+- **None reaches 90%.**
+- **"Sellers in control" came before a weaker month, not a fall:**
+  - 18K still rose on average;
+  - 5% falls were no more frequent: 21% against 26%, 18% against 19%.
+- **It agrees with the lead of 42.5,** an independent measure: a fund trading at a deep discount to its NAV
+  came before weaker months. Both read as sellers outweighing buyers.
+- One of five detectors may pass by luck. It is a lead to confirm on the days after 10-17. The candidate
+  line for Direction's GOLD DEMAND, where "Sellers in control" already appears, is to carry this rate once
+  confirmed.
+
+**48.5 Hot and smart money in the gold funds: the record so far.**
+
+| Reading | Section | What followed |
+|---|---|---|
+| a volume surge inside the session | 24 | nothing (IC under 0.10) |
+| the close against the 20-day volume profile | 24 | leads 18K's next 5-20 days, after 18K's own moves |
+| the closing hour's order book | 24 | +0.07, weak |
+| big trades (over 1B toman) | 24 | 4% of the value on a median day |
+| real money in and out (fipiran's units) | 25 | nothing |
+| the premium to NAV | 25, 42.5 | momentum in 2019-2022, weak since; a deep discount a lead (weaker) |
+| a rush of buyers, 7 days, in turbulence | 41.4 | warns: a 5% fall 55% against 21% |
+| the week's money against the usual week | 46.1 | describes only |
+| a day's sudden jump or drop in money | 47.1 | describes only |
+| a top-2% day of money in | 47.1 | leans up, thin |
+| sellers in control, a day | 48.4 | leans down, a lead |
+| individuals' money inside the session | 48.2 | recording from 10-18 |
+
+Nothing in the funds' flows has reached the owner's 90%. What has weight is a warning, a lean of a few
+points over a month, or the volume profile's lead.
+
+**48.6 A defect: the 21:00 chart without a live price.**
+- `main._chart_png` split its support and resistance levels at the live price. With none, for instance with
+  every platform down, the comparison with None raised and the chart went out without its picture.
+- The levels now split at the last close. `kpi_paper.test_46` fails with the old line.
+
+**48.7 The phone.** It runs the branch `sp-d-iran-node`. The two node.py commits of this section were put on it
+alone, so nothing else on the phone changes. To take them: `cd ~/gold-premium-monitor && git pull`. The next
+runs fetch گنج's last 7 days and, from 12:00 on a trading day, the live rows.
+
+**NEON MIGRATION REQUIRED = NO**: `iran_node_readings` takes any source.

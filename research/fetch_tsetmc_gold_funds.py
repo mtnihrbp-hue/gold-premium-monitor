@@ -6,6 +6,9 @@ tsetmc_gold_funds.json (git-ignored, like the tgju history).
 Per fund and day: open/high/low/close and the final price, volume (units), value (rial),
 trade count; and the money flow split between individuals (I) and institutions (N):
 buy/sell volume, value and count.
+
+گنج (صندوق س. سيماي كاردان) is a gold fund whose title names neither gold nor a commodity, so the
+title filter dropped it until 2026-10-17; it is named in GOLD_BY_SYMBOL (SP_D_HANDOFF.md section 48).
 """
 import json
 import os
@@ -19,6 +22,7 @@ UA = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
 BASE = "https://cdn.tsetmc.com/api"
 SEARCH = ("عیار", "طلا", "کهربا", "زر", "گوهر", "مثقال", "آلتون", "جواهر", "نفیس", "زروان", "تابش",
           "قیراط", "ناب", "رز", "درخشان", "لیان", "گنج", "زرفام", "ناب", "سکه")
+GOLD_BY_SYMBOL = {"گنج"}             # gold funds whose title does not say so
 
 
 def get(path):
@@ -37,7 +41,8 @@ for name in SEARCH:
     data = get(f"Instrument/GetInstrumentSearch/{name}") or {}
     for x in data.get("instrumentSearch", []):
         title = x.get("lVal30") or ""
-        if "طلا" in title or "كالاي" in title or "کالای" in title or x.get("lVal18AFC") in ("عيار",):
+        if ("طلا" in title or "كالاي" in title or "کالای" in title or x.get("lVal18AFC") in ("عيار",)
+                or x.get("lVal18AFC") in GOLD_BY_SYMBOL):
             if "صندوق" in title and x.get("lVal18AFC") and not x.get("lVal18AFC").endswith(("ح", "1")):
                 funds[x["insCode"]] = (x.get("lVal18AFC"), title)
 print(len(funds), "candidate funds:")

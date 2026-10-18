@@ -713,7 +713,7 @@ TABLOKHANI_WINDOW = 10      # tablokhani publishes 10-day averages only
 def _tablokhani_demand(flows):
     """The gold funds' last 10 sessions from tablokhani (collector/tablokhani.py's "flows"), read against the
     seed's history: the stand-in for the 7-day reading while the database, and with it the phone's days,
-    is out of reach (owner, 2026-10-17; SP-D section 47). The seed's 18 funds, a reading only when
+    is out of reach (owner, 2026-10-17; SP-D section 47). The seed's 19 funds, a reading only when
     gold_demand.MIN_FUNDS of them are there; {} otherwise or on failure."""
     from analysis import gold_demand
     try:
@@ -1104,7 +1104,10 @@ def _chart_png(rows, trades, live, title):
         dates = [r.trade_date for r in rows]
         o, h, l, c = (np.array([float(getattr(r, k)) for r in rows]) for k in ("open", "high", "low", "close"))
         usable = _usable(rows, o, h, l, c)
-        supports, resistances = split_levels(swing_levels(h, l, upto=len(c) - 1, usable=usable), live)
+        # without a live price the levels split at the last close: compared with None they raised, and the
+        # 21:00 chart went out without its picture (SP-D section 48)
+        supports, resistances = split_levels(swing_levels(h, l, upto=len(c) - 1, usable=usable),
+                                             live if live else float(c[-1]))
         trend = trendlines(h, l, c, upto=len(c) - 1, usable=usable)
         direction, start = rally_legs(c)
         fib = fibonacci(c[start[-1]], c[start[-1]:].max()) if direction[-1] == "up" else []

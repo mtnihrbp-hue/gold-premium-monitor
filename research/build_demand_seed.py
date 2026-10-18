@@ -1,6 +1,7 @@
 """Seed Direction's gold demand (SP-D, SP_D_HANDOFF.md section 35.11): each day's individual buying and
 selling summed over the 18 gold funds -- research/data/tsetmc_gold_funds.json, pulled from Iran on
-2026-10-04; سافرون, a saffron fund, excluded (section 35.7). Written to src/seed/gold_fund_daily.json as
+2026-10-04; سافرون, a saffron fund, excluded (section 35.7). 19 with گنج from 2026-10-17, refreshed to
+that day (section 48). Written to src/seed/gold_fund_daily.json as
 {"funds": [...], "days": {date: [buy value, buyers, sell value, sellers, funds]}}, values in rial.
 Production appends the days the phone sends after it (main._gold_demand)."""
 import json

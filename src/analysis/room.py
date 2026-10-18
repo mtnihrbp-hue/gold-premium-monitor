@@ -26,7 +26,7 @@ research/rd_committee_2y.py; a z-score leans beyond +/-0.5 against its own last 
                         seller, summed over the funds, its last 20 trading days' mean: stronger
                         buyers -> +1. TSETMC's client types, which only an Iranian address can read:
                         src/seed/gold_fund_flows.json to 2026-10-03, then the owner's phone (iran_node,
-                        sections 30, 33); a day counts when FLOW_MIN_FUNDS of the 19 funds have it
+                        sections 30, 33); a day counts when FLOW_MIN_FUNDS of the 20 funds have it (گنج added 2026-10-17, section 48)
 
 The committee's view moves every day: it turns to fixed income when the members leaning that way
 hold 60% of the weight of those with a view (two at least), and back at 30% or less. The posture
@@ -46,7 +46,7 @@ import numpy as np
 WEIGHTS = {"brake": 2.0, "market state": 1.5, "fair gap": 1.5, "real dollar": 1.5, "dollar 20d": 1.0,
            "world gold 60d": 0.5, "chartist": 1.0, "money flow": 0.5}
 FLOW_DAYS = 20            # the money-flow member's mean, in the funds' trading days
-FLOW_MIN_FUNDS = 15       # a day from the phone counts when this many of the 19 funds have it
+FLOW_MIN_FUNDS = 15       # a day from the phone counts when this many of the 20 funds have it
 LEAVE, BACK = 0.60, 0.30
 REVIEW_EVERY = 10
 SWING = 0.40

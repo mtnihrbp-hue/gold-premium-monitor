@@ -12,11 +12,11 @@ endpoints its own pages read, no key:
 Today's values only; production stores one reading a day and the history before it comes from
 src/seed (research/build_seeds.py). Collects only; main stores. Never raises.
 
-The gold funds are the seed's 18 (src/seed/gold_fund_daily.json, the phone's list in iran_node/node.py),
-so their 10-day figures stand in for the 7-day reading while the database is out of reach
-(SP_D_HANDOFF.md section 47). Each fund's averages come back in rial a day: the per-head figures are
-million toman. Until 2026-10-17 the list had گنج and رز in place of درنا and گلدیس; گنج, a gold fund
-with about 4% of individuals' buying, is in neither the seed nor the phone's list (section 47).
+The gold funds are the seed's 19 (src/seed/gold_fund_daily.json, the phone's list in iran_node/node.py
+without saffron), so their 10-day figures stand in for the 7-day reading while the database is out of
+reach (SP_D_HANDOFF.md section 47). Each fund's averages come back in rial a day: the per-head figures
+are million toman. Until 2026-10-17 the list had رز, which tablokhani does not list, in place of درنا
+and گلدیس; گنج, about 4% of individuals' buying, joined the seed and the phone the same day (section 48).
 """
 
 import requests
@@ -27,7 +27,7 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 TIMEOUT = (5, 15)
 AFRAN = "افران"
 GOLD_FUNDS = ("عیار", "طلا", "زر", "گوهر", "کهربا", "آلتون", "مثقال", "نفیس", "جواهر", "زروان", "تابش", "ناب",
-              "قیراط", "درخشان", "لیان", "درنا", "زرفام", "گلدیس")
+              "قیراط", "درخشان", "لیان", "درنا", "زرفام", "گلدیس", "گنج")
 MILLION_TOMAN = 1e7                      # rial
 
 

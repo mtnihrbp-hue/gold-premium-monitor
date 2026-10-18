@@ -75,12 +75,12 @@
   },
   "latest_verified_kpi": {
     "phase": "FULL SUITE",
-    "verified_on": "2026-10-17",
+    "verified_on": "2026-10-18",
     "files_passed": 30,
     "files_total": 30,
     "assertions": "840 across 29 files; kpi_update_telegram_v1.py reports no count",
     "status": "PASS",
-    "evidence_source": "python kpi/run_all.py on sp-de with SP_D_HANDOFF.md section 47 (the funds' block) against an isolated in-memory database, 30/30 files; python tests/run_all.py 18/18 files; compileall",
+    "evidence_source": "python kpi/run_all.py on sp-de with SP_D_HANDOFF.md section 48 against an isolated in-memory database, 30/30 files (coherence 52, paper 51); python tests/run_all.py 18/18 files; compileall src and iran_node",
     "notes": [
       "C.2 had been failing since commit ff4496d (C.13 idempotency fix) while documentation recorded 14/14 PASS; the stale assertion was corrected on SP-C.",
       "KPI scripts print status emoji and crash with UnicodeEncodeError under the Windows console codepage after assertions pass. kpi/run_all.py forces UTF-8 for child processes.",
@@ -273,7 +273,7 @@
     "sp_c_status": "CLOSED -- merged into main 2026-09-28 (2b7c5f8); tag v1.3safe = main before the merge",
     "sp_d_status": "IN PROGRESS: Direction merged 2026-10-03, PAPER 2026-10-05; each batch reaches main only after the owner's review, with a safe tag on main first",
     "until_2026_10_03": "PAST. Owner direction 2026-09-29: SP-D is for the next phase; anything found before 2026-10-03 is fixed on main, through a short-lived branch cut from main and fast-forwarded after owner review.",
-    "latest_safe_tag": "v1.27safe (1361ff3, main before the gold funds' block, the one money reading and the evening's locked layout, 2026-10-17)"
+    "latest_safe_tag": "v1.28safe (12ed8e4, main before گنج, the phone's live read, the chart without a live price and the research of section 48, 2026-10-18)"
   },
   "verified_production_state": {
     "verified_on": "2026-10-06 16:45 Tehran",
@@ -356,9 +356,10 @@
     "News dedup, second gap (section 34.5): Google News appends ' - Publisher' to titles, so one story from two outlets hashes differently. Also classifier precision: war mentions in economic pieces get MILITARY_ESCALATION with impact HIGH -- fixing N2 (read impact) without a precision check would turn a constant zero into a noisy count.",
     "TA step 3 data (SP_C_HANDOFF.md 41.6): tgju has flat candles (open = high = low = close) on 284 of 3,516 gold days and 388 of 3,964 dollar days, clustered in 2011-2014 and 2019-2023 (3 in 2,050 from 2024); candle-pattern base rates must exclude them or start in 2024. 10 candles are flagged INCONSISTENT, most at a cap in tgju's own feed in September 2025. Trading days per year stepped from ~240 to ~280 around 2019-2020.",
     "Owner: the decision engine (SP-D 39.6, 40.5, 42.7, 44) -- the advisor as three readers' answers (buy now and where; the room for gold or fixed income; a WATCH section with measured rates), built beside the old chain, gated by the replay on the full record after 11-01, the old BUY alert retired when it goes live (changes CLAUDE.md's alert rule). Agreed 'with caution' on 10-17; the preview comes first.",
-    "Sudden moves in the gold funds' money (SP_D_HANDOFF.md 47.1, rd_flow_spikes.py): seen exactly from TSETMC's daily figures; none reaches the owner's 90% (the best, a top-2% day, 75-78% against 71-73%); one LEANS UP, thin. Proposed: a line in the evening and the next advisor on the 2-6 days a year it fires, no push. Awaits the owner; works from 11-01 (the day's figures come through the phone).",
-    "The advisor's two lines (SP_D_HANDOFF.md 47.4): 'waiting for a 3% drop is risky in 92% of times' misstates the record (92% is of years; per occasion about half); proposed 'cost more in 92% of years'; the room's lines rewritten plainly. Await the owner; the advisor waits for the database.",
-    "Gold fund گنج (SP_D_HANDOFF.md 47.3): about 4% of individuals' buying, in neither the seed nor the phone's list. Pull its history from Iran, rebuild the seed and extend the phone's list together."
+    "The resistance trend line on the 21:00 chart (SP_D_HANDOFF.md 48.3): the owner prefers the long, much-tested line; on 18K's record touches do not change how often a line breaks at the same distance (MIXED). Options: A keep the closest, B the most touched, C both (recommended, the long one thin). Owner's choice, then a preview.",
+    "Intraday hot money (48.2): the phone records TSETMC's live flow of the 20 funds from 2026-10-18 (tsetmc_live). Measure a jump in individuals' money inside the session after about 60 sessions (mid-January 2027), pre-registered.",
+    "Sellers in control (48.4, rd_smart_money.py): buyer power in its year's bottom 5% leaned down (18K's next month +2.0% / +3.8% against +4.7% / +5.6%), one of five detectors; with 42.5's deep-discount lead. Confirm on the days after 2026-10-17 before Direction carries its rate.",
+    "The young gold funds (48.1): 16 funds outside the record hold about 7% of individuals' buying (جام طلا 1.6%, رز ترنج 1.3%). Adding them inflates 'times the usual' while each is new. Owner's decision."
   ],
   "corrections": [
     "2026-10-02: from 10-01 10:01 Goldika's CDN served the non-Iranian runner a copy priced 2026-09-13 (6% below the market); the section 39 rule (repeat 3-48 h) let it through for three hours: a false deep-discount push, three live UPDATEs, BUY candidates held only by confirmation, a false PANIC regime; it had also entered on 09-25 and 09-28 (12 readings). The 09-29 Taline fix had not audited the other platforms from the runner's side. Fixed: source price time (Goldika, Milli), repeat within 60 days, a 3 pp jump hold, the push corroborated without its cheapest platform; 12 readings corrected in production at 12:10 Tehran with a backup. Section 44.",
@@ -422,6 +423,9 @@
     "2026-10-17, closed (done 10-17: the dedup asks for the fetched keys, whatever their age (section 45)): News dedup window (section 33.3 N1): ingest.py loads only the last 24 h of dedup keys while slow feeds keep items for days, so 330 of 2,294 rows since 09-22 are",
     "2026-10-17, closed (resolved 09-28; Daric's refusal of the runner since 10-03 is a different defect, open in PROJECT_MEMORY.md 9): Daric (section 34.4): RESOLVED on their side 2026-09-28 15:01 Tehran; no action taken.",
     "2026-10-17, closed (done: MAX_WORLD_GOLD is $20,000 since section 30): validation/data.MAX_WORLD_GOLD is $5,000/oz with gold near $4,150; a rally past it rejects every world-gold quote (section 38.7). Reliability phase.",
-    "2026-10-17, closed (done: push_trigger.corroborate needs the deep discount without the cheapest platform (SP_C_HANDOFF.md 44)): Deep-discount push has no second-platform confirmation of its own; the stale-Taline case is closed at validation (38.8). Decide in SP-D whether the push needs o"
+    "2026-10-17, closed (done: push_trigger.corroborate needs the deep discount without the cheapest platform (SP_C_HANDOFF.md 44)): Deep-discount push has no second-platform confirmation of its own; the stale-Taline case is closed at validation (38.8). Decide in SP-D whether the push needs o",
+    "2026-10-18, closed (done: گنج in the fetcher, both seeds rebuilt to 2026-10-17, the phone's and the collector's lists; SP_D_HANDOFF.md 48.1): Gold fund گنج (SP_D_HANDOFF.md 47.3): about 4% of individuals' buying, in neither the seed nor the phone's list. Pull its history from Iran, rebuild the seed and extend the phone's list together.",
+    "2026-10-18, closed (the owner: the rush meant is inside the session, not daily; the phone now records the session live, 48.2): Sudden moves in the gold funds' money (SP_D_HANDOFF.md 47.1, rd_flow_spikes.py): seen exactly from TSETMC's daily figures; none reaches the owner's 90% (the best, a top-2% day, 75-78% against 71-73%); one LEANS UP, thin. Proposed: a line in the evening and the next advisor on the 2-6 days a year it fires, no push. Awaits the owner; works from 11-01 (the day's figures come through the phone).",
+    "2026-10-18, closed (the owner: 'the rest is ok'; locked for the advisor, 48): The advisor's two lines (SP_D_HANDOFF.md 47.4): 'waiting for a 3% drop is risky in 92% of times' misstates the record (92% is of years; per occasion about half); proposed 'cost more in 92% of years'; the room's lines rewritten plainly. Await the owner; the advisor waits for the database."
   ]
 }
