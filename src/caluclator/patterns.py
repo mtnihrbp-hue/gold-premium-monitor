@@ -33,17 +33,33 @@ RECORD = {
     "RISING WEDGE": (2, 41, 8),
     "FALLING WEDGE": (4, 17, 39),
 }
-SHOWN = 0.5        # a pattern is shown, on the chart and in the caption, when more than half of its past ones on
-                   # 18K reached their target (owner, 2026-10-17: the rising wedge and the double top dropped)
+RATED_LIFT = 15    # points over the same distances from any day before a pattern's rate is shown (section 52)
+
+
+def lift(kind):
+    """A recorded pattern's rate minus its control's, in points: how much more often than any day of the same
+    era the same distance was reached first. None for an unrecorded one."""
+    base = kind.replace(" (up)", "").replace(" (down)", "")
+    if base not in RECORD:
+        return None
+    hit, n, control = RECORD[base]
+    return hit / n * 100 - control
 
 
 def shown(kind):
-    """True when the pattern is shown: the EMA20 test (after it the next month ran a little stronger, section
-    37.4), and the recorded patterns that reached their target more than SHOWN of the time. Head and
-    shoulders, the triangles and the triple tops and bottoms are found but not shown: 1-13 cases each on
-    18K, too few to rate (section 37.4)."""
+    """True when the pattern is marked on the chart: the EMA20 test (after it the next month ran a little
+    stronger, section 37.4), and the recorded patterns that did not do worse than any day. The double top
+    and both wedges did worse and are not marked (owner, 2026-10-17); head and shoulders, the triangles and
+    the triple tops and bottoms have 1-13 cases each on 18K, too few to rate. A mark describes; a rate in
+    the caption needs RATED_LIFT (`rated`; the external audit's B7, SP_D_HANDOFF.md section 52)."""
     base = kind.replace(" (up)", "").replace(" (down)", "")
-    return base == "EMA20 TEST" or (base in RECORD and RECORD[base][0] / RECORD[base][1] > SHOWN)
+    return base == "EMA20 TEST" or (lift(base) is not None and lift(base) > 0)
+
+
+def rated(kind):
+    """True when the caption may give the pattern's record: it reached its target RATED_LIFT points or more
+    above any day. On the record only the flag: 14 of 19 against 45 in 100."""
+    return lift(kind) is not None and lift(kind) >= RATED_LIFT
 
 
 POINTS = {"FLAG": "up", "RANGE BREAKOUT": "up", "DOUBLE BOTTOM": "up", "FALLING WEDGE": "up",

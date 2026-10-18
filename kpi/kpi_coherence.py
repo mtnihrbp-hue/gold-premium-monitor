@@ -1745,6 +1745,112 @@ class KPICoherence(unittest.TestCase):
         self.assertIn("parked, not sent", body[gate:gate + 600])
         self.assertIn("_send_buy_signal(markets", body[gate:], "the alert's code is kept, behind the switch")
 
+    def test_59_only_scheduled_runs_save_state_and_they_run_one_at_a_time(self):
+        """The external audit's A3, A4, A7 (SP_D_HANDOFF.md section 52): a user's run restored the state and saved
+        it back after a scheduled run had saved a newer one, and its reading became the next scheduled run's
+        previous premium. State and the mirror are restored by every run and saved by scheduled runs alone,
+        also after a failed step, under the restore steps' own paths and keys; scheduled runs queue."""
+        import re as _re
+        text = (REPO / ".github" / "workflows" / "gold-monitor.yml").read_text(encoding="utf-8").replace("\r\n", "\n")
+        blocks = {b.split("\n", 1)[0].strip(): b for b in text.split("\n      - name: ")[1:]}
+
+        def field(block, name):
+            m = _re.search(rf"^ +{name}: (.+)$", block, _re.M)
+            return m.group(1).strip() if m else None
+
+        def paths(block):
+            m = _re.search(r"path: \|\n((?: {12}\S+\n)+)", block + "\n")
+            return m.group(1).split() if m else [field(block, "path")]
+        scheduled = "(github.event_name == 'schedule' || github.event.inputs.mode == 'analyze')"
+        for restore, save in (("Restore State", "Save State"), ("Restore the record mirror", "Save the record mirror")):
+            r, w = blocks[restore], blocks[save]
+            self.assertEqual(field(r, "uses"), "actions/cache/restore@v4", restore)
+            self.assertEqual(field(w, "uses"), "actions/cache/save@v4", save)
+            self.assertEqual(paths(w), paths(r), "one list of paths, one cache")
+            self.assertEqual(field(w, "key"), field(r, "key"))
+            self.assertEqual(field(w, "if"), f"always() && {scheduled}")
+        names = list(blocks)
+        self.assertGreater(names.index("Save State"), names.index("Execute"))
+        concurrency = text.split("\nconcurrency:\n", 1)[1].split("\n\n", 1)[0]
+        self.assertIn(f"{scheduled} && 'gold-monitor-scheduled'", concurrency)
+        self.assertIn("github.run_id", concurrency, "a user's run is never held up")
+        self.assertIn("cancel-in-progress: false", concurrency)
+
+    def test_60_the_phone_sets_a_refused_row_aside_and_stops_asking_for_closed_days(self):
+        """The external audit's A9 (SP_D_HANDOFF.md section 52): a row Neon refused for its content stopped the
+        queue behind it for good; Thursdays, Fridays and holidays were asked for every hour for a week. A refused
+        row (SQLSTATE 22 or 23) is set aside and the rest go on; anything else still stops the queue; no closed
+        day is asked on Thursday or Friday, and a day still without a record 3 days on is not asked again."""
+        import io
+        import json as _json
+        from contextlib import redirect_stdout
+        import sys as _sys
+        import tempfile
+        from datetime import datetime as _dt
+        _sys.path.insert(0, str(REPO / "iran_node"))
+        import node
+
+        class _R:
+            def __init__(self, status, body):
+                self.status_code, self.body = status, body
+                self.text = _json.dumps(body)
+
+            def json(self):
+                return self.body
+        tmp = tempfile.mkdtemp()
+        saved = {k: getattr(node, k) for k in ("SPOOL", "REJECTED", "LOG", "STATE_FILE", "LOCK", "ENV_FILE", "settings",
+                                                 "read_daric", "read_compared", "read_tsetmc", "read_tsetmc_live")}
+        real_post = node.requests.post
+        try:
+            for k, name in (("SPOOL", "spool"), ("REJECTED", "rejected"), ("LOG", "log"), ("STATE_FILE", "state"),
+                            ("LOCK", "lock")):
+                setattr(node, k, os.path.join(tmp, name))
+            node.ENV_FILE = os.path.join(tmp, "env")
+            open(node.ENV_FILE, "w").write("NEON_URL=postgresql://u:p@h/db\nNODE=t\n")
+            rows = [{"source": "daric", "instrument": f"R{k}", "bid": None, "ask": None, "value": float(k),
+                     "status": "OK", "detail": None, "payload": None} for k in range(4)]
+            node.read_daric = lambda: rows[0]
+            node.read_compared = lambda: rows[1:]
+            node.read_tsetmc = lambda remember=True, any_minute=False: []
+            node.read_tsetmc_live = lambda any_minute=False: []
+            answers = {"R1": _R(400, {"code": "22P02", "message": "invalid input"})}
+            node.requests.post = lambda url, **k: answers.get(_json.loads(k["data"])["params"][2], _R(200, {}))
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(node.main([]), 0)
+            self.assertEqual(node.load_spool(), [], "the other rows went")
+            refused = [_json.loads(l) for l in open(node.REJECTED, encoding="utf-8")]
+            self.assertEqual([r["instrument"] for r in refused], ["R1"])
+            answers["R0"] = _R(402, {"message": "Your project has exceeded the data transfer quota"})
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(node.main([]), 2)
+            self.assertEqual(len(node.load_spool()), 4, "the quota stops the queue: everything waits")
+        finally:
+            node.requests.post = real_post
+            for k, v in saved.items():
+                setattr(node, k, v)
+        asked = []
+        real_get = node.requests.get
+        node.STATE_FILE = os.path.join(tmp, "state2")
+
+        class _Clock:
+            @staticmethod
+            def now(tz=None):
+                return _dt(2026, 10, 24, 6, 0, tzinfo=tz)       # Saturday 09:30 Tehran, minute < 15 after shift
+        real_dt = node.datetime
+        try:
+            node.requests.get = lambda url, **k: asked.append(url) or _R(200, {"clientType": None})
+            node.datetime = _Clock
+            node.read_tsetmc(remember=True, any_minute=True)
+            days = {u.rsplit("/", 1)[-1] for u in asked}
+            self.assertNotIn("20261022", days, "Thursday")
+            self.assertNotIn("20261023", days, "Friday")
+            done = _json.load(open(node.STATE_FILE))["tsetmc_done"]
+            self.assertTrue(all(k[:8] <= "20261021" for k in done), "only days 3 or more days old are given up")
+            self.assertTrue(any(k.startswith("20261021:") for k in done))
+        finally:
+            node.requests.get, node.datetime = real_get, real_dt
+            node.STATE_FILE = saved["STATE_FILE"]
+
 if __name__ == "__main__":
     print("=" * 55)
     print("CROSS-CUTTING COHERENCE")

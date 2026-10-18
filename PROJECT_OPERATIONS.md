@@ -160,6 +160,11 @@ Analysis Wing
 
 Cloudflare must not calculate gold price, premium, regime, features, or forecast.
 
+**The webhook's secret** (SP-D 52.3): with `TELEGRAM_WEBHOOK_SECRET` set in the worker, a request without
+Telegram's `X-Telegram-Bot-Api-Secret-Token` is refused; the webhook is registered with the same
+`secret_token`. A KV namespace bound as `DEBOUNCE` holds each command to one dispatch a minute. The GitHub
+tokens (worker, cron-job.org) are fine-grained: this repository, Actions read and write, with an expiry.
+
 **Status** (`src/worker/telegram-trigger.js`) reports the latest run, and since 2026-10-16 also the
 service line the last scheduled run left as an annotation of its job: the database, world gold, the
 dollar and the platforms (SP-D 37.15). The worker is deployed by pasting the file into Cloudflare's
@@ -477,7 +482,11 @@ cannot see the entries before it and starts from an empty state and spool. Addin
 cache step of its own: `record_mirror.sqlite`, the last 61 days of readings, is cached under
 `gold-monitor-mirror-` (37.12).
 
-Each run saves a new entry and restores the latest, so a busy branch never ages out. After a change to
+Since 2026-10-18 every run restores the latest entry, and only scheduled runs save a new one, also after
+a failed step (`Save State`, `Save the record mirror`; SP-D 52.2). Scheduled runs queue one at a time
+(`concurrency`); /Update, /Direction and /Analyze never wait and never save.
+
+Each scheduled run saves a new entry and restores the latest, so a busy branch never ages out. After a change to
 the workflow, read the first run's "Cache restored from key" line and its size, not only its result.
 Deleting the entries in the repository's Actions caches starts them fresh: the mirror then refills in
 full from Neon, and the spool is lost.
@@ -599,7 +608,9 @@ reads       Daric; Taline, HoorGold, MioGold (compared with production); TSETMC'
             funds (each hour's first quarter, source tsetmc); from 2026-10-18 TSETMC's live flow of the same
             funds, 12:00-18:15 Saturday-Wednesday, about 520 rows a trading day (source tsetmc_live, research
             only; SP_D_HANDOFF.md 48.2)
-local       ~/iran_node.log; ~/iran_node_spool.jsonl holds what could not be sent
+local       ~/iran_node.log; ~/iran_node_spool.jsonl holds what could not be sent; ~/iran_node_rejected.jsonl
+            the rows Neon refused for their content (SQLSTATE 22, 23), set aside; ~/.iran_node.lock, one run
+            at a time (SP-D 52.4)
 update      cd ~/gold-premium-monitor && git pull
 production  main._daric_from_node: the newest OK reading of the last 30 minutes, when
             Daric's own collector fails; validated like any platform

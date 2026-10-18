@@ -52,6 +52,14 @@ on:
 # Removed from main in c1799fe and mirrored here so the merge does not reintroduce it.
 # See PROJECT_OPERATIONS.md, "Branch ref control plane".
 
+# Scheduled runs one at a time (the external audit's A3, SP_D_HANDOFF.md section 52): two runs that restored the
+# same state and saved in turn lost the first one's changes, the outage's held writes among them. A second
+# scheduled run waits for the first; /Update, /Direction and /Analyze each get a group of their own and are
+# never held up -- they no longer save state (the steps "Save State" and "Save the record mirror" below).
+concurrency:
+  group: ${{ (github.event_name == 'schedule' || github.event.inputs.mode == 'analyze') && 'gold-monitor-scheduled' || format('gold-monitor-{0}', github.run_id) }}
+  cancel-in-progress: false
+
 jobs:
 
   run:
@@ -93,7 +101,8 @@ jobs:
           rm -f state.json candle_cache.json record_mirror.sqlite
 
       - name: Restore State
-        uses: actions/cache@v4
+        # Restore only; the step "Save State" at the end saves, for scheduled runs alone (section 52).
+        uses: actions/cache/restore@v4
         with:
           # NEVER change this list. A cache entry belongs to its exact list of paths: a run with a
           # different list cannot see the entries saved before it and starts from an empty state.json
@@ -130,7 +139,7 @@ jobs:
           PY
 
       - name: Restore the record mirror
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           # record_mirror.sqlite: the last 60 days of readings, copied from Neon by each scheduled run,
           # for the reads a run makes while Neon is out of reach (src/persistence/mirror.py, 37.12).
@@ -207,3 +216,26 @@ jobs:
         run: |
 
           python src/main.py
+
+      # Saved by scheduled runs only, and also when a step failed (section 52; the external audit's A3, A4,
+      # A7). A user's run restored the same state and saved it back later, so the newest entry could be the
+      # older state, and a /Update's reading became the next scheduled run's "previous premium". A run that
+      # failed after writing part of the spool back saved nothing, and the next run wrote those rows again.
+      # The paths and keys are the restore steps' own, unchanged: a cache entry belongs to its exact list of
+      # paths (kpi_coherence.test_52, test_59).
+      - name: Save State
+        if: always() && (github.event_name == 'schedule' || github.event.inputs.mode == 'analyze')
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            state.json
+            candle_cache.json
+            record_spool.jsonl
+          key: gold-monitor-state-${{ github.run_id }}
+
+      - name: Save the record mirror
+        if: always() && (github.event_name == 'schedule' || github.event.inputs.mode == 'analyze')
+        uses: actions/cache/save@v4
+        with:
+          path: record_mirror.sqlite
+          key: gold-monitor-mirror-${{ github.run_id }}

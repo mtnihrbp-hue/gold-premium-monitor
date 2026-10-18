@@ -36,7 +36,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    46-47 the previews revised, the funds' block wired (v1.27safe);
                                                                    48 گنج, the phone's live read, resistance lines, smart money (v1.28safe);
                                                                    49 option C, the saffron fund removed, the room re-measured (v1.29safe);
-                                                                   50 the old alert parked, Google keyed by story, the news leads
+                                                                   50 the old alert parked, Google keyed by story, the news leads (v1.30safe);
+                                                                   51-52 the external audit verified; patterns by lift, state saved by scheduled runs, the worker, the phone
        member, the LLM member
 ```
 
@@ -5588,3 +5589,92 @@ The positions and the plan are given to the owner. Their decisions follow in the
 
 **NEON MIGRATION REQUIRED = NO** (for this record; A8's fix will need one).
 
+## 52. The audit's first batch: patterns by lift, state saved by scheduled runs only, the worker, the phone (2026-10-18)
+
+The owner, on 51:
+- A5: "stay there" (the free plan), and "Free";
+- A11: "ok, park it. no remove." (the parked code stays);
+- A13: "agreed with post 1nov implementation";
+- B1 and B10 as proposed;
+- "I approve the order";
+- on the box line: "your call?";
+- "summary is enough" (the audit's text is not kept in the repo; 51 is its record).
+
+**52.1 Patterns: a rate only with lift over any day** (B7; the box line by my call, as delegated).
+- `patterns.lift(kind)` is a pattern's rate minus its control's in `RECORD`, in points.
+- **Marked on the chart** (`shown`): the EMA20 test and the patterns that did not do worse than any day:
+  - the flag (+28.7 points);
+  - breaks down from a box (+10.5);
+  - the double bottom (+10.2);
+  - breaks up from a box (+6.9).
+- **Not marked:** the double top (-8.0), the rising wedge (-3.1) and the falling wedge (-15.5). Head and
+  shoulders, the triangles and the triples are unrated.
+- **A rate in the caption** (`rated`): only with `RATED_LIFT`, 15 points or more, and always beside any
+  day's. On the record only the flag: "(14 of 19 past flags got there within 2 months; from any day 45 in
+  100)".
+- **The box keeps its two levels and loses its rates:** "Close above 26.74M: opens the road to 28.21M".
+  - "3 in 4 got there" was about what any day does in this uptrend (7 in 10).
+- `odds()` is removed.
+- `kpi_paper.test_44` holds it: the box's lines, the hidden set, the rated set, the flag's line.
+
+**52.2 State saved by scheduled runs only; scheduled runs one at a time** (A3, A4 in part, A7;
+`gold-monitor.yml`).
+- `Restore State` and `Restore the record mirror` restore only (`actions/cache/restore@v4`).
+- `Save State` and `Save the record mirror` (`actions/cache/save@v4`) run after Execute:
+  - for scheduled runs alone;
+  - also when a step failed (`always()`);
+  - under the restore steps' own paths and keys, unchanged. A cache entry belongs to its exact list of
+    paths (37.14).
+- `concurrency`: scheduled runs share one group and queue (`cancel-in-progress: false`). /Update, /Direction
+  and /Analyze each get a group of their own and are never held up.
+- **What it closes:**
+  - a user's run that restored the state and saved it back after a scheduled run could make the older
+    state the newest;
+  - a /Update's reading entered the history the next scheduled run takes its previous premium from (A7);
+  - a run that failed after writing part of the spool back saved nothing, so the next one wrote those rows
+    again.
+- **What it costs:** a /Update reading taken while Neon is out of reach is no longer kept for the record. User
+  rows are left out of every reference pool, and from 11-01 they go to Neon directly.
+- `kpi_coherence.test_59`. It fails with a save step's condition removed.
+- **First proof:** the next scheduled run's restore line hits the newest entry.
+
+**52.3 The worker** (A1, A2; `src/worker/telegram-trigger.js`, `README.md`; live only once pasted).
+- **The secret:** when `TELEGRAM_WEBHOOK_SECRET` is set, a request without Telegram's matching
+  `X-Telegram-Bot-Api-Secret-Token` header is refused (403), compared in constant time.
+- **The hold:** with a KV namespace bound as `DEBOUNCE`, each command is dispatched at most once a minute.
+  Cloudflare's cache API cannot do this on a `workers.dev` address.
+- **GitHub's error text** is escaped before Telegram parses it as HTML.
+- **The token:** the error text no longer advises a classic token. Status reads the service annotation
+  without the token when a fine-grained one cannot reach check runs. The repository is public.
+- **Tested:** `tests/test_worker.py` runs `tests/worker_behaviour.mjs` in Node with fake GitHub, Telegram
+  and KV. Six behaviours pass, and the module import also checks the syntax.
+- **The owner's steps,** in order:
+  1. register the webhook with the secret;
+  2. add the variable, and optionally the KV binding;
+  3. paste the worker;
+  4. create two fine-grained tokens (worker, cron-job.org): this repository only, Actions read and write,
+     with an expiry;
+  5. swap them in;
+  6. revoke the classic one.
+
+**52.4 The phone** (A9; `iran_node/node.py`).
+- **A refused row:** Neon's answer carries its SQLSTATE. Classes 22 and 23 (the row's content) set the row
+  aside in `~/iran_node_rejected.jsonl` and the queue goes on. Anything else, the quota of 10-13 included,
+  still stops it.
+- **Closed days:** Thursdays and Fridays are not asked for, and a day still without a record 3 days on is
+  not asked again.
+- **The lock:** a run takes `~/.iran_node.lock` and stops if the last one is still going.
+- `kpi_coherence.test_60`.
+- **Left for later:**
+  - signing the phone's rows, or cross-checking its Daric against another platform before production uses
+    it (A9's last point);
+  - moving the pooler host to the env file. The host is not a secret.
+
+**52.5 Also for the owner:** the repository is public, so the run logs are readable by anyone (A10). Making it
+private would end the unlimited Actions minutes of a public repository, and production uses more than a
+private one's 2,000 free minutes a month. It stays public under the zero-spending rule. The logs print no
+secret.
+
+**Checks:** the KPI suite 30/30 (coherence 55, paper 52); unit tests 19/19; compileall.
+
+**NEON MIGRATION REQUIRED = NO.**

@@ -257,10 +257,13 @@ Its 20-day forecasts resolve from early November.
   of the 20-day EMA; double and triple tops and bottoms, head and shoulders, triangles, wedges.
 - **What it prints:** each pattern with its record on 18K since 2014 (`RECORD`): the target reached
   within 2 months. One rule for the chart and the caption (`patterns.shown`, SP-D 47-49):
-  - shown: the EMA20 test and the rated patterns that got there more than half the time;
-  - not shown: the rising wedge, the double top and the falling wedge; head and shoulders, the triangles
-    and the triple tops and bottoms (too few cases to rate).
-  - A box is shown with the road out of each side: "3 in 4" broke up to their target, "about half" down.
+  - marked on the chart: the EMA20 test and the patterns that did not do worse than any day (the flag, box
+    breaks, the double bottom);
+  - a rate in the caption only with 15 points of lift over any day, shown beside any day's: only the
+    flag (SP-D 52.1, the external audit's B7);
+  - not marked: the rising wedge, the double top and the falling wedge; head and shoulders, the triangles
+    and the triple tops and bottoms (too few cases to rate);
+  - a box is shown with the road out of each side, without rates.
 - **The resistance trend lines** (`technical.trendlines`, SP-D 48.3, 49.1): the closest above the price,
   solid. The most-touched one, from 3 touches, is drawn thin and dashed beside it (owner, option C).
   On 18K's record a line touched more breaks as often as one touched twice at the same distance from

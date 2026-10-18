@@ -152,8 +152,9 @@ An agreed layout is locked. These are changed only with the owner's permission, 
 - the evening message (47): the box with the road out of each side, the funds' block, and the expected
   return of the database;
 - the chart: support and resistance with the patterns, "both worlds". The closest resistance line is
-  solid and the longer, most-touched one thin and dashed (option C, 49). The patterns shown are only the
-  ones that worked on 18K (`patterns.shown`, 49.2).
+  solid and the longer, most-touched one thin and dashed (option C, 49). Patterns are marked when they did
+  not do worse than any day (`patterns.shown`), and carry a rate only with lift over any day, shown beside
+  it (`patterns.rated`, 52.1). The box shows its levels without rates.
 
 The advisor's lines locked on 10-17 and 10-18 wait for it to be built (47.4, 49.4).
 

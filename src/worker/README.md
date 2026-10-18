@@ -52,10 +52,22 @@ Set in the Cloudflare Workers dashboard (Settings → Variables):
 
 | Variable | Description |
 |---|---|
-| `GITHUB_TOKEN` | Classic PAT with `repo` scope. Fine-grained tokens do not work. |
+| `GITHUB_TOKEN` | A fine-grained token: this repository only, Actions read and write, with an expiry. Since 2026-10-18; the classic `repo` token is revoked (the external audit's A2, `SP_D_HANDOFF.md` 52). Fine-grained tokens do work for dispatches. |
 | `GITHUB_REPO` | **Full** path, `owner/repo` — e.g. `mtnihrbp-hue/gold-premium-monitor` |
 | `TELEGRAM_BOT_TOKEN` | From @BotFather |
 | `TELEGRAM_CHAT_ID` | Numeric chat ID, as a string |
+| `TELEGRAM_WEBHOOK_SECRET` | The `secret_token` the webhook is registered with (A1). When set, a request without Telegram's matching `X-Telegram-Bot-Api-Secret-Token` header is refused. Letters, digits, `_` and `-`, up to 256. |
+
+Binding (Settings → Bindings), optional: a KV namespace named `DEBOUNCE`. With it, each command is
+dispatched at most once a minute; without it, nothing is held back. Cloudflare's cache API cannot do this on a
+`workers.dev` address.
+
+The webhook is registered with its secret once, in a browser:
+`https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=<the worker's address>&secret_token=<the secret>`.
+Register it first, then set the variable and paste the worker: the old worker ignores the header, so nothing
+is refused in between.
+
+`tests/test_worker.py` runs the worker's behaviour in Node (`tests/worker_behaviour.mjs`).
 
 ## Validating before you deploy
 

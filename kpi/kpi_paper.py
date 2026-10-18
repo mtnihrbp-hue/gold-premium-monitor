@@ -1036,11 +1036,13 @@ class KPIPaper(unittest.TestCase):
         self.assertEqual(re.sub(r"</?[bi]>", "", lines[0]), "GOLD FUNDS · individuals, last 10 sessions (tablokhani)")
         self.assertIn("times the usual 10 sessions", lines[1])
 
-    def test_44_only_the_patterns_that_worked_on_18k_are_shown(self):
-        """The rising wedge reached its target 2 times in 41, the double top 3 in 12: the books' reading is not
-        shown (owner, 2026-10-17). A box is shown with the road out of each side and its record."""
-        from alerts.telegram_paper import SHOWN, odds, pattern_lines
-        from caluclator.patterns import RECORD
+    def test_44_a_rate_is_shown_only_with_lift_over_any_day(self):
+        """The rising wedge reached its target 2 times in 41, the double top 3 in 12: not shown (owner,
+        2026-10-17). A box is shown with the road out of each side and no rate: from any day the same distance
+        was reached about as often (the external audit's B7; the owner's call to me, 2026-10-18). Only a pattern
+        that beat any day by RATED_LIFT points carries its record, beside any day's (SP_D_HANDOFF.md 52)."""
+        from alerts.telegram_paper import pattern_lines
+        from caluclator.patterns import RATED_LIFT, RECORD, lift, rated, shown
         d = lambda k: date(2026, 10, k)
         found = {"ranges": [(d(1), d(15), 252_700_000.0, 267_400_000.0, True)], "tests": [d(13)], "flag": None,
                  "events": [(d(3), "RISING WEDGE (down)", 260e6, 240e6, 270e6),
@@ -1050,16 +1052,19 @@ class KPIPaper(unittest.TestCase):
         text = "\n".join(lines)
         self.assertNotIn("wedge", text.lower())
         self.assertNotIn("double top", text.lower())
-        self.assertIn("Double bottom on 13 Mehr: opens the road to 27.50M", text)
-        self.assertEqual(lines[:4], [
+        self.assertNotIn("Double bottom", text, "marked on the chart, but its 19 of 24 is about any day's 69 in 100")
+        self.assertEqual(lines, [
             "Touched the 20-day average on 21 Mehr and bounced (after such bounces the next month was a little "
             "stronger than usual)",
             "In a box since 9 Mehr, 25.27M to 26.74M",
-            "  Close above 26.74M: opens the road to 28.21M (3 in 4 got there)",
-            "  Close below 25.27M: may lead to 23.80M (about half got there)"])
-        hidden = {kind for kind, (hit, n, _c) in RECORD.items() if hit / n <= SHOWN}
-        self.assertEqual(hidden, {"RISING WEDGE", "DOUBLE TOP", "FALLING WEDGE"})
-        self.assertEqual((odds(30, 39), odds(12, 22)), ("3 in 4", "about half"))
+            "  Close above 26.74M: opens the road to 28.21M",
+            "  Close below 25.27M: may lead to 23.80M"])
+        self.assertEqual({k for k in RECORD if not shown(k)}, {"RISING WEDGE", "DOUBLE TOP", "FALLING WEDGE"})
+        self.assertEqual({k for k in RECORD if rated(k)}, {"FLAG"})
+        self.assertGreaterEqual(lift("FLAG"), RATED_LIFT)
+        flagged = dict(found, flag=(d(7), 244e6, 288.8e6, 230.6e6))
+        self.assertIn("  (14 of 19 past flags got there within 2 months; from any day 45 in 100)",
+                      pattern_lines(flagged))
 
     def test_46_the_chart_is_drawn_without_a_live_price(self):
         """With every platform down there is no live price; the levels split at the last close (section 48)."""

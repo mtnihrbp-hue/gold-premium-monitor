@@ -150,14 +150,7 @@ def demand_block(demand, day):
     return block(demand)
 
 
-from caluclator.patterns import SHOWN  # noqa: E402  -- one rule for the caption and the chart (section 48)
-
-
-def odds(hit, n):
-    """A record in plain words for the box's two sides: '3 in 4', 'about half'."""
-    words = ((1 / 4, "1 in 4"), (1 / 3, "1 in 3"), (1 / 2, "about half"), (2 / 3, "2 in 3"), (3 / 4, "3 in 4"),
-             (4 / 5, "4 in 5"), (9 / 10, "9 in 10"))
-    return min(words, key=lambda w: abs(w[0] - hit / n))[1]
+from caluclator.patterns import RATED_LIFT  # noqa: E402,F401  -- a rate only with lift (section 52)
 
 
 EVENT_WORDS = {"RANGE BREAKOUT": ("Broke up out of the box on {day}: opens the road to {target}", "past breaks up"),
@@ -166,12 +159,13 @@ EVENT_WORDS = {"RANGE BREAKOUT": ("Broke up out of the box on {day}: opens the r
 
 
 def pattern_lines(found):
-    """The pattern reader's words for a caption (sections 37.4, 46): its last test of the 20-day average, the
-    box the price is in with the road out of each side, a live flag, and the patterns of the last 10 days
-    that worked on 18K -- more than half of the past ones reached their target, so the rising wedge, the
-    double top and the falling wedge are left out (owner, 2026-10-17). Each with its record on 18K: the
-    target reached within 40 trading days, before a close back through the pattern's other side."""
-    from caluclator.patterns import FLAG_RECORD, RECORD, name, shown
+    """The pattern reader's words for a caption (sections 37.4, 46, 52): its last test of the 20-day average,
+    the box the price is in with the road out of each side, a live flag, and the patterns of the last 10
+    days whose record beat any day's by RATED_LIFT points. A rate is given only then, beside what any day
+    did: in a market that rises most years a target above is reached often from any day, so a hit rate
+    alone says nothing (the external audit's B7; the box's rates were dropped, the owner's call to make,
+    2026-10-18)."""
+    from caluclator.patterns import FLAG_RECORD, RECORD, name, rated
     out = []
     found = found or {}
     current = [r for r in found.get("ranges", []) if r[4]]
@@ -183,14 +177,14 @@ def pattern_lines(found):
         height = hi - lo
         up, down = RECORD["RANGE BREAKOUT"], RECORD["RANGE BREAKDOWN"]
         out += [f"In a box since {persian_day(start)}, {_m(lo)} to {_m(hi)}",
-                f"  Close above {_m(hi)}: opens the road to {_m(hi + height)} ({odds(*up[:2])} got there)",
-                f"  Close below {_m(lo)}: may lead to {_m(lo - height)} ({odds(*down[:2])} got there)"]
+                f"  Close above {_m(hi)}: opens the road to {_m(hi + height)}",
+                f"  Close below {_m(lo)}: may lead to {_m(lo - height)}"]
     flag = found.get("flag")
     if flag:
         day, _level, target, stop = flag
-        hit, n, _control = FLAG_RECORD
+        hit, n, control = FLAG_RECORD
         out += [f"Flag of {persian_day(day)}: target {_m(target)} while above {_m(stop)}",
-                f"  ({hit} of {n} past flags got there within 2 months)"]
+                f"  ({hit} of {n} past flags got there within 2 months; from any day {control} in 100)"]
     events = found.get("events", [])
     if events:
         latest = events[-1][0]
@@ -198,15 +192,15 @@ def pattern_lines(found):
         for day, kind, _level, target, *_r in events:
             base = kind.replace(" (up)", "").replace(" (down)", "")
             if (base in ("FLAG", "EMA20 TEST") or base not in RECORD or base in seen or target is None
-                    or (latest - day).days > 14 or not shown(base)):
+                    or (latest - day).days > 14 or not rated(base)):
                 continue
             if current and base in ("RANGE BREAKOUT", "RANGE BREAKDOWN") and day >= current[-1][0]:
                 continue
             seen.add(base)
-            hit, n, _control = RECORD[base]
+            hit, n, control = RECORD[base]
             text, who = EVENT_WORDS.get(base, (f"{name(kind).capitalize()} on {{day}}: target {{target}}", "past ones"))
             out += [text.format(day=persian_day(day), target=_m(target)),
-                    f"  ({hit} of {n} {who} got there within 2 months)"]
+                    f"  ({hit} of {n} {who} got there within 2 months; from any day {control} in 100)"]
     return out
 
 

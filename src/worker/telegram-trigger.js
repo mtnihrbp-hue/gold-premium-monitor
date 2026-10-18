@@ -8,10 +8,14 @@
 // dashboard, so the two never drift.
 //
 // Env vars (Cloudflare Dashboard):
-//   GITHUB_TOKEN       = Classic PAT with 'repo' scope
-//   GITHUB_REPO        = "mtnihrbp-hue/gold-premium-monitor"  (full path!)
-//   TELEGRAM_BOT_TOKEN = from @BotFather
-//   TELEGRAM_CHAT_ID   = your chat ID
+//   GITHUB_TOKEN            = a fine-grained token: this repository only, Actions read and write, with an
+//                             expiry (the external audit's A2, SP_D_HANDOFF.md section 52)
+//   GITHUB_REPO             = "mtnihrbp-hue/gold-premium-monitor"  (full path!)
+//   TELEGRAM_BOT_TOKEN      = from @BotFather
+//   TELEGRAM_CHAT_ID        = your chat ID
+//   TELEGRAM_WEBHOOK_SECRET = the secret_token the webhook was registered with (A1). When set, a request
+//                             without Telegram's matching header is refused.
+// Binding (optional): DEBOUNCE, a KV namespace. With it, each command is dispatched at most once a minute.
 
 // The branch whose workflow file AND application code answer the user. It must match
 // the ref cron-job.org sends. Both were repointed from "SP-C" to "main" on 2026-09-28,
@@ -23,6 +27,15 @@ export default {
   async fetch(request, env, ctx) {
     if (request.method !== "POST") {
       return new Response("Gold Monitor Bot is running", { status: 200 });
+    }
+
+    // Only Telegram knows the secret it was registered with, and sends it in this header. The chat id inside
+    // the body is a number, not a secret: anyone who learned this address could otherwise dispatch production
+    // runs (the external audit's A1).
+    if (env.TELEGRAM_WEBHOOK_SECRET &&
+        !sameSecret(request.headers.get("X-Telegram-Bot-Api-Secret-Token") || "", env.TELEGRAM_WEBHOOK_SECRET)) {
+      console.log("Rejected: no matching secret token");
+      return new Response("Unauthorized", { status: 403 });
     }
 
     let update;
@@ -56,6 +69,12 @@ export default {
       return new Response("OK");
     }
 
+    // One dispatch per command a minute: a repeated tap, or a burst, runs once.
+    if (["update", "analyze", "analysis", "direction"].includes(command) && await debounced(env, command)) {
+      await sendTelegram(env, chatId, "⏳ Already on its way: one per minute.");
+      return new Response("OK");
+    }
+
     // ─── Update ───
     if (command === "update") {
       const ghRes = await triggerGitHub(env);
@@ -65,11 +84,10 @@ export default {
         try { errBody = await ghRes.text(); } catch {}
 
         const errorMsg = `❌ <b>GitHub Error ${ghRes.status}</b>\n\n` +
-          `${errBody.slice(0, 400)}\n\n` +
+          `${escapeHtml(errBody.slice(0, 400))}\n\n` +
           `Check:\n` +
-          `1. Token is <b>Classic</b> (not Fine-Grained)\n` +
-          `2. Token has <b>repo</b> scope\n` +
-          `3. Token not expired`;
+          `1. The token is for this repository, with Actions read and write\n` +
+          `2. The token has not expired`;
 
         await sendTelegram(env, chatId, errorMsg);
         console.error(`GitHub ${ghRes.status}: ${errBody}`);
@@ -93,7 +111,7 @@ export default {
         await sendTelegram(env, chatId,
           `❌ <b>GitHub Error ${ghRes.status}</b>
 
-${errBody.slice(0, 400)}`);
+${escapeHtml(errBody.slice(0, 400))}`);
         console.error(`GitHub ${ghRes.status}: ${errBody}`);
         return new Response("GitHub error", { status: 500 });
       }
@@ -114,7 +132,7 @@ ${errBody.slice(0, 400)}`);
         await sendTelegram(env, chatId,
           `❌ <b>GitHub Error ${ghRes.status}</b>
 
-${errBody.slice(0, 400)}`);
+${escapeHtml(errBody.slice(0, 400))}`);
         console.error(`GitHub ${ghRes.status}: ${errBody}`);
         return new Response("GitHub error", { status: 500 });
       }
@@ -239,8 +257,13 @@ async function getServiceLine(env) {
     if (!jobs.ok) return "";
     const job = ((await jobs.json()).jobs || [])[0];
     if (!job) return "";
-    const notes = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/check-runs/${job.id}/annotations`,
-      { headers });
+    const annotations = `https://api.github.com/repos/${env.GITHUB_REPO}/check-runs/${job.id}/annotations`;
+    let notes = await fetch(annotations, { headers });
+    if (notes.status === 403 || notes.status === 404) {
+      // a fine-grained token may not reach check runs; the repository is public, so read without it
+      const { Authorization, ...open } = headers;
+      notes = await fetch(annotations, { headers: open });
+    }
     if (!notes.ok) return "";
     const line = ((await notes.json()) || []).find(a => a.title === "service");
     if (!line) return "";
@@ -250,6 +273,33 @@ async function getServiceLine(env) {
   } catch (e) {
     return "";
   }
+}
+
+// The secret compared in constant time (the external audit's A1).
+function sameSecret(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+// True when the same command was dispatched in the last minute. Needs the DEBOUNCE KV binding; without it,
+// nothing is held back. (Cloudflare's cache API does nothing on workers.dev addresses, so KV is used.)
+async function debounced(env, command) {
+  if (!env.DEBOUNCE) return false;
+  const key = `cmd:${command === "analysis" ? "analyze" : command}`;
+  try {
+    if (await env.DEBOUNCE.get(key)) return true;
+    await env.DEBOUNCE.put(key, "1", { expirationTtl: 60 });
+  } catch (e) {
+    console.log(`debounce unavailable: ${e}`);
+  }
+  return false;
+}
+
+// GitHub's error text is not ours: escaped before Telegram parses it as HTML.
+function escapeHtml(text) {
+  return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 // Send Telegram message
