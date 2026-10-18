@@ -44,6 +44,14 @@ LOG = os.path.join(HOME, "iran_node.log")
 # seven days; Neon's free plan suspended the database on 2026-10-13 until the month's end
 # (SP_D_HANDOFF.md section 34), so the spool must hold a month: about 12,000 rows, kept with room.
 SPOOL_LIMIT = 30000
+# A row Neon refuses for its own content (SQLSTATE class 22, a data exception; 23, a constraint) would stop the
+# queue behind it for good. It is set aside here instead, and the rest go on (the external audit's A9;
+# SP_D_HANDOFF.md section 52). Anything else -- the network, the quota of 10-13 -- still stops the queue.
+REJECTED = os.path.join(HOME, "iran_node_rejected.jsonl")
+LOCK = os.path.join(HOME, ".iran_node.lock")
+_LOCK_FILE = None                # held open for the run: the lock lives as long as the file
+ROW_ERRORS = ("22", "23")
+NO_SESSION_AFTER_DAYS = 3        # a closed day still without a record 3 days on had no session (a holiday)
 
 DARIC = "https://apisc.daric.gold/loan/api/v1/User/Collateral/GetGoldlPrice"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Linux; Android 12; SM-G973F) AppleWebKit/537.36 "
@@ -153,6 +161,10 @@ def read_compared():
     return rows
 
 
+class RowRefused(RuntimeError):
+    """Neon refused this row for its content; the next rows can still go."""
+
+
 def read_tsetmc(remember=True, any_minute=False):
     """Each gold fund's closed days not yet fetched, among the last TSETMC_DAYS: one row per fund and
     day, the trading day in `detail`, TSETMC's own record in `payload`. Asked once an hour."""
@@ -164,10 +176,13 @@ def read_tsetmc(remember=True, any_minute=False):
             state = json.load(f)
     except (OSError, ValueError):
         state = {}
-    days = [(tehran.date() - timedelta(days=k)).strftime("%Y%m%d") for k in range(TSETMC_DAYS)]
+    dates = [tehran.date() - timedelta(days=k) for k in range(TSETMC_DAYS)]
+    days = [d.strftime("%Y%m%d") for d in dates]
     done = {key for key in state.get("tsetmc_done", []) if key[:8] in days}
     rows = []
-    for day in days:
+    for date_, day in zip(dates, days):
+        if date_.weekday() in (3, 4):
+            continue                     # Thursday and Friday: no session, nothing to ask (A9)
         for code, symbol in GOLD_FUNDS:
             if f"{day}:{code}" in done:
                 continue
@@ -180,6 +195,8 @@ def read_tsetmc(remember=True, any_minute=False):
                 rows.append({"source": "tsetmc", "instrument": f"CLIENTTYPE_{code}", "bid": None, "ask": None,
                              "value": None, "status": "OK", "detail": day, "payload": record})
                 done.add(f"{day}:{code}")
+            elif (tehran.date() - date_).days >= NO_SESSION_AFTER_DAYS:
+                done.add(f"{day}:{code}")    # still nothing 3 days on: a holiday, not asked again
     if remember:
         state["tsetmc_done"] = sorted(done)
         with open(STATE_FILE, "w", encoding="utf-8") as f:
@@ -228,6 +245,12 @@ def send(row, neon_url):
                       headers={"Neon-Connection-String": neon_url, "Content-Type": "application/json"},
                       data=json.dumps({"query": INSERT, "params": params}))
     if r.status_code != 200:
+        try:
+            code = str(r.json().get("code") or "")
+        except ValueError:
+            code = ""
+        if code[:2] in ROW_ERRORS:
+            raise RowRefused(f"Neon {r.status_code} {code}: {r.text[:200]}")
         raise RuntimeError(f"Neon {r.status_code}: {r.text[:200]}")
 
 
@@ -255,9 +278,28 @@ def setup():
     log(f"settings written to {ENV_FILE}; sending now")
 
 
+def locked():
+    """True when another run holds the lock: cron runs every 15 minutes, and a slow run must not have a second
+    one rewrite the same spool beside it (A9). Without fcntl (not on the phone) there is no lock."""
+    try:
+        import fcntl
+    except ImportError:
+        return False
+    global _LOCK_FILE
+    _LOCK_FILE = open(LOCK, "w")
+    try:
+        fcntl.flock(_LOCK_FILE, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return False
+    except OSError:
+        return True
+
+
 def main(argv):
     if "--setup" in argv:
         setup()
+    if "--test" not in argv and locked():
+        log("the previous run is still going; this one stops")
+        return 0
     cfg = settings() if os.path.exists(ENV_FILE) else {}
     node, now = cfg.get("NODE", "s10"), utc_now()
     testing = "--test" in argv
@@ -280,18 +322,26 @@ def main(argv):
         log(f"no NEON_URL in {ENV_FILE}; {summary} kept in the spool")
         save_spool(load_spool() + readings)
         return 1
-    queue, unsent, failure = load_spool() + readings, [], None
+    queue, unsent, refused, failure = load_spool() + readings, [], [], None
     for row in queue:
         if failure is None:
             try:
                 send(row, cfg["NEON_URL"])
                 continue
+            except RowRefused as e:
+                refused.append(dict(row, refused=str(e)[:200]))
+                continue
             except Exception as e:  # noqa: BLE001
                 failure = f"{type(e).__name__}: {e}"[:200]
         unsent.append(row)
     save_spool(unsent)
-    sent = len(queue) - len(unsent)
-    log(f"{summary}; sent {sent}" + (f", waiting {len(unsent)} ({failure})" if unsent else ""))
+    if refused:
+        with open(REJECTED, "a", encoding="utf-8") as f:
+            for row in refused:
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    sent = len(queue) - len(unsent) - len(refused)
+    log(f"{summary}; sent {sent}" + (f", set aside {len(refused)} refused rows in {REJECTED}" if refused else "")
+        + (f", waiting {len(unsent)} ({failure})" if unsent else ""))
     return 0 if not unsent else 2
 
 
