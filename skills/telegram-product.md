@@ -20,7 +20,7 @@ Scheduled, not commanded:
 - SERVICE, when a service stops or comes back, once two runs agree;
 - the room's 21:00 report, with the day's chart as a photo;
 - the room's trades;
-- the BUY signal;
+- the BUY signal, parked by the owner on 2026-10-18 (computed and logged, not sent; `SP_D_HANDOFF.md` 50.1);
 - the deep-discount push, parked until Neon returns.
 
 The daily recap is parked.

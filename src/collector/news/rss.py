@@ -204,6 +204,16 @@ def _get_text(parent, tag: str, ns: Dict[str, str]) -> Optional[str]:
 # pinned to the historical value, deliberately, and is not the source label.
 DEDUP_NAMESPACE = "rss"
 
+# Google News ends every title with " - <outlet>", so one story carried by two outlets hashed as two
+# (SP_C_HANDOFF.md 34.5; SP_D_HANDOFF.md section 50). For Google's feeds the key is taken without that
+# last segment. The key it had before travels as "legacy_dedup_key", so an item stored or held under it
+# is not stored again on the change.
+GOOGLE_OUTLET = re.compile(r"^(?P<story>.+\S)\s+-\s+(?P<outlet>(?:(?!\s-\s).){2,60})$")
+
+
+def _dedup_key(title: str) -> str:
+    return hashlib.sha256(f"{DEDUP_NAMESPACE}:{title.strip().lower()}".encode("utf-8")).hexdigest()[:32]
+
 
 def _normalize_item(
     title: str,
@@ -214,11 +224,8 @@ def _normalize_item(
 ) -> Dict[str, Any]:
     """Normalize a news item into the canonical schema."""
     collected_at = datetime.now(timezone.utc)
-    dedup_key = hashlib.sha256(
-        f"{DEDUP_NAMESPACE}:{title.strip().lower()}".encode("utf-8")
-    ).hexdigest()[:32]
-
-    return {
+    dedup_key = _dedup_key(title)
+    item = {
         "title": title.strip(),
         "summary": summary.strip(),
         "url": url.strip(),
@@ -227,6 +234,11 @@ def _normalize_item(
         "collected_at": collected_at,
         "dedup_key": dedup_key,
     }
+    story = GOOGLE_OUTLET.match(title.strip()) if (source or "").startswith("google") else None
+    if story:
+        item["dedup_key"] = _dedup_key(story.group("story"))
+        item["legacy_dedup_key"] = dedup_key
+    return item
 
 
 def collect_rss_feed(url: str, timeout: int = 15) -> List[Dict[str, Any]]:

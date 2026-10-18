@@ -439,6 +439,45 @@ def test_ingest_holds_the_rest_once_the_database_is_out_of_reach():
     print("PASS: test_ingest_holds_the_rest_once_the_database_is_out_of_reach")
 
 
+def test_google_news_keys_a_story_without_its_outlet():
+    """Google News ends titles with " - <outlet>": one story from two outlets is one key, other feeds keep
+    their titles whole, and the key before the change travels along (SP_D_HANDOFF.md section 50)."""
+    now = datetime.now(timezone.utc)
+    a = _normalize_item("Gold hits a record as the dollar slips - Reuters", "", "u1", "google:gold price", now)
+    b = _normalize_item("Gold hits a record as the dollar slips - Bloomberg.com", "", "u2", "google:gold price", now)
+    c = _normalize_item("Gold hits a record as the dollar slips - Reuters", "", "u3", "kitco.com", now)
+    whole = _normalize_item("Gold hits a record as the dollar slips", "", "u4", "kitco.com", now)
+    assert a["dedup_key"] == b["dedup_key"] == whole["dedup_key"]
+    assert a["legacy_dedup_key"] == c["dedup_key"] != a["dedup_key"], "the old key travels along"
+    assert "legacy_dedup_key" not in c, "other feeds are unchanged"
+    assert a["title"].endswith("- Reuters"), "the stored title keeps its outlet"
+    d = _normalize_item("Iran rial falls - what it means - Al-Monitor", "", "u5", "google:iran rial", now)
+    e = _normalize_item("Iran rial falls - what it means", "", "u6", "kitco.com", now)
+    assert d["dedup_key"] == e["dedup_key"], "an outlet with a hyphen, a story with a dash"
+    print("PASS: test_google_news_keys_a_story_without_its_outlet")
+
+
+def test_ingest_skips_an_item_stored_under_its_old_key():
+    import collector.news.ingest as ingest_module
+    saved = (ingest_module.get_stored_dedup_keys, ingest_module.collect_rss_feed, ingest_module.save_news_event,
+             ingest_module.held_keys)
+    items = [{"title": "t", "url": "u", "source": "google:x", "dedup_key": "new", "legacy_dedup_key": "old"}]
+    asked, saves = [], []
+    try:
+        ingest_module.get_stored_dedup_keys = lambda keys: asked.append(set(keys)) or {"old"}
+        ingest_module.held_keys = lambda kind, field: set()
+        ingest_module.collect_rss_feed = lambda url, timeout=None: items
+        ingest_module.save_news_event = lambda event: saves.append(event) or 1
+        result = ingest_module.run_news_ingestion({"news": {"enabled": True, "sources": ["http://a"],
+                                                            "max_items_per_source": 10}})
+        assert {"new", "old"} <= asked[0], "both keys are asked for"
+        assert saves == [] and result["total_duplicate"] == 1, result
+    finally:
+        (ingest_module.get_stored_dedup_keys, ingest_module.collect_rss_feed, ingest_module.save_news_event,
+         ingest_module.held_keys) = saved
+    print("PASS: test_ingest_skips_an_item_stored_under_its_old_key")
+
+
 if __name__ == "__main__":
     tests = [
         test_parse_valid_rss,
@@ -461,6 +500,8 @@ if __name__ == "__main__":
         test_a_feed_without_a_charset_is_read_as_utf8,
         test_source_label_tells_numbered_feeds_apart,
         test_ingest_holds_the_rest_once_the_database_is_out_of_reach,
+        test_google_news_keys_a_story_without_its_outlet,
+        test_ingest_skips_an_item_stored_under_its_old_key,
     ]
 
     passed = 0

@@ -35,7 +35,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    39-45 the research, the news dedup, the documents merged 2026-10-17 (v1.26safe);
                                                                    46-47 the previews revised, the funds' block wired (v1.27safe);
                                                                    48 گنج, the phone's live read, resistance lines, smart money (v1.28safe);
-                                                                   49 option C, the saffron fund removed, the room re-measured
+                                                                   49 option C, the saffron fund removed, the room re-measured (v1.29safe);
+                                                                   50 the old alert parked, Google keyed by story, the news leads
        member, the LLM member
 ```
 
@@ -5477,5 +5478,73 @@ offsets 0-9; median over holding per two years, the windows ahead, the worst win
 like 48.7.
 
 **49.6 The young funds** stay out (owner).
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 50. To 1 November: the old alert parked, Google News keyed by story, the news leads at 216 days (2026-10-18)
+
+The owner, on the list to 11-01:
+- "good on news, any lead so far ? anything usable ?";
+- "the old buy, mmmm, can we just park it, i mean switch it off, and wait things to be cleared up? im
+  cautious so we dont miss anything we built before";
+- "yes finish the labling";
+- "agreed on small surgical fixes";
+- "4-Agreed" (the preparation for 11-01);
+- "anything else ?"
+
+**50.1 The old BUY/SELL alert parked** (`config.email.send_alerts` false, with its note; the switch that gates
+only that alert, Telegram and email).
+- `final_decision` is still computed, confirmed and stored, and the run's state records each signal.
+- A signal that would have gone out is logged: "SIGNAL BUY parked, not sent".
+- The alert's code is unchanged behind the switch; `true` brings it back.
+- `kpi_coherence.test_58`.
+- `CLAUDE.md`'s rule (`final_decision` is the sole BUY/SELL alert authority) stands: the authority is kept
+  and silent until the owner decides with the advisor.
+
+**50.2 Google News keyed by story** (`collector/news/rss.py`, `ingest.py`; `SP_C_HANDOFF.md` 34.5).
+- **The problem:** Google ends every title with " - <outlet>", so one story carried by two outlets was
+  stored twice.
+- **The fix:** for Google's feeds the key is the title without that last segment.
+  - An outlet may have a hyphen ("Al-Monitor"), and a story may hold a dash.
+  - The stored title keeps its outlet.
+  - The key before the change travels as `legacy_dedup_key`, and the ingestion asks for both. So an item
+    already stored or held is not stored again.
+- **Tests:** two in `tests/test_news_collector.py`; 22 of 22 pass.
+
+**50.3 A correction: `high_impact_count` is not a one-line fix.**
+- I offered it as one. The wrong field is read in two places:
+  - the evidence package, parked;
+  - `snapshot_builder`, whose count feeds the regime's EVENT_STRESS family. That family has never fired,
+    because the count is always 0.
+- Reading `impact` would switch that family on. The classifier tags war words in economic articles as
+  MILITARY_ESCALATION with impact HIGH (open item: "fixing N2 without a precision check would turn a
+  constant zero into a noisy count").
+- So it waits for the classifier's precision check, which needs the stored news after 11-01. Unchanged.
+
+**50.4 The news leads at 216 labelled days** (`research/rd_news_labels.py`, rules of 35.9 unchanged;
+2025-10-15 to 2026-05-27; the labelling resumed for the 141 left).
+
+| Days labelled | n | The dollar 1 day after | 3 days after | Tether 1 day |
+|---|---|---|---|---|
+| every day | 216 | +0.14% (fell 39%) | +0.34% | +0.03% |
+| the central bank intervened | 10 | +0.65% (fell 30%) | +1.70% | +0.94% (fell 10%) |
+| sanctions eased | 8 | -2.38% (fell 62%) | -1.05% | -0.98% (fell 75%) |
+| oil exports down | 15 | +0.83% (fell 27%) | +0.82% | +0.01% |
+| talks progressing | 75 | +0.13% | -0.01% (fell 52%) | -0.00% |
+| escalation | 115 | +0.02% | +0.00% | +0.00% |
+| the model's own "dollar up" / "down" | 108 / 41 | +0.45% / +0.05% | +0.34% / +1.32% | |
+
+- **Nothing to act on yet.**
+- **Interventions** come during surges; the dollar kept rising after them, as 41.3 found by another
+  definition. They read as a warning that a surge is under way, not as a fall to come.
+- **Leads to confirm on the full year, then forward:**
+  - "sanctions eased", the dollar lower the next day;
+  - "oil exports down", the dollar higher.
+- **Escalation** does not separate.
+- **The model's own dollar call** has no skill.
+
+**50.5 Anything else, for the owner:** nothing that needs a decision before 11-01.
+- The advisor is built and previewed in the meantime, and goes live with the database.
+- The young funds, the money-flow weight and the deep-discount push stay as the owner set them.
 
 **NEON MIGRATION REQUIRED = NO.**

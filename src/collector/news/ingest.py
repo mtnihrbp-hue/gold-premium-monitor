@@ -74,7 +74,8 @@ def run_news_ingestion(config: Dict[str, Any]) -> Dict[str, Any]:
     # Batch dedup: one query for the keys this run fetched, whatever their age, instead of N+1 exists
     # checks or a 24-hour window the feeds outlive (SP_D_HANDOFF.md section 45); with the items already
     # held, so an item every run fetches again during an outage is held once
-    fetched_keys = {item.get("dedup_key") for items in fetched.values() if isinstance(items, list) for item in items}
+    fetched_keys = {item.get(k) for items in fetched.values() if isinstance(items, list) for item in items
+                    for k in ("dedup_key", "legacy_dedup_key")}
     recent_keys: Set[str] = get_stored_dedup_keys(fetched_keys) | held_keys("news", "dedup_key")
 
     # -----------------------------------------------------------------------
@@ -106,8 +107,9 @@ def run_news_ingestion(config: Dict[str, Any]) -> Dict[str, Any]:
             try:
                 classified = classify_news_item(raw_item)
                 dedup_key = classified.get("dedup_key") or raw_item.get("dedup_key")
+                legacy = raw_item.get("legacy_dedup_key")         # Google's key before section 50
 
-                if dedup_key and dedup_key in recent_keys:
+                if (dedup_key and dedup_key in recent_keys) or (legacy and legacy in recent_keys):
                     source_result["duplicate"] += 1
                     total_duplicate += 1
                     continue

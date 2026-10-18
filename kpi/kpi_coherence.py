@@ -1727,6 +1727,24 @@ class KPICoherence(unittest.TestCase):
         self.assertTrue(callers)
         self.assertNotIn("tsetmc_live", callers)
 
+    def test_58_the_old_signal_alert_is_parked_not_removed(self):
+        """Owner, 2026-10-18: "can we just park it, i mean switch it off, and wait things to be cleared up? im
+        cautious so we dont miss anything we built before" (SP_D_HANDOFF.md section 50). The switch is the one
+        that gates the BUY/SELL alert; the decision is still made and recorded, and a signal not sent is
+        logged."""
+        import inspect as _inspect
+        import json as _json
+        import main
+        cfg = _json.loads((REPO / "config" / "config.json").read_text(encoding="utf-8"))
+        self.assertIs(cfg["email"]["send_alerts"], False)
+        self.assertIn("signal_alerts_parked_2026_10_18", cfg["email"])
+        body = _inspect.getsource(main.main)
+        gate = body.index('should_send_alert = bool(signal and signal["signal"] in ("BUY", "SELL") and '
+                          'email_cfg.get("send_alerts", True))')
+        self.assertLess(body.index('state["alert_history"].append'), gate, "the signal is recorded before the gate")
+        self.assertIn("parked, not sent", body[gate:gate + 600])
+        self.assertIn("_send_buy_signal(markets", body[gate:], "the alert's code is kept, behind the switch")
+
 if __name__ == "__main__":
     print("=" * 55)
     print("CROSS-CUTTING COHERENCE")

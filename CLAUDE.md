@@ -239,7 +239,7 @@ READ MODEL ≠ DECISION AUTHORITY
 PREDICTION ≠ FACTS / EVIDENCE / INTERPRETATION / FEATURES
 ```
 
-`final_decision` (from the SP-A pipeline: Valuation → Premium Direction → Momentum → Market Structure → Conflict Matrix → Candidate Decision → Confirmation → SP-A Hysteresis → Final Decision) is the sole external BUY/SELL alert authority — legacy/candidate signals must never independently trigger an alert.
+`final_decision` (from the SP-A pipeline: Valuation → Premium Direction → Momentum → Market Structure → Conflict Matrix → Candidate Decision → Confirmation → SP-A Hysteresis → Final Decision) is the sole external BUY/SELL alert authority — legacy/candidate signals must never independently trigger an alert. Since 2026-10-18 that alert is **parked** by the owner (`config.email.send_alerts` false, `SP_D_HANDOFF.md` 50.1): the decision is still computed and stored and a would-be signal is logged, nothing is sent, until the owner decides with the advisor. Do not switch it back on without the owner.
 
 ### Signal confirmation
 

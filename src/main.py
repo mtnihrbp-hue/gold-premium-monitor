@@ -1788,6 +1788,9 @@ def main():
         _refresh_mirror(now)
 
     should_send_alert = bool(signal and signal["signal"] in ("BUY", "SELL") and email_cfg.get("send_alerts", True))
+    if signal and signal["signal"] in ("BUY", "SELL") and not should_send_alert:
+        # parked by the owner on 2026-10-18 (config email.send_alerts): computed and stored, not sent
+        print(f"SIGNAL {signal['signal']} parked, not sent (premium {premium:.2f}%): {signal['reason']}")
     if should_send_alert and signal["signal"] == "BUY":
         _send_buy_signal(markets, fair, premium, signal_state, confirmation, baselines, thresholds)
     elif should_send_alert:
