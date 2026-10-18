@@ -60,9 +60,9 @@ REPO_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src")
 
 # TSETMC's money flow for the room's money-flow member (SP_D_HANDOFF.md sections 24, 27, 33): each
 # gold fund's day, individuals and institutions, buy and sell, value and count. TSETMC refuses
-# addresses outside Iran. The 20 funds of the research record (research/data/tsetmc_gold_funds.json,
-# 2026-10-04; گنج added 2026-10-17, SP_D_HANDOFF.md section 48), so production's history and the node's
-# days are one series. A day is published once
+# addresses outside Iran. The 19 gold funds of the research record (research/data/tsetmc_gold_funds.json,
+# 2026-10-04; گنج added 2026-10-17, SP_D_HANDOFF.md section 48; سافرون, a saffron fund, removed 2026-10-18,
+# section 49), so production's history and the node's days are one series. A day is published once
 # it has closed; the last TSETMC_DAYS are asked for in the run of each hour's first quarter until
 # every fund has it, and what was fetched is remembered in ~/.iran_node_state.json.
 TSETMC_DAY = "https://cdn.tsetmc.com/api/ClientType/GetClientTypeHistory/{code}/{day}"
@@ -72,7 +72,7 @@ GOLD_FUNDS = (("34144395039913458", "عيار"), ("6362118829011821", "ليان"
               ("25559236668122210", "كهربا"), ("33254899395816171", "زر"), ("12390706505809150", "گوهر"),
               ("32469128621155736", "مثقال"), ("28374437855144739", "آلتون"), ("38544104313215500", "جواهر"),
               ("4626686276232042", "نفيس"), ("28255729477187163", "زروان"), ("9089296888187061", "تابش"),
-              ("6237807001018762", "قيراط"), ("61805666737517582", "درخشان"), ("51200575796028449", "سافرون"),
+              ("6237807001018762", "قيراط"), ("61805666737517582", "درخشان"),
               ("33144542989832366", "زرفام"), ("58514988269776425", "گنج"))
 
 # TSETMC's live money flow of the same funds inside their session (owner, 2026-10-17: "are we collecting the
