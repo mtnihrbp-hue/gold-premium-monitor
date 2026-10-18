@@ -60,8 +60,9 @@ REPO_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src")
 
 # TSETMC's money flow for the room's money-flow member (SP_D_HANDOFF.md sections 24, 27, 33): each
 # gold fund's day, individuals and institutions, buy and sell, value and count. TSETMC refuses
-# addresses outside Iran. The 19 funds of the research record (research/data/tsetmc_gold_funds.json,
-# 2026-10-04), so production's history and the node's days are one series. A day is published once
+# addresses outside Iran. The 20 funds of the research record (research/data/tsetmc_gold_funds.json,
+# 2026-10-04; گنج added 2026-10-17, SP_D_HANDOFF.md section 48), so production's history and the node's
+# days are one series. A day is published once
 # it has closed; the last TSETMC_DAYS are asked for in the run of each hour's first quarter until
 # every fund has it, and what was fetched is remembered in ~/.iran_node_state.json.
 TSETMC_DAY = "https://cdn.tsetmc.com/api/ClientType/GetClientTypeHistory/{code}/{day}"
@@ -72,7 +73,20 @@ GOLD_FUNDS = (("34144395039913458", "عيار"), ("6362118829011821", "ليان"
               ("32469128621155736", "مثقال"), ("28374437855144739", "آلتون"), ("38544104313215500", "جواهر"),
               ("4626686276232042", "نفيس"), ("28255729477187163", "زروان"), ("9089296888187061", "تابش"),
               ("6237807001018762", "قيراط"), ("61805666737517582", "درخشان"), ("51200575796028449", "سافرون"),
-              ("33144542989832366", "زرفام"))
+              ("33144542989832366", "زرفام"), ("58514988269776425", "گنج"))
+
+# TSETMC's live money flow of the same funds inside their session (owner, 2026-10-17: "are we collecting the
+# tsetmc data hourly on a business day or only after the market closes. if it is hourly the data is much more
+# valuable for identifying hot money"; SP_D_HANDOFF.md section 48). TSETMC keeps no intraday history of who
+# bought, so it exists only if it is recorded as it happens: every run from 12:00 to 18:15 Tehran, Saturday to
+# Wednesday, each fund's individuals' and institutions' buying and selling so far, and its price, volume and
+# value so far, as source "tsetmc_live". Kept for research; production reads only "tsetmc".
+TSETMC_LIVE_FLOW = "https://cdn.tsetmc.com/api/ClientType/GetClientType/{code}/1/0"
+TSETMC_LIVE_PRICE = "https://cdn.tsetmc.com/api/ClosingPrice/GetClosingPriceInfo/{code}"
+LIVE_FROM, LIVE_TO = 12 * 60, 18 * 60 + 15             # minutes of the Tehran day
+LIVE_FLOW_KEYS = ("buy_I_Volume", "buy_N_Volume", "buy_CountI", "buy_CountN",
+                  "sell_I_Volume", "sell_N_Volume", "sell_CountI", "sell_CountN")
+LIVE_PRICE_KEYS = ("dEven", "hEven", "pDrCotVal", "qTotTran5J", "qTotCap", "zTotTran", "priceYesterday")
 
 COLUMNS = ("node", "source", "instrument", "observed_at", "bid", "ask", "value", "status", "detail",
            "payload")
@@ -173,6 +187,31 @@ def read_tsetmc(remember=True, any_minute=False):
     return rows
 
 
+def read_tsetmc_live(tehran=None, any_minute=False):
+    """Each gold fund's money flow so far today, during the funds' session (TSETMC_LIVE_FLOW above): one row
+    per fund that has traded, the day and TSETMC's time in `detail`, the cumulative figures in `payload`."""
+    tehran = tehran or datetime.now(timezone.utc) + timedelta(hours=3, minutes=30)
+    minute = tehran.hour * 60 + tehran.minute
+    if not any_minute and (tehran.weekday() in (3, 4) or not LIVE_FROM <= minute <= LIVE_TO):
+        return []                                        # Thursday, Friday, or outside the session
+    rows = []
+    for code, _symbol in GOLD_FUNDS:
+        try:
+            flow = requests.get(TSETMC_LIVE_FLOW.format(code=code), headers=HEADERS, timeout=(5, 10)).json()
+            price = requests.get(TSETMC_LIVE_PRICE.format(code=code), headers=HEADERS, timeout=(5, 10)).json()
+            flow, price = flow.get("clientType") or {}, price.get("closingPriceInfo") or {}
+        except Exception:  # noqa: BLE001 -- TSETMC slow or down: the next run
+            continue
+        if not price.get("qTotTran5J"):
+            continue                                     # no trade yet today, or a holiday
+        payload = {k: flow.get(k) for k in LIVE_FLOW_KEYS}
+        payload.update({k: price.get(k) for k in LIVE_PRICE_KEYS})
+        rows.append({"source": "tsetmc_live", "instrument": f"CLIENTTYPE_{code}", "bid": None, "ask": None,
+                     "value": None, "status": "OK", "detail": f"{price.get('dEven')}-{price.get('hEven')}",
+                     "payload": payload})
+    return rows
+
+
 def describe(row):
     if row["status"] != "OK":
         return f"{row['source']} ERROR {row['detail']}"
@@ -223,10 +262,17 @@ def main(argv):
     node, now = cfg.get("NODE", "s10"), utc_now()
     testing = "--test" in argv
     flows = read_tsetmc(remember=not testing, any_minute=testing)
-    readings = [dict(row, node=node, observed_at=now) for row in [read_daric()] + read_compared() + flows]
-    summary = "; ".join(describe(row) for row in readings if row["source"] != "tsetmc")
+    try:
+        live = read_tsetmc_live(any_minute=testing)
+    except Exception as e:  # noqa: BLE001 -- the research read must never cost Daric's reading
+        live = []
+        log(f"tsetmc live failed: {type(e).__name__}")
+    readings = [dict(row, node=node, observed_at=now) for row in [read_daric()] + read_compared() + flows + live]
+    summary = "; ".join(describe(row) for row in readings if row["source"] not in ("tsetmc", "tsetmc_live"))
     if flows:
         summary += f"; tsetmc {len(flows)} fund-days ({', '.join(sorted({r['detail'] for r in flows}))})"
+    if live:
+        summary += f"; tsetmc live {len(live)} funds"
     if "--test" in argv:
         log(f"TEST {summary} (nothing sent)")
         return 0
