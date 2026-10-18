@@ -243,9 +243,10 @@ Its 20-day forecasts resolve from early November.
   dollar 20d 1.0, chartist 1.0, world gold 60d 0.5, money flow 0.5.
 - **The vote:** it leaves at 60% of the weight with a view and comes back at 30%, reviewed every 10
   trading days, with the stock index as the sharp eye.
-- **Replayed:** +4.1% to +7.2% median over holding per two years with money flow on the 19 gold funds,
-  +4.0% to +5.7% without, ahead in 83-100% of windows (Afran windows, Daric's cost). 18 overlapping
-  windows are about three independent periods.
+- **Replayed:** +4.7% to +7.2% median over holding per two years with the trade a day after the
+  decision (+4.1% to +7.2% on the same close, +4.7% to +7.5% two days later; SP-D 53.2), with money flow
+  on the 19 gold funds; +4.0% to +5.7% without it. Ahead in 83-100% of windows (Afran windows, Daric's
+  cost). 18 overlapping windows are about three independent periods.
   - The +5.0% to +9.0% published before 2026-10-18 counted a saffron fund in the money-flow member.
     Removed everywhere on the owner's word (SP-D 49).
   - On the gold funds alone the member adds about nothing at the median; it is kept at 0.5 (owner, 37).

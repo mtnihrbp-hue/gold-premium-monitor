@@ -37,7 +37,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    48 گنج, the phone's live read, resistance lines, smart money (v1.28safe);
                                                                    49 option C, the saffron fund removed, the room re-measured (v1.29safe);
                                                                    50 the old alert parked, Google keyed by story, the news leads (v1.30safe);
-                                                                   51-52 the external audit verified; patterns by lift, state saved by scheduled runs, the worker, the phone
+                                                                   51-52 the external audit verified; patterns by lift, state saved by scheduled runs, the worker, the phone (v1.31safe);
+                                                                   53 the audit's small defects, the room at lag 1-2, the flows on the clean record
        member, the LLM member
 ```
 
@@ -5676,5 +5677,61 @@ private one's 2,000 free minutes a month. It stays public under the zero-spendin
 secret.
 
 **Checks:** the KPI suite 30/30 (coherence 55, paper 52); unit tests 19/19; compileall.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 53. The audit's small defects; the room with the trade a day later; the fund-flow studies on the clean record (2026-10-18)
+
+**53.1 The small defects** (A15; `kpi_coherence.test_61` holds them).
+- `paper.apply` keeps the room's fund units. `Book.share` counts them when given the fund's price. Its two
+  callers are accounts without units, so nothing changed for them.
+- `bubble_position.deep_discount_threshold` ranks discounts only: a gap below zero. `abs()` let the rare
+  premium readings count as discounts of the same size. Every surface reads this one function, so "Deep
+  discount" stays one number. The positive readings are a handful, so the level barely moves.
+- **One count of funds for a day:** `gold_demand.MIN_FUNDS` is 15, and `room.FLOW_MIN_FUNDS` is the same
+  object. Gold demand used 14 until today.
+- **kitco's Yahoo source** is labelled as the last of the four. It takes only the live price: its
+  `previousClose`, yesterday's, passed as the spot price. Without a live price the source fails, and the
+  run's fallback takes over, marked as such.
+- **The fixed UTC+3:30** is checked against the tz database where one is present. It is present here, and
+  2026-03-22 to 2027-01-01 agree.
+
+**53.2 The room with the trade a day or two later** (B4; `research/rd_room_lag.py`, rules committed in
+e763fb9 before the run; the harness's windows, offsets and costs; each day's position is the room's
+decision of one or two trading days before).
+
+| Median over holding per two years (lowest to highest over offsets), the windows ahead, the worst | lag 0 (as published) | lag 1 | lag 2 |
+|---|---|---|---|
+| Afran windows from 2020, Daric | +4.1 to +7.2%, 83-100%, -3.7% | **+4.7 to +7.2%, 89-100%, -1.9%** | +4.7 to +7.5%, 94-100%, -0.4% |
+| index windows from 2018, Daric | +4.5 to +7.2%, 81-96%, -10.2% | +4.4 to +6.8%, 85-96%, -9.4% | +4.4 to +7.0%, 85-93%, -13.0% |
+| Afran, Goldika | +2.1 to +5.1%, 67-94%, -4.9% | +3.0 to +5.0%, 83-100%, -3.0% | +3.0 to +5.1%, 83-100%, -1.2% |
+| index, Goldika | +1.8 to +4.9%, 70-85%, -16.5% | +1.8 to +4.6%, 70-85%, -14.7% | +1.8 to +5.0%, 70-93%, -17.7% |
+
+- **The verdict:** at lag 2 the room still beats holding in all four sets.
+- **The audit's worry does not hold on this record:** the same-close fill did not flatter the room.
+- **By the rule fixed in advance,** the room's figure is restated at lag 1: +4.7% to +7.2% (Afran, Daric). The
+  advisor's line reads "typically 5% to 7%"; the wording is unchanged.
+- **What remains:**
+  - the prices are tgju's close, not platform quotes, which have no daily history to 2018;
+  - the room's choices were made on the same history (B5).
+
+**53.3 The three fund-flow studies on the clean record** (B8; amendment b81d314, committed before the re-run:
+a start date, 2021-10-18, after the gap; the rules otherwise unchanged).
+
+| Study | On the whole seed (46.1, 47.1, 48.4) | From 2021-10-18 |
+|---|---|---|
+| the money as times the usual week | describes only | describes only; normal range -2.8 to +5.1 times |
+| sudden moves: a top-2% day of money in | LEANS UP, thin | describes only, too few episodes |
+| sudden moves, the others | describes only | describes only |
+| smart money: sellers in control | LEANS DOWN, a lead | describes only: first half 2.34% against 3.59%, under the 1.5 points |
+| smart money, the others | describes only | describes only |
+
+- **Both leads came, in part, from windows that joined 2019 to 2021.** On the clean record nothing in the
+  funds' flows passes.
+- **The readings the messages show are unaffected:** they rank the last 250 fund days (2025-2026, 18 or 19
+  funds). The latest week is 0.6 times the usual week, normal.
+- **What the record keeps from the funds:** the warning of 41.4 (a rush of buyers in turbulence) and the
+  volume profile of 24, as descriptions.
+- **The in-session recording** (48.2) is the next place to look.
 
 **NEON MIGRATION REQUIRED = NO.**

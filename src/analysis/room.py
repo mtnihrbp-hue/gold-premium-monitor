@@ -39,6 +39,7 @@ to +5.7% against holding per two years, ahead in 83-100% of the two-year windows
 -3.3% (-11.3% from 2018), seven trades in the last two years. With money flow on the 19 gold funds
 (section 49, the saffron fund removed): +4.1 to +7.2%, ahead in 83-100%, worst -3.7% (-10.2% from 2018);
 section 33's +5.0 to +9.0% counted the saffron fund, which carried most of the member's measured gain.
+With the trade a day after the decision, as production trades: +4.7 to +7.2% (section 53.2).
 """
 
 from bisect import bisect_right
@@ -48,7 +49,7 @@ import numpy as np
 WEIGHTS = {"brake": 2.0, "market state": 1.5, "fair gap": 1.5, "real dollar": 1.5, "dollar 20d": 1.0,
            "world gold 60d": 0.5, "chartist": 1.0, "money flow": 0.5}
 FLOW_DAYS = 20            # the money-flow member's mean, in the funds' trading days
-FLOW_MIN_FUNDS = 15       # a day from the phone counts when this many of the 19 funds have it
+from analysis.gold_demand import MIN_FUNDS as FLOW_MIN_FUNDS  # noqa: E402  one count of funds for a day (53)
 LEAVE, BACK = 0.60, 0.30
 REVIEW_EVERY = 10
 SWING = 0.40

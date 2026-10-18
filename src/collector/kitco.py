@@ -113,7 +113,9 @@ def _try_goldprice_org():
 
 ### Yahoo Gold
 def _try_yahoo_finance():
-    """Primary: Yahoo Finance XAUUSD=X spot price."""
+    """The last of the four sources: Yahoo Finance XAUUSD=X spot price. Only the live price: its previousClose
+    is yesterday's, and passed on as the spot price it read as live (the external audit's A15). Without a
+    live price this source fails and the run's fallback, marked as such, takes over."""
     response = requests.get(API_URL_4, headers=HEADERS, timeout=15)
     response.raise_for_status()
     data = response.json()
@@ -123,9 +125,9 @@ def _try_yahoo_finance():
         raise RuntimeError("No chart result in Yahoo response")
 
     meta = result[0].get("meta", {})
-    price = meta.get("regularMarketPrice") or meta.get("previousClose")
+    price = meta.get("regularMarketPrice")
     if price is None:
-        raise RuntimeError("No price in Yahoo meta")
+        raise RuntimeError("No live price in Yahoo meta")
 
     return float(price)
 

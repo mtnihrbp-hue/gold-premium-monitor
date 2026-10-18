@@ -449,7 +449,9 @@ def deep_discount_threshold(readings) -> Optional[float]:
     Takes the pool rather than a session so that every surface can be shown to be
     reading the same list, and so this stays testable without a database.
     """
-    sizes = sorted(abs(item[2]) for item in readings)
+    # discounts only: abs() let the rare premium readings count as discounts of the same size (the
+    # external audit's A15, SP_D_HANDOFF.md section 53); a gap below zero is a discount
+    sizes = sorted(-item[2] for item in readings if item[2] < 0)
     if len(sizes) < MIN_OBSERVATIONS:
         return None
     # Deliberately unrounded. The gaps are computed from prices and land on values

@@ -24,7 +24,8 @@ PRIOR = 120           # the people reading's yardstick: the 120 trading days bef
 TRAIL = 250           # the past year, for every rank and for the usual week's money
 MIN_TRAIL = 100
 UNUSUAL = 10          # percent at each end
-MIN_FUNDS = 14        # a day counts when this many of the 19 funds have it (گنج from 2026-10-17)
+MIN_FUNDS = 15        # a day counts when this many of the 19 funds have it: one number with the room's
+                      # money flow (room.FLOW_MIN_FUNDS), 14 here until 2026-10-18 (the audit's A15, section 53)
 
 
 def _rank(history, value):

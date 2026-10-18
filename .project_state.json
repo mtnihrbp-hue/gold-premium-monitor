@@ -80,7 +80,7 @@
     "files_total": 30,
     "assertions": "840 across 29 files; kpi_update_telegram_v1.py reports no count",
     "status": "PASS",
-    "evidence_source": "python kpi/run_all.py on sp-de with SP_D_HANDOFF.md sections 51-52 against an isolated in-memory database, 30/30 files (coherence 55, paper 52); python tests/run_all.py 19/19 files (the worker in Node among them); compileall src and iran_node",
+    "evidence_source": "python kpi/run_all.py on sp-de with SP_D_HANDOFF.md sections 51-53 against an isolated in-memory database, 30/30 files (coherence 56, paper 52); python tests/run_all.py 19/19 files; compileall src and iran_node",
     "notes": [
       "C.2 had been failing since commit ff4496d (C.13 idempotency fix) while documentation recorded 14/14 PASS; the stale assertion was corrected on SP-C.",
       "KPI scripts print status emoji and crash with UnicodeEncodeError under the Windows console codepage after assertions pass. kpi/run_all.py forces UTF-8 for child processes.",
@@ -273,7 +273,7 @@
     "sp_c_status": "CLOSED -- merged into main 2026-09-28 (2b7c5f8); tag v1.3safe = main before the merge",
     "sp_d_status": "IN PROGRESS: Direction merged 2026-10-03, PAPER 2026-10-05; each batch reaches main only after the owner's review, with a safe tag on main first",
     "until_2026_10_03": "PAST. Owner direction 2026-09-29: SP-D is for the next phase; anything found before 2026-10-03 is fixed on main, through a short-lived branch cut from main and fast-forwarded after owner review.",
-    "latest_safe_tag": "v1.31safe (832a91d, main before the audit's first batch: patterns by lift, state saved by scheduled runs, the worker's secret, the phone's fixes, 2026-10-18)"
+    "latest_safe_tag": "v1.32safe (70627fe, main before the audit's small defects and section 53, 2026-10-18)"
   },
   "verified_production_state": {
     "verified_on": "2026-10-06 16:45 Tehran",
@@ -357,11 +357,10 @@
     "TA step 3 data (SP_C_HANDOFF.md 41.6): tgju has flat candles (open = high = low = close) on 284 of 3,516 gold days and 388 of 3,964 dollar days, clustered in 2011-2014 and 2019-2023 (3 in 2,050 from 2024); candle-pattern base rates must exclude them or start in 2024. 10 candles are flagged INCONSISTENT, most at a cap in tgju's own feed in September 2025. Trading days per year stepped from ~240 to ~280 around 2019-2020.",
     "Owner: the decision engine (SP-D 39.6, 40.5, 42.7, 44) -- the advisor as three readers' answers (buy now and where; the room for gold or fixed income; a WATCH section with measured rates), built beside the old chain, gated by the replay on the full record after 11-01, the old BUY alert retired when it goes live (changes CLAUDE.md's alert rule). Agreed 'with caution' on 10-17; the preview comes first.",
     "Intraday hot money (48.2): the phone records TSETMC's live flow of the 19 gold funds (20 until the saffron fund left, 49) from 2026-10-18 (tsetmc_live). Measure a jump in individuals' money inside the session after about 60 sessions (mid-January 2027), pre-registered.",
-    "Sellers in control (48.4, rd_smart_money.py): buyer power in its year's bottom 5% leaned down (18K's next month +2.0% / +3.8% against +4.7% / +5.6%), one of five detectors; with 42.5's deep-discount lead. Confirm on the days after 2026-10-17 before Direction carries its rate.",
     "The old BUY/SELL alert is PARKED (owner, 2026-10-18; SP_D_HANDOFF.md 50.1; config email.send_alerts false): final_decision computed, stored and logged, not sent. Back on only by the owner, decided with the advisor.",
     "News leads at 216 of 357 labelled days (50.4): 'sanctions eased' (8 days, the dollar -2.38% next day) and 'oil exports down' (15 days, +0.83%); interventions come during surges. Re-measure at 357, then forward.",
     "Owner's steps for the audit's A1/A2 (SP_D_HANDOFF.md 52.3): register the webhook with secret_token, set TELEGRAM_WEBHOOK_SECRET (and optionally a KV binding DEBOUNCE), paste the worker; two fine-grained tokens (worker, cron-job.org) swapped in; the classic token revoked.",
-    "The audit's plan (51, 52): next, the small defects (A15); before the advisor, the room at lag 1 and 2 (B4), the fund flows rebuilt with 2020-2021 marked missing and per-fund normalisation (B8); on 11-01, unique keys then the write-back (A8), then delivery-confirmed sends (A6); after 11-01, B1, B2, B5, B6, B9, B11, B12, a durable state store (A4), then A11-A14."
+    "The audit's plan (51-53): done -- B7, A3/A7, A1 code, A9, A15, B4 (the room holds at lag 1 and 2), B8 for the studies. Next: on 11-01 unique keys then the write-back (A8), then delivery-confirmed sends (A6); after 11-01, B1, B2, B5, B6, B9, B11, B12, a durable state store (A4), then A11-A14."
   ],
   "corrections": [
     "2026-10-02: from 10-01 10:01 Goldika's CDN served the non-Iranian runner a copy priced 2026-09-13 (6% below the market); the section 39 rule (repeat 3-48 h) let it through for three hours: a false deep-discount push, three live UPDATEs, BUY candidates held only by confirmation, a false PANIC regime; it had also entered on 09-25 and 09-28 (12 readings). The 09-29 Taline fix had not audited the other platforms from the runner's side. Fixed: source price time (Goldika, Milli), repeat within 60 days, a 3 pp jump hold, the push corroborated without its cheapest platform; 12 readings corrected in production at 12:10 Tehran with a backup. Section 44.",
@@ -431,6 +430,7 @@
     "2026-10-18, closed (the owner: 'the rest is ok'; locked for the advisor, 48): The advisor's two lines (SP_D_HANDOFF.md 47.4): 'waiting for a 3% drop is risky in 92% of times' misstates the record (92% is of years; per occasion about half); proposed 'cost more in 92% of years'; the room's lines rewritten plainly. Await the owner; the advisor waits for the database.",
     "2026-10-18, closed (the owner chose option C; merged: the longer, most-touched line thin and dashed beside the closest, SP_D_HANDOFF.md 49.1): The resistance trend line on the 21:00 chart (SP_D_HANDOFF.md 48.3): the owner prefers the long, much-tested line; on 18K's record touches do not change how often a line breaks at the same distance (MIXED). Options: A keep the closest, B the most touched, C both (recommended, the long one thin). Owner's choice, then a preview.",
     "2026-10-18, closed (the owner: no new small funds for now, 49.6): The young gold funds (48.1): 16 funds outside the record hold about 7% of individuals' buying (جام طلا 1.6%, رز ترنج 1.3%). Adding them inflates 'times the usual' while each is new. Owner's decision.",
-    "2026-10-18, closed (the owner: 'drop the saffron thing totally ... take it out completely'): the saffron fund (سافرون, 51200575796028449) removed from the fetcher, the research data, the buyer-power seed and the phone's list; the room re-measured on the 19 gold funds, +4.1% to +7.2% over holding per two years where +5.0% to +9.0% was published with saffron; the advisor's line now reads 4% to 7% (49.3, 49.4; LESSONS_LEARNED 30)."
+    "2026-10-18, closed (the owner: 'drop the saffron thing totally ... take it out completely'): the saffron fund (سافرون, 51200575796028449) removed from the fetcher, the research data, the buyer-power seed and the phone's list; the room re-measured on the 19 gold funds, +4.1% to +7.2% over holding per two years where +5.0% to +9.0% was published with saffron; the advisor's line now reads 4% to 7% (49.3, 49.4; LESSONS_LEARNED 30).",
+    "2026-10-18, closed (the clean record from 2021-10-18 shows no lean, SP_D_HANDOFF.md 53.3): Sellers in control (48.4, rd_smart_money.py): buyer power in its year's bottom 5% leaned down (18K's next month +2.0% / +3.8% against +4.7% / +5.6%), one of five detectors; with 42.5's deep-discount lead. Confirm on the days after 2026-10-17 before Direction carries its rate."
   ]
 }

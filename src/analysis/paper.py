@@ -82,8 +82,9 @@ class Book:
     def value(self, sell, fund_price=None):
         return self.cash + self.grams * sell + (self.units * fund_price if self.units and fund_price else 0.0)
 
-    def share(self, sell):
-        value = self.value(sell)
+    def share(self, sell, fund_price=None):
+        # the fund's units count in the whole when their price is given (the external audit's A15)
+        value = self.value(sell, fund_price)
         return self.grams * sell / value if value > 0 else 0.0
 
 
@@ -307,10 +308,10 @@ def room_trade(book, quote, posture, fund_price, traded_today, swing_share=None)
 
 def apply(book, decision):
     if decision.action == "BUY":
-        return Book(book.cash - decision.grams * decision.price, book.grams + decision.grams)
+        return Book(book.cash - decision.grams * decision.price, book.grams + decision.grams, book.units)
     if decision.action == "SELL":
-        return Book(book.cash + decision.grams * decision.price, book.grams - decision.grams)
-    return Book(book.cash, book.grams)
+        return Book(book.cash + decision.grams * decision.price, book.grams - decision.grams, book.units)
+    return Book(book.cash, book.grams, book.units)    # the fund's units kept (the external audit's A15)
 
 
 def conflicts(stance_score, final_decision, swing):

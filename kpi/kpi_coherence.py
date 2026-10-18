@@ -1851,6 +1851,37 @@ class KPICoherence(unittest.TestCase):
             node.requests.get, node.datetime = real_get, real_dt
             node.STATE_FILE = saved["STATE_FILE"]
 
+    def test_61_the_audits_small_defects_stay_fixed(self):
+        """The external audit's A15 (SP_D_HANDOFF.md section 53): PAPER's apply dropped the room's fund units and
+        its share ignored them; the deep threshold counted a premium as a discount of the same size; one rule
+        had two numbers (14 and 15 funds); Yahoo's yesterday's close passed as the spot price; and the fixed
+        Tehran offset is checked against the tz database wherever one is present."""
+        import inspect as _inspect
+        from datetime import datetime as _dt, timedelta as _td
+        from analysis import bubble_position as bp, gold_demand, paper, room
+        from collector import kitco
+        import timeutil
+        book = paper.Book(cash=1e9, grams=10, units=5.0)
+        for action in ("BUY", "SELL", "HOLD"):
+            after = paper.apply(book, paper.Decision(action, 1 if action != "HOLD" else 0, 2e8, "t"))
+            self.assertEqual(after.units, 5.0, action)
+        self.assertAlmostEqual(book.share(2e8, fund_price=4e8), 2e9 / (1e9 + 2e9 + 2e9))
+        t0 = _dt(2026, 9, 1)
+        discounts = [(t0 + _td(hours=k), "scheduled", -(1 + k % 50) / 10) for k in range(200)]
+        premiums = [(t0 + _td(hours=300 + k), "scheduled", +(1 + k % 50) / 10) for k in range(40)]
+        self.assertEqual(bp.deep_discount_threshold(discounts + premiums), bp.deep_discount_threshold(discounts),
+                         "a premium is not a discount of the same size")
+        self.assertIs(room.FLOW_MIN_FUNDS, gold_demand.MIN_FUNDS, "one count of funds for a day")
+        self.assertNotIn("previousClose", _inspect.getsource(kitco._try_yahoo_finance).split('"""')[-1])
+        try:
+            from zoneinfo import ZoneInfo
+            tehran = ZoneInfo("Asia/Tehran")
+        except Exception:
+            tehran = None                  # no tz database here: the fixed offset is all there is
+        if tehran is not None:
+            for day in (_dt(2026, 3, 22, 12), _dt(2026, 6, 21, 12), _dt(2026, 10, 18, 12), _dt(2027, 1, 1, 12)):
+                self.assertEqual(day.replace(tzinfo=tehran).utcoffset(), timeutil.TEHRAN_UTC_OFFSET, day)
+
 if __name__ == "__main__":
     print("=" * 55)
     print("CROSS-CUTTING COHERENCE")
