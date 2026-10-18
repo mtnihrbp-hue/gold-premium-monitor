@@ -1129,7 +1129,8 @@ def _pattern_overlay(dates, h, l, c):
         boxes = [(s, e, lo, hi, f"range since {persian_day(s)}" if running else f"range {persian_day(s)}-{persian_day(e)}")
                  for s, e, lo, hi, running in r["ranges"]]
         first = r["ranges"][0][0] if r["ranges"] else dates[-60]
-        marks = [(day, level, patterns.name(kind)) for day, kind, level, _t, _s in r["events"] if day >= first]
+        marks = [(day, level, patterns.name(kind)) for day, kind, level, _t, _s in r["events"]
+                 if day >= first and patterns.shown(kind)]           # the caption's rule (section 48)
         targets = [(r["flag"][2], "flag target")] if r["flag"] else []
         return {"boxes": boxes, "marks": marks, "targets": targets}
     except Exception as e:

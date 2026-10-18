@@ -1077,6 +1077,34 @@ class KPIPaper(unittest.TestCase):
             chart.render = real
         self.assertIsNone(seen["live"])
 
+    def test_47_the_chart_draws_the_longer_tested_line_beside_the_closest(self):
+        """Option C (owner, 2026-10-18; SP_D_HANDOFF.md 48.3): the most-touched resistance line, from 3 touches,
+        thin and dashed beside the closest one. The chart's pattern marks follow the caption's rule."""
+        import numpy as np
+        import main
+        from caluclator import patterns
+        from caluclator.technical import trendlines
+        n = 120
+        c = 100 + 0.5 * np.arange(n)
+        h, l = c * 1.004, c * 0.996
+        for k in (20, 40, 60, 80):                           # four swing highs on one long line
+            h[k] = 105 + 0.5 * k
+        h[100], h[110] = 156.5, 160.0                        # a later pair: the closer line; 110 also on the long one
+        t = trendlines(h, l, c, upto=n - 1)
+        self.assertEqual((t["resistance_tested"]["i1"], t["resistance_tested"]["touches"]), (20, 6),
+                         "its four highs, and 100 and 110 within 1% of it")
+        self.assertNotEqual(t["resistance"]["i1"], 20, "the closest line is another one")
+        self.assertLess(t["resistance"]["at"], t["resistance_tested"]["at"])
+        h2 = c * 1.004
+        h2[100], h2[110] = 156.5, 160.0
+        self.assertIsNone(trendlines(h2, l, c, upto=n - 1)["resistance_tested"], "under 3 touches: not drawn")
+        source = inspect.getsource(__import__("alerts.chart", fromlist=["render"]).render)
+        self.assertIn('linestyle="--" if tested', source)
+        self.assertIn("longer resistance line, touched", source)
+        self.assertFalse(patterns.shown("RISING WEDGE (down)"))
+        self.assertTrue(patterns.shown("EMA20 TEST") and patterns.shown("FLAG"))
+        self.assertIn("patterns.shown(kind)", inspect.getsource(main._pattern_overlay))
+
     def test_45_the_evening_keeps_its_chart_when_the_funds_make_it_too_long(self):
         import main
         import alerts.telegram_paper as tp

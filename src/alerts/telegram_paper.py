@@ -150,7 +150,7 @@ def demand_block(demand, day):
     return block(demand)
 
 
-SHOWN = 0.5        # a pattern's line is shown when more than half of its past ones on 18K reached their target
+from caluclator.patterns import SHOWN  # noqa: E402  -- one rule for the caption and the chart (section 48)
 
 
 def odds(hit, n):
@@ -171,7 +171,7 @@ def pattern_lines(found):
     that worked on 18K -- more than half of the past ones reached their target, so the rising wedge, the
     double top and the falling wedge are left out (owner, 2026-10-17). Each with its record on 18K: the
     target reached within 40 trading days, before a close back through the pattern's other side."""
-    from caluclator.patterns import FLAG_RECORD, RECORD, name
+    from caluclator.patterns import FLAG_RECORD, RECORD, name, shown
     out = []
     found = found or {}
     current = [r for r in found.get("ranges", []) if r[4]]
@@ -198,7 +198,7 @@ def pattern_lines(found):
         for day, kind, _level, target, *_r in events:
             base = kind.replace(" (up)", "").replace(" (down)", "")
             if (base in ("FLAG", "EMA20 TEST") or base not in RECORD or base in seen or target is None
-                    or (latest - day).days > 14 or RECORD[base][0] / RECORD[base][1] <= SHOWN):
+                    or (latest - day).days > 14 or not shown(base)):
                 continue
             if current and base in ("RANGE BREAKOUT", "RANGE BREAKDOWN") and day >= current[-1][0]:
                 continue

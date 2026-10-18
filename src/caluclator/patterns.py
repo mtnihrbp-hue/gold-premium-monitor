@@ -33,6 +33,16 @@ RECORD = {
     "RISING WEDGE": (2, 41, 8),
     "FALLING WEDGE": (4, 17, 39),
 }
+SHOWN = 0.5        # a pattern is shown, on the chart and in the caption, when more than half of its past ones on
+                   # 18K reached their target (owner, 2026-10-17: the rising wedge and the double top dropped)
+
+
+def shown(kind):
+    """True when the pattern is shown: unrecorded marks (the EMA20 test) always, recorded ones by SHOWN."""
+    base = kind.replace(" (up)", "").replace(" (down)", "")
+    return base not in RECORD or RECORD[base][0] / RECORD[base][1] > SHOWN
+
+
 POINTS = {"FLAG": "up", "RANGE BREAKOUT": "up", "DOUBLE BOTTOM": "up", "FALLING WEDGE": "up",
           "RANGE BREAKDOWN": "down", "DOUBLE TOP": "down", "RISING WEDGE": "down"}   # where the textbooks say it goes
 NAMES = {"EMA20 TEST": "EMA20 test", "FLAG": "flag breakout", "RANGE BREAKOUT": "range breakout",

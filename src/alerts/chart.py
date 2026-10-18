@@ -53,15 +53,20 @@ def render(dates, opens, highs, lows, closes, ema20=None, ema50=None, supports=(
     for kind, line in (trend or {}).items():
         if not line:
             continue
+        # the most-touched resistance line beside the closest, thin and dashed (owner, 2026-10-18: option C)
+        tested = kind == "resistance_tested"
+        color = COLORS["resistance" if tested else kind]
+        label = f"longer resistance line, touched {line['touches']} times" if tested else f"{kind} trend line"
         slope = (line["y2"] - line["y1"]) / (line["i2"] - line["i1"])
         start = max(line["i1"], k)
         xs = np.arange(start, k + last + 1)
         ys = (line["y1"] + slope * (xs - line["i1"])) / RIAL_PER_M_TOMAN
-        ax.plot(xs - k, ys, color=COLORS[kind], linewidth=1.4, label=f"{kind} trend line")
+        ax.plot(xs - k, ys, color=color, linewidth=0.9 if tested else 1.4, linestyle="--" if tested else "-",
+                alpha=0.75 if tested else 1.0, label=label)
         ahead = np.array([k + last, k + last + project])
         ya = (line["y1"] + slope * (ahead - line["i1"])) / RIAL_PER_M_TOMAN
-        ax.plot(ahead - k, ya, color=COLORS[kind], linewidth=1.2, linestyle=":")
-        ax.text(last + project + 0.3, ya[-1], f"{ya[-1]:.2f}", color=COLORS[kind], fontsize=7, va="center")
+        ax.plot(ahead - k, ya, color=color, linewidth=1.2, linestyle=":")
+        ax.text(last + project + 0.3, ya[-1], f"{ya[-1]:.2f}", color=color, fontsize=7, va="center")
     for ratio, price in fib:
         y = price / RIAL_PER_M_TOMAN
         ax.axhline(y, color=COLORS["fib"], linewidth=0.7, linestyle=(0, (1, 3)), alpha=0.9)

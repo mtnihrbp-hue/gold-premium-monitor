@@ -5370,3 +5370,27 @@ alone, so nothing else on the phone changes. To take them: `cd ~/gold-premium-mo
 runs fetch گنج's last 7 days and, from 12:00 on a trading day, the live rows.
 
 **NEON MIGRATION REQUIRED = NO**: `iran_node_readings` takes any source.
+
+**48.8 The owner's answers of 10-18, and option C previewed** (on `sp-de`, not merged).
+- **The resistance line:** "i agree with options C".
+  - `technical.trendlines` adds `resistance_tested`: the most-touched valid resistance line, with its
+    touches. It is drawn from 3 touches, and only when it is not the closest line.
+  - `alerts/chart.render` draws it thin and dashed in the resistance colour, labelled "longer resistance
+    line, touched N times", beside the closest line, which stays solid.
+  - On 10-18 the closest line ran 09-10 to 10-06, at 27.85M today; the longer one ran 07-18 to 09-10,
+    touched 4 times, at 28.13M.
+  - Preview: `research/data/chart_preview_resistance_c.png`.
+- **The chart's pattern marks follow the caption's rule** (`patterns.shown`, one definition): the rising
+  wedge, the double top and the falling wedge are no longer marked. Agreed for the caption on 10-17.
+- **Tests:** `kpi_paper.test_47`; the KPI suite 30/30, unit tests 18/18.
+- **Saffron:**
+  - it is out of the GOLD FUNDS readings (35.7);
+  - it is still inside the room's money-flow member and the phone's list. The owner decided on 10-16 to
+    keep that member at 0.5 meanwhile (37). Without saffron, the member's measured gain over holding is
+    about nothing (36.2).
+  - Asked of the owner.
+- **The young funds:** recommended to leave out for now (48.1). They hold 7% together, and each one's first
+  months would lift the "times the usual" money.
+- **The phone:** its log showed no live rows yet. The pull is being confirmed: `git log --oneline -1`, then
+  `python iran_node/node.py --test`.
+
