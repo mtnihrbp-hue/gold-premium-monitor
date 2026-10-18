@@ -1,213 +1,148 @@
-"""Smart money and hot money in the gold funds: do they foresee 18K? (SP-D, 2026-10-04)
+"""Smart money in the gold funds: big individual tickets, as Iran's screens read them (SP-D, SP_D_HANDOFF.md
+section 48; the owner, 2026-10-17: "do an R&D for hot money or smart money. maybe we can find something there
+that gives us a hint").
 
-The owner: "if we could like in data from Ayyar or similar platforms using the volume
-profile, LIT and so on we can foresee the effect. By following the hot money or smart
-money that would be a better call than solely relying on the news."
+Measured before: the funds' money in and out (46.1, 47.1), their real creations and redemptions on fipiran and
+their premium (25), the session's volume, order book and big trades (24), a rush of buyers (41.4). Not
+measured: the per-head screen Iran's traders call smart money -- days when individual buyers come with much
+bigger tickets than usual and outweigh the sellers ("سرانه خرید" and "قدرت خریدار").
 
-Data: research/data/tsetmc_gold_funds.json (fetch_tsetmc_gold_funds.py, from an Iranian
-connection): 19 gold funds on the Tehran exchange, daily prices and the money flow split
-between individuals (I, haghighi) and institutions (N, hoghooghi). Summed over the funds:
+Rules, fixed before the run:
+- Data: the gold funds' daily individual trading (src/seed/gold_fund_daily.json: buy value, buyers, sell
+  value, sellers, summed over the 19 funds, 2017-07 to 2026-10-17); tgju's daily 18K closes (live,
+  research/rd_news_events.series).
+- A day's per-head buy: buy value over buyers; per-head sell: sell value over sellers; buyer power: per-head
+  buy over per-head sell.
+- Each ranked against its own previous 250 fund days (at least 100).
+- Detectors, each on or off at a fund day:
+    BIG BUYERS        per-head buy in the top 5% of its year
+    BIG SELLERS       per-head sell in the top 5% of its year
+    BUYERS IN CONTROL buyer power in the top 5% of its year
+    SELLERS IN CONTROL buyer power in the bottom 5% of its year
+    SMART MONEY IN    BIG BUYERS and BUYERS IN CONTROL on the same day
+- Outcomes, from the fund day's 18K close (or the last tgju close before it): the return over the next 1, 5
+  and 20 tgju days; higher after 5 and after 20; a fall of 5% or more within 20 days.
+- Episodes: a detector's episode starts on its first day on, 10 fund days or more after its last start.
+- Halves: the days with ranks, split at their middle day; every day's rates in each half are the control.
+- Verdicts, decided now (each needs 10 episodes or more in each half):
+    MEETS THE OWNER'S 90%  18K moved the detector's way (higher after the buyers' three, lower after the
+                   sellers' two) over 5 days, or over 20, in at least 90% of its episodes in both halves
+    WARNS          its 5%-fall rate is at least 1.5 times every day's in both halves
+    LEANS UP/DOWN  its mean 20-day return is at least 1.5 points above / below every day's in both halves
+    DESCRIBES ONLY otherwise
+  Five detectors are tried, so one verdict in five may be luck: a verdict here is a lead to confirm on the
+  days after 2026-10-17, not a rule.
 
-  inflow        individuals' net buying, share of the value traded (= institutions' net selling)
-  inflow5       the same over 5 days
-  power         buyer power: individuals' value per buyer / value per seller
-  surge         value traded against its own 60 days (z-score of the log)
-  fund move     the funds' value-weighted return that day
-
-Entry is one trading day after the signal (the flows are published after the session), so
-nothing here uses a number before it was public. Target: 18K (tgju) 1, 5 and 20 days on.
-Rank correlation (IC) per period, and the 18K move after the top and bottom 10% of days.
+Run: python research/rd_smart_money.py   (reads tgju from the workstation directly)
 """
+
 import json
 import os
-from collections import defaultdict
+import sys
+from bisect import bisect_right
 from datetime import date
 
 import numpy as np
-from scipy.stats import spearmanr
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-F = json.load(open(os.path.join(HERE, "data", "tsetmc_gold_funds.json"), encoding="utf-8"))
-T = json.load(open(os.path.join(HERE, "data", "tgju_history.json")))["geram18"]
-gd = [date.fromisoformat(r["date"]) for r in T]
-gc = np.array([float(r["close"]) for r in T])
-gix = {d: i for i, d in enumerate(gd)}
+sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(HERE, "..", "src"))
+from rd_news_events import series  # noqa: E402
 
-day = defaultdict(lambda: defaultdict(float))
-for fund in F.values():
-    px = {p["date"]: p for p in fund["prices"]}
-    prev = None
-    for p in sorted(fund["prices"], key=lambda p: p["date"]):
-        if prev and prev["close"] > 0 and p["value"] > 0:
-            k = date(int(p["date"][:4]), int(p["date"][4:6]), int(p["date"][6:]))
-            day[k]["move_w"] += (p["close"] / prev["close"] - 1) * p["value"]
-            day[k]["move_v"] += p["value"]
-        prev = p
-    for f in fund["flows"]:
-        s = str(f["recDate"])
-        k = date(int(s[:4]), int(s[4:6]), int(s[6:]))
-        for key in ("buy_I_Value", "sell_I_Value", "buy_N_Value", "sell_N_Value", "buy_I_Count", "sell_I_Count"):
-            day[k][key] += float(f.get(key) or 0)
-
-days = sorted(k for k in day if k in gix and day[k]["buy_I_Value"] + day[k]["buy_N_Value"] > 0)
-print(f"{len(days)} fund days matched to 18K, {days[0]} -> {days[-1]}")
-v = {k: day[k] for k in days}
-total = np.array([v[k]["buy_I_Value"] + v[k]["buy_N_Value"] for k in days])
-inflow = np.array([(v[k]["buy_I_Value"] - v[k]["sell_I_Value"]) for k in days]) / total * 100
-power = np.array([(v[k]["buy_I_Value"] / v[k]["buy_I_Count"]) / (v[k]["sell_I_Value"] / v[k]["sell_I_Count"])
-                  if v[k]["buy_I_Count"] and v[k]["sell_I_Count"] and v[k]["sell_I_Value"] else np.nan for k in days])
-move = np.array([v[k]["move_w"] / v[k]["move_v"] * 100 if v[k]["move_v"] else np.nan for k in days])
-n = len(days)
-inflow5 = np.array([np.nansum((inflow * total)[max(0, i - 4):i + 1]) / total[max(0, i - 4):i + 1].sum() for i in range(n)])
-lt = np.log(total)
-surge = np.full(n, np.nan)
-for i in range(60, n):
-    w = lt[i - 60:i]
-    surge[i] = (lt[i] - w.mean()) / w.std()
-
-g = np.array([gix[k] for k in days])
+YEAR, MIN_RANK, TAIL = 250, 100, 5
+GAP, FALL, BAR, MIN_EP = 10, -0.05, 0.90, 10
+UP = {"BIG BUYERS", "BUYERS IN CONTROL", "SMART MONEY IN"}
 
 
-def fwd(h):
-    """18K from the close one trading day after the signal to h days after that."""
-    out = np.full(n, np.nan)
-    for j, i in enumerate(g):
-        if i + 1 + h < len(gc):
-            out[j] = (gc[i + 1 + h] / gc[i + 1] - 1) * 100
+def ranks(x):
+    out = np.full(len(x), np.nan)
+    for i in range(len(x)):
+        h = x[max(0, i - YEAR):i]
+        h = h[np.isfinite(h)]
+        if len(h) >= MIN_RANK and np.isfinite(x[i]):
+            out[i] = np.mean(h < x[i]) * 100
     return out
 
 
-def same_day_18k():
-    out = np.full(n, np.nan)
-    for j, i in enumerate(g):
-        if i >= 1:
-            out[j] = (gc[i] / gc[i - 1] - 1) * 100
-    return out
+def main():
+    seed = json.load(open(os.path.join(HERE, "..", "src", "seed", "gold_fund_daily.json"), encoding="utf-8"))
+    fdays = sorted(date.fromisoformat(k) for k in seed["days"])
+    a = np.array([seed["days"][d.isoformat()][:4] for d in fdays], dtype=float)
+    head_buy, head_sell = a[:, 0] / a[:, 1], a[:, 2] / a[:, 3]
+    power = head_buy / head_sell
+    rb, rs, rp = ranks(head_buy), ranks(head_sell), ranks(power)
+    on = {"BIG BUYERS": rb >= 100 - TAIL, "BIG SELLERS": rs >= 100 - TAIL,
+          "BUYERS IN CONTROL": rp >= 100 - TAIL, "SELLERS IN CONTROL": rp < TAIL}
+    on["SMART MONEY IN"] = on["BIG BUYERS"] & on["BUYERS IN CONTROL"]
+    have = [i for i in range(len(fdays)) if np.isfinite(rb[i]) and np.isfinite(rp[i])]
 
-
-R = {h: fwd(h) for h in (1, 5, 20)}
-SIG = {"inflow": inflow, "inflow5": inflow5, "power": power, "surge": surge, "fund move": move}
-PERIODS = (("2019-2022", date(2019, 1, 1), date(2022, 12, 31)), ("2023-2026", date(2023, 1, 1), date(2027, 1, 1)))
-
-print("\n1. RANK CORRELATION with 18K's next days (IC; |IC| under ~0.05 is noise on these samples)")
-for name, s in SIG.items():
-    cells = []
-    for label, lo, hi in PERIODS:
-        sel = np.array([lo <= k <= hi for k in days])
-        for h, r in R.items():
-            ok = sel & np.isfinite(s) & np.isfinite(r)
-            if ok.sum() > 100:
-                cells.append(f"{label} {h}d {spearmanr(s[ok], r[ok])[0]:+.2f}")
-    print(f"   {name:10} " + "  ".join(cells))
-
-print("\n2. THE 18K MOVE AFTER THE TOP / BOTTOM 10% OF DAYS (mean %, all days in brackets)")
-for name, s in SIG.items():
-    for label, lo, hi in PERIODS:
-        sel = np.array([lo <= k <= hi for k in days]) & np.isfinite(s)
-        if sel.sum() < 200:
+    gold = series("geram18")
+    gdays = sorted(gold)
+    close = np.array([gold[d] for d in gdays])
+    path = {}
+    for i in have:
+        k = bisect_right(gdays, fdays[i]) - 1
+        if k < 0 or (fdays[i] - gdays[k]).days > 7 or k + 20 >= len(gdays):
             continue
-        top, bot = np.nanquantile(s[sel], 0.9), np.nanquantile(s[sel], 0.1)
-        cells = []
-        for h, r in R.items():
-            ok = sel & np.isfinite(r)
-            cells.append(f"{h}d top {np.mean(r[ok & (s >= top)]):+.2f} bottom {np.mean(r[ok & (s <= bot)]):+.2f}"
-                         f" (all {np.mean(r[ok]):+.2f})")
-        print(f"   {name:10} {label}: " + " | ".join(cells))
+        path[i] = {h: (close[k + h] / close[k] - 1) * 100 for h in (1, 5, 20)}
+        path[i]["fell"] = float(close[k + 1:k + 21].min() / close[k] - 1 <= FALL)
 
-print("\n3. WHO LEADS WHOM: the funds' move and 18K's (correlation)")
-same = same_day_18k()
-ok = np.isfinite(move) & np.isfinite(same)
-print(f"   same day {np.corrcoef(move[ok], same[ok])[0, 1]:+.2f}")
-ok = np.isfinite(move) & np.isfinite(R[1])
-print(f"   the funds today, 18K tomorrow {np.corrcoef(move[ok], R[1][ok])[0, 1]:+.2f}")
-prev18 = np.full(n, np.nan)
-prev18[1:] = same[:-1]
-ok = np.isfinite(move) & np.isfinite(prev18)
-print(f"   18K yesterday, the funds today {np.corrcoef(prev18[ok], move[ok])[0, 1]:+.2f}")
+    mid = have[len(have) // 2]
+    halves = (("first half", have[0], mid), ("second half", mid, have[-1] + 1))
+    print(f"fund days with ranks {fdays[have[0]]} to {fdays[have[-1]]}; halves split at {fdays[mid]}")
+    base = {}
+    for name, lo, hi in halves:
+        idx = [i for i in range(lo, hi) if i in path]
+        base[name] = {h: np.mean([path[i][h] for i in idx]) for h in (1, 5, 20)}
+        base[name].update(up5=np.mean([path[i][5] > 0 for i in idx]), up20=np.mean([path[i][20] > 0 for i in idx]),
+                          fell=np.mean([path[i]["fell"] for i in idx]))
+        b = base[name]
+        print(f"EVERY DAY {name:11}: 1d {b[1]:+.2f}%, 5d {b[5]:+.2f}%, 20d {b[20]:+.2f}%; higher after 5d {b['up5']:.0%}, "
+              f"after 20d {b['up20']:.0%}; 5% fall {b['fell']:.0%}")
+    verdicts = {}
+    for key, flags in on.items():
+        eps, last = [], -10 ** 9
+        for i in have:
+            if flags[i] and (i == 0 or not flags[i - 1]) and i - last >= GAP:
+                eps.append(i)
+                last = i
+        print(f"\n{key}: {len(eps)} episodes")
+        rows = []
+        for name, lo, hi in halves:
+            e = [i for i in eps if lo <= i < hi and i in path]
+            if not e:
+                print(f"  {name:11}   0 episodes")
+                rows.append(None)
+                continue
+            m = {h: np.mean([path[i][h] for i in e]) for h in (1, 5, 20)}
+            up5, up20 = np.mean([path[i][5] > 0 for i in e]), np.mean([path[i][20] > 0 for i in e])
+            way5, way20 = (up5, up20) if key in UP else (1 - up5, 1 - up20)
+            fell = np.mean([path[i]["fell"] for i in e])
+            b = base[name]
+            print(f"  {name:11} {len(e):3} episodes: 1d {m[1]:+.2f}%, 5d {m[5]:+.2f}%, 20d {m[20]:+.2f}% (every day "
+                  f"{b[20]:+.2f}%); its way after 5d {way5:.0%}, after 20d {way20:.0%}; 5% fall {fell:.0%} "
+                  f"(every day {b['fell']:.0%})")
+            rows.append((len(e), m[20] - b[20], fell / b["fell"] if b["fell"] else np.nan, way5, way20))
+        enough = all(r is not None and r[0] >= MIN_EP for r in rows)
+        v = []
+        if enough and (all(r[3] >= BAR for r in rows) or all(r[4] >= BAR for r in rows)):
+            v.append("MEETS THE OWNER'S 90%")
+        if enough and all(r[2] >= 1.5 for r in rows):
+            v.append("WARNS")
+        if enough and all(r[1] >= 1.5 for r in rows):
+            v.append("LEANS UP")
+        if enough and all(r[1] <= -1.5 for r in rows):
+            v.append("LEANS DOWN")
+        verdicts[key] = ", ".join(v) or ("DESCRIBES ONLY" + ("" if enough else " (fewer than 10 episodes in a half)"))
+        recent = [fdays[i] for i in eps if fdays[i] >= date(2025, 10, 1)]
+        if recent:
+            print("  since 2025-10: " + ", ".join(
+                f"{d} ({path[fdays.index(d)][20]:+.1f}% in 20d)" if fdays.index(d) in path else f"{d} (not yet 20d)"
+                for d in recent))
+    print("\nVERDICTS")
+    for key, v in verdicts.items():
+        print(f"  {key:18} {v}")
 
-# 4. robustness: is it 18K's own recent move in disguise, and is it more than luck?
-from scipy.stats import rankdata  # noqa: E402
 
-
-def past(k):
-    out = np.full(n, np.nan)
-    for j, i in enumerate(g):
-        if i >= k:
-            out[j] = (gc[i] / gc[i - k] - 1) * 100
-    return out
-
-
-def residual(y, xs):
-    X = np.column_stack([np.ones(len(y))] + xs)
-    beta, *_ = np.linalg.lstsq(X, y, rcond=None)
-    return y - X @ beta
-
-
-P1, P5, P20 = past(1), past(5), past(20)
-boot = np.random.default_rng(11)
-print("\n4. ROBUSTNESS, 2019-2026: IC after removing 18K's own last 1/5/20 days, and a 20-day block bootstrap")
-for name in ("power", "inflow5", "surge"):
-    s = SIG[name]
-    for h in (5, 20):
-        r = R[h]
-        ok = np.isfinite(s) & np.isfinite(r) & np.isfinite(P1) & np.isfinite(P5) & np.isfinite(P20) \
-            & np.array([k >= date(2019, 1, 1) for k in days])
-        rs = rankdata(s[ok]) / ok.sum()
-        rr = rankdata(r[ok]) / ok.sum()
-        ctrl = [rankdata(x[ok]) / ok.sum() for x in (P1, P5, P20)]
-        ic = np.corrcoef(rs, rr)[0, 1]
-        partial = np.corrcoef(residual(rs, ctrl), residual(rr, ctrl))[0, 1]
-        m = ok.sum()
-        null = []
-        for _ in range(500):
-            shift = boot.integers(60, m - 60)
-            idx = (np.arange(m) + shift) % m
-            null.append(np.corrcoef(residual(rs[idx], ctrl), residual(rr, ctrl))[0, 1])
-        p = np.mean(np.abs(null) >= abs(partial))
-        print(f"   {name:8} {h:2}d: IC {ic:+.2f}, after 18K's own moves {partial:+.2f}, luck would give this {p * 100:.0f}% of the time")
-
-# 5. hot money: the funds' premium (their price against the gold they hold), by proxy
-# TSETMC publishes a fund's NAV for today only (Fund/GetETFByInsCode: on 2026-10-04 Ayyar's
-# redemption NAV 716,994 against a close of 746,487 the day before, about +4%). Without its
-# history, the premium is proxied: a fund's close against 18K's close of the day before (the
-# funds follow 18K by a day, section 3), against its own last 60 days' median, averaged over
-# the funds by value traded. High = units bought faster than the gold under them rose.
-prem_w = defaultdict(float)
-prem_v = defaultdict(float)
-for fund in F.values():
-    pr = sorted(fund["prices"], key=lambda p: p["date"])
-    ds = [date(int(p["date"][:4]), int(p["date"][4:6]), int(p["date"][6:])) for p in pr]
-    raw = []
-    for k, p in zip(ds, pr):
-        i = gix.get(k)
-        if i is None or i < 1 or p["close"] <= 0:
-            raw.append(np.nan)
-            continue
-        raw.append(np.log(p["close"] / gc[i - 1]))
-    raw = np.array(raw)
-    for j in range(60, len(raw)):
-        w = raw[j - 60:j]
-        w = w[np.isfinite(w)]
-        if np.isfinite(raw[j]) and len(w) >= 40 and pr[j]["value"] > 0:
-            prem_w[ds[j]] += (raw[j] - np.median(w)) * pr[j]["value"]
-            prem_v[ds[j]] += pr[j]["value"]
-premium = np.array([prem_w[k] / prem_v[k] * 100 if prem_v.get(k) else np.nan for k in days])
-print("\n5. HOT MONEY: the funds' premium by proxy (their price against yesterday's 18K, against their own 60 days)")
-print(f"   {np.isfinite(premium).sum()} days; the latest: {days[-1]} {premium[-1]:+.2f}%")
-for h in (5, 20, 60) if 60 in R else (5, 20):
-    pass
-for h in (5, 20):
-    r = R[h]
-    ok = np.isfinite(premium) & np.isfinite(r) & np.isfinite(P1) & np.isfinite(P5) & np.isfinite(P20) \
-        & np.array([k >= date(2019, 1, 1) for k in days])
-    rs, rr = rankdata(premium[ok]) / ok.sum(), rankdata(r[ok]) / ok.sum()
-    ctrl = [rankdata(x[ok]) / ok.sum() for x in (P1, P5, P20)]
-    ic = np.corrcoef(rs, rr)[0, 1]
-    partial = np.corrcoef(residual(rs, ctrl), residual(rr, ctrl))[0, 1]
-    m = ok.sum()
-    null = [np.corrcoef(residual(rs[(np.arange(m) + boot.integers(60, m - 60)) % m], ctrl), residual(rr, ctrl))[0, 1]
-            for _ in range(500)]
-    top, bot = np.quantile(premium[ok], 0.9), np.quantile(premium[ok], 0.1)
-    print(f"   {h:2}d, 2019-2026: IC {ic:+.2f}, after 18K's own moves {partial:+.2f}, luck {np.mean(np.abs(null) >= abs(partial)) * 100:.0f}%;"
-          f"  18K after the top 10% of days {np.mean(r[ok][premium[ok] >= top]):+.2f}%, the bottom 10% "
-          f"{np.mean(r[ok][premium[ok] <= bot]):+.2f}% (all {np.mean(r[ok]):+.2f}%)")
+if __name__ == "__main__":
+    main()
