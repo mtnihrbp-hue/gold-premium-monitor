@@ -146,9 +146,16 @@ appear in ANALYZE's DATA section instead, which is where a reader can weigh them
 
 ## Locked layouts
 
-An agreed layout is locked. UPDATE, Direction v7, the room's report and the chart (support and
-resistance with the patterns, "both worlds") are changed only with the owner's permission, after a
-full preview.
+An agreed layout is locked. These are changed only with the owner's permission, after a full preview:
+- UPDATE and Direction v7;
+- the room's report, with the GOLD FUNDS block (`SP_D_HANDOFF.md` 47);
+- the evening message (47): the box with the road out of each side, the funds' block, and the expected
+  return of the database;
+- the chart: support and resistance with the patterns, "both worlds". The closest resistance line is
+  solid and the longer, most-touched one thin and dashed (option C, 49). The patterns shown are only the
+  ones that worked on 18K (`patterns.shown`, 49.2).
+
+The advisor's lines locked on 10-17 and 10-18 wait for it to be built (47.4, 49.4).
 
 ## Wording (owner)
 

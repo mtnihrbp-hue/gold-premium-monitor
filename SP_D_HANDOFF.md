@@ -34,7 +34,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    its outage date from the record merged 2026-10-16 (v1.25safe);
                                                                    39-45 the research, the news dedup, the documents merged 2026-10-17 (v1.26safe);
                                                                    46-47 the previews revised, the funds' block wired (v1.27safe);
-                                                                   48 گنج, the phone's live read, resistance lines, smart money
+                                                                   48 گنج, the phone's live read, resistance lines, smart money (v1.28safe);
+                                                                   49 option C, the saffron fund removed, the room re-measured
        member, the LLM member
 ```
 
@@ -5394,3 +5395,87 @@ runs fetch گنج's last 7 days and, from 12:00 on a trading day, the live rows.
 - **The phone:** its log showed no live rows yet. The pull is being confirmed: `git log --oneline -1`, then
   `python iran_node/node.py --test`.
 
+## 49. The owner's answers of 10-18: option C, the saffron fund removed, and the room re-measured
+
+The owner, on 48:
+- **The phone:** `--test` ends "tsetmc live 18 funds" (18 of 20 had traded by then). The phone runs the new
+  node.py.
+  - The `git log` error was a typo: `--online -l` for `--oneline -1`.
+  - The live rows reach the log in the scheduled runs that follow.
+- **The resistance line:** "i agree with option C, much better".
+- **The chart marks:** "ok with dropping the rising wedge now".
+- **Patterns:** "is it possible to add some technical patterns if applicable, like the flag pattern or
+  double ceiling ... just an idea, i mnt insisting."
+- **The young funds:** "no add on new small etf funds for now".
+- **Saffron:** "drop the saffron thing totally, it misleads us totally. option D- take it out completely,
+  vanish."
+- "as always i insist on documenting everything."
+
+**49.1 Option C merged** (48.8):
+- the closest resistance line stays solid;
+- the most-touched line, from 3 touches and when it is another line, is drawn thin and dashed, labelled
+  "longer resistance line, touched N times";
+- `kpi_paper.test_47`.
+
+**49.2 The patterns.**
+- **The reader already finds** the flag, the box and its breaks, the double bottom, the double top (the
+  owner's "double ceiling"), the triple tops and bottoms, head and shoulders and its inverse, the three
+  triangles, and both wedges (37.4).
+- **What is shown,** on the chart and in the caption, under one rule (`patterns.shown`):
+  - the EMA20 test;
+  - the patterns that reached their target in more than half of their past cases on 18K: the flag 14 of
+    19, breaks up from a box 30 of 39, breaks down 12 of 22, the double bottom 19 of 24.
+- **What is not shown:**
+  - the double top (3 of 12), the rising wedge (2 of 41) and the falling wedge (4 of 17);
+  - head and shoulders, the triangles and the triple tops and bottoms: 1 to 13 cases each on 18K, too few
+    to rate.
+- **A defect of 48.8 fixed here:** its rule showed every unrated pattern on the chart while the caption
+  hid it. `shown` now passes only the EMA20 test and the rated patterns that worked. `kpi_paper.test_47`
+  checks the unrated ones.
+- The flag of 7 Mehr is in every evening caption while it is live.
+
+**49.3 The saffron fund removed everywhere** (سافرون, insCode 51200575796028449; option D).
+- **Where it was:**
+  - the room's money-flow member (`gold_fund_flows.json`, the buyer power);
+  - the phone's list;
+  - the research data.
+  - The GOLD FUNDS readings had left it out since 35.7.
+- **What changed:**
+  - `research/fetch_tsetmc_gold_funds.py` leaves it out at the source (`NOT_GOLD`), and the research data
+    was cut to the 19 gold funds;
+  - `build_demand_seed.py` needs no exclusion of its own any more;
+  - `gold_fund_flows.json` was rebuilt on the 19;
+  - `iran_node/node.py`'s list is 19;
+  - `kpi_coherence.test_57` and `kpi_paper.test_32` fail if it returns anywhere.
+  - Research scripts of earlier sections that excluded it themselves are unchanged; their results stand
+    at their commits.
+
+**49.4 The room, re-measured on the 19 gold funds** (`rd_trend_room.in_room`'s harness and windows, unchanged,
+offsets 0-9; median over holding per two years, the windows ahead, the worst window).
+
+| | Afran windows from 2020, Daric 0.30% | index windows from 2018, Daric | Afran, Goldika 2.37% | index, Goldika |
+|---|---|---|---|---|
+| the room as built, saffron in (as published) | +5.0 to +9.0%, 83-100%, -3.7% | +5.6 to +7.8%, 81-96%, -10.2% | +2.5 to +6.9%, 67-100% | +2.4 to +5.5%, 74-89% |
+| **the room as built, 19 gold funds** | **+4.1 to +7.2%, 83-100%, -3.7%** | **+4.5 to +7.2%, 81-96%, -10.2%** | **+2.1 to +5.1%, 67-94%** | **+1.8 to +4.9%, 70-85%** |
+| without the money-flow member | +4.0 to +5.7%, 83-100%, -3.3% | +3.9 to +5.6%, 81-93%, -11.3% | +1.3 to +3.1%, 67-83% | +1.1 to +2.8%, 59-78% |
+
+- **The first row reproduces exactly** when the harness is run on the research data of 10-04, with
+  saffron. So the difference is the data:
+  - mostly saffron, as the audit found (36.2: the member's gain fell to about nothing without it);
+  - گنج and the day TSETMC dropped are minor.
+- **The member on the gold funds alone** adds +0.00 points at the median against the room without it, at
+  Daric's cost. At Goldika's it adds 0.2-0.3, and it softens the worst window by 0.4-1.1 points.
+- **The owner's weight of 0.5 (37) stands.**
+- **Since 2018 the room's stays** are still 16 (`rd_room_stays.py`):
+  - 11 gained, a median of 18 trading days, 8 of 9 since 2020;
+  - the stay of 2022-07-11 now ends on 08-04, +0.74% where it was 08-18, +4.23%;
+  - the mean gain is +0.97% (it was +1.19%).
+- **The advisor's locked line takes the corrected number:** "Following it for any two years since 2020 left
+  you typically 4% to 7% richer than just holding gold". The wording is unchanged.
+
+**49.5 The phone** takes the saffron removal with one more `git pull`. The commit is on `sp-d-iran-node` alone,
+like 48.7.
+
+**49.6 The young funds** stay out (owner).
+
+**NEON MIGRATION REQUIRED = NO.**

@@ -758,7 +758,8 @@ class KPIPaper(unittest.TestCase):
         import json as _json
         import main
         seed = _json.load(open(os.path.join(SRC_DIR, "seed", "gold_fund_flows.json")))
-        self.assertEqual(len(seed["funds"]), 20, "the 19 of section 33 and گنج (section 48)")
+        self.assertEqual(len(seed["funds"]), 19, "section 33's 18 gold funds and گنج (48); no saffron (49)")
+        self.assertNotIn("51200575796028449", seed["funds"], "the saffron fund is gone (owner, 2026-10-18)")
         self.assertIn("58514988269776425", seed["funds"])
         self.assertGreater(len(seed["power"]), 1500)
         self.assertGreaterEqual(max(seed["power"]), "2026-10-17")
@@ -1103,6 +1104,8 @@ class KPIPaper(unittest.TestCase):
         self.assertIn("longer resistance line, touched", source)
         self.assertFalse(patterns.shown("RISING WEDGE (down)"))
         self.assertTrue(patterns.shown("EMA20 TEST") and patterns.shown("FLAG"))
+        for unrated in ("HEAD AND SHOULDERS", "SYMMETRICAL TRIANGLE", "TRIPLE TOP (down)"):
+            self.assertFalse(patterns.shown(unrated), f"{unrated}: too few cases on 18K to rate")
         self.assertIn("patterns.shown(kind)", inspect.getsource(main._pattern_overlay))
 
     def test_45_the_evening_keeps_its_chart_when_the_funds_make_it_too_long(self):

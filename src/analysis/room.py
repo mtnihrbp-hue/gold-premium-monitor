@@ -26,7 +26,8 @@ research/rd_committee_2y.py; a z-score leans beyond +/-0.5 against its own last 
                         seller, summed over the funds, its last 20 trading days' mean: stronger
                         buyers -> +1. TSETMC's client types, which only an Iranian address can read:
                         src/seed/gold_fund_flows.json to 2026-10-03, then the owner's phone (iran_node,
-                        sections 30, 33); a day counts when FLOW_MIN_FUNDS of the 20 funds have it (گنج added 2026-10-17, section 48)
+                        sections 30, 33); a day counts when FLOW_MIN_FUNDS of the 19 gold funds have it (گنج added 2026-10-17,
+                        section 48; the saffron fund removed 2026-10-18, section 49)
 
 The committee's view moves every day: it turns to fixed income when the members leaning that way
 hold 60% of the weight of those with a view (two at least), and back at 30% or less. The posture
@@ -35,8 +36,9 @@ stock index as the sharp eye (sections 24, 27): no sale while its last 20 days l
 while out, back to gold early on the first day they turn to gold after the sale -- a standing rise
 does not buy back the morning after a sale. Replayed (section 27), without money flow: median +4.0
 to +5.7% against holding per two years, ahead in 83-100% of the two-year windows since 2020, worst
--3.3% (-11.3% from 2018), seven trades in the last two years. With money flow (section 33): +5.0 to
-+9.0%, ahead in 83-100%, worst -3.7% (-10.2% from 2018).
+-3.3% (-11.3% from 2018), seven trades in the last two years. With money flow on the 19 gold funds
+(section 49, the saffron fund removed): +4.1 to +7.2%, ahead in 83-100%, worst -3.7% (-10.2% from 2018);
+section 33's +5.0 to +9.0% counted the saffron fund, which carried most of the member's measured gain.
 """
 
 from bisect import bisect_right
@@ -46,7 +48,7 @@ import numpy as np
 WEIGHTS = {"brake": 2.0, "market state": 1.5, "fair gap": 1.5, "real dollar": 1.5, "dollar 20d": 1.0,
            "world gold 60d": 0.5, "chartist": 1.0, "money flow": 0.5}
 FLOW_DAYS = 20            # the money-flow member's mean, in the funds' trading days
-FLOW_MIN_FUNDS = 15       # a day from the phone counts when this many of the 20 funds have it
+FLOW_MIN_FUNDS = 15       # a day from the phone counts when this many of the 19 funds have it
 LEAVE, BACK = 0.60, 0.30
 REVIEW_EVERY = 10
 SWING = 0.40

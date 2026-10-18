@@ -38,9 +38,12 @@ SHOWN = 0.5        # a pattern is shown, on the chart and in the caption, when m
 
 
 def shown(kind):
-    """True when the pattern is shown: unrecorded marks (the EMA20 test) always, recorded ones by SHOWN."""
+    """True when the pattern is shown: the EMA20 test (after it the next month ran a little stronger, section
+    37.4), and the recorded patterns that reached their target more than SHOWN of the time. Head and
+    shoulders, the triangles and the triple tops and bottoms are found but not shown: 1-13 cases each on
+    18K, too few to rate (section 37.4)."""
     base = kind.replace(" (up)", "").replace(" (down)", "")
-    return base not in RECORD or RECORD[base][0] / RECORD[base][1] > SHOWN
+    return base == "EMA20 TEST" or (base in RECORD and RECORD[base][0] / RECORD[base][1] > SHOWN)
 
 
 POINTS = {"FLAG": "up", "RANGE BREAKOUT": "up", "DOUBLE BOTTOM": "up", "FALLING WEDGE": "up",

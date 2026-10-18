@@ -1684,7 +1684,9 @@ class KPICoherence(unittest.TestCase):
         daily = _json.loads((REPO / "src" / "seed" / "gold_fund_daily.json").read_text(encoding="utf-8"))
         codes = {c for c, _s in node.GOLD_FUNDS}
         self.assertEqual(codes, set(flows["funds"]), "the phone's funds are the buyer-power seed's")
-        self.assertEqual(codes - {"51200575796028449"}, set(daily["funds"]), "and the demand seed's, saffron aside")
+        self.assertEqual(codes, set(daily["funds"]), "and the demand seed's")
+        self.assertNotIn("51200575796028449", codes | set(flows["funds"]) | set(daily["funds"]),
+                         "no saffron anywhere (owner, 2026-10-18: 'take it out completely'; section 49)")
         self.assertIn("58514988269776425", codes, "گنج")
         asked = []
         real = node.requests.get

@@ -898,3 +898,23 @@ starts from nothing as if this were its first day.
 key. Before changing one, read what it will match. After the change, check the first run's restore
 line ("Cache restored from key", and its size), not its conclusion. The state's list is now fixed by
 `kpi_coherence.test_52`; a new file gets a cache of its own.
+
+## 30. One instrument outside the universe can be a member's whole edge
+
+**The pattern.** A member reads a basket, and one thing in the basket does not belong to it. The member
+then carries that thing's behaviour, and the replay credits the member with it. The figure is
+published, quoted and built on. Removing the stranger looks like housekeeping, and it takes the edge
+with it.
+
+**Where it happened.** The room's money-flow member read the buyer power of 19 "gold funds", and one was
+سافرون, a saffron fund that a commodity filter let in.
+- The audit found that without it the member's gain fell to about nothing (`SP_D_HANDOFF.md` 36.2).
+- Yet the room's "+5% to +9% over holding" stayed published for two weeks, and reached the advisor's
+  locked wording.
+- Re-measured on the gold funds alone it is +4.1% to +7.2% (49.4).
+- The harness had been right all along: it reproduced the old figure exactly on the old data.
+
+**The check.** Before trusting a member's edge, list what its basket holds and why each one is there. A
+filter by title is not a definition. When an input is found wrong, re-measure every figure that
+depends on it, and change the published numbers the same day. A figure in a locked message is published
+too.

@@ -2,7 +2,8 @@
 
 TSETMC gives the funds' client types only to Iranian addresses; the history was pulled from Iran on
 2026-10-04 (research/fetch_tsetmc_gold_funds.py, 19 funds, git-ignored; 20 with گنج and refreshed to
-2026-10-17, SP_D_HANDOFF.md section 48). Written to
+2026-10-17, SP_D_HANDOFF.md section 48; 19 from 2026-10-18, saffron left out at the source, section 49).
+Written to
 src/seed/gold_fund_flows.json as each day's buyer power -- individuals' value per buyer over value
 per seller, summed over the funds that traded that day -- exactly as rd_committee_2y.py builds it.
 From 2026-10-07 the owner's phone sends each fund's day (iran_node/node.py) and production appends

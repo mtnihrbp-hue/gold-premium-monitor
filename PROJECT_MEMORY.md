@@ -243,8 +243,12 @@ Its 20-day forecasts resolve from early November.
   dollar 20d 1.0, chartist 1.0, world gold 60d 0.5, money flow 0.5.
 - **The vote:** it leaves at 60% of the weight with a view and comes back at 30%, reviewed every 10
   trading days, with the stock index as the sharp eye.
-- **Replayed:** +5.0% to +9.0% median over holding per two years with money flow, +4.0% to +5.7%
-  without, ahead in 83-100% of windows. 18 overlapping windows are about three independent periods.
+- **Replayed:** +4.1% to +7.2% median over holding per two years with money flow on the 19 gold funds,
+  +4.0% to +5.7% without, ahead in 83-100% of windows (Afran windows, Daric's cost). 18 overlapping
+  windows are about three independent periods.
+  - The +5.0% to +9.0% published before 2026-10-18 counted a saffron fund in the money-flow member.
+    Removed everywhere on the owner's word (SP-D 49).
+  - On the gold funds alone the member adds about nothing at the median; it is kept at 0.5 (owner, 37).
 - **PAPER** runs six accounts: the room and, beside it, the analyst, the quant, the cautious analyst,
   buy-and-hold, and one that follows `final_decision`.
 
@@ -252,9 +256,15 @@ Its 20-day forecasts resolve from early November.
 - **What it reads:** a 3% ZigZag; sideways ranges and their breaks (flag, breakout, breakdown); tests
   of the 20-day EMA; double and triple tops and bottoms, head and shoulders, triangles, wedges.
 - **What it prints:** each pattern with its record on 18K since 2014 (`RECORD`): the target reached
-  within 2 months. A pattern is shown only when more than half of its past ones got there, so the rising
-  wedge, the double top and the falling wedge are not (SP-D 47). A box is shown with the road out of each
-  side: "3 in 4" broke up to their target, "about half" down.
+  within 2 months. One rule for the chart and the caption (`patterns.shown`, SP-D 47-49):
+  - shown: the EMA20 test and the rated patterns that got there more than half the time;
+  - not shown: the rising wedge, the double top and the falling wedge; head and shoulders, the triangles
+    and the triple tops and bottoms (too few cases to rate).
+  - A box is shown with the road out of each side: "3 in 4" broke up to their target, "about half" down.
+- **The resistance trend lines** (`technical.trendlines`, SP-D 48.3, 49.1): the closest above the price,
+  solid. The most-touched one, from 3 touches, is drawn thin and dashed beside it (owner, option C).
+  On 18K's record a line touched more breaks as often as one touched twice at the same distance from
+  the price.
 - **What the record shows:**
   - flags reached their target first in 14 of 19, against 45 in 100 from any day;
   - double bottoms 19 of 24, against 69;

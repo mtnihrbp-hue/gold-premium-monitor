@@ -9,6 +9,9 @@ buy/sell volume, value and count.
 
 گنج (صندوق س. سيماي كاردان) is a gold fund whose title names neither gold nor a commodity, so the
 title filter dropped it until 2026-10-17; it is named in GOLD_BY_SYMBOL (SP_D_HANDOFF.md section 48).
+سافرون (صندوق س.كالاي گنجينه زمين) is a saffron fund that the commodity filter let in; it is left out
+here, at the source, so nothing downstream counts it (owner, 2026-10-18: "drop the saffron thing totally";
+section 49).
 """
 import json
 import os
@@ -23,6 +26,7 @@ BASE = "https://cdn.tsetmc.com/api"
 SEARCH = ("عیار", "طلا", "کهربا", "زر", "گوهر", "مثقال", "آلتون", "جواهر", "نفیس", "زروان", "تابش",
           "قیراط", "ناب", "رز", "درخشان", "لیان", "گنج", "زرفام", "ناب", "سکه")
 GOLD_BY_SYMBOL = {"گنج"}             # gold funds whose title does not say so
+NOT_GOLD = {"51200575796028449"}     # سافرون, saffron
 
 
 def get(path):
@@ -43,7 +47,8 @@ for name in SEARCH:
         title = x.get("lVal30") or ""
         if ("طلا" in title or "كالاي" in title or "کالای" in title or x.get("lVal18AFC") in ("عيار",)
                 or x.get("lVal18AFC") in GOLD_BY_SYMBOL):
-            if "صندوق" in title and x.get("lVal18AFC") and not x.get("lVal18AFC").endswith(("ح", "1")):
+            if ("صندوق" in title and x.get("lVal18AFC") and not x.get("lVal18AFC").endswith(("ح", "1"))
+                    and x["insCode"] not in NOT_GOLD):
                 funds[x["insCode"]] = (x.get("lVal18AFC"), title)
 print(len(funds), "candidate funds:")
 for code, (sym, title) in funds.items():
