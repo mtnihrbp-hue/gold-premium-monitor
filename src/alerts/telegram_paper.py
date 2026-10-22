@@ -153,9 +153,26 @@ def demand_block(demand, day):
 from caluclator.patterns import RATED_LIFT  # noqa: E402,F401  -- a rate only with lift (section 52)
 
 
-EVENT_WORDS = {"RANGE BREAKOUT": ("Broke up out of the box on {day}: opens the road to {target}", "past breaks up"),
-               "RANGE BREAKDOWN": ("Broke down out of the box on {day}: may lead to {target}", "past breaks down"),
+EVENT_WORDS = {"RANGE BREAKOUT": ("Broke up out of the box ({low}-{high}) on {day}: target {target} while above {low}",
+                                  "past breaks up"),
+               "RANGE BREAKDOWN": ("Broke down out of the box ({low}-{high}) on {day}: target {target} while below {high}",
+                                   "past breaks down"),
                "DOUBLE BOTTOM": ("Double bottom on {day}: opens the road to {target}", "past ones")}
+BOX_BREAKS = ("RANGE BREAKOUT", "RANGE BREAKDOWN")
+EVENT_DAYS = 14          # a break is told for two weeks after its close
+
+
+def box_break_levels(kind, level, stop):
+    """(low, high, target) of a box's break as shown (0.01M toman), so they add up: the box's height beyond the
+    edge it broke; valid while the price stays beyond the other edge (rd_patterns' rule)."""
+    lo, hi = sorted((round(level / 1e5) * 1e5, round(stop / 1e5) * 1e5))
+    return lo, hi, (hi + (hi - lo) if kind == "RANGE BREAKOUT" else lo - (hi - lo))
+
+
+def box_break_line(day, kind, level, stop):
+    """A box's break in words, for the caption (section 56)."""
+    lo, hi, target = box_break_levels(kind, level, stop)
+    return EVENT_WORDS[kind][0].format(day=persian_day(day), low=_m(lo), high=_m(hi), target=_m(target))
 
 
 def pattern_lines(found):
@@ -192,20 +209,30 @@ def pattern_lines(found):
                 f"  ({hit} of {n} past flags got there within 2 months; from any day {control} in 100)"]
     events = found.get("events", [])
     if events:
-        latest = events[-1][0]
+        latest = found.get("as_of") or events[-1][0]
         seen = set()
-        for day, kind, _level, target, *_r in events:
+        for day, kind, level, target, stop in events:
             base = kind.replace(" (up)", "").replace(" (down)", "")
             if (base in ("FLAG", "EMA20 TEST") or base not in RECORD or base in seen or target is None
-                    or (latest - day).days > 14 or not rated(base)):
+                    or (latest - day).days > EVENT_DAYS):
                 continue
-            if current and base in ("RANGE BREAKOUT", "RANGE BREAKDOWN") and day >= current[-1][0]:
+            # a box's break is told even without a rate: it ends the box line, and the reader saw no word of it
+            # on 29 Mehr while the chart marked it (owner, 2026-10-22; SP_D_HANDOFF.md section 56). Any other
+            # pattern only with a rate (52.1).
+            if base not in BOX_BREAKS and not rated(base):
+                continue
+            if current and base in BOX_BREAKS and day >= current[-1][0]:
                 continue
             seen.add(base)
             hit, n, control = RECORD[base]
-            text, who = EVENT_WORDS.get(base, (f"{name(kind).capitalize()} on {{day}}: target {{target}}", "past ones"))
-            out += [text.format(day=persian_day(day), target=_m(target)),
-                    f"  ({hit} of {n} {who} got there within 2 months; from any day {control} in 100)"]
+            who = EVENT_WORDS.get(base, (None, "past ones"))[1]
+            if base in BOX_BREAKS:
+                out.append(box_break_line(day, base, level, stop))
+            else:
+                text = EVENT_WORDS.get(base, (f"{name(kind).capitalize()} on {{day}}: target {{target}}",))[0]
+                out.append(text.format(day=persian_day(day), target=_m(target)))
+            if rated(base):
+                out.append(f"  ({hit} of {n} {who} got there within 2 months; from any day {control} in 100)")
     return out
 
 

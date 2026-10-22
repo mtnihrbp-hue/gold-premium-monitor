@@ -39,7 +39,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    50 the old alert parked, Google keyed by story, the news leads (v1.30safe);
                                                                    51-52 the external audit verified; patterns by lift, state saved by scheduled runs, the worker, the phone (v1.31safe);
                                                                    53 the audit's small defects, the room at lag 1-2, the flows on the clean record (v1.32safe);
-                                                                   54 the funds block made to arrive, UPDATE's basis in an outage
+                                                                   54 the funds block made to arrive, UPDATE's basis in an outage (v1.33safe);
+                                                                   55-56 one vocabulary and the chart, the box's break told; the pulse previewed
        member, the LLM member
 ```
 
@@ -5849,5 +5850,54 @@ The owner, on 54.6:
 
 **Seen on 10-22:** 18K broke up out of the box (27.09M against its 26.74M top). Direction's LEVELS now reads "Support
 26.84M": the old ceiling is the support level.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 56. The box broke and nobody was told: the break in the caption, and the pulse (2026-10-22)
+
+The owner, on the preview of 55: "something evident from the .png you sent, is that the gold is coming out of the
+box. it also corresponds with your reading to break the neck and heading to over 28m toman. but there is no pulse
+to the user, no alert is sent. agreed on you proposal for the Support resistance thing." The reply is taken as
+the lock of 55.
+
+**56.1 What happened.**
+- 18K closed at 27.05M on 29 Mehr (2026-10-21), above the box's top of 26.74M by more than 0.5%.
+- The pattern reader recorded a box breakout with a target of 28.21M (the box's height, 1.47M, above its
+  top).
+- The reader was told nothing:
+  - there is no push for the chart's events;
+  - the 21:00 run of 29 Mehr reads candles to the day before: tgju completes a day's candle after 21:00;
+  - from the next evening the box line goes, since the box is over, and the breakout's line was suppressed by
+    52.1's rule (no rate without lift). The rule was for rates, not for the event. Only the chart's mark said
+    it.
+
+**56.2 Fixed, merged:**
+- **The caption tells a box's break for two weeks, without a rate:** "Broke up out of the box (25.27M-26.74M) on
+  29 Mehr: target 28.21M while above 25.27M". It takes the flag line's form.
+  - `telegram_paper.box_break_levels` gives the edges and the target as shown, so they add up.
+  - `patterns.read` returns `as_of`, and the two weeks are counted from the last candle.
+- **Direction's LEVELS** reads "Support level" and "Resistance level": flat, beside the sloped trend lines (the
+  owner's agreement).
+- `kpi_coherence.test_63` holds both.
+
+**56.3 The pulse, previewed for the owner's lock** (`alerts/telegram_pulse.py`, not wired).
+- A push at the first scheduled run that sees a confirming close, usually 06:00 the next morning:
+  - a box broken up or down;
+  - a flag broken out.
+- It states the close, the box, the target and where the break is undone.
+- **A rate only for the flag,** beside any day's (52.1). For box breaks, any day reaches the same distance about
+  as often in this uptrend, so none is given.
+- **No BUY, SELL or WAIT:** final_decision keeps that authority, parked since 50.1.
+- **For 29 Mehr it would have read, on 30 Mehr at 06:05:**
+
+```text
+GOLDPremium: BREAKOUT · 30 Mehr, 06:05
+18K closed out of its box, upward: 27.05M on 29 Mehr (market, tgju)
+Box of 7 Mehr-28 Mehr: closes between 25.27M and 26.74M
+Target 28.21M while above 25.27M
+Still live: the flag of 7 Mehr, target 28.88M while above 23.06M
+
+Decision support, not an instruction to trade.
+```
 
 **NEON MIGRATION REQUIRED = NO.**

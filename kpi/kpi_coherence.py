@@ -1995,6 +1995,17 @@ class KPICoherence(unittest.TestCase):
         self.assertIn("In a box since 7 Mehr: closes between 25.27M and 26.74M (highest high 26.84M)", text)
         self.assertIn("Support trend line 23.00M, resistance trend line 27.85M", text)
         self.assertEqual((patterns.name("EMA20 TEST"), patterns.name("RANGE BREAKOUT")), ("20D EMA touch", "box breakout"))
+        # a box's break is told, without a rate, for two weeks (section 56): 29 Mehr's close above 26.74M
+        broke = {"ranges": [(_date(2026, 9, 29), _date(2026, 10, 20), 252_700_000.0, 267_400_000.0, False)],
+                 "tests": [], "flag": None, "as_of": _date(2026, 10, 21),
+                 "events": [(_date(2026, 10, 21), "RANGE BREAKOUT", 267_400_000.0, 282_100_000.0, 252_700_000.0)]}
+        self.assertEqual(telegram_paper.pattern_lines(broke),
+                         ["Broke up out of the box (25.27M-26.74M) on 29 Mehr: target 28.21M while above 25.27M"])
+        later = dict(broke, as_of=_date(2026, 11, 8))
+        self.assertEqual(telegram_paper.pattern_lines(later), [], "told for two weeks")
+        levels = _inspect.getsource(telegram_direction._levels)
+        self.assertIn('f"Resistance level {', levels)
+        self.assertIn('f"Support level {', levels)
 
 if __name__ == "__main__":
     print("=" * 55)

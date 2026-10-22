@@ -264,4 +264,5 @@ def read(dates, high, low, close, window=60):
     # the box is drawn on closes; its highest high is the resistance line the chart draws beside it, and the
     # caption names both (owner, 2026-10-22: two ceilings, 26.74M and 26.84M, read as a contradiction)
     box_high = float(h[current[0]:n].max()) if current else None
-    return {"ranges": shown, "events": recent, "flag": flag, "tests": tests, "box_high": box_high}
+    return {"ranges": shown, "events": recent, "flag": flag, "tests": tests, "box_high": box_high,
+            "as_of": dates[n - 1]}

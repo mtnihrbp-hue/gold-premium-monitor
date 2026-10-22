@@ -123,10 +123,11 @@ def _levels(p):
         return None
     lines = ["<b>LEVELS</b> (how lines this far away did)"]
     if res and res.get("held_10d_pct") is not None:
-        lines.append(f"Resistance {_m(res['price'])} ({_signed(res['pct'], 1)}): broken within 10 days "
+        # "level": flat, beside the sloped trend lines the chart and the evening name (owner, 2026-10-22)
+        lines.append(f"Resistance level {_m(res['price'])} ({_signed(res['pct'], 1)}): broken within 10 days "
                      f"{100 - res['held_10d_pct']:.0f} in 100")
     if sup and sup.get("held_10d_pct") is not None:
-        lines.append(f"Support {_m(sup['price'])} ({_signed(sup['pct'], 1)}): held 10 days "
+        lines.append(f"Support level {_m(sup['price'])} ({_signed(sup['pct'], 1)}): held 10 days "
                      f"{sup['held_10d_pct']:.0f} in 100")
     return "\n".join(lines) if len(lines) > 1 else None
 
