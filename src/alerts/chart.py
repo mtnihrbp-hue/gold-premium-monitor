@@ -42,9 +42,9 @@ def render(dates, opens, highs, lows, closes, ema20=None, ema50=None, supports=(
         ax.add_patch(plt.Rectangle((x[i] - 0.35, lo_body), 0.7, max(hi_body - lo_body, 1e-3),
                                    facecolor=color, edgecolor=color, linewidth=0.5))
     if ema20 is not None:
-        ax.plot(x, np.asarray(ema20[k:]) / RIAL_PER_M_TOMAN, color=COLORS["ema20"], linewidth=1.2, label="EMA20")
+        ax.plot(x, np.asarray(ema20[k:]) / RIAL_PER_M_TOMAN, color=COLORS["ema20"], linewidth=1.2, label="20D EMA")
     if ema50 is not None:
-        ax.plot(x, np.asarray(ema50[k:]) / RIAL_PER_M_TOMAN, color=COLORS["ema50"], linewidth=1.2, label="EMA50")
+        ax.plot(x, np.asarray(ema50[k:]) / RIAL_PER_M_TOMAN, color=COLORS["ema50"], linewidth=1.2, label="50D EMA")
     if value_area:
         ax.axhspan(value_area["val"] / RIAL_PER_M_TOMAN, value_area["vah"] / RIAL_PER_M_TOMAN,
                    color=COLORS["value_area"], alpha=0.12, label="value area (volume)")
@@ -109,7 +109,9 @@ def render(dates, opens, highs, lows, closes, ema20=None, ema50=None, supports=(
         ax.text(len(c) + 0.6, y, f" now {y:.2f}", color=COLORS["live"], fontsize=8, va="center", fontweight="bold")
     ticks = list(range(0, len(c), max(1, len(c) // 6)))
     ax.set_xticks(ticks)
-    ax.set_xticklabels([ds[t].strftime("%m-%d") for t in ticks], fontsize=8)
+    from timeutil import persian_day
+    # the Persian dates every message uses (owner, 2026-10-22: "turn all into persian")
+    ax.set_xticklabels([persian_day(ds[t]) for t in ticks], fontsize=8)
     ax.set_xlim(-1, len(c) + 13)
     ax.tick_params(axis="y", labelsize=8)
     ax.set_ylabel("M toman", fontsize=8)

@@ -259,7 +259,7 @@ def build_push_message(decision, deep_zone, lowest=None, low_name=None,
     recommendation would take that authority without holding it.
     """
     lines = ["<b>GOLDPremium: DEEP DISCOUNT</b>", ""]
-    lines.append(_row("Discount", f"{_pct(decision.gap)}  below fair value"))
+    lines.append(_row("Discount", f"{_pct(decision.gap)}  below parity"))
     if basis_count and platform_count:
         lines.append(_cont(f"from the {basis_count} cheapest of {platform_count}"))
     lines.append(_row("Deep discount", f"{_pct(decision.fire_at)} or more  (30D)"))

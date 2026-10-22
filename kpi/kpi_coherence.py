@@ -1953,6 +1953,49 @@ class KPICoherence(unittest.TestCase):
                                      "  Close below 25.27M: may lead to 23.80M"])
         self.assertIn("% drop: on days like today", _inspect.getsource(telegram_direction._buy_or_wait))
 
+    def test_63_one_vocabulary_on_every_surface_and_the_chart(self):
+        """The owner's answers of 2026-10-22 on the contradictions of 26 Mehr (SP_D_HANDOFF.md 54.6, 55): "50D EMA"
+        and "50D MA" named apart; one decimal; "was"; the box on closes with its highest high; the prices labelled
+        by basis and the chart's words the messages' words; "parity" for "fair value"; Persian dates everywhere."""
+        import inspect as _inspect
+        import re as _re
+        from datetime import date as _date
+        from alerts import chart, helpers, telegram_direction, telegram_paper
+        from caluclator import patterns
+        # parity: no reader-facing "fair value" left in the Telegram surfaces (comments aside)
+        for path in (REPO / "src" / "alerts").glob("telegram*.py"):
+            code = "\n".join(l for l in path.read_text(encoding="utf-8").splitlines() if not l.strip().startswith("#"))
+            strings = _re.findall(r'f?"[^"\n]*"', code)
+            self.assertFalse([x for x in strings if "fair value" in x.lower()], path.name)
+        # Persian dates: the shared footer, the chart's axis
+        self.assertRegex(helpers.format_timestamp(), r"^\d{1,2} [A-Z][a-z]+ 14\d\d, \d\d:\d\d$")
+        self.assertIn("persian_day(ds[t])", _inspect.getsource(chart.render))
+        self.assertNotIn('strftime("%m-%d")', _inspect.getsource(chart.render))
+        # the averages named apart, on the chart as in the messages
+        render = _inspect.getsource(chart.render)
+        self.assertIn('label="20D EMA"', render)
+        self.assertIn('label="50D EMA"', render)
+        trend = _inspect.getsource(telegram_direction._trend)
+        self.assertIn("'20D EMA'", trend)
+        self.assertIn("'50D EMA'", trend)
+        watch = _inspect.getsource(telegram_direction._watch)
+        self.assertIn("its 50D MA", watch)
+        code = [l for l in (watch + trend).splitlines() if not l.strip().startswith("#")]
+        self.assertFalse([l for l in code if "50-day" in l], "no 50-day left in the words")
+        self.assertIn("(market, tgju)", _inspect.getsource(telegram_direction._head))
+        # the evening in the same words, and the chart's marks named as the caption names them
+        reading = {"price": 258_900_000.0, "live": True, "as_of": _date(2026, 10, 17), "phase": "MARKUP",
+                   "channel": None, "swing": None, "trend_lines": {"support": 230_000_000.0, "resistance": 278_500_000.0},
+                   "ema20": (1.04, 2.2), "ema50": (7.71, 9.2),
+                   "patterns": {"ranges": [(_date(2026, 9, 29), _date(2026, 10, 17), 252_700_000.0, 267_400_000.0, True)],
+                                "tests": [_date(2026, 10, 13)], "flag": None, "events": [], "box_high": 268_400_000.0}}
+        text = _re.sub(r"</?[bi]>", "", telegram_paper.build_evening_message(_date(2026, 10, 18), reading))
+        self.assertIn("1.0% above the 20D EMA (was 2.2%), 7.7% above the 50D EMA", text)
+        self.assertIn("Touched the 20D EMA on 21 Mehr", text)
+        self.assertIn("In a box since 7 Mehr: closes between 25.27M and 26.74M (highest high 26.84M)", text)
+        self.assertIn("Support trend line 23.00M, resistance trend line 27.85M", text)
+        self.assertEqual((patterns.name("EMA20 TEST"), patterns.name("RANGE BREAKOUT")), ("20D EMA touch", "box breakout"))
+
 if __name__ == "__main__":
     print("=" * 55)
     print("CROSS-CUTTING COHERENCE")

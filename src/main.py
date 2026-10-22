@@ -1157,7 +1157,7 @@ def _pattern_overlay(dates, h, l, c):
         from caluclator import patterns
         from timeutil import persian_day
         r = patterns.read(dates, h, l, c)
-        boxes = [(s, e, lo, hi, f"range since {persian_day(s)}" if running else f"range {persian_day(s)}-{persian_day(e)}")
+        boxes = [(s, e, lo, hi, f"box since {persian_day(s)}" if running else f"box {persian_day(s)}-{persian_day(e)}")
                  for s, e, lo, hi, running in r["ranges"]]
         first = r["ranges"][0][0] if r["ranges"] else dates[-60]
         marks = [(day, level, patterns.name(kind)) for day, kind, level, _t, _s in r["events"]
@@ -1293,9 +1293,14 @@ def _evening_reading(rows, live):
     e20, e50 = talib.EMA(series, 20), talib.EMA(series, 50)
     dist = lambda e, k: float((series[k] / e[k] - 1) * 100)
     from caluclator import patterns
+    from caluclator.technical import trendlines
     found = patterns.read([r.trade_date for r in rows], h, l, c)
+    # the support and resistance trend lines the chart draws (_chart_png), so the caption describes the picture
+    # (owner, 2026-10-22: "the representation on the chart needs to be aligned with the printed words")
+    drawn = trendlines(h, l, c, upto=len(c) - 1, usable=_usable(rows, o, h, l, c))
+    lines_at = {k: (v["at"] if v else None) for k, v in drawn.items() if k in ("support", "resistance")}
     return {"price": float(series[-1]), "live": bool(live), "as_of": rows[-1].trade_date, "patterns": found,
-            "phase": read["phase"], "channel": read.get("channel"),
+            "phase": read["phase"], "channel": read.get("channel"), "trend_lines": lines_at,
             "swing": (rows[known[-1][1]].trade_date, float(known[-1][2]), known[-1][3]) if known else None,
             "ema20": (dist(e20, -1), dist(e20, -2)), "ema50": (dist(e50, -1), dist(e50, -2))}
 

@@ -855,8 +855,8 @@ class KPIPaper(unittest.TestCase):
         self.assertEqual(png[1:4], b"PNG", "the chart, drawn from tgju's own candles")
         self.assertIn(("TGJU_GOLD_18K", date(2026, 10, 15)), calls, "18K's candles before today")
         plain = re.sub(r"</?[bi]>", "", text)
-        for part in ("GOLDPremium: EVENING", "23 Mehr 1405, 21:00", "18K ", "the 20-day average (yesterday", "the 50-day",
-                     " channel, ", "GOLD FUNDS · individuals, last 10 sessions (tablokhani)",
+        for part in ("GOLDPremium: EVENING", "23 Mehr 1405, 21:00", "18K ", "the 20D EMA (was", "the 50D EMA",
+                     " trend line ", "GOLD FUNDS · individuals, last 10 sessions (tablokhani)",
                      "The room's report returns with the database"):
             self.assertIn(part, plain)
         for char in "<>&":
@@ -904,12 +904,15 @@ class KPIPaper(unittest.TestCase):
         from alerts.telegram_paper import build_evening_message
         reading = {"price": 263_449_605.0, "live": True, "as_of": date(2026, 10, 14), "phase": "MARKUP",
                    "channel": {"slope_pct_day": 0.55, "position": 0.3}, "swing": (date(2026, 6, 16), 156_500_000.0, "L"),
+                   "trend_lines": {"support": 230_600_000.0, "resistance": 278_500_000.0},
                    "ema20": (0.8, -1.2), "ema50": (10.2, 9.0)}
         lines = re.sub(r"</?[bi]>", "", build_evening_message(date(2026, 10, 15), reading)).splitlines()
+        # the owner's words of 2026-10-22 (SP_D_HANDOFF.md section 55): the chart's trend lines by their legend's
+        # names, "20D EMA", "50D EMA", one decimal, "was"
         self.assertEqual(lines, ["GOLDPremium: EVENING · 23 Mehr 1405, 21:00",
                                  "18K 26.34M (market, tgju) · rising, up from 15.65M on 26 Khordad",
-                                 "Rising channel, +0.55% a day; price in its lower half",
-                                 "0.8% above the 20-day average (yesterday 1.2% below), 10% above the 50-day",
+                                 "Support trend line 23.06M, resistance trend line 27.85M; price in their upper half",
+                                 "0.8% above the 20D EMA (was 1.2% below), 10.2% above the 50D EMA",
                                  "",
                                  "The room's report returns with the database"])
         bare = build_evening_message(date(2026, 10, 15), None)
@@ -1057,9 +1060,9 @@ class KPIPaper(unittest.TestCase):
         self.assertNotIn("double top", text.lower())
         self.assertNotIn("Double bottom", text, "marked on the chart, but its 19 of 24 is about any day's 69 in 100")
         self.assertEqual(lines, [
-            "Touched the 20-day average on 21 Mehr and bounced (after such bounces the next month was a little "
+            "Touched the 20D EMA on 21 Mehr and bounced (after such bounces the next month was a little "
             "stronger than usual)",
-            "In a box since 9 Mehr, 25.27M to 26.74M",
+            "In a box since 9 Mehr: closes between 25.27M and 26.74M",
             "  Close above 26.74M: opens the road to 28.21M",
             "  Close below 25.27M: may lead to 23.80M"])
         self.assertEqual({k for k in RECORD if not shown(k)}, {"RISING WEDGE", "DOUBLE TOP", "FALLING WEDGE"})

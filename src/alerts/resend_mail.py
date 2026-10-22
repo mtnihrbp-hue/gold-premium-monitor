@@ -81,7 +81,7 @@ def send_daily_recap(
 {format_platform_table_rows(markets, previous_markets)}
 
 <tr>
-<td><b>Fair Price</b></td>
+<td><b>Parity</b></td>
 <td align="right"><b>{fair:,.0f}</b></td>
 <td></td>
 </tr>
@@ -160,7 +160,7 @@ def send_alert(
 {format_platform_table_rows(markets, previous_markets)}
 
 <tr>
-<td><b>Fair Price</b></td>
+<td><b>Parity</b></td>
 <td align="right"><b>{fair:,.0f}</b></td>
 <td></td>
 </tr>

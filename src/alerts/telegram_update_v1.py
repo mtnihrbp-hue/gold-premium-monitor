@@ -123,8 +123,8 @@ def _gap_movement(premium, reference, with_consequence=True):
     # increase or decrease in the gap would describe the smaller half of the move.
     if (premium < 0) != (reference < 0):
         if with_consequence and consequence:
-            return f"crossed fair value — {consequence}"
-        return "crossed fair value"
+            return f"crossed parity — {consequence}"
+        return "crossed parity"
 
     change = _gap_delta(premium, reference)
     # Below half of the last displayed decimal the text would claim a movement
@@ -195,7 +195,7 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
         _delta_bare(_pct_change(usd, seven.usd_irr)),
     ))
     rows.append(_market_row(
-        "Fair",
+        "Parity",
         format_m_tomans_short(fair),
         _delta_bare(_pct_change(fair, run.fair_price if run else None)),
         _delta_bare(_pct_change(fair, day.fair_price if day else None)),
@@ -216,7 +216,7 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
         ))
     else:
         rows.append(_market_row(
-            "Platform",
+            "Average",
             format_m_tomans_short(platform_avg),
             _delta_bare(_pct_change(platform_avg, run.platform_average if run else None)),
             _delta_bare(_pct_change(platform_avg, day.platform_average if day else None)),
@@ -279,7 +279,7 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
         # otherwise a cached price is indistinguishable from a fresh quote.
         lines.append("")
         lines.append("⚠ XAU/USD is a cached fallback, not a fresh quote.")
-        lines.append(f"Fair value and {gap_label} derive from it.")
+        lines.append(f"Parity and {gap_label} derive from it.")
     return "\n".join(lines)
 
 
@@ -335,7 +335,9 @@ def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state
     basis_now = valuation.basis_price if valuation is not None else None
     basis_count = valuation.basis_count if valuation is not None else 0
 
-    lines.append(_row(label, f"{abs(gap):.2f}%  {side} fair value"))
+    # "parity", not "fair value": world gold times the dollar, the price of import parity, which the market
+    # has stayed under for months (the external audit's B1; owner, 2026-10-22; SP_D_HANDOFF.md section 55)
+    lines.append(_row(label, f"{abs(gap):.2f}%  {side} parity"))
     if basis_count and total_platforms:
         lines.append(_cont(f"from the {basis_count} cheapest of {total_platforms}"))
 
@@ -381,11 +383,11 @@ def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state
         total = below + above
         lines.append("")
         if below == total:
-            lines.append(_row("Platforms", f"all {total} below fair value"))
+            lines.append(_row("Platforms", f"all {total} below parity"))
         elif above == total:
-            lines.append(_row("Platforms", f"all {total} above fair value"))
+            lines.append(_row("Platforms", f"all {total} above parity"))
         else:
-            lines.append(_row("Platforms", f"{below} of {total} below fair value"))
+            lines.append(_row("Platforms", f"{below} of {total} below parity"))
 
     lines.append("")
     cheapest = _cheapest_platforms(markets, basis_count)
@@ -395,7 +397,7 @@ def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state
         lines.append(_cont(" / ".join(format_m_tomans_short(p) for _, p in cheapest)))
     lines.append(_row("Market low", format_m_tomans(lowest)
                       + (f"  {low_name}" if low_name else "")))
-    lines.append(_row("Fair value", _level_with_change(
+    lines.append(_row("Parity", _level_with_change(
         fair, _pct_change(fair, run.fair_price if run else None))))
 
     # Valuation is trimmed, execution is not. Showing where the platforms outside

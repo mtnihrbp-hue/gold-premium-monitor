@@ -69,7 +69,7 @@ def build_message(name, change, record, now, kept=None, left=None, mirror_built=
     elif name == "world gold" and change == "down":
         if record.get("reason") == "fallback":
             lines.append(f"World gold has not updated since {_at(since, now)}; its last price is used.")
-            lines.append("Fair value and the discount may be off until it updates.")
+            lines.append("Parity and the discount may be off until it updates.")
         else:
             lines.append(f"World gold is unavailable since {_at(since, now)}; the discount is not computed.")
     elif name == "world gold":

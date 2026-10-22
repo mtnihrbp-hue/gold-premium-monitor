@@ -55,7 +55,7 @@ def _side(value):
 
 def _head(p):
     pos, r = p.position, p.rally
-    words = [f"18K <b>{_m(p.price)}</b>"]
+    words = [f"18K <b>{_m(p.price)}</b> (market, tgju)"]     # its basis named, as in the evening (section 55)
     trend = pos.get("trend")
     if trend == "UPTREND" and r.get("trend_since"):
         words.append(f"uptrend since {_day(r['trend_since'], year=True)}")
@@ -91,10 +91,11 @@ def _trend(p):
         if was is not None:
             text += f" (was {_pct(was, 1)}{'' if _side(was) == _side(now) else ' ' + _side(was)})"
         return text
-    lines.append(f"{dist('EMA20', '20-day')}, {dist('EMA50', '50-day')}")
+    # "20D EMA", "50D EMA" and, in WATCH, "50D MA": two different 50-day lines named apart (owner, 2026-10-22)
+    lines.append(f"{dist('EMA20', '20D EMA')}, {dist('EMA50', '50D EMA')}")
     ema = pos.get("ema") or {}
     if ema.get("since_date"):
-        lines.append(f"20-day {_pct(ema['gap_pct'], 1)} {_side(ema['gap_pct'])} the 50-day: "
+        lines.append(f"20D EMA {_pct(ema['gap_pct'], 1)} {_side(ema['gap_pct'])} the 50D EMA: "
                      f"{'bullish' if ema['above'] else 'bearish'} since {_day(ema['since_date'])}")
     return "\n".join(lines)
 
@@ -138,12 +139,12 @@ def _watch(p):
     both_above = gold_gap is not None and gold_gap < 0 and (usd_gap is None or usd_gap < 0)
     lines = ["<b>WATCH</b>" + (" (where the uptrend would end)" if both_above else "")]
     if gold_gap is not None:
-        lines.append(f"18K: a close under {_m(s50)}, its 50-day average ({_pct(gold_gap)} below today)" if gold_gap < 0
-                     else f"18K: under its 50-day average, {_m(s50)} ({_pct(gold_gap)} above today)")
+        lines.append(f"18K: a close under {_m(s50)}, its 50D MA ({_pct(gold_gap, 1)} below today)" if gold_gap < 0
+                     else f"18K: under its 50D MA, {_m(s50)} ({_pct(gold_gap, 1)} above today)")
     if usd_gap is not None:
-        lines.append(f"Dollar: a close under {usd['sma50'] / 10:,.0f} toman, its 50-day average "
-                     f"({_pct(usd_gap)} below today)" if usd_gap < 0
-                     else f"Dollar: under its 50-day average, {usd['sma50'] / 10:,.0f} toman")
+        lines.append(f"Dollar: a close under {usd['sma50'] / 10:,.0f} toman, its 50D MA "
+                     f"({_pct(usd_gap, 1)} below today)" if usd_gap < 0
+                     else f"Dollar: under its 50D MA, {usd['sma50'] / 10:,.0f} toman")
     # by separate breaks, 2014-2026: 18K's next 20 trading days trailed all days by 1.2-5.9 points;
     # it usually did not fall (SP_D_HANDOFF.md section 35.11)
     lines.append("After past breaks, 18K's next month was weaker than usual, by 1 to 6 points.")

@@ -170,7 +170,7 @@ def pattern_lines(found):
     found = found or {}
     current = [r for r in found.get("ranges", []) if r[4]]
     if current and found.get("tests"):
-        out.append(f"Touched the 20-day average on {persian_day(found['tests'][-1])} and bounced "
+        out.append(f"Touched the 20D EMA on {persian_day(found['tests'][-1])} and bounced "
                    "(after such bounces the next month was a little stronger than usual)")
     if current:
         start, _end, lo, hi, _running = current[-1]
@@ -179,7 +179,9 @@ def pattern_lines(found):
         lo, hi = round(lo / 1e5) * 1e5, round(hi / 1e5) * 1e5
         height = hi - lo
         up, down = RECORD["RANGE BREAKOUT"], RECORD["RANGE BREAKDOWN"]
-        out += [f"In a box since {persian_day(start)}, {_m(lo)} to {_m(hi)}",
+        top = found.get("box_high")
+        out += [f"In a box since {persian_day(start)}: closes between {_m(lo)} and {_m(hi)}"
+                + (f" (highest high {_m(top)})" if top and top > hi else ""),
                 f"  Close above {_m(hi)}: opens the road to {_m(hi + height)}",
                 f"  Close below {_m(lo)}: may lead to {_m(lo - height)}"]
     flag = found.get("flag")
@@ -225,16 +227,23 @@ def build_evening_message(day, reading, funds=None, back_on=None):
             swing_day, swing_price, kind = reading["swing"]
             head += f", {'up' if kind == 'L' else 'down'} from {_m(swing_price)} on {persian_day(swing_day)}"
         lines.append(head)
-        channel = reading["channel"]
-        if channel:
-            where = ("above its top line" if channel["position"] > 1 else "below its bottom line" if channel["position"] < 0
-                     else "in its upper half" if channel["position"] > 0.5 else "in its lower half")
-            slope = channel["slope_pct_day"]
-            lines.append(f"{'Rising' if slope >= 0 else 'Falling'} channel, {slope:+.2f}% a day; price {where}".replace("-", "−"))
+        # the two trend lines the chart draws, by its legend's names (section 55)
+        drawn = reading.get("trend_lines") or {}
+        sup, res, price = drawn.get("support"), drawn.get("resistance"), reading["price"]
+        if sup and res and res > sup:
+            spot = (price - sup) / (res - sup)
+            where = ("above the resistance line" if spot > 1 else "below the support line" if spot < 0
+                     else "in their upper half" if spot > 0.5 else "in their lower half")
+            lines.append(f"Support trend line {_m(sup)}, resistance trend line {_m(res)}; price {where}")
+        elif sup:
+            lines.append(f"Support trend line {_m(sup)}; price {'above' if price >= sup else 'below'} it")
+        elif res:
+            lines.append(f"Resistance trend line {_m(res)}; price {'below' if price <= res else 'above'} it")
         d20, was20 = reading["ema20"]
         d50 = reading["ema50"][0]
         was = f"{abs(was20):.1f}%" + ("" if side(was20) == side(d20) else f" {side(was20)}")
-        lines.append(f"{abs(d20):.1f}% {side(d20)} the 20-day average (yesterday {was}), {abs(d50):.0f}% {side(d50)} the 50-day")
+        # "20D EMA", "50D EMA", one decimal, "was": Direction's words (owner, 2026-10-22)
+        lines.append(f"{abs(d20):.1f}% {side(d20)} the 20D EMA (was {was}), {abs(d50):.1f}% {side(d50)} the 50D EMA")
         lines.extend(pattern_lines(reading.get("patterns")))
     if funds:
         lines += [""] + list(funds)

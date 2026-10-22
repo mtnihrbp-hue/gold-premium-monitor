@@ -5796,3 +5796,58 @@ not built while Neon is out of reach. It runs only once the file exists.
 sum, "drop"), `test_59` (the mirror's save only once it exists); the KPI suite 30/30, unit tests 19/19.
 
 **NEON MIGRATION REQUIRED = NO.**
+
+## 55. One vocabulary on every surface and on the chart (2026-10-22; previewed, on `sp-de`)
+
+The owner, on 54.6:
+1. "50D EMA and 50D MA";
+2. one decimal: "Agreed";
+3. "Was --> it has less words";
+4. the box on closes with its highest high: "Agreed";
+5. the prices labelled by basis: "totally Agreed, also, the representation on the chart needs to be aligned with
+   the printed words";
+6. parity: "ok";
+7. "turn all into persian";
+8. UPDATE's empty columns: "no need, the db will retun in 8 days".
+
+**Built:**
+- **Direction** (`alerts/telegram_direction.py`):
+  - the headline "18K 27.09M (market, tgju)";
+  - TREND "4.2% above the 20D EMA (was 4.5%), 10.8% above the 50D EMA (was 11.2%)" and "20D EMA 6.4% above the
+    50D EMA";
+  - WATCH "its 50D MA (9.4% below today)", one decimal.
+- **The evening** (`alerts/telegram_paper.py`, `main._evening_reading`):
+  - the channel line describes the two trend lines the chart draws, by its legend's names: "Support trend line
+    23.30M, resistance trend line 28.30M; price in their upper half".
+    - It described the chartist's channel, which the chart does not draw. On 26 Mehr it put the price in the
+      lower half, while the drawn lines put it in the upper half.
+  - "1.0% above the 20D EMA (was 2.2%), 7.7% above the 50D EMA";
+  - "Touched the 20D EMA";
+  - "In a box since 7 Mehr: closes between 25.27M and 26.74M (highest high 26.84M)" (`patterns.read` returns
+    the running box's highest high).
+- **The chart** (`alerts/chart.py`, `caluclator/patterns.NAMES`, `main._pattern_overlay`):
+  - the legend "20D EMA" and "50D EMA";
+  - the boxes "box since ..." and "box ... - ...";
+  - the marks "20D EMA touch", "box breakout" and "box breakdown";
+  - the date axis in Persian ("4 Khordad ... 7 Mehr").
+- **Parity:** "Discount 2.25% below parity", "Platforms all 10 below parity", "Parity 26.36M", "crossed parity",
+  the table's "Parity" row. Also ANALYZE, the push, the parked signal, the SERVICE notice, the legacy alert and
+  the e-mails.
+  - The fallback row "Platform", the average of all platforms, reads "Average".
+- **Persian time:** `helpers.format_timestamp` gives "30 Mehr 1405, 10:13" for UPDATE, ANALYZE, the push and the
+  signal, and the parked signal's next time is Persian.
+- **Tests:**
+  - `kpi_coherence.test_63` holds the vocabulary: no "fair value" in a Telegram surface, Persian time and axis,
+    the averages named apart in Direction, the evening and the chart, the box line, the marks' names;
+  - the KPI assertions that pinned the old words were moved to the new ones;
+  - the suite 30/30 (coherence 58), unit tests 19/19.
+- **Preview:**
+  - UPDATE on the inputs of 26 Mehr 20:59;
+  - Direction and the evening from live data on 10-22;
+  - the chart, `research/data/preview_evening_55.png`.
+  - Merged on the owner's lock.
+
+**Seen on 10-22:** 18K broke up out of the box (27.09M against its 26.74M top). Direction's LEVELS now reads "Support
+26.84M": the old ceiling is the support level.
+
+**NEON MIGRATION REQUIRED = NO.**

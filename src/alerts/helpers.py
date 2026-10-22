@@ -82,7 +82,7 @@ def format_trend_lines(trends):
     vs_pct = trends.get("vs_yesterday_pct")
 
     if diff is not None and pct is not None:
-        lines.append(f"Fair Value:      {arrow} ({pct:+.2f}%)")
+        lines.append(f"Parity:          {arrow} ({pct:+.2f}%)")
     if vs_diff is not None and vs_pct is not None:
         lines.append(f"vs Yesterday:    {vs_pct:+.2f}%")
 
@@ -316,8 +316,11 @@ def format_arrow(value: float, threshold: float = 0.0) -> str:
     return "↑" if value > 0 else "↓"
 
 def format_timestamp():
-    """Current time as the reader's clock shows it."""
-    return local_now().strftime("%Y-%m-%d %H:%M")
+    """Current time as the reader's clock shows it, in the Persian calendar like every other message: "26 Mehr
+    1405, 20:59" (owner, 2026-10-22: "turn all into persian"; SP_D_HANDOFF.md section 55)."""
+    from timeutil import persian_day
+    now = local_now()
+    return f"{persian_day(now.date(), year=True)}, {now:%H:%M}"
 
 
 def format_clock(value):
