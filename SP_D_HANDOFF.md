@@ -38,7 +38,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    49 option C, the saffron fund removed, the room re-measured (v1.29safe);
                                                                    50 the old alert parked, Google keyed by story, the news leads (v1.30safe);
                                                                    51-52 the external audit verified; patterns by lift, state saved by scheduled runs, the worker, the phone (v1.31safe);
-                                                                   53 the audit's small defects, the room at lag 1-2, the flows on the clean record
+                                                                   53 the audit's small defects, the room at lag 1-2, the flows on the clean record (v1.32safe);
+                                                                   54 the funds block made to arrive, UPDATE's basis in an outage
        member, the LLM member
 ```
 
@@ -5733,5 +5734,65 @@ a start date, 2021-10-18, after the gap; the rules otherwise unchanged).
 - **What the record keeps from the funds:** the warning of 41.4 (a rush of buyers in turbulence) and the
   volume profile of 24, as descriptions.
 - **The in-session recording** (48.2) is the next place to look.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 54. The owner's messages of 10-18: the funds block missing, UPDATE's basis, the contradictions (2026-10-22)
+
+The owner, with the EVENING, UPDATE and DIRECTION of 26 Mehr 21:00 and the chart: "one thing bothering me much.
+we had talked several times about, a) there are some contradications, b) the money flow thing, we spent so
+much time, and still isnt present. c) you see the tlg msgs and also tell me whats wrong."
+
+**54.1 Why the funds block was missing.**
+- **The evenings:**
+  - 10-18, 10-19 and 10-21 went out without the GOLD FUNDS block, with the log reading "gold funds no";
+  - 10-20 carried it.
+- **The cause:** tablokhani timed out from GitHub's runner, a ReadTimeout on both endpoints, on 7 of the 16
+  scheduled runs of 10-21. The collector waited 15 seconds, and the evening asked once and gave up without
+  saying why.
+- From the workstation the same call answers in 0.2-1.1 seconds, with 19 funds.
+- **Fixed:**
+  - a read of 40 seconds and a second try (`collector/tablokhani.py`);
+  - one read a run, kept for ten minutes, good or not, so the evening does not wait twice;
+  - every scheduled run keeps the day's last complete reading in `state.json` (`main._keep_funds_reading`),
+    and the evening uses it when its own read fails (`main._funds_stand_in`);
+  - the log says where the block came from, or why there is none.
+- **Direction's GOLD DEMAND** shows the same stand-in while the phone's days cannot be read, titled "(gold
+  funds, last 10 sessions, tablokhani)". It was absent from /Direction for the whole outage.
+
+**54.2 UPDATE's discount changed basis in the outage.**
+- **The problem:** the discount reads the three cheapest platforms (CLAUDE.md, "Valuation basis"). With the
+  database out of reach the valuation was not built, and the message fell back to the single cheapest:
+  2.50% (Milli alone) where the three cheapest gave 2.25%.
+- **A symptom of the same fall-back:** "The other 10 platforms", where 7 were meant.
+- **Fixed:** `resolve_relative_valuation` keeps today's basis and its gap without the record (status
+  INSUFFICIENT_DATA, so no rank is shown), and UPDATE asks for it without a session. The discount, its
+  "from the 3 cheapest of 10", the cheapest three and the other seven are back.
+
+**54.3 The box's arithmetic.**
+- "25.27M to 26.74M" with "may lead to 23.79M": 25.27 - 1.47 is 23.80. The targets were taken from the
+  unrounded edges.
+- They are now taken from the edges as shown.
+
+**54.4 "dip" in Direction:** "Waiting for a 3% dip" now reads "drop" (the owner's word since 2026-10-16).
+
+**54.5 "Cache save failed"** on every scheduled run was the mirror's save step finding no file, because the mirror is
+not built while Neon is out of reach. It runs only once the file exists.
+
+**54.6 The contradictions left, for the owner's decision** (wording in locked layouts):
+
+| # | Seen on 26 Mehr | Proposed |
+|---|---|---|
+| 1 | "the 50-day" is the EMA in Direction's TREND, the evening and the chart, but the simple average in Direction's WATCH: 7.7% above it, and 7% under its 24.09M, on one screen | name them: "the 50-day EMA" and "the 50-day simple average" |
+| 2 | the same distance: "8% above the 50-day" (evening) and "7.7%" (Direction) | one decimal in both |
+| 3 | "(yesterday 2.2%)" (evening) and "(was 2.2%)" (Direction) | "yesterday" in both |
+| 4 | two ceilings: the box's top 26.74M (on closes) and the resistance 26.84M (the highest high) | the box line says "closes between 25.27M and 26.74M (highest high 26.84M)" |
+| 5 | three 18K prices within four minutes: 25.89M (evening, tgju level), 25.90M (Direction, tgju level), 25.86M (UPDATE "Platform", the average of all platforms) | label each: "(market, tgju)" in Direction too; UPDATE "Platforms' average" |
+| 6 | "Fair value" is import parity (the audit's B1, agreed) | "parity" in UPDATE, ANALYZE and the push |
+| 7 | UPDATE's time is Gregorian ("2026-10-18 20:59"); the others are Persian | "26 Mehr 1405, 20:59" |
+| 8 | UPDATE in the outage: every Run, Today and 7D column and every platform change is "--" | the empty columns hidden, with one line: changes return with the database |
+
+**Checks:** `kpi_coherence.test_62` (the read, the kept reading, the reason, Direction's title, UPDATE's basis, the box's
+sum, "drop"), `test_59` (the mirror's save only once it exists); the KPI suite 30/30, unit tests 19/19.
 
 **NEON MIGRATION REQUIRED = NO.**

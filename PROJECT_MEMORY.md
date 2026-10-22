@@ -96,7 +96,7 @@ Production is `main`, dispatched by cron-job.org and the Cloudflare worker with 
 |---|---|---|---|
 | UPDATE | on demand | `alerts/telegram_update_v1.py` | live; a locked layout |
 | ANALYZE | on demand | `alerts/telegram_analyze.py` | live; honest when Neon is out of reach |
-| Direction | panel computed at 06:00 and 13:00, sent on `/Direction` | `analysis/direction.py`, `alerts/telegram_direction.py` | v7 (SP-D 35.11) |
+| Direction | panel computed at 06:00 and 13:00, sent on `/Direction` | `analysis/direction.py`, `alerts/telegram_direction.py` | v7 (SP-D 35.11); while Neon is out of reach computed live from tgju, with GOLD DEMAND from tablokhani's 10 sessions (54.1) |
 | BUY signal | when `final_decision` is BUY | `alerts/telegram_signal.py` | **parked** by the owner 2026-10-18 (`config.email.send_alerts`; SP-D 50.1): computed and stored, logged as parked, not sent |
 | Deep-discount push | scheduled runs | `analysis/push_trigger.py` | **parked** by the owner until Neon returns ("it may mislead the user") |
 | The room's trades | when the room trades | `alerts/telegram_paper.py` | live; the only PAPER account that pushes |

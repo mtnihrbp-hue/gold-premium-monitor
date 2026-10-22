@@ -1768,7 +1768,11 @@ class KPICoherence(unittest.TestCase):
             self.assertEqual(field(w, "uses"), "actions/cache/save@v4", save)
             self.assertEqual(paths(w), paths(r), "one list of paths, one cache")
             self.assertEqual(field(w, "key"), field(r, "key"))
-            self.assertEqual(field(w, "if"), f"always() && {scheduled}")
+            self.assertTrue(field(w, "if").startswith(f"always() && {scheduled}"), field(w, "if"))
+        self.assertEqual(field(blocks["Save State"], "if"), f"always() && {scheduled}", "state is always saved")
+        self.assertEqual(field(blocks["Save the record mirror"], "if"),
+                         f"always() && {scheduled} && hashFiles('record_mirror.sqlite') != ''",
+                         "the mirror only once it exists (section 54)")
         names = list(blocks)
         self.assertGreater(names.index("Save State"), names.index("Execute"))
         concurrency = text.split("\nconcurrency:\n", 1)[1].split("\n\n", 1)[0]
@@ -1881,6 +1885,73 @@ class KPICoherence(unittest.TestCase):
         if tehran is not None:
             for day in (_dt(2026, 3, 22, 12), _dt(2026, 6, 21, 12), _dt(2026, 10, 18, 12), _dt(2027, 1, 1, 12)):
                 self.assertEqual(day.replace(tzinfo=tehran).utcoffset(), timeutil.TEHRAN_UTC_OFFSET, day)
+
+    def test_62_the_funds_reach_every_message_and_say_why_when_not(self):
+        """SP_D_HANDOFF.md section 54. tablokhani timed out from GitHub's runner on 7 of 16 runs of 2026-10-21 and
+        the evening's funds block went out empty on three nights of four, saying nothing. Now: a longer read and a
+        retry; one read a run, kept; the day's last complete reading kept in state for a run whose own read
+        fails; the reason printed when there is none; Direction shows the same stand-in. And UPDATE keeps the
+        three cheapest as its basis without the database, and the box's targets add up from its shown edges."""
+        import inspect as _inspect
+        from datetime import datetime as _dt
+        import main
+        from alerts import telegram_direction, telegram_paper
+        from analysis import bubble_position as bp, gold_demand
+        from collector import tablokhani as tk
+        self.assertGreaterEqual(tk.TIMEOUT[1], 30)
+        self.assertGreaterEqual(tk.TRIES, 2)
+        calls, real = [], tk.requests.get
+
+        def down(url, **k):
+            calls.append(url)
+            raise tk.requests.exceptions.ReadTimeout("slow")
+        tk._last = None
+        tk.requests.get = down
+        try:
+            first = tk.collect()
+            n = len(calls)
+            again = tk.collect()
+        finally:
+            tk.requests.get, tk._last = real, None
+        self.assertEqual(n, 2 * tk.TRIES, "both endpoints, each tried TRIES times")
+        self.assertIs(again, first, "a run does not wait for a failed read twice")
+        flows = {f: (1e12, 4000.0, 0.9e12, 2000.0) for f in tk.GOLD_FUNDS}
+        now = _dt(2026, 10, 21, 17, 30)                                     # 21:00 Tehran
+        state = {}
+        saved = tk.collect
+        try:
+            tk.collect = lambda: {"flows": flows, "errors": []}
+            main._keep_funds_reading(state, _dt(2026, 10, 21, 16, 30))      # 20:00 Tehran, complete
+            tk.collect = lambda: {"flows": {}, "errors": ["smart-money-averages: ReadTimeout"]}
+            demand, source = main._funds_stand_in(now, state)
+            self.assertTrue(demand and source == "tablokhani's reading of 20:00", source)
+            stale = {main.FUNDS_KEPT: dict(state[main.FUNDS_KEPT], at="2026-10-20T16:30:00")}
+            demand, source = main._funds_stand_in(now, stale)
+            self.assertEqual(demand, {})
+            self.assertIn("smart-money-averages: ReadTimeout", source, "the reason, printed")
+        finally:
+            tk.collect = saved
+        self.assertIn("gold funds {('yes, ' + source) if funds else ('no: ' + source)}",
+                      _inspect.getsource(main._evening_fallback))
+        self.assertIn("_funds_stand_in(now, load_state())", _inspect.getsource(main._send_direction_report))
+        self.assertIn('dm.get("label")', _inspect.getsource(telegram_direction._demand))
+        self.assertIn("_keep_funds_reading(state, now)", _inspect.getsource(main.main))
+        self.assertIsNotNone(gold_demand.MIN_FUNDS)
+        # UPDATE's basis without the database: the three cheapest, ranks absent
+        M = 1e7
+        prices = {"A": 25.70, "B": 25.80, "C": 25.80, "D": 25.82, "E": 26.12}
+        markets = {k: {"status": "OK", "price": v * M} for k, v in prices.items()}
+        val = bp.resolve_relative_valuation(None, markets=markets, fair_price=26.36 * M)
+        self.assertEqual((val.basis_count, val.status), (3, "INSUFFICIENT_DATA"))
+        self.assertAlmostEqual(val.gap, (25.7667 / 26.36 - 1) * 100, places=2)
+        self.assertIsNone(val.bigger_than)
+        # the box: its targets from the edges as shown
+        found = {"ranges": [(_dt(2026, 10, 1).date(), _dt(2026, 10, 15).date(), 252_655_000.0, 267_390_000.0, True)],
+                 "tests": [], "flag": None, "events": []}
+        lines = telegram_paper.pattern_lines(found)
+        self.assertEqual(lines[1:], ["  Close above 26.74M: opens the road to 28.21M",
+                                     "  Close below 25.27M: may lead to 23.80M"])
+        self.assertIn("% drop: on days like today", _inspect.getsource(telegram_direction._buy_or_wait))
 
 if __name__ == "__main__":
     print("=" * 55)

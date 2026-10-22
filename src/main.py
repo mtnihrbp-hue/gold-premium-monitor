@@ -708,6 +708,37 @@ def _gold_demand(session):
 
 
 TABLOKHANI_WINDOW = 10      # tablokhani publishes 10-day averages only
+FUNDS_KEPT = "funds_reading"  # state: the day's last complete tablokhani reading (SP-D section 54)
+
+
+def _keep_funds_reading(state, now):
+    """Keep this scheduled run's tablokhani reading when it is complete, so a later run whose own read times
+    out -- 7 of 16 runs on 2026-10-21, the 21:00 one among them on three nights of four -- still has the
+    day's funds (SP-D section 54). The run's one read is reused, nothing is asked again."""
+    from analysis import gold_demand
+    from collector import tablokhani
+    flows = tablokhani.collect()["flows"]
+    if len(flows) >= gold_demand.MIN_FUNDS:
+        state[FUNDS_KEPT] = {"at": now.isoformat(), "flows": {s: list(v) for s, v in flows.items()}}
+
+
+def _funds_stand_in(now, state=None):
+    """The gold funds' last 10 sessions while the phone's days cannot be read: tablokhani's reading now, else
+    the last complete one kept today. Returns (reading, where it came from) or ({}, why there is none)."""
+    from analysis import gold_demand
+    from collector import tablokhani
+    from timeutil import local_date, local_now
+    t = tablokhani.collect()
+    flows, source = t["flows"], "tablokhani now"
+    if len(flows) < gold_demand.MIN_FUNDS:
+        kept = (state or {}).get(FUNDS_KEPT) or {}
+        at = datetime.fromisoformat(kept["at"]) if kept.get("at") else None
+        if at is None or local_date(at) != local_date(now):
+            return {}, f"tablokhani {', '.join(t['errors']) or 'gave too few funds'}, and no reading kept today"
+        flows = {s: tuple(v) for s, v in kept["flows"].items()}
+        source = f"tablokhani's reading of {local_now(at):%H:%M}"
+    demand = _tablokhani_demand(flows)
+    return (demand, source) if demand else ({}, f"{source} could not be read against the seed")
 
 
 def _tablokhani_demand(flows):
@@ -1290,7 +1321,6 @@ def _evening_fallback(markets, now, state):
         import re
         from alerts.telegram_paper import CAPTION_LIMIT, build_evening_message, send_paper, send_paper_report
         from alerts.telegram_service import QUOTA, _first_of_next_month
-        from collector import tablokhani
         from persistence.candle_cache import direct
         from timeutil import to_tehran
 
@@ -1303,8 +1333,8 @@ def _evening_fallback(markets, now, state):
             return
         # the gold funds from tablokhani while the phone's days cannot be read (section 47); the expected
         # return as the SERVICE notice gives it, only when the outage is the free plan's monthly limit
-        funds = block(_tablokhani_demand(tablokhani.collect()["flows"]),
-                      title=f"last {TABLOKHANI_WINDOW} sessions (tablokhani)")
+        demand, source = _funds_stand_in(now, state)
+        funds = block(demand, title=f"last {TABLOKHANI_WINDOW} sessions (tablokhani)")
         db = ((state or {}).get("service") or {}).get("database") or {}
         quota = QUOTA in (((db.get("last") or {}).get("reason")) or "")
         back_on = to_tehran(_first_of_next_month(now)).date() if quota else None
@@ -1319,7 +1349,7 @@ def _evening_fallback(markets, now, state):
         if state is not None:
             state["evening_fallback_date"] = day.isoformat()
         print(f"EVENING sent without the database: {len(rows)} tgju candles to {rows[-1].trade_date}, "
-              f"chart {'yes' if png else 'no'}, gold funds {'yes' if funds else 'no'}")
+              f"chart {'yes' if png else 'no'}, gold funds {('yes, ' + source) if funds else ('no: ' + source)}")
     except Exception as e:
         print(f"EVENING failed: {e}")
 
@@ -1343,8 +1373,17 @@ def _send_direction_report():
         finally:
             session.close()
     if panel is None:
-        panel = _direction_live(datetime.utcnow())
+        now = datetime.utcnow()
+        panel = _direction_live(now)
         print(f"DIRECTION: computed live from tgju ({panel.status})")
+        # GOLD DEMAND from the evening's stand-in while the phone's days cannot be read (SP-D section 54)
+        from persistence.state import load_state
+        from timeutil import local_date
+        demand, source = _funds_stand_in(now, load_state())
+        if demand:
+            demand.update(as_of=local_date(now).isoformat(), label=f"last {TABLOKHANI_WINDOW} sessions, tablokhani")
+            panel.demand = demand
+        print(f"DIRECTION gold demand: {('yes, ' + source) if demand else ('no: ' + source)}")
     try:
         send_direction(panel)
         print(f"DIRECTION sent. panel={row.id if row else 'live'}")
@@ -1469,7 +1508,8 @@ def _resolve_presentation_context(premium, run_premium=None, markets=None, fair=
     """
     session = _read_session()
     if session is None:
-        return None, None, None, None
+        # without the record: no ranks, but the discount stays on the three cheapest (SP-D section 54)
+        return None, None, None, resolve_relative_valuation(None, markets=markets, fair_price=fair)
     try:
         # Percentage points of gap movement, which is what the magnitude resolver
         # ranks. A percent change of the premium would invert the sign, since the
@@ -1768,6 +1808,7 @@ def main():
             print(f"News ingestion failed: {e}")
         _collect_tgju_candles()
         _collect_room_inputs(now)
+        _keep_funds_reading(state, now)
         _direction_precompute(markets, signal_state, now)
         _paper_run(markets, signal_state, now)
         _evening_fallback(markets, now, state)

@@ -24,7 +24,14 @@ import requests
 BASE = "https://api.tablokhani.com/public"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
            "Accept": "application/json", "Origin": "https://tablokhani.com", "Referer": "https://tablokhani.com/"}
-TIMEOUT = (5, 15)
+# From GitHub's runner tablokhani timed out on 7 of 16 runs of 2026-10-21 at a 15-second read, both endpoints,
+# and the evening's funds block went out empty on three of four nights (SP_D_HANDOFF.md section 54). A longer
+# read and one retry; a run reads it once (`collect` keeps its answer, good or not, for REUSE_SECONDS, so a
+# failed read is not waited for twice in one run).
+TIMEOUT = (8, 40)
+TRIES = 2
+REUSE_SECONDS = 600
+_last = None                             # (monotonic time, answer) of this process's last read
 AFRAN = "افران"
 GOLD_FUNDS = ("عیار", "طلا", "زر", "گوهر", "کهربا", "آلتون", "مثقال", "نفیس", "جواهر", "زروان", "تابش", "ناب",
               "قیراط", "درخشان", "لیان", "درنا", "زرفام", "گلدیس", "گنج")
@@ -38,21 +45,36 @@ def _number(text):
         return None
 
 
+def _get(path):
+    """One endpoint's JSON, with TRIES attempts."""
+    for attempt in range(TRIES):
+        try:
+            r = requests.get(f"{BASE}/{path}", headers=HEADERS, timeout=TIMEOUT)
+            r.raise_for_status()
+            return r
+        except Exception:  # noqa: BLE001
+            if attempt == TRIES - 1:
+                raise
+
+
 def collect():
     """{"tedpix", "tse_state", "afran_close", "funds": {symbol: {...}}, "flows": {symbol: (buy value, buyers,
-    sell value, sellers)}, "errors": [...]}: "flows" are individuals' 10-day averages a day, values in rial."""
+    sell value, sellers)}, "errors": [...]}: "flows" are individuals' 10-day averages a day, values in rial.
+    A run asks once: its answer is reused for REUSE_SECONDS."""
+    global _last
+    import time
+    if _last is not None and time.monotonic() - _last[0] < REUSE_SECONDS:
+        return _last[1]
     out = {"tedpix": None, "tse_state": None, "afran_close": None, "funds": {}, "flows": {}, "errors": []}
     try:
-        r = requests.get(f"{BASE}/market-indices", headers=HEADERS, timeout=TIMEOUT)
-        r.raise_for_status()
+        r = _get("market-indices")
         bourse = (r.json().get("data") or {}).get("bourse") or {}
         out["tedpix"] = _number(bourse.get("index"))
         out["tse_state"] = bourse.get("state")
     except Exception as e:  # noqa: BLE001
         out["errors"].append(f"market-indices: {type(e).__name__}")
     try:
-        r = requests.get(f"{BASE}/smart-money-averages", headers=HEADERS, timeout=TIMEOUT)
-        r.raise_for_status()
+        r = _get("smart-money-averages")
         data = r.json().get("data") or {}
         afran = data.get(AFRAN) or {}
         out["afran_close"] = _number(afran.get("closing_1d_ago"))
@@ -65,4 +87,5 @@ def collect():
                 out["flows"][s] = (bc * pb * MILLION_TOMAN, bc, sc * ps * MILLION_TOMAN, sc)
     except Exception as e:  # noqa: BLE001
         out["errors"].append(f"smart-money-averages: {type(e).__name__}")
+    _last = (time.monotonic(), out)
     return out

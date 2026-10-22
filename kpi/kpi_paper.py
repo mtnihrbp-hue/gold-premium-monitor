@@ -625,6 +625,7 @@ class KPIPaper(unittest.TestCase):
         }
         landing = [{"items": [{"symbol": "USDT", "price": 2685890.0}, {"symbol": "USD", "price": 2692100.0}]}]
         orig = requests.get
+        tk._last = None                                   # a run's one read is kept; each case here is its own run
         try:
             requests.get = lambda url, **k: _R(pages[url.rsplit("/", 1)[-1]]) if "tablokhani" in url else _R(landing)
             t = tk.collect()
@@ -637,10 +638,12 @@ class KPIPaper(unittest.TestCase):
             def boom(*a, **k):
                 raise requests.exceptions.ConnectionError("refused")
             requests.get = boom
+            tk._last = None
             self.assertEqual(len(tk.collect()["errors"]), 2)
             self.assertEqual(eb.collect(), {"errors": ["landing: ConnectionError"]})
         finally:
             requests.get = orig
+            tk._last = None
 
     def test_27_the_room_is_wired_with_its_seeds(self):
         import json as _json

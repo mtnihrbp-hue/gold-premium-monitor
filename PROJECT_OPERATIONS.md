@@ -483,7 +483,9 @@ cache step of its own: `record_mirror.sqlite`, the last 61 days of readings, is 
 `gold-monitor-mirror-` (37.12).
 
 Since 2026-10-18 every run restores the latest entry, and only scheduled runs save a new one, also after
-a failed step (`Save State`, `Save the record mirror`; SP-D 52.2). Scheduled runs queue one at a time
+a failed step (`Save State`, `Save the record mirror`, the latter only once the mirror file exists; SP-D
+52.2, 54.5). `state.json` also keeps the day's last complete tablokhani reading (`funds_reading`), for a run
+whose own read times out (54.1). Scheduled runs queue one at a time
 (`concurrency`); /Update, /Direction and /Analyze never wait and never save.
 
 Each scheduled run saves a new entry and restores the latest, so a busy branch never ages out. After a change to

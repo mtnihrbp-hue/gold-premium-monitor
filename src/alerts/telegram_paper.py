@@ -174,6 +174,9 @@ def pattern_lines(found):
                    "(after such bounces the next month was a little stronger than usual)")
     if current:
         start, _end, lo, hi, _running = current[-1]
+        # the edges as shown (0.01M toman), so the reader's own sum gives the target: 25.27 - 1.47 read 23.79
+        # when it was taken from the unrounded edges (SP-D section 54)
+        lo, hi = round(lo / 1e5) * 1e5, round(hi / 1e5) * 1e5
         height = hi - lo
         up, down = RECORD["RANGE BREAKOUT"], RECORD["RANGE BREAKDOWN"]
         out += [f"In a box since {persian_day(start)}, {_m(lo)} to {_m(hi)}",

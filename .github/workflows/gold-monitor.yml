@@ -233,8 +233,10 @@ jobs:
             record_spool.jsonl
           key: gold-monitor-state-${{ github.run_id }}
 
+      # Only once the mirror exists: until Neon answers it is never built, and saving a missing file left a
+      # "Cache save failed" warning on every scheduled run (SP_D_HANDOFF.md section 54).
       - name: Save the record mirror
-        if: always() && (github.event_name == 'schedule' || github.event.inputs.mode == 'analyze')
+        if: always() && (github.event_name == 'schedule' || github.event.inputs.mode == 'analyze') && hashFiles('record_mirror.sqlite') != ''
         uses: actions/cache/save@v4
         with:
           path: record_mirror.sqlite

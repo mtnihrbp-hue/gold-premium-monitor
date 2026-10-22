@@ -418,6 +418,16 @@ def _empty_valuation(window_days: int) -> RelativeValuation:
                              window_days, 0, 0, "UNKNOWN", "INSUFFICIENT_DATA")
 
 
+def _basis_only(window_days: int, gap, basis_price, prices) -> RelativeValuation:
+    """Today's basis and gap without the record's ranks: INSUFFICIENT_DATA, so nothing ranked is shown."""
+    if gap is None:
+        return _empty_valuation(window_days)
+    result = _empty_valuation(window_days)
+    result.gap, result.basis_price = gap, basis_price
+    result.basis_count = min(CHEAP_BASIS_COUNT, len(prices)) if prices else 0
+    return result
+
+
 def basis_series(session, window_start, now):
     """Public alias. ANALYZE and the push trigger build on the same series the
     valuation uses, so a reading and the history it is compared against can never be
@@ -648,8 +658,6 @@ def resolve_relative_valuation(
     of the gap, in percentage points, which the caller has already resolved against
     its own baseline.
     """
-    if session is None:
-        return _empty_valuation(window_days)
     if now is None:
         now = datetime.utcnow()
 
@@ -661,6 +669,11 @@ def resolve_relative_valuation(
         ]
     basis_price = cheap_basis_price(prices)
     current = signed_gap(basis_price, fair_price)
+    if session is None:
+        # The basis and its gap need only today's prices; only the rank needs the record. Without it the
+        # discount stays on the three cheapest, as every other reading shows it, and the ranks are absent
+        # -- it fell back to the single cheapest while the database was out of reach (SP_D_HANDOFF.md 54).
+        return _basis_only(window_days, current, basis_price, prices)
 
     # The reference distribution ends at the last completed local day, and the window
     # is measured back from there. Ranking today's reading against a distribution that
@@ -680,7 +693,7 @@ def resolve_relative_valuation(
         )
     except Exception as e:
         print(f"Relative valuation query failed: {e}")
-        return _empty_valuation(window_days)
+        return _basis_only(window_days, current, basis_price, prices)
 
     if current is None:
         if not series:
