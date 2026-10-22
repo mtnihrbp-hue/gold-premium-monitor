@@ -40,7 +40,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    51-52 the external audit verified; patterns by lift, state saved by scheduled runs, the worker, the phone (v1.31safe);
                                                                    53 the audit's small defects, the room at lag 1-2, the flows on the clean record (v1.32safe);
                                                                    54 the funds block made to arrive, UPDATE's basis in an outage (v1.33safe);
-                                                                   55-56 one vocabulary and the chart, the box's break told; the pulse previewed
+                                                                   55-56 one vocabulary and the chart, the box's break told; the pulse previewed (v1.34safe);
+                                                                   57 the pulse wired
        member, the LLM member
 ```
 
@@ -5899,5 +5900,31 @@ Still live: the flag of 7 Mehr, target 28.88M while above 23.06M
 
 Decision support, not an instruction to trade.
 ```
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 57. The pulse wired (2026-10-22)
+
+The owner, on 56.3: "1- ok. 2- Keep both." (breakouts and breakdowns).
+
+- **`main._chart_pulse`,** in every scheduled run, after the funds' reading:
+  - **Once a Tehran day:** the first scheduled run, normally 06:00, reads tgju's completed candles in one
+    request (`candle_cache.direct`, the route for readers of the recent chart).
+  - **What it tells:** a box broken up or down, or a flag broken out, on either of the last two closes, so a run
+    that missed a day still tells it.
+  - **Each event is sent once:** `state["pulses"]` keeps the last 30 by day and kind. `state["pulse_checked"]`
+    holds the day.
+  - **A failed read** leaves the day unchecked, and the next run tries again.
+  - **Never raises.**
+- **The text** is `alerts/telegram_pulse.build_pulse_message`, as previewed in 56.3. Titled BREAKOUT or BREAKDOWN,
+  no BUY, SELL or WAIT, a rate only for the flag, Persian time.
+- **The first run after this merge** sees 29 Mehr's close (the box broken up), so tonight's 21:00 run sends that
+  pulse once. From 30 Mehr's 06:00 the next closes are watched.
+- **Tests:**
+  - `kpi_paper.test_48`: a box broken down is told once, with one tgju read a day, and without BUY, SELL or WAIT;
+  - `test_37` admits the second reader of the recent chart, and still only `main` reads `direct`.
+  - The KPI suite 30/30 (paper 53), unit tests 19/19.
+  - One run of the unit tests ended "FAILED (errors=1)" and three after it passed. The cause was not found, and
+    no unit test touches the network directly. To watch in CI.
 
 **NEON MIGRATION REQUIRED = NO.**

@@ -897,8 +897,10 @@ class KPIPaper(unittest.TestCase):
                         if re.search(r"import[^\n]*\bdirect\b|candle_cache\.direct\(", f.read()):
                             users.append(name)
         self.assertEqual(users, ["main.py"])
-        self.assertEqual(inspect.getsource(main).count("import direct"), 1)
+        # two readers of the recent chart: the evening, and the pulse (SP_D_HANDOFF.md section 57)
+        self.assertEqual(inspect.getsource(main).count("import direct"), 2)
         self.assertIn("import direct", inspect.getsource(main._evening_fallback))
+        self.assertIn("import direct", inspect.getsource(main._chart_pulse))
 
     def test_38_the_evening_caption(self):
         from alerts.telegram_paper import build_evening_message
@@ -1118,6 +1120,50 @@ class KPIPaper(unittest.TestCase):
         for unrated in ("HEAD AND SHOULDERS", "SYMMETRICAL TRIANGLE", "TRIPLE TOP (down)"):
             self.assertFalse(patterns.shown(unrated), f"{unrated}: too few cases on 18K to rate")
         self.assertIn("patterns.shown(kind)", inspect.getsource(main._pattern_overlay))
+
+    def _breakdown_rows(self):
+        """A rally of 15% (the pole), a box of 12 days within 2%, then a close 8% under it: a box broken down."""
+        from persistence.candle_cache import Candle
+        c = [100.0 * 1.001 ** k for k in range(120)]
+        for k in range(5):
+            c.append(c[-1] * 1.03)
+        top = c[-1]
+        for k in range(12):
+            c.append(top * (0.985 if k % 2 else 0.995))
+        c.append(top * 0.92)
+        start = date(2026, 6, 1)
+        return [Candle(start + timedelta(days=k), x, x * 1.004, x * 0.996, x, "COMPLETE") for k, x in enumerate(c)]
+
+    def test_48_the_pulse_tells_a_break_once_at_the_first_run_of_the_day(self):
+        """The owner, 2026-10-22: "the gold is coming out of the box ... but there is no pulse to the user, no
+        alert is sent"; the pulse locked with breakouts and breakdowns both (SP_D_HANDOFF.md section 57)."""
+        import main
+        import alerts.telegram_pulse as tp
+        import persistence.candle_cache as cc
+        rows = self._breakdown_rows()
+        last = rows[-1].trade_date
+        sent, reads, real = [], [], (cc.direct, tp.send_pulse)
+        try:
+            cc.direct = lambda instrument, today, rows_=None: reads.append(today) or rows
+            tp.send_pulse = sent.append
+            state = {}
+            now = datetime.combine(last + timedelta(days=1), datetime.min.time()) + timedelta(hours=2, minutes=35)
+            with redirect_stdout(io.StringIO()):
+                main._chart_pulse(now, state)
+                main._chart_pulse(now + timedelta(hours=1), state)           # the same day: not read again
+                main._chart_pulse(now + timedelta(days=1), state)            # the next day: read, not told again
+        finally:
+            cc.direct, tp.send_pulse = real
+        self.assertEqual(len(sent), 1, "told once")
+        self.assertEqual(len(reads), 2, "one tgju read a day")
+        text = re.sub(r"</?[bi]>", "", sent[0])
+        self.assertTrue(text.startswith("GOLDPremium: BREAKDOWN · "), text)
+        self.assertIn("18K closed out of its box, downward", text)
+        self.assertRegex(text, r"Target \d+\.\d\dM while below \d+\.\d\dM")
+        for word in ("BUY", "SELL", "WAIT"):
+            self.assertNotIn(word, text.replace("GOLDPremium", ""))
+        self.assertIn("Decision support, not an instruction to trade.", text)
+        self.assertIn("_chart_pulse(now, state)", inspect.getsource(main.main))
 
     def test_45_the_evening_keeps_its_chart_when_the_funds_make_it_too_long(self):
         import main

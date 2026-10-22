@@ -1,7 +1,9 @@
 """The pulse: a push when 18K's daily close breaks out of a box or a flag (SP-D, SP_D_HANDOFF.md section 56; the
 owner, 2026-10-22: "the gold is coming out of the box ... but there is no pulse to the user, no alert is sent").
 
-PREVIEW, not wired: built for the owner's lock. It describes a confirmed close against the chart's own levels,
+Locked by the owner on 2026-10-22 ("ok", breakouts and breakdowns both), sent by main._chart_pulse at the first
+scheduled run of each Tehran day, which reads yesterday's completed close. It describes that close against the
+chart's own levels,
 as the evening's caption and the chart draw them; a rate only where the pattern beat any day (the flag), beside
 any day's; no BUY, SELL or WAIT -- final_decision keeps that authority (CLAUDE.md), parked since 2026-10-18.
 Only <b> and <i>; no bare "<", ">" or "&".
@@ -11,6 +13,7 @@ from alerts.helpers import format_m_tomans_short
 from timeutil import persian_day, to_tehran
 
 TITLES = {"RANGE BREAKOUT": "BREAKOUT", "RANGE BREAKDOWN": "BREAKDOWN", "FLAG": "BREAKOUT"}
+KINDS = tuple(TITLES)
 
 
 def _m(rial):
@@ -47,3 +50,8 @@ def build_pulse_message(event, close, now, box=None, flag=None):
             lines.append(f"Still live: the flag of {persian_day(f_day)}, target {_m(f_target)} while above {_m(f_stop)}")
     lines += ["", "<i>Decision support, not an instruction to trade.</i>"]
     return "\n".join(lines)
+
+
+def send_pulse(text):
+    from alerts.telegram import _send
+    _send(text)

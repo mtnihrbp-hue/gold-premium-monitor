@@ -722,6 +722,51 @@ def _keep_funds_reading(state, now):
         state[FUNDS_KEPT] = {"at": now.isoformat(), "flows": {s: list(v) for s, v in flows.items()}}
 
 
+PULSES_KEPT = 30            # the pulses already sent, by "day:kind", so none is sent twice
+
+
+def _chart_pulse(now, state):
+    """The pulse (SP-D section 56; owner, 2026-10-22): a push when 18K's daily close breaks out of a box, up or
+    down, or out of a flag. Once a Tehran day, at the first scheduled run (06:00): yesterday's candle is complete
+    by then, while the 21:00 run cannot see the day's own close. The candles come from tgju in one request, the
+    route for readers of the recent chart (persistence/candle_cache.direct); a failed read is tried again at the
+    next run. Each event is sent once. Never raises."""
+    try:
+        import numpy as np
+        from alerts.telegram_pulse import KINDS, build_pulse_message, send_pulse
+        from analysis.direction import GOLD
+        from caluclator import patterns
+        from persistence.candle_cache import direct
+        from timeutil import local_date
+
+        today = local_date(now).isoformat()
+        if state.get("pulse_checked") == today:
+            return
+        rows = direct(GOLD, local_date(now))
+        if len(rows) < 60:
+            print(f"PULSE: {len(rows)} tgju candles, too few; tried again at the next run")
+            return
+        dates = [r.trade_date for r in rows]
+        h, l, c = (np.array([float(getattr(r, k)) for r in rows]) for k in ("high", "low", "close"))
+        found = patterns.read(dates, h, l, c)
+        sent = state.setdefault("pulses", [])
+        told = []
+        for day, kind, level, target, stop in found["events"]:
+            key = f"{day.isoformat()}:{kind}"
+            if kind not in KINDS or day < dates[-2] or key in sent:
+                continue          # only the last two closes: a run that missed a day still tells it, once
+            box = max(((s, e) for s, e, _lo, _hi, _run in found["ranges"] if e < day), key=lambda x: x[1], default=None)
+            flag = found["flag"] if kind != "FLAG" else None
+            send_pulse(build_pulse_message((day, kind, level, target, stop), c[dates.index(day)], now, box=box, flag=flag))
+            sent.append(key)
+            told.append(key)
+        state["pulses"] = sent[-PULSES_KEPT:]
+        state["pulse_checked"] = today
+        print(f"PULSE: candles to {dates[-1]}; " + (f"sent {', '.join(told)}" if told else "no break"))
+    except Exception as e:  # noqa: BLE001 -- a pulse must not cost the run
+        print(f"PULSE failed: {e}")
+
+
 def _funds_stand_in(now, state=None):
     """The gold funds' last 10 sessions while the phone's days cannot be read: tablokhani's reading now, else
     the last complete one kept today. Returns (reading, where it came from) or ({}, why there is none)."""
@@ -1814,6 +1859,7 @@ def main():
         _collect_tgju_candles()
         _collect_room_inputs(now)
         _keep_funds_reading(state, now)
+        _chart_pulse(now, state)
         _direction_precompute(markets, signal_state, now)
         _paper_run(markets, signal_state, now)
         _evening_fallback(markets, now, state)
