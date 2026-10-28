@@ -41,7 +41,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    53 the audit's small defects, the room at lag 1-2, the flows on the clean record (v1.32safe);
                                                                    54 the funds block made to arrive, UPDATE's basis in an outage (v1.33safe);
                                                                    55-56 one vocabulary and the chart, the box's break told; the pulse previewed (v1.34safe);
-                                                                   57 the pulse wired
+                                                                   57 the pulse wired (v1.35safe);
+                                                                   58 health check of 6 Aban: tgju's cache serves stale candles
        member, the LLM member
 ```
 
@@ -5926,5 +5927,59 @@ The owner, on 56.3: "1- ok. 2- Keep both." (breakouts and breakdowns).
   - The KPI suite 30/30 (paper 53), unit tests 19/19.
   - One run of the unit tests ended "FAILED (errors=1)" and three after it passed. The cause was not found, and
     no unit test touches the network directly. To watch in CI.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 58. Health check, 6 Aban 1405 (2026-10-28, about 11:00 Tehran)
+
+**Verdict:** production healthy for an outage. One open defect: tgju's cache can hand the runner a candle
+list that ends days early (58.2).
+
+### 58.1 What was checked
+
+- **Runs:** 111 since 10-22, all `success`, all on `main` at `f2b9844`. 16 ANALYZE a day, plus the owner's
+  UPDATE and DIRECTION.
+- **The pulse:** sent the 29 Mehr RANGE BREAKOUT once, at 30 Mehr 21:00 (10-22). "no break" every morning after.
+- **The evening:** sent without the database every night, the funds block in each.
+- **Neon:** suspended as expected. `data_transfer_bytes` 5,921,133,666 against the 5 GB cap; the period ends
+  2026-11-01 00:00 UTC; compute last active 10-13.
+- **The spool:** 8,774 held writes. The state cache is about 2 MB compressed, far under the spool's 20 MB cap.
+  News: 32 new items held in the latest run.
+- **Daric:** OK from the runner in the latest run.
+- **The Iran node:** not checked. Its rows go to Neon, which is down; the phone's own log is the owner's side.
+- **The BUY alert:** stays parked. The confirmation reports `status=ERROR` without the database and holds any
+  signal, as designed (fails closed).
+
+### 58.2 tgju's cache serves stale candles
+
+- **Seen:** the candle list ended a day or two early.
+
+  | Run | The candles ended | Expected |
+  |-----|-------------------|----------|
+  | 10-27 06:00 | 10-26 | 10-26 |
+  | 10-27 21:00 | 10-25 | 10-26 |
+  | 10-28 06:00 | 10-25 | 10-27 |
+
+  A row that was seen and then gone is not tgju running late.
+- **Probed from the runner** (branch `probe-tgju`, deleted after):
+  - tgju answers through two nginx caches (`X-Cache-Status: STALE, MISS`, `HIT`, `STALE, STALE`).
+  - Two plain requests three minutes apart returned lists ending 10-27 and 10-26.
+  - The same request with a unique `_` parameter returned `MISS, MISS` and the list to 10-27, twice.
+  - A `Cache-Control: no-cache` request header did not help (`STALE, HIT`).
+- **Effect:**
+  - **The pulse** marks the day checked on a stale list. A break on a close the stale copy lacks is told only if
+    a later morning sees it among the last two closes. This time nothing was missed: on the fresh rows,
+    `patterns.read` finds no box or flag break on 10-26 or 10-27.
+  - **The evening chart and caption** of 10-27 ended at 10-25's close.
+  - **The same API feeds Direction and the room.** The stored candles are refetched with overlap, so the record
+    heals; a reader of the moment does not.
+- **Proposed, not wired (the owner's decision):** in `collector/tgju.fetch_daily_candles`, a unique `_`
+  parameter on every request. That is one line, and all tgju reads pass through it. A second guard is possible:
+  the pulse would not mark a day checked when the newest candle is older than the last working day. I recommend
+  the first alone; it removes the cause.
+- **Also seen, not a defect:** the workstation's line was behind MTN Irancell's captive portal. Every direct
+  HTTPS request was redirected to `internet.mtnirancell.ir:8090`, a self-signed certificate. Psiphon's split
+  tunnel sends Iranian sites direct, so they fail the same way. tgju was therefore read from the runner, which
+  is production's side anyway. Psiphon's HTTP proxy was on port 18080 (`PROJECT_OPERATIONS.md` section 15).
 
 **NEON MIGRATION REQUIRED = NO.**

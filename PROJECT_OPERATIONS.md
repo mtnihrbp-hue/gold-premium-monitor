@@ -559,7 +559,11 @@ Tehran time. Read-only throughout: no query below writes.
    check: `SELECT final_decision, COUNT(*) FROM market_states GROUP BY 1` and the same for
    any categorical column reported; `structure_state` is a registered constant.
 6. **Daily candles.** `market_daily_candles` per `instrument`: 18K and the dollar to
-   yesterday's Tehran day, world gold to its last weekday.
+   yesterday's Tehran day, world gold to its last weekday. While Neon is out, the run log's
+   `PULSE: candles to <day>` (06:00) and `EVENING sent ...: N tgju candles to <day>` (21:00) say
+   the same. tgju sits behind caches that can serve a stale list (`SP_D_HANDOFF.md` section 58.2).
+   Probe tgju from the runner: the workstation's line may be behind the operator's captive portal,
+   and Psiphon sends Iranian sites direct.
 7. **PAPER** (once merged): one REPORT row a day at 21:00, at most two TRADE rows a day
    per account, an EVAL row per run for each evaluated account.
 8. **The Iran node** (from 2026-10-07): `iran_node_readings` per `node` and `status`, last
@@ -584,8 +588,9 @@ does not survive a new session. The standing route is Neon's CLI, signed in once
 owner's browser:
 
 ```bash
-# Node needs the proxy in its environment: HTTPS_PROXY=http://127.0.0.1:58374, Psiphon's local port,
-# fixed on 2026-10-15 (HKCU\Software\Psiphon3 LocalHTTPProxyPort; it was 0, a new port each connect)
+# Node needs the proxy in its environment: HTTPS_PROXY=http://127.0.0.1:<port>, Psiphon's local HTTP port.
+# It moves: 58374 when pinned on 2026-10-15, random again from 10-16, 18080 on 2026-10-28. Find it as in
+# "When a run is cancelled" above. gh needs the same variable.
 NODE_USE_ENV_PROXY=1 npx neonctl auth                     # Neon's sign-in refuses Iranian addresses
 NODE_USE_ENV_PROXY=1 npx neonctl connection-string production --project-id wispy-glade-92753836 --pooled
 ```
