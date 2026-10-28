@@ -42,7 +42,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    54 the funds block made to arrive, UPDATE's basis in an outage (v1.33safe);
                                                                    55-56 one vocabulary and the chart, the box's break told; the pulse previewed (v1.34safe);
                                                                    57 the pulse wired (v1.35safe);
-                                                                   58 health check of 6 Aban: tgju's cache serves stale candles
+                                                                   58 health check of 6 Aban: tgju's cache serves stale candles;
+                                                                   59 toward SP-E: the rethink, surface by surface
        member, the LLM member
 ```
 
@@ -5981,5 +5982,116 @@ list that ends days early (58.2).
   HTTPS request was redirected to `internet.mtnirancell.ir:8090`, a self-signed certificate. Psiphon's split
   tunnel sends Iranian sites direct, so they fail the same way. tgju was therefore read from the runner, which
   is production's side anyway. Psiphon's HTTP proxy was on port 18080 (`PROJECT_OPERATIONS.md` section 15).
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 59. Toward SP-E: the rethink (2026-10-28)
+
+Two external documents frame this:
+- **The audit** of 18 Oct (section 51).
+- **"Consolidated Audit and Redesign Brief for the AI Developer"** (21 Oct, on `main` at 8d670e0), given by the
+  owner today. Its text is not kept in the repo; this section is its record.
+
+### 59.1 The owner's diagnosis
+
+"This project has two big wings, collection and analysis. On the collections side ... good, not excellent,
+but good. On the analysis side, we are bad ... almost none of the huge analysis can make an option for a user
+to review." Then: "a new branch ... not from scratch, but with a clear agenda", using the current modules and
+everything learned here.
+
+**My reading, on the record:**
+- **The analysis has produced a lot of description and two or three answers a user can act on:**
+  - the BUY engine has no edge (39.3);
+  - the deep-discount zone rests on 11 episodes (36.1);
+  - Direction's 20-day figure does worse than the base rate (1.1);
+  - of the patterns, only the flag beats any day (52.1);
+  - the money flow passes nothing on the clean record (53);
+  - nothing reads the parked wing.
+- **What holds:**
+  - "buy now, don't wait for a drop", which is the rial's drift;
+  - the room at lag 1, +4.7% to +7.2% over holding gold per two years, tuned on the same history.
+- **The cause:** the analysis was organised by technique, not by the decision a user makes.
+- **Collection is reliable plumbing that measures the wrong thing for a buyer:**
+  - only 3 of 11 platforms give both sides, and no fees enter any price;
+  - tgju's cache (58.2), bonbast's untimed dollar and Afran's late close make inputs older than they look.
+
+### 59.2 Decided (the owner, 2026-10-28)
+
+- **SP-E reaches `main` surface by surface:** "agreed on the merge method, register this, Surface by
+  Surface."
+  - SP-E is cut from `main` and matures on its branch.
+  - Each merge replaces one message, with a safe tag first. The last merge removes the old code.
+  - No two systems run side by side ("not two parallel systems").
+- **More brainstorming before SP-E opens.**
+- **The users, once it is mature:** the owner and "a few of my friends, less than 20 ppl".
+- **Their job:** "move between" gold and fixed income.
+
+### 59.3 The brief of 21 Oct
+
+**To adopt:**
+- **The four decisions:** where, when, how much, what risk.
+- **A label on every claim:** verified in code, verified by test, recorded in the docs, observed in
+  production, hypothesis.
+- **A list of every metric:** formula, side, consumers, wording. A new definition gets a new name and runs
+  beside the old one.
+- **A contract for each input:** source time against read time, stale against unavailable, indicative
+  against executable.
+- **Four kinds of statement:** description, past record, forecast, recommendation.
+- **A production boundary:** only `main` holds production's secrets, through a GitHub environment.
+- **New tests:**
+  - WHEN against staged buying;
+  - HOW MUCH against a fixed gold/fixed-income mix and periodic rebalancing, not only against holding gold.
+- **A promotion rule, and a frozen policy tested forward:** PAPER, once the room is frozen with its
+  evaluation date fixed in advance.
+
+**Stale, or where I differ:**
+- **Schedule and cancellations:** settled by evidence. Runs are hourly 06:00-21:00, and 111 of 111 since 10-22
+  succeeded. The stale part is `PROJECT_OPERATIONS.md` section 3 and `config.json` (A13, after 11-01).
+- **§0.4's ban on commits and pushes:** yields to the owner's standing authorization for approved work.
+- **/Analyze:** the brief keeps it. Its decision is to be named, or it is folded in.
+- **"What risk":** split into data risk (SERVICE) and position risk (the drawdown, inside HOW MUCH).
+
+### 59.4 The owner's review, first points, with what the record says
+
+- **"The gold has been in sideways, so the holding has produced less."** Inside the 1405 channel and its
+  jump, gold beat fixed income over 60 days on 29% of days, against 57% in 2018-07 to 2023 and 71% in
+  2024-2026 (section 17). That is the case HOW MUCH exists for.
+- **Tether and PAXG are not monitored.**
+  - Tether (USDT/IRR) comes once a day from etfbaz, stored for a future member; nothing reads it hourly.
+  - PAXG is not collected. World gold comes from the Kitco, gold-api.com and Yahoo chain.
+  - Nobitex does not answer GitHub's runner (section 26). From the phone, it is untested.
+- **An index platform:** "a single platform that has the cleanest data to rely on, others will be the
+  observer."
+  - It removes the audit's B2 drift: the minimum of N quotes moves when a platform drops out.
+  - Candidates, by what is known:
+    - **Milli:** its own price time; first in the representative order.
+    - **Daric:** both sides, but it refuses the runner and comes through the phone.
+    - **Goldika:** its own price time, but it served the runner a copy 19 days old in early October
+      (`SP_C_HANDOFF.md` section 44).
+  - The choice is to be made on each platform's measured record after 11-01.
+- **The charts:** "zero quality, the box has been stale in the past few days, the logics there mostly BS."
+  - On record: only the flag beats any day (52.1);
+  - swing levels held no better than any line at the same distance (`direction.LINE_HELD_PCT`);
+  - trend-line touches are mixed (48).
+- **The evening's box-break line:** "it says the price broke the box, but in reality it just broke and then
+  returned."
+  - **Confirmed in `alerts/telegram_paper.pattern_lines`:** a break is told for `EVENT_DAYS` (14) after its
+    close, whatever the closes after it did.
+  - **The case:** 29 Mehr closed 27.06M, above the box of 25.27M-26.74M. 2 Aban closed 26.06M, back inside,
+    and 4 and 5 Aban stayed inside. The line kept reading as a live break.
+  - Not fixed: the owner's call.
+- **The news wing:** "has nothing now." Nothing reaches a message. The leads at 216 days (sanctions eased,
+  oil exports down) are exploratory (50).
+
+### 59.5 The first job
+
+The owner: "see the realities, the shortcomings". The owner continues the critical review. "We have to
+clear the sources that we are collecting. We have to understand the 5GB/Month restriction and design the
+whole system on the most efficient manner."
+
+**The budget's facts:**
+- 5 GB a month is about 166 MB a day, about 10 MB per run at 16 runs.
+- Before section 34 it was about 450 MB a day.
+- After the two cuts (34, 34.1): estimated at 2.5-4 GB a month, not yet measured. It is measured on 11-01.
 
 **NEON MIGRATION REQUIRED = NO.**
