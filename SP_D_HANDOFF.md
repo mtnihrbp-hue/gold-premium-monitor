@@ -44,7 +44,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    57 the pulse wired (v1.35safe);
                                                                    58 health check of 6 Aban: tgju's cache serves stale candles;
                                                                    59 toward SP-E: the rethink, surface by surface;
-                                                                   60 two small fixes: tgju's cache, a break back inside the box (v1.36safe)
+                                                                   60 two small fixes: tgju's cache, a break back inside the box (v1.36safe);
+                                                                   61 every idea reviewed critically; PAXG reviewed; the sources read today
        member, the LLM member
 ```
 
@@ -6120,5 +6121,81 @@ it just broke and then returned. and the sentence is there."
   - the KPI suite 30/30 (paper 54, tgju candles 17), the unit tests 19/19, compileall.
 
 **Tag:** `v1.36safe` = `main` before this merge (f2b9844).
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 61. Every idea reviewed critically; PAXG; the sources read today (2026-10-28)
+
+### 61.1 The rule
+
+The owner: "anything coming to the project, i dont need a yes sayer, need you to critically review, and even
+reject. no problem. register this."
+
+Registered in `skills/core-engineering.md` (the owner's working rules). Every idea, the owner's included,
+gets the case for and against from the record and a plain verdict: accept, accept on a condition, or reject.
+
+### 61.2 PAXG, reviewed under that rule
+
+**The owner:** "if we collect world data, do we need the PAXG?" Then: "we can store it in USD, and analyze it
+in that medium, seeing the forecast and possible direction."
+
+- **PAXG in dollars as a medium for forecasts and direction: rejected.**
+  - PAXG is a token for one troy ounce, so its dollar price follows world gold. We already read world gold
+    six ways (61.3).
+  - Forecasting world gold is a problem the whole market works on. This record cannot beat the base rate on
+    18K itself: Direction's 20-day figure scored -3.1% skill (1.1).
+  - The users' decision is 18K against fixed income, in rial. World gold is one input to that, not the
+    decision.
+- **PAXG in dollars as the weekend ounce: on a condition.** It trades on Saturday and Sunday, when world
+  gold is shut. Saturday is an Iranian trading day, and Saturday's parity uses Friday's close.
+  - **The condition is a one-off study first:** does the weekend move of PAXG lead Saturday's 18K move? It
+    is the same question as Tether's weekend lead (42.4).
+  - Kept only if it does.
+- **PAXG in rial (Nobitex): not needed.** It is close to PAXG in dollars times USDT/IRT. If we have both of
+  those, it adds nothing.
+- **The higher priority is USDT/IRT every hour,** for a measured gap: the morning dollar is often the
+  previous day's (`SP_C_HANDOFF.md` 34.3; the audit's B11).
+
+### 61.3 The sources read today
+
+"Every run" means each of the 16 scheduled runs a day (hourly, 06:00-21:00 Tehran) and each /Update.
+
+| # | Source | What we take | Reached from | How | When | Stored in |
+|---|---|---|---|---|---|---|
+| 1 | Milli | 18K, one price, side not stated; its own price time | runner | JSON API | every run | `platform_prices`, `price_observations` |
+| 2 | Goldika | 18K, buy and sell; its own price time | runner (its CDN served a 19-day-old copy in October) | JSON API | every run | same |
+| 3 | WallGold | 18K, buy-side quote | runner | JSON API | every run | same |
+| 4 | Taline | 18K, between the sides; both sides since 10-16 | runner (stale copies seen); the phone compares | HTML page | every run; phone every 15 min | same; `iran_node_readings` |
+| 5 | Ayyareh | 18K, between the sides, its own 1-2% fee excluded | runner | JSON | every run | same |
+| 6 | Daric | 18K order book: buy and sell | runner direct or through the relay; the phone when refused (403) | JSON API | every run; phone every 15 min | same; `iran_node_readings` |
+| 7 | Invi | 18K, side unknown | runner | HTML page | every run | same |
+| 8-11 | HoorGold, Parasteh, MioGold, Eligold | a jewellery gallery's reference price | runner; the phone also reads HoorGold and MioGold | HTML pages | every run | same |
+| 12 | World gold | ounce in dollars | runner | a chain: gold-api.com, Kitco's stream, goldprice.org, Yahoo | every run | `price_observations` |
+| 13 | bonbast | dollar, cash sell rate, no timestamp | runner | the bonbast CLI, a subprocess | every run | `price_observations` |
+| 14 | tgju | daily candles: 18K, dollar, ounce | runner | JSON API | stored about once a day; read whole (1,000 rows) by the 06:00 pulse, the 21:00 evening without Neon, and live Direction | `market_daily_candles`, `candle_cache.json` |
+| 15 | tablokhani | stock index, Afran's close, the gold funds' 10-day flows | runner | JSON API, two endpoints | every scheduled run (one read per 10 minutes) | Afran and the index: `market_daily_candles`, one a day; the flows: `state.json` only |
+| 16 | etfbaz | Tether, dollar, melted gold, 18K, ounce, index | runner | JSON API | the 21:00 run | `market_daily_candles`, one a day each |
+| 17 | TSETMC, closed days | the 19 gold funds' money flow | the phone only | JSON API | the first quarter of each hour, until each fund has the day | `iran_node_readings` (`tsetmc`) |
+| 18 | TSETMC, live | the same funds, intraday flow and price | the phone only | JSON API | every 15 min, 12:00-18:15, Saturday to Wednesday | `iran_node_readings` (`tsetmc_live`) |
+| 19 | News | 12 RSS feeds: 6 English (3 of them Google News searches), 6 Persian (the CBI's included) | runner | RSS | every scheduled run, up to 20 items a feed | `news_events` |
+| 20 | Seeds | the stock index's history, the cost of money, the funds' flows | offline | research scripts | by hand | `src/seed/*.json` |
+
+**What the register shows:**
+- **One quantity is read many ways:**
+  - world gold six ways: four in the chain, plus tgju's and etfbaz's ounce;
+  - the dollar four ways: bonbast, tgju, etfbaz's dollar and its Tether. None of the hourly ones carries its
+    own time;
+  - 18K thirteen ways.
+- **Four of the eleven platforms are gallery references,** prices nobody can buy at.
+- **Most of the phone's rows are read by nothing in production:**
+  - it writes about 900 rows a trading day;
+  - production reads only `daric` and `tsetmc`;
+  - the compared pages (about 288 a day) and `tsetmc_live` (about 490) are kept for research.
+- **News is read 16 times a day by 12 feeds.** Nothing of it reaches a message.
+- **The cost is not only transfer:**
+  - writes go into Neon and do not count against the 5 GB of outbound transfer, but they fill storage, which
+    the free plan also caps;
+  - Neon's restore window is 6 hours (`history_retention_seconds` 21600);
+  - storage is to be measured on 11-01.
 
 **NEON MIGRATION REQUIRED = NO.**

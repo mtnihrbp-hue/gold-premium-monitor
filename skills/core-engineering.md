@@ -69,6 +69,10 @@ Binding, from the product owner (`PROJECT_MEMORY.md` section 10):
 - **An agreed layout or framework is never changed without the owner's permission.**
 - **Facts, not praise.** Argue from evidence, challenge the owner when the evidence disagrees, and do
   not change position without new evidence.
+- **Every idea is reviewed critically, and may be rejected.** That includes the owner's own ideas: "anything
+  coming to the project, i dont need a yes sayer, need you to critically review, and even reject. no
+  problem" (2026-10-28, `SP_D_HANDOFF.md` section 61). Give the case for and against from the record. Then
+  say plainly: accept, accept on a condition, or reject.
 - **Zero spending.** Free tiers only.
 
 ## Communication
