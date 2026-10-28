@@ -95,9 +95,12 @@ def parse_rows(payload):
 def fetch_daily_candles(instrument, rows=5, start=0, order="desc"):
     """`rows` daily candles for one tgju instrument, from offset `start` in `order`:
     "desc" is newest first, "asc" oldest first. Raises on failure."""
+    # "_" is unique per request: tgju answers through two nginx caches that can serve a list ending days
+    # early (X-Cache-Status STALE / HIT); a unique parameter misses both, a no-cache header does not
+    # (SP_D_HANDOFF.md section 58.2)
     response = requests.get(
         API.format(instrument=instrument),
-        params={"lang": "fa", "order_dir": order, "start": start, "length": rows},
+        params={"lang": "fa", "order_dir": order, "start": start, "length": rows, "_": str(time.time_ns())},
         headers=HEADERS,
         timeout=REQUEST_TIMEOUT,
     )

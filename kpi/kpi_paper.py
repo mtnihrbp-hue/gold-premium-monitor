@@ -1165,6 +1165,49 @@ class KPIPaper(unittest.TestCase):
         self.assertIn("Decision support, not an instruction to trade.", text)
         self.assertIn("_chart_pulse(now, state)", inspect.getsource(main.main))
 
+    def test_49_a_break_back_inside_the_box_is_told_as_such_and_not_pushed(self):
+        """The owner, 2026-10-28: "now it says the price broke the box, but in reality, it just broke and then
+        returned. and the sentence is there." 29 Mehr closed above the box, 2 Aban back inside, and the evening
+        still told the break with its target (SP_D_HANDOFF.md section 60)."""
+        import numpy as np
+        import main
+        import alerts.telegram_pulse as tp
+        import persistence.candle_cache as cc
+        from alerts.telegram_paper import pattern_lines
+        from caluclator import patterns
+        from persistence.candle_cache import Candle
+        from timeutil import persian_day
+        rows = self._breakdown_rows()
+        top = rows[-1].close / 0.92
+        back_day = rows[-1].trade_date + timedelta(days=1)
+        rows.append(Candle(back_day, top * 0.99, top * 0.994, top * 0.986, top * 0.99, "COMPLETE"))
+        broke_day = rows[-2].trade_date
+        dates = [r.trade_date for r in rows]
+        h, l, c = (np.array([float(getattr(r, k)) for r in rows]) for k in ("high", "low", "close"))
+        found = patterns.read(dates, h, l, c)
+        self.assertIn((broke_day, "RANGE BREAKDOWN", back_day), found["back"])
+        lines = pattern_lines(found)
+        self.assertIn(f"Broke down on {persian_day(broke_day)}; back inside the box since {persian_day(back_day)}",
+                      lines)
+        self.assertFalse([x for x in lines if x.startswith("Broke down out of the box")], lines)
+        # without the close back inside, the same break keeps its target line
+        held = patterns.read(dates[:-1], h[:-1], l[:-1], c[:-1])
+        self.assertEqual(held["back"], [])
+        self.assertTrue([x for x in pattern_lines(held) if x.startswith("Broke down out of the box")])
+        # the morning after the close back inside: the break is on the last two closes, and is not pushed
+        sent, real = [], (cc.direct, tp.send_pulse)
+        try:
+            cc.direct = lambda instrument, today, rows_=None: rows
+            tp.send_pulse = sent.append
+            state = {}
+            now = datetime.combine(back_day + timedelta(days=1), datetime.min.time()) + timedelta(hours=2, minutes=35)
+            with redirect_stdout(io.StringIO()):
+                main._chart_pulse(now, state)
+        finally:
+            cc.direct, tp.send_pulse = real
+        self.assertEqual(sent, [], "a break already undone is not pushed")
+        self.assertEqual(state["pulse_checked"], (back_day + timedelta(days=1)).isoformat())
+
     def test_45_the_evening_keeps_its_chart_when_the_funds_make_it_too_long(self):
         import main
         import alerts.telegram_paper as tp

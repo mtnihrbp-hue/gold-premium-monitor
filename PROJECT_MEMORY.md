@@ -102,7 +102,7 @@ Production is `main`, dispatched by cron-job.org and the Cloudflare worker with 
 | The room's trades | when the room trades | `alerts/telegram_paper.py` | live; the only PAPER account that pushes |
 | The 21:00 report and chart | first run from 21:00 | `alerts/telegram_paper.py`, `alerts/chart.py` | live; support and resistance with the patterns (37.5); sent from tgju when Neon is out of reach (35.2), with the gold funds' block from tablokhani's 10 sessions (47); the room's report carries the 7-day block (47) |
 | Daily recap | — | `alerts/telegram_*`, `alerts/email_*` | **parked** 2026-10-15 (`config.email.send_daily_recap`) |
-| The pulse | the first scheduled run of a Tehran day (06:00), when the last close broke out of a box, up or down, or out of a flag | `main._chart_pulse`, `alerts/telegram_pulse.py` | live from 2026-10-22 (SP-D 56-57); tgju's candles, no database needed; each break told once; no BUY, SELL or WAIT |
+| The pulse | the first scheduled run of a Tehran day (06:00), when the last close broke out of a box, up or down, or out of a flag | `main._chart_pulse`, `alerts/telegram_pulse.py` | live from 2026-10-22 (SP-D 56-57); tgju's candles, no database needed; each break told once, and not when the next close is back inside the box (SP-D 60); no BUY, SELL or WAIT |
 | SERVICE | when the database, world gold, the dollar or the platforms stop or come back (two runs agreeing) | `analysis/service.py`, `alerts/telegram_service.py` | live from 10-16 (SP-D 37.15); Status shows the same line (the worker pasted 10-17) |
 
 **Parked, not deleted** (owner, 2026-10-16: the Analysis Wing "is to be rethought, not retired"):

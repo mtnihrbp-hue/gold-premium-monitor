@@ -157,6 +157,15 @@ class KPITgjuCandles(unittest.TestCase):
         self.assertEqual(kwargs["params"]["order_dir"], "desc")
         self.assertEqual(kwargs["timeout"], tgju.REQUEST_TIMEOUT)
 
+    def test_02b_every_request_passes_tgjus_cache(self):
+        """tgju's two nginx caches served lists ending days early; a unique "_" missed both, twice, in the
+        probe of 2026-10-28 (SP_D_HANDOFF.md section 58.2)."""
+        with _Transport(lambda url, **kw: _Response(PAYLOAD)) as transport:
+            tgju.fetch_daily_candles("geram18", rows=2)
+            tgju.fetch_daily_candles("geram18", rows=2)
+        first, second = (kw["params"]["_"] for _url, kw in transport.calls)
+        self.assertNotEqual(first, second, "a new value on every request")
+
     def test_03_an_empty_answer_is_an_error_not_a_candle(self):
         with _Transport(lambda url, **kw: _Response({"data": []})):
             self.assertRaises(ValueError, tgju.fetch_daily_candles, "geram18")

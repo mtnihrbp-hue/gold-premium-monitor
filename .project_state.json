@@ -80,7 +80,7 @@
     "files_total": 30,
     "assertions": "840 across 29 files; kpi_update_telegram_v1.py reports no count",
     "status": "PASS",
-    "evidence_source": "python kpi/run_all.py on sp-de with SP_D_HANDOFF.md section 57 against an isolated in-memory database, 30/30 files (coherence 58, paper 53); python tests/run_all.py 19/19 files (one unexplained error in one of four runs); compileall src and iran_node",
+    "evidence_source": "python kpi/run_all.py on sp-de with SP_D_HANDOFF.md section 60 against an isolated in-memory database, 30/30 files (paper 54, tgju candles 17); python tests/run_all.py 19/19 files; compileall src and iran_node",
     "notes": [
       "C.2 had been failing since commit ff4496d (C.13 idempotency fix) while documentation recorded 14/14 PASS; the stale assertion was corrected on SP-C.",
       "KPI scripts print status emoji and crash with UnicodeEncodeError under the Windows console codepage after assertions pass. kpi/run_all.py forces UTF-8 for child processes.",
@@ -273,7 +273,7 @@
     "sp_c_status": "CLOSED -- merged into main 2026-09-28 (2b7c5f8); tag v1.3safe = main before the merge",
     "sp_d_status": "IN PROGRESS: Direction merged 2026-10-03, PAPER 2026-10-05; each batch reaches main only after the owner's review, with a safe tag on main first",
     "until_2026_10_03": "PAST. Owner direction 2026-09-29: SP-D is for the next phase; anything found before 2026-10-03 is fixed on main, through a short-lived branch cut from main and fast-forwarded after owner review.",
-    "latest_safe_tag": "v1.35safe (5f6d1a8, main before the pulse wired, 2026-10-22)",
+    "latest_safe_tag": "v1.36safe (f2b9844, main before the two small fixes, 2026-10-28)",
     "sp_e_merge_method": "surface by surface (owner, 2026-10-28, SP_D_HANDOFF.md 59.2): SP-E is cut from main and matures on its branch; each merge replaces one message, with a safe tag first; the last merge removes the old code; no two systems run side by side"
   },
   "verified_production_state": {
@@ -435,6 +435,7 @@
     "2026-10-18, closed (the owner: 'drop the saffron thing totally ... take it out completely'): the saffron fund (سافرون, 51200575796028449) removed from the fetcher, the research data, the buyer-power seed and the phone's list; the room re-measured on the 19 gold funds, +4.1% to +7.2% over holding per two years where +5.0% to +9.0% was published with saffron; the advisor's line now reads 4% to 7% (49.3, 49.4; LESSONS_LEARNED 30).",
     "2026-10-18, closed (the clean record from 2021-10-18 shows no lean, SP_D_HANDOFF.md 53.3): Sellers in control (48.4, rd_smart_money.py): buyer power in its year's bottom 5% leaned down (18K's next month +2.0% / +3.8% against +4.7% / +5.6%), one of five detectors; with 42.5's deep-discount lead. Confirm on the days after 2026-10-17 before Direction carries its rate.",
     "2026-10-22, closed (built and merged, SP_D_HANDOFF.md 55, 56.2): The contradictions of 26 Mehr (SP_D_HANDOFF.md 54.6): decided by the owner 2026-10-22 and built (55), previewed on sp-de; merged on the owner's lock.",
-    "2026-10-22, closed (locked by the owner, wired, SP_D_HANDOFF.md 57): The pulse (SP_D_HANDOFF.md 56.3): a push at the first scheduled run after a confirming close -- a box broken up or down, a flag broken out -- previewed in alerts/telegram_pulse.py, not wired; awaits the owner's lock."
+    "2026-10-22, closed (locked by the owner, wired, SP_D_HANDOFF.md 57): The pulse (SP_D_HANDOFF.md 56.3): a push at the first scheduled run after a confirming close -- a box broken up or down, a flag broken out -- previewed in alerts/telegram_pulse.py, not wired; awaits the owner's lock.",
+    "2026-10-28, closed (SP_D_HANDOFF.md 60): tgju's cache defeated by a unique parameter (58.2); a box break back inside the box told as such and not pushed (59.4)"
   ]
 }

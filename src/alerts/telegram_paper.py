@@ -159,6 +159,9 @@ EVENT_WORDS = {"RANGE BREAKOUT": ("Broke up out of the box ({low}-{high}) on {da
                                    "past breaks down"),
                "DOUBLE BOTTOM": ("Double bottom on {day}: opens the road to {target}", "past ones")}
 BOX_BREAKS = ("RANGE BREAKOUT", "RANGE BREAKDOWN")
+# a break whose closes came back inside the box (owner, 2026-10-28; SP_D_HANDOFF.md section 60)
+BACK_WORDS = {"RANGE BREAKOUT": "Broke up on {day}; back inside the box since {back}",
+              "RANGE BREAKDOWN": "Broke down on {day}; back inside the box since {back}"}
 EVENT_DAYS = 14          # a break is told for two weeks after its close
 
 
@@ -227,7 +230,9 @@ def pattern_lines(found):
             hit, n, control = RECORD[base]
             who = EVENT_WORDS.get(base, (None, "past ones"))[1]
             if base in BOX_BREAKS:
-                out.append(box_break_line(day, base, level, stop))
+                back = next((b for d, k, b in found.get("back", []) if d == day and k == base), None)
+                out.append(BACK_WORDS[base].format(day=persian_day(day), back=persian_day(back)) if back
+                           else box_break_line(day, base, level, stop))
             else:
                 text = EVENT_WORDS.get(base, (f"{name(kind).capitalize()} on {{day}}: target {{target}}",))[0]
                 out.append(text.format(day=persian_day(day), target=_m(target)))

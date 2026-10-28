@@ -43,7 +43,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    55-56 one vocabulary and the chart, the box's break told; the pulse previewed (v1.34safe);
                                                                    57 the pulse wired (v1.35safe);
                                                                    58 health check of 6 Aban: tgju's cache serves stale candles;
-                                                                   59 toward SP-E: the rethink, surface by surface
+                                                                   59 toward SP-E: the rethink, surface by surface;
+                                                                   60 two small fixes: tgju's cache, a break back inside the box (v1.36safe)
        member, the LLM member
 ```
 
@@ -6093,5 +6094,31 @@ whole system on the most efficient manner."
 - 5 GB a month is about 166 MB a day, about 10 MB per run at 16 runs.
 - Before section 34 it was about 450 MB a day.
 - After the two cuts (34, 34.1): estimated at 2.5-4 GB a month, not yet measured. It is measured on 11-01.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 60. Two small fixes on the current system (2026-10-28)
+
+The owner: "yes, do the small fixes as we will live with current system for another months at least."
+
+**60.1 tgju's cache** (58.2). `collector/tgju.fetch_daily_candles` sends a unique `_` parameter on every
+request. Every tgju read passes through that one function: the candles that are stored, the evening chart,
+the pulse, Direction and the room. The probe of 58.2 showed a unique parameter misses both nginx caches.
+- `kpi_tgju_candles.test_02b`: two requests carry two values.
+
+**60.2 A break back inside the box** (59.4). The owner: "now it says the price broke the box, but in reality,
+it just broke and then returned. and the sentence is there."
+- **The rule:** `caluclator/patterns.read` returns `back`, a list of (day, kind, day back), for each box break
+  whose later closes came back on the box's side of the edge it broke.
+- **The evening:** says it in the wording I proposed and the owner approved. For example: "Broke up on
+  29 Mehr; back inside the box since 2 Aban". There is no target line.
+- **The pulse:** a break already back inside by the next close is not pushed.
+- **The chart:** still marks the day of the break. It happened.
+- **Tests:**
+  - `kpi_paper.test_49`: the breakdown back inside is told as such, the same break without the close back
+    keeps its target line, and the pulse sends nothing;
+  - the KPI suite 30/30 (paper 54, tgju candles 17), the unit tests 19/19, compileall.
+
+**Tag:** `v1.36safe` = `main` before this merge (f2b9844).
 
 **NEON MIGRATION REQUIRED = NO.**

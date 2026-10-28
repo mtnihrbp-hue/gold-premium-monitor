@@ -238,11 +238,12 @@ def read(dates, high, low, close, window=60):
     """What the chart shows now, on completed candles: {"ranges": the last two [(start date, end date, low,
     high)], the last one running to today when it has not been left; "events": [(date, kind, level, target,
     stop)] of the last `window` days; "flag": the latest flag whose target is not reached and whose stop is
-    not broken, or None; "tests": the dates of the EMA20 tests inside the current range}."""
+    not broken, or None; "tests": the dates of the EMA20 tests inside the current range; "back": [(date, kind,
+    date back)] for each box break of `events` whose closes came back inside the box}."""
     h, l, c = (np.asarray(x, dtype=float) for x in (high, low, close))
     n = len(c)
     if n < 60:
-        return {"ranges": [], "events": [], "flag": None, "tests": []}
+        return {"ranges": [], "events": [], "flag": None, "tests": [], "back": []}
     rngs = ranges(c)
     events = sorted(range_breaks(c, rngs) + ema_tests(h, l, c) + swing_patterns(c, zigzag(c)), key=lambda e: e[0])
     last_two = rngs[-2:]
@@ -261,8 +262,17 @@ def read(dates, high, low, close, window=60):
     tests = [dates[k] for (k, kind, *_r) in events if kind == "EMA20 TEST" and current and k >= current[0]]
     recent = [(dates[k], kind, float(level), None if target is None else float(target), float(stop))
               for (k, kind, level, target, stop) in events if k >= n - window]
+    # a box's break undone: the first later close back on the box's side of the edge it broke (owner,
+    # 2026-10-28: "it just broke and then returned"; SP_D_HANDOFF.md section 60)
+    back = []
+    for (k, kind, level, _target, _stop) in events:
+        if kind in ("RANGE BREAKOUT", "RANGE BREAKDOWN") and k >= n - window:
+            after = c[k + 1:]
+            inside = np.nonzero(after <= level if kind == "RANGE BREAKOUT" else after >= level)[0]
+            if len(inside):
+                back.append((dates[k], kind, dates[k + 1 + int(inside[0])]))
     # the box is drawn on closes; its highest high is the resistance line the chart draws beside it, and the
     # caption names both (owner, 2026-10-22: two ceilings, 26.74M and 26.84M, read as a contradiction)
     box_high = float(h[current[0]:n].max()) if current else None
     return {"ranges": shown, "events": recent, "flag": flag, "tests": tests, "box_high": box_high,
-            "as_of": dates[n - 1]}
+            "as_of": dates[n - 1], "back": back}

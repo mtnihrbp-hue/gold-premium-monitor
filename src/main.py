@@ -751,10 +751,13 @@ def _chart_pulse(now, state):
         found = patterns.read(dates, h, l, c)
         sent = state.setdefault("pulses", [])
         told = []
+        undone = {(d, k) for d, k, _back in found.get("back", [])}
         for day, kind, level, target, stop in found["events"]:
             key = f"{day.isoformat()}:{kind}"
             if kind not in KINDS or day < dates[-2] or key in sent:
                 continue          # only the last two closes: a run that missed a day still tells it, once
+            if (day, kind) in undone:
+                continue          # back inside the box by the next close: not a break to push (section 60)
             box = max(((s, e) for s, e, _lo, _hi, _run in found["ranges"] if e < day), key=lambda x: x[1], default=None)
             flag = found["flag"] if kind != "FLAG" else None
             send_pulse(build_pulse_message((day, kind, level, target, stop), c[dates.index(day)], now, box=box, flag=flag))

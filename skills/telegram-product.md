@@ -20,7 +20,8 @@ Scheduled, not commanded:
 - SERVICE, when a service stops or comes back, once two runs agree;
 - the pulse, BREAKOUT or BREAKDOWN, at the first run of a day whose last close broke a box or a flag
   (`SP_D_HANDOFF.md` 56-57): the close, the box, the target and where the break is undone; a rate only
-  with lift; never BUY, SELL or WAIT;
+  with lift; never BUY, SELL or WAIT; not pushed when the next close is back inside the box, and the evening
+  then says "Broke up on X; back inside the box since Y" (60);
 - the room's 21:00 report, with the day's chart as a photo;
 - the room's trades;
 - the BUY signal, parked by the owner on 2026-10-18 (computed and logged, not sent; `SP_D_HANDOFF.md` 50.1);
