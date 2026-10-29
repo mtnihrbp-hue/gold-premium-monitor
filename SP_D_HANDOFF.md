@@ -49,7 +49,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    62 a daily answer; the topics to collect; the model before the sources;
                                                                    63 the categories and steps agreed; the vocabulary; the platforms ranked;
                                                                    64 world price; the vocabulary locked; the index; two kinds of platform (v1.37safe);
-                                                                   65 the discount on the gram platforms; WallGold's site addresses read
+                                                                   65 the discount on the gram platforms; WallGold's site addresses read (v1.38safe);
+                                                                   66 the model's R&D, step 1: the simple alternatives
        member, the LLM member
 ```
 
@@ -6518,3 +6519,50 @@ on `wallgold.ir`.
 - So `priceExpiresAt` minus 24 hours is the quote's issue time, not the price's last change. It still shows
   whether the runner was handed an old copy, which is what 64.3's first check asked: it passes.
 - The second check, WallGold's fees, is open.
+
+## 66. The model's R&D, step 1: the simple alternatives (2026-10-29)
+
+The owner agreed on 62.3-63: the model's R&D before the sources, and the simple alternatives first. The owner
+was away for 2-3 hours and set no task. This study is mine, under that agreement.
+
+### 66.1 Registered before the run (this commit precedes the results)
+
+**The data:**
+- **18K:** tgju's daily closes (`research/data/tgju_history.json`, to 2026-10-01).
+- **Fixed income:** the seed's level (`src/seed/fixed_income.json`, from 2015-03-15), carried forward to each
+  18K trading day.
+
+**Execution:**
+- A decision at day t's close trades at day t+1's close (lag 1).
+- Moving money between gold and fixed income costs 0.20% of the amount moved: half of Daric's 0.30% round
+  trip, plus half of the fund's 0.10% (the research's convention, section 17).
+- The moved money earns nothing for 2 trading days.
+
+**The rules** (no others will be run in this step):
+
+| | Rule |
+|---|---|
+| B1 | Hold gold: 100% gold throughout |
+| B2 | Hold fixed income: 100% throughout |
+| B3 | Fixed mix: 70% gold, 30% fixed income, rebalanced on the first 18K trading day of each calendar month |
+| B4 | Trend: 100% gold while the close is above its 50-day simple average (50D MA), 0% while below |
+| B5 | Trend in steps: 100% gold above the 50D MA, 40% below (the room's 40% swing; the owner's "steps") |
+
+**The periods**, each starting at a wealth of 1, with averages warmed on the days before:
+- P1: 2015-03-15 to 2019-12-31;
+- P2: 2020-01-01 to 2023-12-31;
+- P3: 2024-01-01 to 2026-10-01.
+
+**Reported for each rule and period:**
+- the final wealth;
+- the yearly rate;
+- the worst drop from a peak;
+- the worst 250-day return;
+- the number of moves;
+- the share of days in gold.
+
+**The test:** a rule beats holding gold when it ends with more wealth in at least 2 of the 3 periods, and its
+worst drop is no deeper in those periods.
+
+**For comparison:** the room's recorded figure at lag 1, +4.7% to +7.2% over holding per two years (53),
+quoted, not run again here.
