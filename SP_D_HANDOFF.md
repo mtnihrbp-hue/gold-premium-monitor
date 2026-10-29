@@ -46,7 +46,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    59 toward SP-E: the rethink, surface by surface;
                                                                    60 two small fixes: tgju's cache, a break back inside the box (v1.36safe);
                                                                    61 every idea reviewed critically; PAXG reviewed; the sources read today;
-                                                                   62 a daily answer; the topics to collect; the model before the sources
+                                                                   62 a daily answer; the topics to collect; the model before the sources;
+                                                                   63 the categories and steps agreed; the vocabulary; the platforms ranked
        member, the LLM member
 ```
 
@@ -6269,5 +6270,96 @@ gold per two years, tuned on the same history, about three independent periods.
 
 **The exception is category A.** Those topics are facts, not hypotheses, and history cannot be bought later.
 Their forward collection should start now, whatever the model becomes.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 63. The categories and steps agreed; the vocabulary; the platforms ranked (2026-10-29)
+
+### 63.1 Decided
+
+The owner, on 62:
+1. The six categories and the model's R&D before the sources: "AGREED".
+2. The answer's form: "Steps". A few fixed gold shares, not a share from 0% to 100%. The steps themselves
+   are to be set by the model's R&D.
+
+### 63.2 "Parity", and the list of words
+
+**The owner:** "one thing you ingested into msg, without my permission, partly due to the chat loss, is that,
+we had agreed upon a wording list, no parity, we called it discount ... is there a dict list to be
+referenced?"
+
+**The record:**
+- 54.6 item 6 proposed "parity" in place of "fair value", for the reference price (the audit's B1, agreed in
+  52).
+- The owner answered: "6. parity: ok" (55).
+- The gap kept its name, "discount": "Discount 2.25% below parity".
+- "Parity" names the price the discount is measured against.
+
+**There is no single list of words.** The rules sit in four places:
+- the owner's wording rules in my memory;
+- `skills/telegram-product.md`;
+- the handoff sections where each was set (46, 54-56);
+- `kpi_coherence.test_63`, which enforces some of them.
+
+**Proposed:**
+- one vocabulary table in `skills/telegram-product.md`, the file that owns message wording;
+- each entry: the word to use, the words never to use, the owner's words;
+- `test_63` reads the table, so a message cannot drift from it.
+- The draft goes to the owner to lock. The reference price's name stays "parity" unless the owner changes it.
+- My call, if a change is wanted: "world price". It is plain, and it says what the number is: world gold
+  times the dollar. "Fair value" is wrong (B1), and "parity" is jargon for a Persian reader.
+
+### 63.3 The platforms ranked, for the index
+
+**The owner:** "we mostly like the ayyareh, but does it have an api now? if not tell me which platforms
+produce the cleanest data, or at least rank them."
+
+**Ayyareh** (read today, 2026-10-29):
+- **No published API.** We read the JSON its own page uses (`general/getGoldPrice.php`, no key).
+- **It returns three fields:** `goldPrice`, `buyWageValue` and `sellWageValue` (0.02 each this morning). There
+  is no time.
+- **A buyer pays the price plus the fee, a seller is paid the price less it:** about 4% for a round trip at
+  today's fees.
+
+**WallGold** (read today):
+- `side=buy` and `side=sell` both answer: 26,048,000 and 26,049,000 toman.
+- Each carries `currentTime` and `priceExpiresAt`, 24 hours after the price was set. That gives the price's
+  own time, to be confirmed over several reads.
+
+**Measured** (`research/data/hourly.json`, production's stored readings, 610 from 2026-08-04 to 10-04):
+- **coverage:** the share of readings with a price;
+- **offset:** the platform's typical distance from the others' median;
+- **noise:** the spread of that offset, as a robust standard deviation;
+- **frozen:** the share of readings where its price did not change while the others' median moved more
+  than 0.10%;
+- **jumps:** changes of the offset larger than 1 point.
+
+| Platform | Coverage | Offset | Noise | Frozen | Longest frozen | Jumps | Own time | Both sides | Reached by the runner |
+|---|---|---|---|---|---|---|---|---|---|
+| Goldika | 93% | +1.09% | 0.12 pp | 0% | 0 | 2 | yes (`createdAt`) | yes | yes; a CDN copy 19 days old in October, caught by its own time |
+| WallGold | 100% | +0.17% | 0.24 pp | 0% | 1 | 6 | apparently (`priceExpiresAt`) | buy and sell endpoints, to check | yes |
+| Invi | 73% | +0.02% | 0.35 pp | 0% | 1 | 5 | no | no | yes |
+| Milli | 96% | -0.92% | 0.50 pp | 1% | 1 | 15 | yes (`date`) | no | yes |
+| Daric | 51% | +0.01% | 0.20 pp | 3% | 1 | 3 | no | yes, an order book | refused on many days; the phone |
+| Taline | 93% | -0.17% | 0.16 pp | 6% | 3 | 6 | no | yes since 10-16 | stale copies seen |
+| Ayyareh | 99% | -0.04% | 0.12 pp | 15% | 3 | 2 | no | price and fees | yes |
+| Eligold | 99% | -0.04% | 0.12 pp | 17% | 5 | 0 | no | no | yes; equal to Ayyareh's price in 317 of 596 readings |
+| Parasteh | 95% | +0.25% | 0.19 pp | 34% | 7 | 6 | no | no | yes |
+| MioGold | 95% | -0.16% | 0.23 pp | 39% | 4 | 12 | no | no | yes |
+| HoorGold | 94% | +0.25% | 0.31 pp | 61% | 10 | 12 | no | no | yes |
+
+**Reading:**
+- **Goldika has the cleanest data:** never frozen, the lowest noise, its own price time, both sides.
+- **WallGold is second:** full coverage, never frozen, an apparent price time.
+- **Ayyareh** is steady when it moves, but frozen in 15% of readings, with no time to show which. Its price
+  leaves out a fee of 1% to 2% a side.
+- **The galleries** are frozen a third to two-thirds of the time.
+- **The index is a measuring choice,** not the platform a user must trade on. "Where to buy" ranks every
+  platform by its total cost, fees included.
+
+**The limits of this measure:**
+- two months, ending 10-04, of readings already past the stale-quote rules (from 09-29);
+- "frozen" includes a platform that simply updates less often.
+- To be measured again on the full record after 11-01.
 
 **NEON MIGRATION REQUIRED = NO.**
