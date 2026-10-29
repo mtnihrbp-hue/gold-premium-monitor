@@ -119,9 +119,13 @@ them; do not restate them. `kpi_coherence.test_20` fails on a local redefinition
 
 ### Valuation basis
 
-The discount shown to a reader is the mean of the three cheapest platforms
-(`analysis/bubble_position.cheap_basis_price`). `market_snapshots.premium_percent` is
-still computed from the single cheapest and is what the decision engine,
+The discount shown to a reader is the mean of the three cheapest **gram** platforms
+(`analysis/bubble_position.cheap_basis_price`). Since 2026-10-29 the gold-product platforms
+(Eligold, HoorGold, Parasteh, MioGold), which are jewellery galleries' prices and often frozen,
+are shown apart and enter no discount, its record, the push or the BUY confirmation. One
+definition, `src/platforms.py`; `kpi_coherence.test_65` holds every reader to it
+(`SP_D_HANDOFF.md` section 65). `market_snapshots.premium_percent` is
+still computed from the single cheapest of every platform and is what the decision engine,
 `outcome_evaluations` and `analysis_snapshots` consume. This split is deliberate and
 documented in `SP_C_HANDOFF.md` section 15.1 — do not compare a displayed discount
 against a stored one without accounting for it, and do not "fix" one to match the

@@ -6506,3 +6506,15 @@ on `wallgold.ir`.
 - the KPI suite 30/30 (coherence 60), the unit tests 19/19, compileall.
 
 **NEON MIGRATION REQUIRED = NO.**
+
+**Merged** (owner: "thats ok"): `v1.38safe` = `main` before it (d9d08ef).
+
+**WallGold's price, read again on 10-29** (`api.wallgold.ir/api/v1/price`):
+- Without `side` and `symbol` it answers 422: "the market symbol field is required", "the trade side field is
+  required".
+- With them, four reads between 09:11 and 09:13 UTC. `priceExpiresAt` was 24 hours after a quote issued at
+  09:11:12, 09:12:13 and 09:13:13. A new quote comes each minute, the answer is cached for about a minute, and
+  the price moved 26,007,000 to 26,009,000.
+- So `priceExpiresAt` minus 24 hours is the quote's issue time, not the price's last change. It still shows
+  whether the runner was handed an old copy, which is what 64.3's first check asked: it passes.
+- The second check, WallGold's fees, is open.

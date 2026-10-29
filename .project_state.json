@@ -273,7 +273,7 @@
     "sp_c_status": "CLOSED -- merged into main 2026-09-28 (2b7c5f8); tag v1.3safe = main before the merge",
     "sp_d_status": "IN PROGRESS: Direction merged 2026-10-03, PAPER 2026-10-05; each batch reaches main only after the owner's review, with a safe tag on main first",
     "until_2026_10_03": "PAST. Owner direction 2026-09-29: SP-D is for the next phase; anything found before 2026-10-03 is fixed on main, through a short-lived branch cut from main and fast-forwarded after owner review.",
-    "latest_safe_tag": "v1.37safe (d06d49c, main before world price, 2026-10-29)",
+    "latest_safe_tag": "v1.38safe (d9d08ef, main before the gram-only discount, 2026-10-29)",
     "sp_e_merge_method": "surface by surface (owner, 2026-10-28, SP_D_HANDOFF.md 59.2): SP-E is cut from main and matures on its branch; each merge replaces one message, with a safe tag first; the last merge removes the old code; no two systems run side by side"
   },
   "verified_production_state": {
@@ -363,9 +363,7 @@
     "Owner's steps for the audit's A1/A2 (SP_D_HANDOFF.md 52.3): register the webhook with secret_token, set TELEGRAM_WEBHOOK_SECRET (and optionally a KV binding DEBOUNCE), paste the worker; two fine-grained tokens (worker, cron-job.org) swapped in; the classic token revoked.",
     "The audit's plan (51-53): done -- B7, A3/A7, A1 code, A9, A15, B4 (the room holds at lag 1 and 2), B8 for the studies. Next: on 11-01 unique keys then the write-back (A8), then delivery-confirmed sends (A6); after 11-01, B1, B2, B5, B6, B9, B11, B12, a durable state store (A4), then A11-A14.",
     "SP-E (2026-10-28, SP_D_HANDOFF.md 59): more brainstorming before it opens. Decided: it reaches main surface by surface, each merge replacing one message, with a safe tag first, and no parallel systems. The users: the owner and fewer than 20 friends; their job is to move between gold and fixed income. The first job: the realities. The owner's critical review; the sources collected, to be cleared; the 5 GB a month understood and the system designed around it. Open: the box-break line told for 14 days after a failed break (59.4); tgju's cache fix (58.2).",
-    "SP-E inputs (2026-10-29, SP_D_HANDOFF.md 62). Decided: a daily answer (the owner). My condition, not yet accepted: daily re-evaluation, with a change only past a band wider than the round-trip cost. Proposed: the topics in categories A-F, and the model's R&D before the sources, with category A collected forward now.",
-    "World price (2026-10-29, SP_D_HANDOFF.md 64): built on sp-de and previewed. To merge on the owner's OK of UPDATE's table labels \"World\" and \"Lowest 3\". The index is WallGold with Goldika as the backup, accepted on two checks: priceExpiresAt as the price's own time, and WallGold's fees. Invi's kind is to be classed by the owner. The current discount basis mixes the gram and product platforms: proposed, not changed.",
-    "The discount on the gram platforms (2026-10-29, SP_D_HANDOFF.md 65): built on sp-de and previewed; to merge on the owner's OK of UPDATE's new lines (\"The other N gram platforms\", \"Gold products (4)\"). premium_percent is unchanged."
+    "SP-E inputs (2026-10-29, SP_D_HANDOFF.md 62). Decided: a daily answer (the owner). My condition, not yet accepted: daily re-evaluation, with a change only past a band wider than the round-trip cost. Proposed: the topics in categories A-F, and the model's R&D before the sources, with category A collected forward now."
   ],
   "corrections": [
     "2026-10-02: from 10-01 10:01 Goldika's CDN served the non-Iranian runner a copy priced 2026-09-13 (6% below the market); the section 39 rule (repeat 3-48 h) let it through for three hours: a false deep-discount push, three live UPDATEs, BUY candidates held only by confirmation, a false PANIC regime; it had also entered on 09-25 and 09-28 (12 readings). The 09-29 Taline fix had not audited the other platforms from the runner's side. Fixed: source price time (Goldika, Milli), repeat within 60 days, a 3 pp jump hold, the push corroborated without its cheapest platform; 12 readings corrected in production at 12:10 Tehran with a backup. Section 44.",
@@ -439,6 +437,7 @@
     "2026-10-18, closed (the clean record from 2021-10-18 shows no lean, SP_D_HANDOFF.md 53.3): Sellers in control (48.4, rd_smart_money.py): buyer power in its year's bottom 5% leaned down (18K's next month +2.0% / +3.8% against +4.7% / +5.6%), one of five detectors; with 42.5's deep-discount lead. Confirm on the days after 2026-10-17 before Direction carries its rate.",
     "2026-10-22, closed (built and merged, SP_D_HANDOFF.md 55, 56.2): The contradictions of 26 Mehr (SP_D_HANDOFF.md 54.6): decided by the owner 2026-10-22 and built (55), previewed on sp-de; merged on the owner's lock.",
     "2026-10-22, closed (locked by the owner, wired, SP_D_HANDOFF.md 57): The pulse (SP_D_HANDOFF.md 56.3): a push at the first scheduled run after a confirming close -- a box broken up or down, a flag broken out -- previewed in alerts/telegram_pulse.py, not wired; awaits the owner's lock.",
-    "2026-10-28, closed (SP_D_HANDOFF.md 60): tgju's cache defeated by a unique parameter (58.2); a box break back inside the box told as such and not pushed (59.4)"
+    "2026-10-28, closed (SP_D_HANDOFF.md 60): tgju's cache defeated by a unique parameter (58.2); a box break back inside the box told as such and not pushed (59.4)",
+    "2026-10-29, merged (SP_D_HANDOFF.md 64-65): world price in every message (v1.37safe before it); the discount on the gram platforms, the gold-product platforms apart (v1.38safe before it). WallGold's priceExpiresAt is the quote's issue time plus 24 h, a new quote each minute: it detects a stale copy (64.3 check 1 passes); its fees are still to be known."
   ]
 }

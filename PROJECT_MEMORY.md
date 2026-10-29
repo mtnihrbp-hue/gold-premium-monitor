@@ -171,8 +171,10 @@ measured before any change.
 **The quantities.**
 - **The world price** (called "fair value" in the code; "world price" in every message since 2026-10-29,
   SP-D 64): world gold × the dollar × 0.75 / 31.1035.
-- **The discount a reader sees:** the mean of the three cheapest platforms against the world price
-  (`analysis/bubble_position.cheap_basis_price`).
+- **The discount a reader sees:** the mean of the three cheapest **gram** platforms against the world price
+  (`analysis/bubble_position.cheap_basis_price`). The gold-product platforms (Eligold, HoorGold, Parasteh,
+  MioGold; `src/platforms.py`) are shown apart, since 2026-10-29 (SP-D 65). The 30-day record is rebuilt on the
+  same basis.
 - **The stored `premium_percent`:** from the single cheapest platform. The engine, outcomes and
   snapshots read this one, and the split is deliberate (`SP_C_HANDOFF.md` 15.1).
 - **The deep-discount level:** one number for every surface, `deep_discount_threshold()` over the
