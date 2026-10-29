@@ -51,7 +51,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    64 world price; the vocabulary locked; the index; two kinds of platform (v1.37safe);
                                                                    65 the discount on the gram platforms; WallGold's site addresses read (v1.38safe);
                                                                    66 the model's R&D, step 1: the simple alternatives;
-                                                                   67 the sources by category, a verdict for each
+                                                                   67 the sources by category, a verdict for each;
+                                                                   68 ready for 1 November: no migration before the write-back
        member, the LLM member
 ```
 
@@ -6675,5 +6676,38 @@ while the owner was away. It decides nothing yet.
    - Afran's live price and NAV through the phone;
    - the coin's premium, from tgju's history.
    Each enters the model's R&D before production.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 68. Ready for 1 November: the write-back needs no migration first (2026-10-29)
+
+**The question:** the audit's A8 asked for unique keys before the outage's spool is written back.
+- The write-back runs by itself at the first scheduled run that reaches Neon, 06:00 Tehran on 11-01.
+- A migration must first be verified on a temporary Neon branch (CLAUDE.md), and no branch can be used before
+  the month's reset.
+- So the keys could only go in between 03:30 and 06:00 Tehran that morning.
+
+**Read in the code, it is not needed first:**
+- **Readings, observations, news:** `repository.spool_writers` reads what is already stored over the held span
+  and skips any of these already there. A flush cut off before its file is rewritten does not store anything
+  twice (`kpi_coherence` lines 972-998 run a flush twice and hold this).
+  - Readings are keyed by timestamp and collection mode.
+  - Observations by instrument, source, timestamp and side.
+  - News by its dedup key.
+- **A day's input** keeps the first value seen (`save_daily_candles`).
+- **Two runs flushing at once** cannot happen: scheduled runs go one at a time (52.2).
+- **The phone's resends:** production files `tsetmc` rows by day and fund (`main`'s two readers of
+  `get_node_rows`), so a resent row overwrites itself rather than counting twice. Daric is read as the newest
+  row.
+
+**So:**
+- 11-01 runs as `PROJECT_OPERATIONS.md` section 17 has it.
+- A8's unique keys follow in the first week of November: inspected, verified on a Neon branch, applied with the
+  owner's authorization. They are a second guard, not a precondition.
+
+**The size has grown since section 17 was written:**
+- 8,774 held writes on 10-28 at 11:00, about 600 more a day: about 11,000 by 11-01 06:00.
+- A run writes for at most 240 seconds, so the write-back takes several runs, not one to three.
+- `SPOOL: N stored, 0 rejected, L still held` is watched until L is 0.
 
 **NEON MIGRATION REQUIRED = NO.**
