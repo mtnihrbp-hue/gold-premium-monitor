@@ -32,6 +32,7 @@ from typing import List, Optional
 
 from caluclator.valuation import classify_valuation
 from database.models import MarketSnapshot, PlatformPrice
+from platforms import gram_markets, is_gram
 from timeutil import local_date, to_utc
 # One definition each, at the src root -- see `tolerances.py`.
 from tolerances import COMPARABLE_BAND_FRACTION, UNCHANGED_DEADBAND_PP
@@ -583,7 +584,8 @@ def _basis_series(session, window_start, now):
     Rebuilt from platform_prices rather than read from the stored premium_percent,
     because the stored column is computed from the single cheapest platform. Mixing
     the two would compare a reading on one basis against a window on another, which
-    is the contamination this whole change exists to remove.
+    is the contamination this whole change exists to remove. On the gram platforms only, as today's reading is
+    (platforms.py), so the record and the reading rest on one basis back to its first day.
     """
     rows = (
         session.query(
@@ -592,6 +594,7 @@ def _basis_series(session, window_start, now):
             MarketSnapshot.fair_price,
             MarketSnapshot.collection_mode,
             PlatformPrice.price_irr,
+            PlatformPrice.platform_name,
         )
         .join(PlatformPrice, PlatformPrice.snapshot_id == MarketSnapshot.id)
         .filter(
@@ -604,12 +607,13 @@ def _basis_series(session, window_start, now):
     )
 
     grouped = {}
-    for snapshot_id, timestamp, fair, mode, price in rows:
+    for snapshot_id, timestamp, fair, mode, price, name in rows:
         entry = grouped.setdefault(
             snapshot_id,
             {"timestamp": timestamp, "fair": float(fair), "mode": mode, "prices": []},
         )
-        entry["prices"].append(float(price))
+        if is_gram(name):
+            entry["prices"].append(float(price))
 
     series = []
     for entry in grouped.values():
@@ -663,8 +667,9 @@ def resolve_relative_valuation(
 
     prices = []
     if markets:
+        # the gram platforms only: a gold-product platform's price is a gallery's, often frozen (platforms.py)
         prices = [
-            float(info["price"]) for info in markets.values()
+            float(info["price"]) for info in gram_markets(markets).values()
             if info.get("status") == "OK" and info.get("price") is not None
         ]
     basis_price = cheap_basis_price(prices)

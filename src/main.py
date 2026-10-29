@@ -1485,8 +1485,10 @@ def _evaluate_deep_discount_push(markets, fair, state):
     if session is None:
         return
     try:
+        from platforms import gram_markets
+        # the gram platforms only, as UPDATE and ANALYZE read the discount (platforms.py)
         prices = [
-            float(info["price"]) for info in (markets or {}).values()
+            float(info["price"]) for info in gram_markets(markets).values()
             if info.get("status") == "OK" and info.get("price") is not None
         ]
         gap = signed_gap(cheap_basis_price(prices), fair)

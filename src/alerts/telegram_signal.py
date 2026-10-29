@@ -70,7 +70,9 @@ def build_buy_signal_message(*, fair, markets, signal_state, confirmation, valua
     if now is None:
         now = datetime.utcnow()
 
-    structure = format_market_structure(markets, fair) if markets else None
+    from platforms import gram_markets
+    # the gram platforms, as UPDATE counts them (platforms.py)
+    structure = format_market_structure(gram_markets(markets), fair) if markets else None
     total_platforms = structure["platform_count"] if structure else None
     gap = (valuation.gap if valuation is not None and valuation.gap is not None
            else signal_state.premium)
@@ -106,6 +108,8 @@ def build_buy_signal_message(*, fair, markets, signal_state, confirmation, valua
         lines.append(_row("Momentum", momentum))
     below = getattr(signal_state, "platforms_below_fair", None)
     above = getattr(signal_state, "platforms_above_fair", None)
+    if structure:
+        below, above = structure["below_count"], structure["above_count"]
     if below is not None and above is not None and (below + above) > 0:
         total = below + above
         if below == total:

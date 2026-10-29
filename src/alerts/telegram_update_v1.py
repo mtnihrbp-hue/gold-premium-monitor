@@ -26,6 +26,7 @@ from alerts.helpers import (
     format_m_tomans_short,
 )
 from analysis.bubble_position import cheap_basis_price, signed_gap
+from platforms import gram_markets, is_gram, product_markets
 from update.baseline_resolver import UpdateBaselines
 
 
@@ -323,9 +324,13 @@ def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state
     day = baselines.day if baselines else None
     lines = [_update_sep(), "<b>THE NUMBER</b>", _update_sep()]
 
-    structure = format_market_structure(markets, fair) if markets else None
+    # the gram platforms carry the discount, its counts and the market low; the gold-product platforms get a
+    # line of their own below (owner, 2026-10-29; platforms.py)
+    structure = format_market_structure(gram_markets(markets), fair) if markets else None
     low_name = structure["low_name"] if structure else None
     total_platforms = structure["platform_count"] if structure else None
+    if structure:
+        lowest = structure["low_price"]
 
     # Everything below rests on the trimmed basis, not on the single cheapest
     # platform. `premium` is still the stored, minimum-based value and is used only
@@ -377,8 +382,8 @@ def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state
             lines.append(_row("Deep discount",
                               f"If {valuation.deep_at:.2f}% or more  ({window}D)"))
 
-    below = getattr(signal_state, "platforms_below_fair", None) if signal_state else None
-    above = getattr(signal_state, "platforms_above_fair", None) if signal_state else None
+    below = structure["below_count"] if structure else None
+    above = structure["above_count"] if structure else None
     if below is not None and above is not None and (below + above) > 0:
         total = below + above
         lines.append("")
@@ -404,20 +409,33 @@ def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state
     # the basis sit lets the reader tell one vendor moving alone from the market
     # moving, which is what a single stale quote looked like before.
     others = _outside_basis_prices(markets, [name for name, _ in cheapest])
-    if others:
+    products = sorted(float(info["price"]) for info in product_markets(markets).values()
+                      if info.get("status") == "OK" and info.get("price") is not None)
+    if others or products:
         lines.append("")
-        lines.append(f"<i>The other {len(others)} platforms: "
-                     f"{format_m_tomans_short(others[0])} - "
-                     f"{format_m_tomans_short(others[-1])}.</i>")
+    if others:
+        lines.append(f"<i>The other {_count_platforms(len(others))}: {_price_range(others)}.</i>")
+    if products:
+        lines.append(f"<i>Gold products ({len(products)}): {_price_range(products)}.</i>")
 
     return "\n".join(lines)
+
+
+def _count_platforms(n):
+    return "gram platform" if n == 1 else f"{n} gram platforms"
+
+
+def _price_range(sorted_prices):
+    """"22.48M - 23.39M", or one price when they read the same."""
+    low, high = format_m_tomans_short(sorted_prices[0]), format_m_tomans_short(sorted_prices[-1])
+    return low if low == high else f"{low} - {high}"
 
 
 def _baseline_basis(baseline):
     """Trimmed basis price of a baseline snapshot, rebuilt from its platform prices."""
     if baseline is None or not baseline.platform_prices:
         return None
-    return cheap_basis_price(baseline.platform_prices.values())
+    return cheap_basis_price(p for name, p in baseline.platform_prices.items() if is_gram(name))
 
 
 def _baseline_gap(baseline, fallback_basis=None):
@@ -428,7 +446,7 @@ def _baseline_gap(baseline, fallback_basis=None):
     """
     if baseline is None or not baseline.fair_price:
         return None
-    basis = cheap_basis_price(baseline.platform_prices.values())
+    basis = cheap_basis_price(p for name, p in baseline.platform_prices.items() if is_gram(name))
     if basis is None:
         return baseline.premium_percent
     return signed_gap(basis, baseline.fair_price)
@@ -442,24 +460,24 @@ def _level_with_change(value, change):
 
 
 def _cheapest_platforms(markets, count):
-    """The `count` cheapest platforms as (name, price), cheapest first."""
+    """The `count` cheapest gram platforms as (name, price), cheapest first."""
     if not markets or not count:
         return []
     valid = [
-        (name, float(info["price"])) for name, info in markets.items()
+        (name, float(info["price"])) for name, info in gram_markets(markets).items()
         if info.get("status") == "OK" and info.get("price") is not None
     ]
     return sorted(valid, key=lambda item: item[1])[:count]
 
 
 def _outside_basis_prices(markets, basis_names):
-    """Sorted prices of every platform not inside the valuation basis."""
+    """Sorted prices of every gram platform not inside the valuation basis."""
     if not markets:
         return []
     excluded = set(basis_names or ())
     return sorted(
         float(info["price"])
-        for name, info in markets.items()
+        for name, info in gram_markets(markets).items()
         if name not in excluded
         and info.get("status") == "OK" and info.get("price") is not None
     )

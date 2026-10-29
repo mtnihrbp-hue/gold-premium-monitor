@@ -48,7 +48,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    61 every idea reviewed critically; PAXG reviewed; the sources read today;
                                                                    62 a daily answer; the topics to collect; the model before the sources;
                                                                    63 the categories and steps agreed; the vocabulary; the platforms ranked;
-                                                                   64 world price; the vocabulary locked; the index; two kinds of platform
+                                                                   64 world price; the vocabulary locked; the index; two kinds of platform (v1.37safe);
+                                                                   65 the discount on the gram platforms; WallGold's site addresses read
        member, the LLM member
 ```
 
@@ -6440,5 +6441,68 @@ Goldika stands in whenever WallGold fails a check or a read.
 fixtures of 64.2, MioGold is the lowest of them. A frozen product platform's price can enter the displayed
 discount. A change to the basis changes a measure readers have seen for months, so it is proposed, not made
 (the brief of 21 Oct, §5.2: a new measure runs beside the old one first).
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 65. The discount on the gram platforms; WallGold's site addresses read (2026-10-29)
+
+The owner, on 64:
+- "Invi is a gram platform."
+- "fix now the discounts."
+- "the preview is fine." World price was merged: `v1.37safe` = `main` before it (d06d49c), `main` at d9d08ef.
+
+### 65.1 WallGold's addresses
+
+**The owner's question:** "for wallgold, maybe we are touching a bad address". The owner listed seven addresses
+on `wallgold.ir`.
+
+**Read on 10-29:**
+- **`wp-content/uploads/wallgold/prices.json`:**
+  - its own field says `"src": "api.tgju.org"`;
+  - it carries tgju's indicators (`gold18k`, `geram24`, `mesghal`, `sekee` the Emami coin, `ons`, ...), each
+    with `updated_ms`.
+- **`wp-json/wgx/v1/table/sekeb` and `.../price_dollar_rl`:** tgju's daily tables in tgju's own row layout,
+  3,522 and 3,989 rows.
+- **`wp-json/wgx/v1/chart?key=gold18k&period=...`:** chart points of the same series.
+
+**So these are WallGold's website republishing tgju's market data,** not WallGold's trading price.
+- The collector's `api.wallgold.ir/api/v1/price?side=buy|sell` is the platform's own price, and the right
+  address for the index.
+- The site's copy of tgju is a second route to tgju's figures, with a time on each: a fallback if tgju itself
+  fails the runner. Not wired.
+
+### 65.2 The discount on the gram platforms (built on `sp-de`; previewed, not merged)
+
+**One definition:** `src/platforms.py` holds `PRODUCT_PLATFORMS` = Eligold, HoorGold, Parasteh, MioGold, with
+`is_gram`, `gram_markets` and `product_markets`. Every reader of the discount filters on it:
+
+| Where | What changed |
+|---|---|
+| `bubble_position.resolve_relative_valuation` | today's basis, the three lowest gram platforms |
+| `bubble_position._basis_series` | the 30-day record rebuilt from stored platform prices on the same basis, back to its first day, so the ranks, the deep-discount level and ANALYZE's history stay on one basis |
+| `analyze_report` | its record of moves and its current gap |
+| `confirmation` | the BUY's second platform and its 30-day record |
+| `main._evaluate_deep_discount_push` | the push's gap and its corroboration without the cheapest |
+| UPDATE, the signal | "Cheapest 3", "from the 3 cheapest of N", "Platforms all N below world price", "Market low": the gram platforms of the reading itself; "The other N gram platforms: ..."; a new line "Gold products (4): lowest - highest" |
+
+**Unchanged:**
+- `market_snapshots.premium_percent`, the single cheapest of every platform since July: the parked BUY
+  engine's valuation leg ranks it against its own stored series, and changing it would split that series;
+  SP-E replaces the engine;
+- `market_states.platforms_below_fair`, the structure calculator's count.
+- UPDATE and the signal no longer print either.
+
+**Measured on the stored readings** (`research/data/hourly.json`, 607 from 08-04 to 10-04):
+- a gold-product platform was among the three lowest in 432 readings (71%);
+- the gram-only discount reads 0.04 pp smaller in a typical reading, and 0.93 pp at most;
+- the deep-discount level, the 85th percentile of the discounts, moves from 3.88% to 3.76%.
+
+**Tests:**
+- `kpi_coherence.test_65`: one definition; every reader filters on it; the BUY's second platform is a gram
+  platform when a gallery quotes lower;
+- `kpi_sp_c4`: the fixtures' cheapest moved from MioGold to Ayyareh. A gold-product price moves neither the
+  gap, the rank nor the basis, and is shown apart. The counts come from the reading's gram platforms;
+- `kpi_signal_confirmation.test_19`: "from the 3 cheapest of 7";
+- the KPI suite 30/30 (coherence 60), the unit tests 19/19, compileall.
 
 **NEON MIGRATION REQUIRED = NO.**

@@ -169,8 +169,9 @@ So "the discount" compares mixed kinds of number. That is known and kept, becaus
 measured before any change.
 
 **The quantities.**
-- **Fair value:** world gold × the dollar × 0.75 / 31.1035.
-- **The discount a reader sees:** the mean of the three cheapest platforms against fair value
+- **The world price** (called "fair value" in the code; "world price" in every message since 2026-10-29,
+  SP-D 64): world gold × the dollar × 0.75 / 31.1035.
+- **The discount a reader sees:** the mean of the three cheapest platforms against the world price
   (`analysis/bubble_position.cheap_basis_price`).
 - **The stored `premium_percent`:** from the single cheapest platform. The engine, outcomes and
   snapshots read this one, and the split is deliberate (`SP_C_HANDOFF.md` 15.1).

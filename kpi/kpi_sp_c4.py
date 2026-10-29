@@ -144,7 +144,7 @@ def _baselines(run_premium=-3.61, day_premium=-3.80, run_fair=238_000_000,
 
 
 MARKETS = {
-    "MioGold": {"status": "OK", "price": 224_800_000},
+    "Ayyareh": {"status": "OK", "price": 224_800_000},
     "Milli": {"status": "OK", "price": 230_200_000},
     "Goldika": {"status": "OK", "price": 233_900_000},
     "Taline": {"status": "OK", "price": 231_100_000},
@@ -328,16 +328,20 @@ class KPISPC4(unittest.TestCase):
         text = _render_number()
         self.assertIn("Cheapest 3", text)
         # Prices are stored in Rials and shown in millions of Tomans.
-        self.assertIn("The other 1 platforms: 23.39M - 23.39M.", text)
+        self.assertIn("The other gram platform: 23.39M.", text)
+        # a gold-product platform is shown apart, never in the basis (owner, 2026-10-29; SP_D_HANDOFF.md 65)
+        with_product = _render_number(markets=dict(MARKETS, MioGold={"status": "OK", "price": 200_000_000}))
+        self.assertIn("Gold products (1): 20.00M.", with_product)
+        self.assertNotIn("MioGold", with_product)
 
     def test_21_outside_basis_prices_exclude_the_basis_and_any_failure(self):
-        others = _outside_basis_prices(MARKETS, ["MioGold", "Milli"])
+        others = _outside_basis_prices(MARKETS, ["Ayyareh", "Milli"])
         self.assertEqual(others, [231_100_000, 233_900_000])
 
     def test_21b_cheapest_platforms_are_returned_cheapest_first(self):
         self.assertEqual(
             _cheapest_platforms(MARKETS, 3),
-            [("MioGold", 224_800_000), ("Milli", 230_200_000), ("Taline", 231_100_000)],
+            [("Ayyareh", 224_800_000), ("Milli", 230_200_000), ("Taline", 231_100_000)],
         )
 
     def test_22_references_are_named_once_in_the_readers_own_clock(self):
@@ -498,7 +502,13 @@ class KPISPC4(unittest.TestCase):
         # "all 11 agree" implied price consensus and was false on a day one platform
         # sat 2.87% off the field. The count is about position against fair value.
         self.assertIn("all 4 below world price", _render_number())
-        self.assertIn("2 of 4 below world price", _render_number(signal=_Signal(2, 2)))
+        # counted on the gram platforms of the reading itself since 2026-10-29, not the stored structure,
+        # which counts the gold-product platforms too (SP_D_HANDOFF.md 65)
+        two_above = dict(MARKETS, Goldika={"status": "OK", "price": 240_000_000},
+                         Taline={"status": "OK", "price": 241_000_000})
+        self.assertIn("2 of 4 below world price", _render_number(markets=two_above))
+        self.assertIn("all 4 below world price",
+                      _render_number(markets=dict(MARKETS, MioGold={"status": "OK", "price": 250_000_000})))
 
     # -- the table speaks the same language ------------------------------------
 
@@ -651,12 +661,17 @@ class KPISPC4(unittest.TestCase):
         # and must react to it, or the message would stop responding to the market.
         self._seed_days()
         session = _test_get_session()
-        cheap = dict(MARKETS, MioGold={"status": "OK", "price": 200_000_000})
-        dear = dict(MARKETS, MioGold={"status": "OK", "price": 237_000_000})
+        cheap = dict(MARKETS, Ayyareh={"status": "OK", "price": 200_000_000})
+        dear = dict(MARKETS, Ayyareh={"status": "OK", "price": 237_000_000})
         a = resolve_relative_valuation(session, markets=cheap, fair_price=FAIR, now=NOW)
         b = resolve_relative_valuation(session, markets=dear, fair_price=FAIR, now=NOW)
         self.assertEqual(a.deep_at, b.deep_at)
         self.assertNotEqual(a.bigger_than, b.bigger_than)
+        # a gold-product platform does not move it: its price is a gallery's, often frozen (SP_D_HANDOFF.md 65)
+        c = resolve_relative_valuation(session, markets=dict(MARKETS, MioGold={"status": "OK", "price": 150_000_000}),
+                                       fair_price=FAIR, now=NOW)
+        d = resolve_relative_valuation(session, markets=MARKETS, fair_price=FAIR, now=NOW)
+        self.assertEqual((c.gap, c.bigger_than, c.basis_price), (d.gap, d.bigger_than, d.basis_price))
 
     def test_36_window_and_reading_are_built_on_the_same_basis(self):
         # Comparing a trimmed reading against a minimum-based window would report a

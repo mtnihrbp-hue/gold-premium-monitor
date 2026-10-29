@@ -2041,6 +2041,38 @@ class KPICoherence(unittest.TestCase):
                             found.append(f"{module}:{node.lineno} {word!r} in {node.value[:50]!r}")
         self.assertEqual(found, [])
 
+    def test_65_the_discount_rests_on_the_gram_platforms_everywhere(self):
+        """The owner, 2026-10-29: two kinds of platform, grams and gold products ("Eligold - Hoorgold - Parasteh
+        and Mio gold"), and "fix now the discounts". One definition (platforms.py); every reader of the discount,
+        its record, the push's corroboration and the BUY's second platform filters on it (SP_D_HANDOFF.md 65)."""
+        import inspect as _inspect
+        import platforms
+        import main
+        from analysis import analyze_report, bubble_position, confirmation
+        from alerts import telegram_signal, telegram_update_v1
+        self.assertEqual(platforms.PRODUCT_PLATFORMS, {"Eligold", "HoorGold", "Parasteh", "MioGold"})
+        self.assertTrue(platforms.is_gram("Invi"), "Invi is a gram platform (owner, 2026-10-29)")
+        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src")
+        defined = []
+        for folder, _dirs, files in os.walk(root):
+            for f in files:
+                if f.endswith(".py"):
+                    with open(os.path.join(folder, f), encoding="utf-8") as fh:
+                        if "PRODUCT_PLATFORMS =" in fh.read():
+                            defined.append(f)
+        self.assertEqual(defined, ["platforms.py"], "one definition")
+        for reader in (bubble_position._basis_series, confirmation.second_gap_series):
+            self.assertIn("is_gram(name)", _inspect.getsource(reader), reader.__name__)
+        self.assertIn("is_gram(name)", _inspect.getsource(analyze_report))
+        self.assertIn("gram_markets(markets)", _inspect.getsource(bubble_position.resolve_relative_valuation))
+        self.assertIn("gram_markets(markets)", _inspect.getsource(main._evaluate_deep_discount_push))
+        self.assertIn("gram_markets(markets)", _inspect.getsource(telegram_update_v1._cheapest_platforms))
+        self.assertIn("gram_markets(markets)", _inspect.getsource(telegram_signal))
+        # the BUY's second platform is a gram platform even when a gallery quotes lower
+        markets = {"MioGold": {"status": "OK", "price": 90.0}, "HoorGold": {"status": "OK", "price": 91.0},
+                   "Milli": {"status": "OK", "price": 95.0}, "Goldika": {"status": "OK", "price": 97.0}}
+        self.assertEqual(confirmation.second_cheapest(markets, 100.0)[0], "Goldika")
+
 if __name__ == "__main__":
     print("=" * 55)
     print("CROSS-CUTTING COHERENCE")

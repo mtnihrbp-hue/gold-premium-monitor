@@ -41,6 +41,7 @@ from analysis.bubble_position import (
 )
 from caluclator.valuation import classify_valuation
 from database.models import MarketSnapshot, PlatformPrice
+from platforms import gram_markets, is_gram
 from timeutil import local_date, to_tehran, to_utc
 
 # Tehran hours, measured over the scheduled readings of 2026-09-15 to 09-28
@@ -93,10 +94,10 @@ class SignalConfirmation:
 
 
 def second_cheapest(markets, fair_price):
-    """(name, signed gap) of the second-cheapest platform, or (None, None)."""
+    """(name, signed gap) of the second-cheapest gram platform, or (None, None) (platforms.py)."""
     valid = sorted(
         (float(info["price"]), name)
-        for name, info in (markets or {}).items()
+        for name, info in gram_markets(markets).items()
         if info.get("status") == "OK" and info.get("price") is not None
     )
     if len(valid) < 2 or not fair_price:
@@ -118,6 +119,7 @@ def second_gap_series(session, window_start, reference_end):
             MarketSnapshot.fair_price,
             MarketSnapshot.collection_mode,
             PlatformPrice.price_irr,
+            PlatformPrice.platform_name,
         )
         .join(PlatformPrice, PlatformPrice.snapshot_id == MarketSnapshot.id)
         .filter(
@@ -129,12 +131,13 @@ def second_gap_series(session, window_start, reference_end):
         .all()
     )
     grouped = {}
-    for snapshot_id, timestamp, fair, mode, price in rows:
+    for snapshot_id, timestamp, fair, mode, price, name in rows:
         entry = grouped.setdefault(
             snapshot_id,
             {"timestamp": timestamp, "fair": float(fair), "mode": mode, "prices": []},
         )
-        entry["prices"].append(float(price))
+        if is_gram(name):
+            entry["prices"].append(float(price))
 
     series = []
     for entry in grouped.values():
