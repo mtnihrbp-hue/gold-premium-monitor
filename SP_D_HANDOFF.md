@@ -50,7 +50,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    63 the categories and steps agreed; the vocabulary; the platforms ranked;
                                                                    64 world price; the vocabulary locked; the index; two kinds of platform (v1.37safe);
                                                                    65 the discount on the gram platforms; WallGold's site addresses read (v1.38safe);
-                                                                   66 the model's R&D, step 1: the simple alternatives
+                                                                   66 the model's R&D, step 1: the simple alternatives;
+                                                                   67 the sources by category, a verdict for each
        member, the LLM member
 ```
 
@@ -6599,5 +6600,80 @@ changes of posture are those of B4 (45, 46, 20).
 - 18K is tgju's market close, not a platform's buy or sell price.
 - Fixed income is the seed's chained index.
 - Three periods, five rules.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 67. The sources by category: what we have, what we need, a verdict for each (2026-10-29)
+
+This is the register of 61.3, redrawn by 62.2's categories (agreed in 63.1), for the owner's review. I wrote it
+while the owner was away. It decides nothing yet.
+
+- **From** is the collection point: the runner (GitHub, outside Iran) or the phone (inside Iran).
+- **Own time** is whether the source stamps its own price.
+
+### A. Facts the user acts on
+
+| Topic | Now | From | Own time | Verdict and next step |
+|---|---|---|---|---|
+| 18K grams, the index | WallGold `api.wallgold.ir/api/v1/price` (side, symbol) | runner | the quote's issue time, a new one each minute (65) | **index** (owner, 64); its fees to be known |
+| 18K grams, the backup | Goldika, buy and sell | runner | `createdAt` | **backup index** |
+| 18K grams, observers | Milli, Taline, Ayyareh (price and its fees), Invi | runner | Milli only | **observers**: "where to buy" and the quality gate |
+| 18K grams, observer | Daric, order book | the phone when the runner is refused | no | **observer** |
+| Each platform's fees and terms | Ayyareh's fees in its own answer; none elsewhere | runner; by hand | - | **a table kept by hand** (owner), dated; Ayyareh's read automatically |
+| Fixed income's tradable price | Afran's close, tablokhani, one or two sessions late | runner | no | **to improve**: Afran's live price and its NAV from TSETMC, through the phone, which already reads TSETMC |
+| Moving money platform to broker | none | by hand | - | **by hand** (owner) |
+
+### B. The two assets
+
+| Topic | Now | From | Own time | Verdict |
+|---|---|---|---|---|
+| 18K daily, long | tgju, from 2013 (cache passed since 60) | runner | the day | **keep**. A second route: WallGold's site serves tgju's figures with their times (65.1) |
+| 18K within the day, on the index | WallGold every run, stored | runner | per quote | **keep**; hourly is enough for a daily answer |
+| Fixed income's daily return | the seed from 2015, extended by Afran's close | runner | the day | **keep**; improve with A's Afran row |
+
+### C. Candidate drivers (each enters production only after the model's R&D, 62.3)
+
+| Topic | Now | Candidate | From | Own time | Verdict |
+|---|---|---|---|---|---|
+| World gold | a chain of four (gold-api, Kitco, goldprice.org, Yahoo) | one primary and one fallback | runner | partly | **simplify**: measure which answered, keep two |
+| The weekend ounce | none | PAXG in dollars | runner | yes | **on a condition** (61.2): only if its weekend move leads Saturday's 18K |
+| The free dollar, timed, round the clock | bonbast every run (no time); Tether at 21:00 (etfbaz, which relays Nobitex) | Tether every run from etfbaz; Nobitex itself through the phone, with its time | runner; phone | etfbaz no, Nobitex yes | **candidate first**: Tether's weekend lead is measured (42.4); bonbast stays as a cross-check |
+| Official against free dollar | none | the central bank's rates | to find | - | **to find** |
+| Interest rates | implied by the fixed-income seed | the interbank rate | to find | - | **to find**; slow |
+| Inflation and money | none | SCI, CBI | to find | monthly | **regime only**; too slow for a daily answer |
+| Stock index | tablokhani, etfbaz, daily; seed from 2008 | - | runner | the day | **keep** while the room uses it |
+| The Emami coin's premium over its gold | none in production | tgju's coin, also served by WallGold's site (65.1) | runner | yes | **candidate**: a classic sentiment gauge, with a long history to test |
+| Gold funds' price against NAV | none in production; fipiran NAV in research | TSETMC through the phone | phone | yes | **candidate** |
+| Gold funds' money flow | TSETMC closed days, the phone; tablokhani's 10-day sums | - | phone; runner | the day | **keep the daily**; nothing passed on the clean record (53) |
+| Gold funds' flow within the day | TSETMC live, the phone, about 490 rows a trading day | - | phone | yes | **keep until the January study** (owner, 10-17), then decide |
+| The Mercantile Exchange's gold certificates | none | IME, price and volume | probably the phone | to find | **to find** |
+| Events | 12 RSS feeds, every run; labelled offline | - | runner | per item | **owner's call**: keep collecting (storage, labels), or pause until a lead is tested |
+
+### D. Cross-checks
+
+| Topic | Now | Verdict |
+|---|---|---|
+| Observer prices | the observers of A; tgju's market price | **keep** |
+| The bazaar's reference | Eligold, HoorGold, Parasteh, MioGold, shown apart since 65 | **keep**. Eligold showed Ayyareh's exact price in 317 of 596 readings (63.3), so it is not an independent reading |
+| The bazaar's melted gold | etfbaz at 21:00 | **keep** as an observer |
+| The runner-against-Iran comparison | the phone reads Taline, HoorGold, MioGold every 15 min, about 288 rows a day | **candidate to stop**: it served the stale-copy study (31-32); production reads none of it |
+| Each source's health | run logs; partly stored | **to store per read**: its own time and its status |
+
+### E. Calendar
+
+| Topic | Now | Verdict |
+|---|---|---|
+| Iran's holidays; the sessions of TSE, IME and the platforms; world gold's hours | partly in code (tgju's closed weekdays; the phone's TSETMC days) | **one table, kept by hand once a year**, which PAPER's fills (B9) and every series' alignment read |
+
+### What this asks of the owner
+
+1. WallGold's fees, and the other gram platforms' fees, for the hand-kept table.
+2. News: keep collecting, or pause.
+3. The phone's comparison pages: stop them.
+4. Then the next candidates, in this order:
+   - Tether every run from etfbaz, beside bonbast;
+   - Afran's live price and NAV through the phone;
+   - the coin's premium, from tgju's history.
+   Each enters the model's R&D before production.
 
 **NEON MIGRATION REQUIRED = NO.**
