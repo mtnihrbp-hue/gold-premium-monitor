@@ -2007,6 +2007,40 @@ class KPICoherence(unittest.TestCase):
         self.assertIn('f"Resistance level {', levels)
         self.assertIn('f"Support level {', levels)
 
+    def test_64_no_telegram_surface_uses_a_word_the_vocabulary_forbids(self):
+        """The owner, 2026-10-29: "we had agreed upon a wording list ... is there a dict list to be referenced?"
+        The list is the vocabulary table in skills/telegram-product.md; its rows marked "test" are enforced here
+        over the text the Telegram surfaces and the chart write (docstrings and comments aside). The parked
+        legacy alert and e-mails (alerts/telegram.py, helpers' SP-A blocks, resend_mail) are left to SP-E
+        (SP_D_HANDOFF.md section 64)."""
+        import ast
+        import re as _re
+        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+        with open(os.path.join(root, "skills", "telegram-product.md"), encoding="utf-8") as f:
+            table = f.read()
+        rows = [[c.strip() for c in line.strip().strip("|").split("|")]
+                for line in table.split("### Vocabulary", 1)[1].split("\n## ", 1)[0].splitlines()
+                if line.startswith("|") and not line.startswith("|---")][1:]
+        never = sorted({w.strip() for r in rows if len(r) == 4 and r[3] == "test" for w in r[2].split(",")})
+        self.assertIn("parity", never)
+        self.assertIn("fair value", never)
+        self.assertGreaterEqual(len(never), 12)
+        surfaces = ("telegram_update_v1", "telegram_analyze", "telegram_signal", "telegram_service",
+                    "telegram_direction", "telegram_paper", "telegram_pulse", "gold_funds", "chart")
+        found = []
+        for module in surfaces:
+            path = os.path.join(root, "src", "alerts", f"{module}.py")
+            with open(path, encoding="utf-8") as f:
+                tree = ast.parse(f.read())
+            docstrings = {id(n.value) for n in ast.walk(tree) if isinstance(n, ast.Expr)
+                          and isinstance(n.value, ast.Constant)}
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docstrings:
+                    for word in never:
+                        if _re.search(rf"\b{_re.escape(word)}\b", node.value, _re.IGNORECASE):
+                            found.append(f"{module}:{node.lineno} {word!r} in {node.value[:50]!r}")
+        self.assertEqual(found, [])
+
 if __name__ == "__main__":
     print("=" * 55)
     print("CROSS-CUTTING COHERENCE")

@@ -83,7 +83,7 @@ def build_buy_signal_message(*, fair, markets, signal_state, confirmation, valua
         "The discount is unusually large, and a second platform confirms it.",
         "",
         _update_sep(), "<b>THE NUMBER</b>", _update_sep(),
-        _row(label, f"{abs(gap):.2f}%  {side} parity"),
+        _row(label, f"{abs(gap):.2f}%  {side} world price"),
     ]
     if basis_count and total_platforms:
         lines.append(_cont(f"from the {basis_count} cheapest of {total_platforms}"))
@@ -109,9 +109,9 @@ def build_buy_signal_message(*, fair, markets, signal_state, confirmation, valua
     if below is not None and above is not None and (below + above) > 0:
         total = below + above
         if below == total:
-            lines.append(_row("Platforms", f"all {total} below parity"))
+            lines.append(_row("Platforms", f"all {total} below world price"))
         else:
-            lines.append(_row("Platforms", f"{below} of {total} below parity"))
+            lines.append(_row("Platforms", f"{below} of {total} below world price"))
 
     if confirmation is not None:
         lines += ["", _update_sep(), "<b>CHECKED</b>", _update_sep()]
@@ -127,7 +127,7 @@ def build_buy_signal_message(*, fair, markets, signal_state, confirmation, valua
     if cheapest:
         lines.append(_row(f"Cheapest {len(cheapest)}", ", ".join(name for name, _ in cheapest)))
         lines.append(_cont(" / ".join(format_m_tomans_short(price) for _, price in cheapest)))
-    lines.append(_row("Parity", format_m_tomans(fair)))
+    lines.append(_row("World price", format_m_tomans(fair)))
 
     lines += [
         "",

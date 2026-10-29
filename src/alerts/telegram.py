@@ -107,7 +107,7 @@ def _format_market_section(world, usd, fair, lowest, premium, input_directions=N
     lines = [
         SEPARATOR, "<b>MARKET</b>", SEPARATOR, "",
         f"XAU/USD:    ${_money(world)}  |  USD/IRR: {_money(usd)}",
-        f"Parity: {_money(fair)} IRR",
+        f"World price: {_money(fair)} IRR",
         f"Lowest:     {_money(lowest)} IRR",
         f"Premium:    {_number(premium)}%",
     ]

@@ -260,9 +260,9 @@ class KPISPC4(unittest.TestCase):
     def test_10_crossing_fair_value_is_named_rather_than_sized(self):
         # Sizes are equal on both sides, so an increase/decrease reading would
         # report "unchanged" on a full point of movement.
-        # "parity" since 2026-10-22 (the external audit's B1, SP_D_HANDOFF.md section 55)
-        self.assertEqual(_gap_movement(0.50, -0.50), "crossed parity — more expensive")
-        self.assertEqual(_gap_movement(-0.50, 0.50), "crossed parity — cheaper")
+        # "world price" since 2026-10-29 (owner; SP_D_HANDOFF.md section 64), "parity" before it (55)
+        self.assertEqual(_gap_movement(0.50, -0.50), "crossed the world price — more expensive")
+        self.assertEqual(_gap_movement(-0.50, 0.50), "crossed the world price — cheaper")
 
     def test_11_movement_below_display_precision_reads_unchanged(self):
         # 0.004 rounds to 0.00 at the two decimals the message shows, and the text
@@ -309,7 +309,7 @@ class KPISPC4(unittest.TestCase):
 
     def test_18_block_states_the_gap_as_a_positive_size_with_its_side(self):
         text = _render_number()
-        self.assertIn("5.68%  below parity", text)
+        self.assertIn("5.68%  below world price", text)
         self.assertNotIn("-5.68", text)
 
     def test_19_the_basis_is_named_on_the_line_stating_the_number(self):
@@ -319,7 +319,7 @@ class KPISPC4(unittest.TestCase):
         # from a message that contained it.
         text = _render_number()
         lines = text.split("\n")
-        index = next(i for i, line in enumerate(lines) if "below parity" in line)
+        index = next(i for i, line in enumerate(lines) if "below world price" in line)
         self.assertIn("from the 3 cheapest of 4", lines[index + 1])
 
     def test_20_block_shows_where_the_platforms_outside_the_basis_sit(self):
@@ -457,7 +457,7 @@ class KPISPC4(unittest.TestCase):
         side of the market, which has no design yet -- the sell-side mirror is
         deliberately absent, not implied."""
         text = _render_number(valuation=_Valuation(gap=2.40, deep_at=1.20, bigger_than=40))
-        self.assertIn("2.40%  above parity", text)
+        self.assertIn("2.40%  above world price", text)
         self.assertNotIn("Deep discount", text)
         self.assertNotIn("Cheap zone", text)
         # The rank still applies: it describes where the reading sits either way.
@@ -486,7 +486,7 @@ class KPISPC4(unittest.TestCase):
     def test_26b_valuation_falls_back_to_the_stored_premium_when_absent(self):
         # A failed valuation query must degrade the message, never prevent it.
         text = _render_number(premium=-3.61, valuation=None)
-        self.assertIn("3.61%  below parity", text)
+        self.assertIn("3.61%  below world price", text)
         self.assertNotIn("Bigger than", text)
 
     def test_27_confidence_is_not_surfaced_to_the_reader(self):
@@ -497,8 +497,8 @@ class KPISPC4(unittest.TestCase):
     def test_28_platform_consensus_reports_the_measure_not_agreement(self):
         # "all 11 agree" implied price consensus and was false on a day one platform
         # sat 2.87% off the field. The count is about position against fair value.
-        self.assertIn("all 4 below parity", _render_number())
-        self.assertIn("2 of 4 below parity", _render_number(signal=_Signal(2, 2)))
+        self.assertIn("all 4 below world price", _render_number())
+        self.assertIn("2 of 4 below world price", _render_number(signal=_Signal(2, 2)))
 
     # -- the table speaks the same language ------------------------------------
 
@@ -515,7 +515,8 @@ class KPISPC4(unittest.TestCase):
         text = _build_market(4285.0, 230_700.0, FAIR, PLATFORM_AVG, LOWEST,
                              233_900_000, 9_100_000, -5.68, _baselines(),
                              markets=MARKETS, valuation=_Valuation())
-        self.assertIn("Cheap 3", text)
+        # "Lowest 3" since 2026-10-29: the vocabulary never calls the market cheap (SP_D_HANDOFF.md section 64)
+        self.assertIn("Lowest 3", text)
         self.assertNotIn("Platform ", text)
 
     def test_29c_table_column_matches_the_row_label_in_the_block(self):

@@ -168,7 +168,7 @@ The readers are Persian and the text is English, so plain words beat idioms. The
 once he/she reads the msg, gets informed, and can make a decision."
 
 - **The discount** "increased" or "decreased", never "widening", "deepening" or "shrinking". It is
-  shown as a positive number below fair value; a premium has its own words, above fair value.
+  shown as a positive number below the world price; a premium has its own words, above the world price.
 - **Plain words:** "typical" rather than "median"; "heavily discounted" rather than "cheap" for the
   discount's size.
 - **Never "dear", "dearer" or "dearest"**, in messages, docs or chat: "expensive", "more expensive",
@@ -182,6 +182,35 @@ once he/she reads the msg, gets informed, and can make a decision."
 - **No admin detail:** sampling notes and data health go to the docs or an admin report, not the
   reader.
 - **No generalising** beyond the evidence without saying so.
+
+### Vocabulary (locked by the owner, 2026-10-29)
+
+This is the one list of words for every message and the chart (`SP_D_HANDOFF.md` section 64).
+- **Rows marked "test":** `kpi_coherence.test_64` reads this table and fails when a Telegram surface uses a
+  word from their Never column.
+- **Rows marked "review":** they depend on context and are checked when a message is previewed.
+- **A change:** a change to this table is the owner's.
+
+| Meaning | Use | Never | Checked |
+|---|---|---|---|
+| The reference price: world gold x the dollar x 0.75 / 31.1035 | world price; "World price 26.36M"; "World" where a label holds 8 characters (UPDATE's market table) | fair value, parity | test |
+| The gap below it | "Discount 2.25% below world price", always a positive number | - | review |
+| The gap above it | "Premium 2.10% above world price" | - | review |
+| The gap changing | increased, decreased | widening, deepening, shrinking, narrowing | test |
+| A large gap | heavily discounted; the three lowest platforms are "Lowest 3" | cheap, said of the market | review |
+| Price direction | cheaper, more expensive, most expensive | dear, dearer, dearest | test |
+| A fall | drop | dip, dipped | test |
+| Reaching an average | touched the 20D EMA | - | review |
+| The earlier value | (was 2.2%) | "yesterday" in its place | review |
+| The middle value | typical | median | test |
+| Averages | 20D EMA, 50D EMA, 50D MA | 50-day, 20-day | test |
+| Levels | Support level, Resistance level (flat); support trend line, resistance trend line (sloped) | - | review |
+| A price's basis | "(market, tgju)" | - | review |
+| Time | Persian: "30 Mehr 1405, 10:13" | Gregorian dates in a message | review |
+| Distances | one decimal | - | review |
+| Any change | says against what: vs the last scheduled run, vs today's first reading, 7D | a bare change | review |
+| A failed break | "Broke up on X; back inside the box since Y" | - | review |
+| The last line | "Decision support, not an instruction to trade." | - | review |
 
 ## Telegram's limits
 

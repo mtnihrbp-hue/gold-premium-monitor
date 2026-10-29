@@ -366,7 +366,7 @@ class KPISignalConfirmation(unittest.TestCase):
         """One word, one number: the Discount line uses the three-cheapest basis UPDATE
         prints, not the stored single-cheapest premium the old alert printed."""
         text = self._message(premium=-4.93, gap=-3.08)
-        self.assertIn("3.08%  below parity", text)
+        self.assertIn("3.08%  below world price", text)
         self.assertNotIn("4.93", text)
         self.assertIn("from the 3 cheapest of 11", text)
         self.assertIn("91% of the last 30 days", text)

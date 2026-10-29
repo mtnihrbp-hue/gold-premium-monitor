@@ -82,7 +82,7 @@ def format_trend_lines(trends):
     vs_pct = trends.get("vs_yesterday_pct")
 
     if diff is not None and pct is not None:
-        lines.append(f"Parity:          {arrow} ({pct:+.2f}%)")
+        lines.append(f"World price:     {arrow} ({pct:+.2f}%)")
     if vs_diff is not None and vs_pct is not None:
         lines.append(f"vs Yesterday:    {vs_pct:+.2f}%")
 

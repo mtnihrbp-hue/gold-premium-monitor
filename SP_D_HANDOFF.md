@@ -47,7 +47,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    60 two small fixes: tgju's cache, a break back inside the box (v1.36safe);
                                                                    61 every idea reviewed critically; PAXG reviewed; the sources read today;
                                                                    62 a daily answer; the topics to collect; the model before the sources;
-                                                                   63 the categories and steps agreed; the vocabulary; the platforms ranked
+                                                                   63 the categories and steps agreed; the vocabulary; the platforms ranked;
+                                                                   64 world price; the vocabulary locked; the index; two kinds of platform
        member, the LLM member
 ```
 
@@ -6361,5 +6362,83 @@ produce the cleanest data, or at least rank them."
 - two months, ending 10-04, of readings already past the stale-quote rules (from 09-29);
 - "frozen" includes a platform that simply updates less often.
 - To be measured again on the full record after 11-01.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 64. World price; the vocabulary locked; the index; two kinds of platform (2026-10-29)
+
+### 64.1 Decided
+
+The owner, on 63:
+- **The reference price:** "i go with world price ... the refrence price == World Price".
+- **The word table:** "i agree with the new table for wording". It is locked in `skills/telegram-product.md`,
+  under "Vocabulary", as the one list for every message and the chart.
+- **The index:** "make it the WallGold, Goldika as the backup".
+
+### 64.2 World price, built on `sp-de` (previewed, not merged)
+
+- **UPDATE:**
+  - "Discount 5.68% below world price", "Platforms all 9 below world price", "World price 23.84M Tomans";
+  - "crossed the world price";
+  - the fallback note "The world price and the discount derive from it".
+- **The signal:** the same lines.
+- **ANALYZE:** "below world price".
+- **SERVICE:** "The world price and the discount may be off until it updates".
+- **The parked legacy alert and e-mails:** in the same words.
+- **UPDATE's market table** holds 8 characters a label (33 a line, the phone's width), so:
+  - its row is "World";
+  - the row of the three lowest platforms' mean, "Cheap 3", becomes "Lowest 3", since the vocabulary never
+    calls the market cheap.
+  - Both are my choices, for the owner's preview.
+- **Tests:**
+  - `kpi_coherence.test_64` reads the vocabulary's rows marked "test" and fails on any of their words in the
+    text the Telegram surfaces and the chart write. The parked legacy alert and e-mails are left to SP-E;
+    their SP-A label "DISCOUNT WIDENING" remains there.
+  - The KPI assertions that pinned "parity" and "Cheap 3" were moved to the new words.
+  - KPI suite 30/30 (coherence 59), unit tests 19/19, compileall.
+
+### 64.3 The index, reviewed (accepted on a condition)
+
+**The owner chose WallGold, with Goldika as the backup.** My call was the reverse (63.3).
+
+**For WallGold:**
+- full coverage, 100%;
+- never frozen while the others moved.
+
+**Against:**
+- twice Goldika's noise (0.24 pp against 0.12) and three times its offset jumps (6 against 2);
+- a price time not yet proven: `priceExpiresAt` is 24 hours after the price was set;
+- its buy and sell answers are the same number (26,048,000 and 26,049,000 toman on 10-29), so its spread or
+  fees are not in the price.
+
+**Accepted on two checks, from the runner, over a few days:**
+1. `priceExpiresAt` moves whenever the price changes, so it is the price's own time.
+2. WallGold's fees are known, from the owner or its site.
+
+Goldika stands in whenever WallGold fails a check or a read.
+
+### 64.4 Two kinds of platform
+
+**The owner:**
+- "basically there are two types of platforms here: one that you can buysell gold in form of gold grams. no
+  gold product. the other is for gold products, like bracelets rings and so on."
+- "why i added them, sometimes, you are at the bazar wanting to buy a gold ring, so you need to see what
+  normally the gold product platforms are buying selling. Eligold - Hoorgold - Parasteh and Mio gold are those
+  platforms."
+
+**So:**
+- **Gold grams:** Milli, Goldika, WallGold, Taline, Ayyareh, Daric. Invi is to be classed by the owner.
+- **Gold products:** Eligold, HoorGold, Parasteh, MioGold.
+
+**What follows, for SP-E:**
+- The discount is measured on the index alone.
+- "Where to buy" ranks the gram platforms by their total cost.
+- The product platforms get a block of their own, a bazaar reference, with "unchanged since HH:MM" where
+  they have not moved. They are frozen 17% to 61% of the time (63.3).
+
+**In the current system:** the discount's basis, the three lowest platforms, mixes the two kinds. In the
+fixtures of 64.2, MioGold is the lowest of them. A frozen product platform's price can enter the displayed
+discount. A change to the basis changes a measure readers have seen for months, so it is proposed, not made
+(the brief of 21 Oct, §5.2: a new measure runs beside the old one first).
 
 **NEON MIGRATION REQUIRED = NO.**
