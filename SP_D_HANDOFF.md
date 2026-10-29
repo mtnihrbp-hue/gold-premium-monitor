@@ -45,7 +45,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    58 health check of 6 Aban: tgju's cache serves stale candles;
                                                                    59 toward SP-E: the rethink, surface by surface;
                                                                    60 two small fixes: tgju's cache, a break back inside the box (v1.36safe);
-                                                                   61 every idea reviewed critically; PAXG reviewed; the sources read today
+                                                                   61 every idea reviewed critically; PAXG reviewed; the sources read today;
+                                                                   62 a daily answer; the topics to collect; the model before the sources
        member, the LLM member
 ```
 
@@ -6197,5 +6198,76 @@ in that medium, seeing the forecast and possible direction."
     the free plan also caps;
   - Neon's restore window is 6 hours (`history_retention_seconds` 21600);
   - storage is to be measured on 11-01.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 62. A daily answer; the topics to collect; the model before the sources (2026-10-29)
+
+### 62.1 Decided: a daily answer
+
+The owner: "daily Mr., we need a daily answer, the market is so volatile."
+
+**My condition:** a daily answer, not daily switching.
+- The answer is worked out again every day. Its posture changes only when the evidence clears a band wider
+  than the cost of a round trip.
+- **That cost, as the research has it:** Daric's 0.30%, fixed income's 0.10%, and 2 trading days each way out
+  of the market (17).
+- Switching daily on noise would spend the gain. That is why the room reviews every 10 days.
+- Whether a shorter review pays after costs is a question for the model's R&D (62.3), not a default.
+
+### 62.2 The topics, before the sources
+
+The owner: "just name the topics, not sources ... we have to categorize the sources much better."
+
+| Category | Topic | Serves | History we hold | Needed |
+|---|---|---|---|---|
+| A. Facts to act on | 18K at each platform, buy and sell, with its own price time | where; every move | our record, from 2026-09; both sides on 3 platforms | hourly |
+| | Each platform's costs and terms: fees, spread, withdrawal, settlement, limits | where | none | by hand, dated, when they change |
+| | The fixed-income instrument's tradable price (Afran) and its costs and settlement | how much | Afran's close from 2026-10 | daily |
+| | Moving money between platform and broker: time and cost | how much | none | by hand |
+| B. The two assets | 18K daily, long | how much; every test | tgju, from 2014 | daily |
+| | 18K within the day, on the index platform | the daily answer; events | our record, from 2026-09 | hourly |
+| | Fixed income's daily return | how much; the benchmark | seed, from 2015-03 | daily |
+| C. Candidate drivers (hypotheses, each tested before use) | World gold, the weekend included | model | from 1979 (weekend: PAXG, on the condition of 61.2) | daily; hourly |
+| | The free-market dollar, timed, round the clock (USDT/IRT) | model; parity | tgju's dollar, long; Tether from 2020-11 | hourly |
+| | The gap between the official and the free dollar | model (stress) | to find | daily |
+| | Interest rates: fixed-income yield, the interbank rate | model | the fixed-income seed implies its yield | daily |
+| | Inflation and money (CPI monthly, M2) | regime only; too slow for a daily answer | to find (SCI, CBI) | monthly |
+| | Competing assets: the stock index; the Emami coin and its premium over its gold; the gold funds' price against their NAV | model (sentiment) | index from 2008; coin and NAV to find | daily |
+| | Demand: the gold funds' money flow; the Mercantile Exchange's gold certificates | model | flows from 2017, with the 2019-2021 gap (B8); certificates to find | daily |
+| | Events: sanctions and talks, oil exports, war risk, central-bank interventions | model; context | 357 days collected, 216 labelled (50) | as they happen |
+| D. Cross-checks | Observer prices: the other platforms, tgju's market price, the bazaar's melted gold | the quality gate | from 2026-09 | hourly |
+| | Each source's health: its own time, availability | the quality gate; SERVICE | from 2026-09, in run logs | every read |
+| E. Calendar | Iran's holidays; the sessions of TSE, the Mercantile Exchange and the platforms; world gold's hours | aligning data; PAPER's fills (B9) | partly, in code | yearly |
+| F. Context | Headlines; chart levels | shown as description, never modelled untested | n/a | n/a |
+
+**What the record has already weakened:**
+- the money flow: nothing passes on the clean record (53);
+- the parity level for timing (39.3, 36.1);
+- the patterns other than the flag (52.1).
+
+None of them enters a model again unless a new design is tested.
+
+### 62.3 The model before the sources (proposed)
+
+The owner: "if the model hasnt yet confirmed, lets do the R&D on the model and analysis."
+
+**The model is not confirmed.** The only candidate is the room. At lag 1 it is +4.7% to +7.2% over holding
+gold per two years, tuned on the same history, about three independent periods.
+
+**Proposed order:**
+1. **Fix the target.** Each day, the share of savings in gold. It is judged by final wealth and the worst
+   drop, after costs and a day's delay, against four benchmarks:
+   - holding gold;
+   - holding fixed income;
+   - a fixed 70/30 mix, rebalanced;
+   - a plain trend rule: in gold above the 50D MA, out below.
+2. **The benchmarks first.** If a fixed mix or the trend rule does as well as the room, the room's members go.
+3. **Then one candidate driver at a time.** Each from category C, with history, pre-registered, tested
+   walk-forward over three periods (2015-2019, 2020-2023, 2024-2026).
+4. **Then the sources.** A topic gets collected in production only once it has improved the decision.
+
+**The exception is category A.** Those topics are facts, not hypotheses, and history cannot be bought later.
+Their forward collection should start now, whatever the model becomes.
 
 **NEON MIGRATION REQUIRED = NO.**
