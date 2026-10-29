@@ -6566,3 +6566,38 @@ worst drop is no deeper in those periods.
 
 **For comparison:** the room's recorded figure at lag 1, +4.7% to +7.2% over holding per two years (53),
 quoted, not run again here.
+
+### 66.2 The results (`research/rd_benchmarks.py`, run after 66.1)
+
+| Rule | Wealth P1 / P2 / P3 | Yearly rate P1 / P2 / P3 | Worst drop P1 / P2 / P3 | Worst 250 days P1 / P2 / P3 | Days in gold |
+|---|---|---|---|---|---|
+| B1 hold gold | 5.08 / 5.28 / 10.10 | 40.3% / 51.6% / 131.9% | -45.2% / -37.2% / -24.9% | -26.2% / -21.8% / +64.5% | 100% |
+| B2 hold fixed income | 2.70 / 2.47 / 2.28 | 23.0% / 25.4% / 35.0% | -0.1% / -5.8% / -0.0% | +17.0% / +10.5% / +27.0% | 0% |
+| B3 70/30 monthly | 4.32 / 4.35 / 6.72 | 35.6% / 44.4% / 100.0% | -33.9% / -25.0% / -17.0% | -13.9% / -10.6% / +53.2% | 70% |
+| B4 trend 100/0 | 5.55 / 4.78 / 8.74 | 42.9% / 47.9% / 120.1% | -34.0% / -28.3% / -27.9% | -9.8% / -21.8% / +37.5% | 65% / 64% / 77% |
+| B5 trend 100/40 | 5.44 / 5.07 / 9.20 | 42.4% / 50.1% / 124.2% | -34.1% / -31.0% / -23.3% | -15.7% / -21.0% / +49.6% | 78% / 79% / 86% |
+
+**B5's trade count:** its moves (409, 392, 179) are mostly small daily top-ups back to 40% as prices drift. Its
+changes of posture are those of B4 (45, 46, 20).
+
+**By the test fixed in advance, no rule beats holding gold:**
+- B2 and B3: 0 of 3 periods.
+- B4 and B5: 1 of 3, P1 only. They ended with more wealth (5.55 and 5.44 against 5.08) and a shallower worst
+  drop (-34% against -45%).
+- **In P2 and P3 the trend rules lost wealth.** P3: 8.74 and 9.20 against 10.10. B4's worst drop in P3 was also
+  deeper than holding's (-27.9% against -24.9%): it was out for the rebounds.
+
+**What it says for "how much in gold":**
+- Holding gold won on wealth in every period.
+- What a smaller share bought was a shallower fall: B3 cut the worst drop by a quarter to a third, and paid for
+  it with a third of P3's wealth (6.72 against 10.10).
+- That is a choice of risk, not an edge. Which drop is acceptable is the users' question, not the model's.
+- **The bar for the room:** its recorded +4.7% to +7.2% over holding per two years (53) is the only claim of
+  more wealth. It is to be run on this harness (step 2), with these costs and periods, before it is believed.
+
+**The limits:**
+- 18K is tgju's market close, not a platform's buy or sell price.
+- Fixed income is the seed's chained index.
+- Three periods, five rules.
+
+**NEON MIGRATION REQUIRED = NO.**
