@@ -38,9 +38,10 @@ def _count(n, one, many):
     return f"{n:,} {one if n == 1 else many}"
 
 
-def build_message(name, change, record, now, kept=None, left=None, mirror_built=False):
+def build_message(name, change, record, now, kept=None, left=None, mirror_built=False, held_for_review=False):
     """The push for one service's change. `kept` and `left` count the spool's held writes by kind
-    ({"reading": n, "news": n}): kept while the database was out of reach, and still to be written."""
+    ({"reading": n, "news": n}): kept while the database was out of reach, and still to be written.
+    `held_for_review`: they are not written back by themselves (config spool.write_back, SP-D section 70)."""
     local = to_tehran(now)
     lines = [f"{TITLE} · {persian_day(local.date())}, {local:%H:%M}"]
     since = datetime.fromisoformat(record["since"]) if record.get("since") else now
@@ -63,8 +64,11 @@ def build_message(name, change, record, now, kept=None, left=None, mirror_built=
             what = ", ".join(x for x in (_count(readings, "reading", "readings") if readings else "",
                                          _count(news, "news item", "news items") if news else "") if x)
             waiting = sum(left.values())
-            lines.append(f"Kept meanwhile, now written: {what}." if not waiting
-                         else f"Kept meanwhile: {what}; {_count(waiting, 'more is', 'more are')} still being written.")
+            if held_for_review:
+                lines.append(f"Kept meanwhile: {what}, held for a check before they are written.")
+            else:
+                lines.append(f"Kept meanwhile, now written: {what}." if not waiting
+                             else f"Kept meanwhile: {what}; {_count(waiting, 'more is', 'more are')} still being written.")
         lines.append("ANALYZE, the push and the room's report work again.")
     elif name == "world gold" and change == "down":
         if record.get("reason") == "fallback":

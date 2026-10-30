@@ -312,14 +312,29 @@ def _collect_room_inputs(now=None):
         session.close()
 
 
-def _flush_spool():
+def _write_back_on(config=None):
+    """Whether the outage's held writes go back to Neon by themselves (config spool.write_back). Off since
+    2026-10-30 (owner: "we should only write back the data we will use and is trustworthy ... clean up, and
+    once confirmed move it to neon"; SP_D_HANDOFF.md section 70): they stay held until the owner confirms the
+    cleaned set. Without the key, on, as before."""
+    try:
+        return bool((config if config is not None else load_config()).get("spool", {}).get("write_back", True))
+    except Exception:  # noqa: BLE001 -- no config, the behaviour before the switch
+        return True
+
+
+def _flush_spool(config=None):
     """Write back what was held while the database was out of reach (persistence/spool.py, SP-D
     section 35.4). Scheduled runs only, before the run takes its time and before the stale-quote check
-    reads the platform history, so the check sees the held readings. Never raises."""
+    reads the platform history, so the check sees the held readings. Not while config spool.write_back is
+    false (section 70): the writes stay held for review. Never raises."""
     from persistence import spool
 
     entries = spool.held()
     if not entries:
+        return
+    if not _write_back_on(config):
+        print(f"SPOOL: {len(entries)} held writes kept for review, not written back (config spool.write_back)")
         return
     session = get_session()
     if session is None:
@@ -1278,7 +1293,8 @@ def _service_watch(state, now, world, world_from_fallback, usd, raw_markets):
         for name, change, rec in changes:
             on_db = name == "database"
             send_service(build_message(name, change, rec, now, kept=database.get("kept") if on_db else None,
-                                       left=kinds if on_db else None, mirror_built=mirror.built_at() is not None))
+                                       left=kinds if on_db else None, mirror_built=mirror.built_at() is not None,
+                                       held_for_review=on_db and not _write_back_on()))
             print(f"SERVICE: {name} {change}, announced")
             if on_db and change == "back":
                 database.pop("kept", None)
@@ -1670,7 +1686,7 @@ def main():
         return
     collection_run_id = _generate_collection_run_id()
     if is_scheduled:
-        _flush_spool()          # before this run's time is taken: a write-back can last minutes
+        _flush_spool(config)    # before this run's time is taken: a write-back can last minutes
     now = datetime.utcnow()
     stale_threshold = config.get("freshness", {}).get("stale_threshold_minutes", 15)
 

@@ -641,6 +641,9 @@ Neon's free plan resets its monthly transfer on the first of the month (UTC), so
      run writes for at most 240 seconds, so L reaches 0 over several runs (`SP_D_HANDOFF.md` 68);
    - no migration is needed first: the write-back skips what is already stored (68). A8's unique keys
      follow in the first week, verified on a Neon branch.
+   - **Since 2026-10-30 the write-back is held** (`config.spool.write_back` false, `SP_D_HANDOFF.md` 70): the
+     log reads `SPOOL: N held writes kept for review, not written back`, and SERVICE's notice says the writes
+     are held for a check. The cleaned set is written once the owner confirms; then the switch goes back on.
 3. **The SERVICE notice:** the second run that reaches Neon sends "The database is back, after 18 days",
    with what was kept (37.15). Status's line turns to "Service: all working."
 4. **The record mirror's first fill:** `MIRROR: N rows copied` (37.12). From then on the cache step

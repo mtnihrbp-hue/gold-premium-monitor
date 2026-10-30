@@ -1048,10 +1048,10 @@ class KPICoherence(unittest.TestCase):
         import inspect
         import main
         run = inspect.getsource(main.main)
-        self.assertIn("if is_scheduled:\n        _flush_spool()", run, "write-back on scheduled runs, not on a reader's Update")
-        self.assertLess(run.index("_flush_spool()"), run.index("now = datetime.utcnow()"),
+        self.assertIn("if is_scheduled:\n        _flush_spool(config)", run, "write-back on scheduled runs, not on a reader's Update")
+        self.assertLess(run.index("_flush_spool(config)"), run.index("now = datetime.utcnow()"),
                         "before the run takes its time: a write-back can last minutes")
-        self.assertLess(run.index("_flush_spool()"), run.index("_recent_platform_history("),
+        self.assertLess(run.index("_flush_spool(config)"), run.index("_recent_platform_history("),
                         "before the stale-quote check reads the platform history")
         self.assertIn("if unreachable(e) and _hold_reading(", run)
         flush = inspect.getsource(main._flush_spool)
@@ -2072,6 +2072,44 @@ class KPICoherence(unittest.TestCase):
         markets = {"MioGold": {"status": "OK", "price": 90.0}, "HoorGold": {"status": "OK", "price": 91.0},
                    "Milli": {"status": "OK", "price": 95.0}, "Goldika": {"status": "OK", "price": 97.0}}
         self.assertEqual(confirmation.second_cheapest(markets, 100.0)[0], "Goldika")
+
+    def test_66_the_outages_writes_are_held_for_review_when_neon_returns(self):
+        """The owner, 2026-10-30: "we should only write back the data we will use and is trustworthy, not
+        everything that we have collected so far ... clean up, and once confirmed move it to neon." The write-back
+        waits for config spool.write_back; the SERVICE notice says the writes are held (SP_D_HANDOFF.md 70)."""
+        import io
+        import json
+        import tempfile
+        from contextlib import redirect_stdout
+        from datetime import datetime
+        import main
+        from alerts.telegram_service import build_message
+        from persistence import spool
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "config.json"),
+                  encoding="utf-8") as f:
+            self.assertIs(json.load(f)["spool"]["write_back"], False, "held until the owner confirms")
+        folder = tempfile.mkdtemp()
+        os.environ["RECORD_SPOOL_FILE"] = os.path.join(folder, "spool.jsonl")
+        self.addCleanup(os.environ.pop, "RECORD_SPOOL_FILE", None)
+        spool.hold("news", {"dedup_key": "kpi66", "timestamp": datetime(2026, 10, 20)})
+        asked = []
+        real = main.get_session
+        try:
+            main.get_session = lambda: asked.append(1)
+            with redirect_stdout(io.StringIO()) as out:
+                main._flush_spool({"spool": {"write_back": False}})
+        finally:
+            main.get_session = real
+        self.assertEqual(asked, [], "the database is not even opened")
+        self.assertEqual(len(spool.held()), 1, "the write stays held")
+        self.assertIn("kept for review, not written back", out.getvalue())
+        self.assertTrue(main._write_back_on({}), "without the key, as before")
+        record = {"since": "2026-11-01T02:30:00", "was_since": "2026-10-13T17:30:00"}
+        text = build_message("database", "back", record, datetime(2026, 11, 1, 3, 30),
+                             kept={"reading": 300, "news": 400}, left={"reading": 300, "news": 400},
+                             held_for_review=True)
+        self.assertIn("held for a check before they are written", text)
+        self.assertNotIn("still being written", text)
 
 if __name__ == "__main__":
     print("=" * 55)

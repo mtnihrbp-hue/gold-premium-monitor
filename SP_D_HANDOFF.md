@@ -53,7 +53,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    66 the model's R&D, step 1: the simple alternatives;
                                                                    67 the sources by category, a verdict for each;
                                                                    68 ready for 1 November: no migration before the write-back;
-                                                                   69 SP-E: priorities, path, KPIs (proposed)
+                                                                   69 SP-E: priorities, path, KPIs (proposed);
+                                                                   70 the outage's writes held for review; the path agreed, collection first
        member, the LLM member
 ```
 
@@ -6789,3 +6790,61 @@ milestone? ... still we have to do more in the sources part, and on the collecti
 | | the users | only listed chat ids answered; a limit per person |
 
 **NEON MIGRATION REQUIRED = NO** (for this record; A8 will need one).
+
+## 70. The outage's writes held for review; SP-E's path agreed, with collection first (2026-10-30)
+
+**The owner, on 69:**
+- "yes the path is ok, with one caveat: the writeback may exceed the neon quata. so the collection would be a
+  higher priority. why? because we should only write back the data we will use and is trustworthy, not
+  everything that we have collected so far. we can use this system as a temp db, clean up, and once confirmed
+  move it to neon."
+- "the KPIs, should have SMART Goals ... written down to measure against at each milestone."
+- The R&D as a sprint of its own, "SP-Eb.RD".
+- The webhook and the tokens (A1, A2): "park ... thats the least priority".
+
+### 70.1 The caveat, reviewed
+
+- **The transfer cap:** Neon's 5 GB counts what the database sends out (34). A write-back sends data in; its
+  own reads, the stored keys of the held span and the stale-quote history, are small. So the write-back itself
+  is not the risk to the transfer cap.
+- **Storage:** writes do count against the free plan's storage. The held writes are a few MB against a cap
+  of about 0.5 GB per project, to be confirmed on Neon's page and against the database's size on 11-01.
+- **The principle stands on its own:** only what we will use, and trust, goes into the record. The written
+  back readings would carry the outage's quotes into every 30-day rank.
+- **Accepted:** the write-back is held, the spool is reviewed outside production, and the cleaned set is
+  written once the owner confirms.
+
+### 70.2 Built and merged
+
+- **`config.spool.write_back` = false:** `main._flush_spool` keeps the held writes and prints "SPOOL: N held
+  writes kept for review, not written back". Without the key it writes back, as before (`main._write_back_on`).
+- **SERVICE's "the database is back" notice** then says "Kept meanwhile: ..., held for a check before they are
+  written". It no longer says "still being written".
+- **New readings from 11-01** go to Neon directly, as usual.
+- **Until the cleaned set is written back,** the 30-day ranks and ANALYZE rest on the readings before 10-13 and
+  after 11-01. The 18 days between are absent rather than unchecked.
+- **Tests:**
+  - `kpi_coherence.test_66`: with the switch off the database is not even opened and the write stays held;
+    without the key the old behaviour; the notice's wording;
+  - `test_40` follows the call's new argument;
+  - the KPI suite 30/30 (coherence 61), the unit tests 19/19, compileall.
+
+### 70.3 The spool as the temporary database
+
+- **The export:** `probe-spool`, a push-triggered workflow on a branch of its own. It restores production's
+  state cache read-only, with the same path list (`actions/cache/restore` only, nothing saved), and uploads
+  `record_spool.jsonl` as an artifact kept one day. The branch and the artifact are deleted after the
+  download.
+- **Locally:** the spool is loaded into a SQLite file and checked by kind, span, duplicates, and the
+  stale-quote rules against the record before 10-13.
+- **What goes to Neon** is decided with the owner, and written by one controlled run.
+- **The phone's own spool** flushes by itself when Neon answers: TSETMC's days, `tsetmc_live` for the January
+  study, Daric, and the comparison pages. Production files the TSETMC rows by day and fund, so a resend does not
+  count twice (68). Holding it would take a change on the phone before 11-01 03:30 Tehran. Left as is unless the
+  owner says otherwise.
+
+### 70.4 Parked
+
+The webhook secret and the fine-grained tokens (A1, A2), by the owner, as the lowest priority.
+
+**NEON MIGRATION REQUIRED = NO.**

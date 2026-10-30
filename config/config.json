@@ -120,5 +120,9 @@
     "candles": false,
     "forecasts": false,
     "parked_2026_10_16": "Owner 2026-10-16: the analysis wing is to be rethought, not retired. Parked meanwhile: the parts nothing a reader sees or the decision uses reads (the evidence package, intelligence, features and read model; the C.14A candles; the C.14B forecasts), which took about 80% of each run and spent Neon's transfer. The snapshot's core and the outcome evaluations keep running for the decision engine's scorecard. true brings a part back. SP_D_HANDOFF.md section 37.2."
+  },
+  "spool": {
+    "write_back": false,
+    "note": "Owner, 2026-10-30: the outage's held writes are not written back by themselves when Neon returns: \"we should only write back the data we will use and is trustworthy, not everything that we have collected so far ... clean up, and once confirmed move it to neon\". They stay held in the spool, exported, checked and cleaned outside production, and written back only once the owner confirms (SP_D_HANDOFF.md section 70)."
   }
 }
