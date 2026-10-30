@@ -7383,3 +7383,39 @@ models have:
 - **Does not:** the decision rule around it, as registered. It traded too often and on a hair trigger.
 
 **NEON MIGRATION REQUIRED = NO.**
+
+### 74.7 Study E-3, phase c: the rule made slower (registered before its run)
+
+**What changes,** from 74.6's economics, not from the windows' outcomes:
+- **A window must be able to pay its fee.** A round trip costs 1.0% of the half moved and fixed income earns
+  about 0.12% a day, so a window under about 9 days loses even if 18K stands still.
+- **So:** calm must be confirmed before entry, the soft exits wait for a minimum stay, and Tether's exit is made
+  rarer or dropped. A hard stop stays always on, so a real jump is never sat through.
+
+**The rule:**
+- **In,** half into fixed income, when E-1's model-X forecast is at or below its q-quantile of the 500 days
+  before on `confirm` days running, and 18K's 60-day log return is at or below m.
+- **The hard stop, always on:** 18K's close above the entry close by more than 3 x the forecast daily
+  volatility x the square root of the days in.
+- **The soft exits,** only after `min_stay` days:
+  - an upward break at k instead of 3;
+  - turbulence: the 5-day volatility above twice the entry forecast;
+  - Tether's 5-day return above a threshold;
+  - 40 days in.
+- Decided at t's close, traded at t+1's. WallGold's 0.50% a side, fixed income 0.05%, 2 days idle each way.
+
+**The grid** (96 variants): q in {0.20, 0.33}; confirm in {1, 5}; min_stay in {0, 10}; k in {1.5, 2.5};
+Tether in {+3%, +6%, none}; m in {0, no guard}.
+
+**The choice, each 1 January on all the years before:**
+- the variant with the most wealth against holding gold;
+- **if none beat holding gold on those years, the year is held in gold.** A rule that never paid is not traded.
+- The selection is redone at Daric's and Ayyareh's cost for the side figures.
+
+**The count:** 108 variants tried on this record so far (E-2's 12 and E-3's 96).
+
+**The honesty clause:** E-2's results, P3's included, were seen before E-3 was designed. P1 to P3 are no longer
+untouched. Whatever E-3 shows, the true out-of-sample test is the forward record from November (Ed-1).
+
+**The test (Eb-5):** more wealth than holding gold in 2 of 3 periods with no deeper worst drop, at WallGold's
+cost.
