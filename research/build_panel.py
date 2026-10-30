@@ -42,6 +42,11 @@ RULES = {
     "flow_power": "seed gold-fund flow power of the day itself; None in 2019-10..2021-10",
     "news": "research/data/news_days.jsonl labels of the day, or None",
     "gvz_prev": "CBOE GVZ close of the last US day before", "vix_prev": "CBOE VIX close of the last US day before",
+    "net_i": "the 19 gold funds' individuals' net buying share of the day (TSETMC; build_flows.py)",
+    "power_i": "individuals' buying per buyer against selling per seller, the day",
+    "turnover": "the funds' traded value against its median of the 60 days before",
+    "units_flow": "fipiran net units created or redeemed x NAV, share of net assets, on fipiran's days",
+    "flow_funds": "how many gold funds reported flows that day",
 }
 
 
@@ -66,7 +71,7 @@ class Series:
         return self.values[i] if i < len(self.days) and self.days[i] == day else None
 
 
-def build(tgju, fi, tedpix, flow_power, news, gvz=(), vix=()):
+def build(tgju, fi, tedpix, flow_power, news, gvz=(), vix=(), flows=None):
     """Rows from the inputs: `tgju` {key: [(date, close)]}, the others [(date, value)] or {date: labels}."""
     s = {k: Series(v) for k, v in tgju.items()}
     fi_s, ted_s, flow_s = Series(fi), Series(tedpix), Series(flow_power)
@@ -92,6 +97,9 @@ def build(tgju, fi, tedpix, flow_power, news, gvz=(), vix=()):
         row["news"] = news.get(day)
         row["gvz_prev"] = gvz_s.asof(day, strictly_before=True, max_age_days=5)
         row["vix_prev"] = vix_s.asof(day, strictly_before=True, max_age_days=5)
+        fl = (flows or {}).get(day.isoformat(), {})           # the day's own flows, never carried (G2, 76)
+        row["net_i"], row["power_i"], row["turnover"] = fl.get("net_i"), fl.get("power_i"), fl.get("turnover")
+        row["units_flow"], row["flow_funds"] = fl.get("units_flow"), fl.get("funds")
         rows.append(row)
     return rows
 
@@ -130,7 +138,12 @@ def load_inputs():
                     out.append((date(int(y), int(m), int(d)), float(cells[k])))
         return out
 
-    return tgju, fi, ted, flows, news, cboe("gvz.csv", "GVZ"), cboe("vix.csv", "CLOSE")
+    daily = {}
+    path = os.path.join(HERE, "data", "flows_daily.json")
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            daily = json.load(f)
+    return tgju, fi, ted, flows, news, cboe("gvz.csv", "GVZ"), cboe("vix.csv", "CLOSE"), daily
 
 
 def main():

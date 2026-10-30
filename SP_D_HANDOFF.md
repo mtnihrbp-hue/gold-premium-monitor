@@ -59,7 +59,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    72 SP-Eb.RD opens: the research table; the first forecast study;
                                                                    73 the engine: calm, the move to fixed income, the way back (v1.40safe);
                                                                    74 the engine locked; phase a registered: calm (E-1), the move and the way back (E-2);
-                                                                   75 back to the ground: the key elements, the windows, the data (nothing locked)
+                                                                   75 back to the ground: the key elements, the windows, the data (nothing locked);
+                                                                   76 the ground worked: G1 completeness, G2 the money flow, G3 macro, G4 the windows read
        member, the LLM member
 ```
 
@@ -7665,3 +7666,84 @@ does. Its candidate drivers:
 5. Then hypotheses, each registered before its test.
 
 **NEON MIGRATION REQUIRED = NO.**
+
+## 76. The ground, worked: G1 completeness, G2 the money flow (2026-10-30)
+
+The owner: "Go, and you have the system full to yourself, heading out for almost 5 hours. loop engineer the
+whole process until you have robust and foundational answers to every aspect. every element, every move." G1
+to G4 of 75.6, then the loop. Research only: nothing reaches main or production without the owner's review.
+
+### 76.1 G1, completeness (`research/coverage.py`, `research/data/coverage.json`)
+
+**Each input's share of 18K's trading days, by year:**
+
+| Year | 18K days | the dollar | Tether | the coin | world gold | GVZ | fixed income | the index | flows (seed) | news |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 2014 | 252 | 96% | - | 97% | 100% | 100% | - | 100% | - | - |
+| 2016 | 246 | 96% | - | 99% | 100% | 100% | 100% | 100% | - | - |
+| 2018 | 271 | 94% | - | 99% | 100% | 100% | 100% | 100% | 86% | - |
+| 2020 | 282 | 99% | 15% | 99% | 100% | 100% | 100% | 100% | 0% | - |
+| 2022 | 283 | 93% | 99% | 100% | 100% | 100% | 100% | 100% | 83% | - |
+| 2023 | 273 | 100% | 74% | 100% | 100% | 100% | 100% | 100% | 85% | - |
+| 2024 | 287 | 100% | 96% | 100% | 100% | 100% | 100% | 100% | 77% | - |
+| 2026 | 245 | 100% | 100% | 100% | 100% | 100% | 94% | 95% | 72% | 78% |
+
+**The calendars differ:**
+- **18K:** mostly Saturday to Wednesday, about half the Thursdays and a few Fridays.
+- **The dollar and the coin:** the same pattern.
+- **Tether:** every day.
+- **World gold:** Monday to Friday.
+
+**Where the gaps are:**
+- the dollar's gaps last at most 2 days;
+- **Tether has a 65-day hole in tgju's own record from 2023-07-06.**
+
+**The rule, G1:**
+- a volatility over a window is computed on the days present, from 75% of the window (15 of 20);
+- a model missing one input on a day uses its fit without that input, rather than no forecast;
+- levels are carried at most 5 days (the table's existing rule).
+
+**E-1b, E-1 with the G1 rule only** (`research/rd_engine_calm.py`, `CALM_COMPLETE`; E-1 reproduces exactly at
+1.0):
+
+| Period | Days scored | H against P | X against H | Rank correlation of X |
+|---|---|---|---|---|
+| P1 | 505 (was 248) | -14.7% | **+8.1%** | +0.58 |
+| P2 | 1,028 (was 647) | +26.5% | **+30.3%** | +0.65 |
+| P3 | 790 (was 591) | +18.1% | **+11.5%** | +0.45 |
+
+**The result:**
+- A forecast now exists on **96% of the test days (2,344 of 2,440; was 62%).**
+- X beats H in **all three** periods (was two).
+- The forecasts are in `research/data/calm_forecasts_b.json`. Calm ahead stands, on firmer ground.
+
+### 76.2 G2, the money flow
+
+**TSETMC, all 19 gold funds** (`research/fetch_tsetmc_full.py`, `research/data/tsetmc_full.json`):
+- from the workstation, one request each for flows and for prices;
+- the longest records: طلا from 2017-06, زر and گوهر from 2017-10/12, عيار from 2018-06; the youngest from 2025;
+- every fund's daily prices are complete.
+
+**The measures, scale-free** so the number of funds alive does not move them (the audit's B8;
+`research/build_flows.py`, `research/data/flows_daily.json`):
+- `net_i`: individuals' net buying as a share of their trading across the funds that report;
+- `power_i`: buying per buyer against selling per seller;
+- `turnover`: the funds' traded value against its own 60-day median, from the prices, so it has no gap;
+- `units_flow`: fipiran's net units created or redeemed x NAV, as a share of net assets.
+
+**Their coverage:**
+
+| Year | Days with TSETMC flows | fipiran unit steps | Most funds reporting |
+|---|---|---|---|
+| 2018 | 239 | - | 4 |
+| 2019 | 195 | 364 | 4 |
+| 2020 | 5 | 97 | 4 |
+| 2021 | 53 | 52 | 6 |
+| 2022 | 237 | 52 | 8 |
+| 2024 | 222 | 53 | 16 |
+| 2026 | 186 | 40 | 19 |
+
+- TSETMC's flow record is thin in 2020-2021 at the source. fipiran's units (daily in 2019, weekly after) and the
+  turnover (daily) cover it.
+- All are in the research table: `net_i`, `power_i`, `turnover`, `units_flow`, `flow_funds`. A day's flow is
+  never carried to another day. `tests/test_panel.py` passes.

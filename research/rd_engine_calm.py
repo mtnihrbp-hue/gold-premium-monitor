@@ -26,6 +26,7 @@ PERIODS = (("P1", date(2018, 1, 1), date(2019, 12, 31)),
            ("P3", date(2024, 1, 1), date(2100, 1, 1)))
 EPS = 1e-5
 RIDGE = 1.0
+COMPLETE = float(os.environ.get("CALM_COMPLETE", "0.75"))   # E-1b; 1.0 reproduces E-1
 MIN_TETHER_TRAIN = 250
 H_NAMES = ["rv5", "rv20", "rv60"]
 X_NAMES = H_NAMES + ["usd_rv20", "tether_rv20", "gvz", "gvz_20d", "vix", "coin_move_20d", "efficiency_60d"]
@@ -43,10 +44,12 @@ def build(rows):
     rt = [None] + [logret(rows[i]["tether"], rows[i - 1]["tether"]) for i in range(1, n)]
 
     def rv(series, i, m):
+        """The window's realised volatility on the days present. E-1 required every day, so one missing dollar
+        or Tether day blanked 20 (75.2); E-1b (G1, SP_D_HANDOFF.md section 76) requires COMPLETE of them."""
         if i - m + 1 < 1:
             return None
-        xs = series[i - m + 1:i + 1]
-        if any(x is None for x in xs):
+        xs = [x for x in series[i - m + 1:i + 1] if x is not None]
+        if len(xs) < (m if COMPLETE >= 1 else max(3, math.ceil(COMPLETE * m))):
             return None
         return math.log(st.pstdev(xs) + EPS)
 
@@ -112,11 +115,24 @@ def main():
                 continue
             for i, p in zip(te, fit_predict(tr, [X[i] for i in te], use, ridge)):
                 preds.setdefault(i, {})[model] = float(p)
+            # E-1b: a day missing an input X uses gets X fitted without it, rather than no forecast (G1, 76)
+            if model == "X" and COMPLETE < 1:
+                for drop in ("tether_rv20", "usd_rv20", "coin_move_20d"):
+                    lacking = [i for i in idx if model not in preds.get(i, {}) and X[i][drop] is None and drop in use
+                               and all(X[i][k] is not None for k in use if k != drop)]
+                    if not lacking:
+                        continue
+                    sub = [k for k in use if k != drop]
+                    tr2 = [(X[j], y[j]) for j in train if all(X[j][k] is not None for k in sub)]
+                    if len(tr2) >= 250:
+                        for i, p in zip(lacking, fit_predict(tr2, [X[i] for i in lacking], sub, ridge)):
+                            preds.setdefault(i, {})[model] = float(p)
         for i in idx:
             if X[i]["rv20"] is not None:
                 preds.setdefault(i, {})["P"] = X[i]["rv20"]
     out = {rows[i]["date"]: dict(v, rv20=X[i]["rv20"], rv5=X[i]["rv5"], actual=y[i]) for i, v in sorted(preds.items())}
-    with open(os.path.join(HERE, "data", "calm_forecasts.json"), "w", encoding="utf-8") as f:
+    name = "calm_forecasts.json" if COMPLETE >= 1 else "calm_forecasts_b.json"
+    with open(os.path.join(HERE, "data", name), "w", encoding="utf-8") as f:
         json.dump(out, f)
     print(f"forecasts from {min(out)} to {max(out)}, {len(out)} days")
     print(f"{'period':6} {'days':>5} {'MSE P':>8} {'MSE H':>8} {'MSE X':>8} {'H vs P':>8} {'X vs H':>8} {'rank X':>7}")
