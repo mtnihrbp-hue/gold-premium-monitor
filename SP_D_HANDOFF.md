@@ -55,7 +55,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    68 ready for 1 November: no migration before the write-back;
                                                                    69 SP-E: priorities, path, KPIs (proposed);
                                                                    70 the outage's writes held for review; the path agreed, collection first (v1.39safe);
-                                                                   71 the spool reviewed; the share in gold; the KPIs made SMART
+                                                                   71 the spool reviewed; the share in gold; the KPIs made SMART;
+                                                                   72 SP-Eb.RD opens: the research table; the first forecast study
        member, the LLM member
 ```
 
@@ -6989,3 +6990,89 @@ The dates are estimates for the owner's approval. Each milestone is closed only 
 record says which passed and how.
 
 **NEON MIGRATION REQUIRED = NO** (for this record; Eb and A8 will need their own).
+
+## 72. SP-Eb.RD opens: the research table, and the first forecast study (2026-10-30)
+
+The owner: "we are lagging far behind in two major items, a) collection and classification for model tuning.
+and b) R&D to build up a robust model for predication." Also: the R&D as a sprint of its own, "SP-Eb.RD".
+
+### 72.1 The research table (KPI Eb-2)
+
+**Fetched from tgju** (`research/fetch_tgju_more.py`, from the workstation, 10-30), to 10-29:
+
+| Series | Days | From |
+|---|---|---|
+| 18K (`geram18`) | 3,542 | 2013-07-22 |
+| the dollar (`price_dollar_rl`) | 3,990 | 2011-11-26 |
+| the ounce (`ons`) | 6,000 | 2003-11-27 |
+| the Emami coin (`sekee`) | 4,328 | 2010-04-04 |
+| the Bahar Azadi coin (`sekeb`) | 3,523 | 2013-07-22 |
+| the bazaar's melted gold (`mesghal`) | 3,544 | 2013-07-22 |
+| Tether (`crypto-tether-irr`) | 2,046 | 2020-11-12 |
+| half and quarter coins | 3,465, 3,450 | 2013-07-22 |
+
+**The table** (`research/build_panel.py`, `research/data/panel.json`):
+- one row per 18K trading day, 3,542 from 2013-07-22 to 2026-10-29;
+- each column built from what was known by that day's close (the rules are in the file);
+- world gold enters from the day before;
+- a day's money flow is never carried to another day;
+- the seed's flow gap (2019-10 to 2021-10) stays empty;
+- the fixed-income, index and flow seeds join it.
+- **`tests/test_panel.py`:** a row built from the data to a day equals the same row built from all the data.
+  The unit tests are 20/20.
+
+**Seen in it:**
+- **The coin's premium over its gold varies widely:** its typical yearly level ran 0.2% (2014), 7-11%
+  (2017-2019), 23.0% (2023), 21.5% (2024), 3.8% (2026). It is a candidate with eleven years of history.
+- **tgju's melted gold carries no information:** at 0.0% against 18K in every year, it is computed from 18K.
+  An input that does not vary predicts nothing (LESSONS_LEARNED, the degenerate classifiers). It is left out.
+- **18K against the world price on tgju's own figures:** typical +0.3% over the whole record; -2.0% in 2018,
+  +1.9% in 2023, -1.5% in 2026. The platforms' discount is larger (about -3%). The difference between the two is
+  to be explained (B1, B2) before either is used.
+
+### 72.2 The first forecast study, registered before its run
+
+**The question:** does anything known at a day's close forecast whether 18K will beat fixed income over the
+next 20 or 60 trading days, better than the base rate?
+
+**The target:** y = 1 when 18K's log return from day t+1's close to day t+1+H's close exceeds fixed income's
+over the same days (a decision at t, traded at t+1); H = 20 and 60.
+
+**The features**, all from the table, known at t (11):
+1. 18K's 20-day log return;
+2. 18K against its 50D MA, in percent;
+3. the dollar's 20-day log return;
+4. Tether's 5-day log return (from 2020-11);
+5. world gold's 20-day log return (from ons_prev);
+6. the gap to the world price;
+7. the coin's premium;
+8. the coin premium's 20-day change;
+9. the stock index's 20-day log return;
+10. fixed income's 60-day rate, annualised;
+11. 18K's 60-day efficiency ratio (net move over the sum of moves: low in sideways markets).
+
+Money flow and news are left out: the flows' clean record starts in 2021-10, and news covers 179 labelled days.
+
+**The models** (27 in all, counted for the multiple-testing record):
+- M0, the base rate: the mean of y over the past days whose outcome was known by t;
+- M1, a logistic regression on all 11 features;
+- M2.1 to M2.11, one feature at a time;
+- each at H = 20 and 60;
+- for each period, the share of days y = 1, reported.
+
+**The method:**
+- walk-forward, refitted at each month's first trading day;
+- trained only on days whose outcome was complete before the test day (purged by H);
+- features standardised on the training days alone;
+- L2 regularisation at C = 1.0, fixed;
+- test days from 2018-01-01.
+- Tether's feature is used only where it exists. Before 2020-11, M1 runs without it and M2.4 is not scored.
+
+**The score:**
+- the Brier skill against M0, `1 - Brier(model) / Brier(M0)`, by period;
+- the periods are the test days of P1 (2018-01 to 2019-12), P2 (2020-2023) and P3 (2024 to the last complete
+  target);
+- the number of independent windows, days divided by H, reported beside it.
+
+**The test (KPI Eb-4):** a model passes with a skill of +5% or more in at least 2 of the 3 periods, at the same
+H. A pass is a candidate for the policy test (Eb-5), not a result for a message.
