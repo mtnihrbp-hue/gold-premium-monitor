@@ -40,9 +40,22 @@ def page(channel, before):
 
 
 def main(channel, since):
+    out = os.path.join(os.path.dirname(__file__), "data", "telegram", f"{channel}.jsonl.gz")
+    try:                                         # one reader per channel: two would overwrite each other's pages
+        lock = os.open(out + ".lock", os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        print(f"{channel}: another run holds it")
+        return
+    try:
+        read(channel, since, out)
+    finally:
+        os.close(lock)
+        os.remove(out + ".lock")
+
+
+def read(channel, since, out):
     started = time.monotonic()
     posts, before, pages = {}, None, 0
-    out = os.path.join(os.path.dirname(__file__), "data", "telegram", f"{channel}.jsonl.gz")
     if os.path.exists(out):                      # resume: extend the held file further back from its oldest post
         with gzip.open(out, "rt", encoding="utf-8") as f:
             for line in f:
@@ -54,7 +67,11 @@ def main(channel, since):
                 print(f"{channel}: already held back to {posts[before]['at']:%Y-%m-%d}")
                 return
     while time.monotonic() - started < MAX_SECONDS:
-        batch = page(channel, before)
+        try:
+            batch = page(channel, before)
+        except RuntimeError as e:                # the line dropped: keep what was read, the next run resumes
+            print(e)
+            break
         pages += 1
         fresh = [p for p in batch if p["id"] not in posts]
         for p in fresh:
@@ -68,9 +85,10 @@ def main(channel, since):
         time.sleep(PAUSE)
     kept = sorted((p for p in posts.values() if p["at"] >= since), key=lambda p: p["id"])
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    with gzip.open(out, "wt", encoding="utf-8") as f:
+    with gzip.open(out + ".tmp", "wt", encoding="utf-8") as f:
         for p in kept:
             f.write(json.dumps({**p, "at": p["at"].isoformat()}, ensure_ascii=False) + "\n")
+    os.replace(out + ".tmp", out)                # whole or not at all: a cut write never replaces the held year
     span = f"{kept[0]['at']:%Y-%m-%d} .. {kept[-1]['at']:%Y-%m-%d}" if kept else "none"
     print(f"{channel}: {len(kept)} posts {span}, {pages} pages, {time.monotonic() - started:.0f}s")
 

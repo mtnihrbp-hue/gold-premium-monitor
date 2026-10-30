@@ -8275,3 +8275,17 @@ Register-ScheduledTask -TaskName "Gold engine shadow ledger" -Action (New-Schedu
 - **The labelling** waits for the four channels to reach 2022-01-01. A day labelled from part of its headlines
   would never be labelled again.
 
+### 82.3 The channels' history: what the leads' year was read from
+
+- **khabarfouri is an old channel:** its post ids pass 514,000. The first backfill (35.8) ran out of its
+  50-minute budget at 2026-01-08.
+- **So the labelled year's first 12 weeks, 2025-10-15 to 2026-01-07, were labelled from three channels.**
+  From 2026-01-08 they were labelled from four.
+  - That is a change in the headline mix inside 77.5's year.
+  - E-9's span will be read from all four.
+- **The size:** about 30,000 pages to 2022-01-01, half of them khabarfouri's.
+  - khabarfouri runs in its own process beside the other three.
+  - `research/backfill_telegram.py` now takes a lock per channel, so two runs never read one channel.
+  - A dropped line keeps the run's pages for the next run.
+  - A file is replaced whole or not at all.
+
