@@ -64,7 +64,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    77 the loop: hypotheses from the ground, registered and tested;
                                                                    78 what the ground and the loop established: every element, every move;
                                                                    79 the forward test's engine, built and run once;
-                                                                   80 E-9, the news leads on years they did not come from
+                                                                   80 E-9, the news leads on years they did not come from;
+                                                                   81 the funds' flows, daily: the link changes sign by era
        member, the LLM member
 ```
 
@@ -8180,5 +8181,47 @@ dollar's next 5 days.
 span tested are held, and says how many.
 
 **The count rises to 119 (E-9's four leads), and to 120 if E-10 runs.**
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 81. The funds' flows, daily: the link changes sign by era (2026-10-30; descriptive)
+
+**The data:** `research/fetch_fipiran_gap.py` filled fipiran's units outstanding daily for 2020-02-24 to
+2026-10-28, which had one day in seven. That took 1,398 requests, about 1.4 seconds each, direct from the
+workstation.
+- **`fipiran_funds.json`:** 2,162 days from 2019-01-01, 2 of them empty.
+- **`units_flow`:** 1,870 days; the funds reporting grew from 4 (2019) to 19 (2025).
+
+**The reading** (`research/rd_flows_daily.py`): the funds' net creations over the last 5 trading days, as a
+share of net assets, cut into fifths. After each fifth: 18K's next 20 and 40 days, and E-5's 10% fall within
+40.
+
+| Span | After | Days | 18K 20d | Up after 20 | 18K 40d | 10% fall within 40 |
+|---|---|---|---|---|---|---|
+| **2019-2026** | heavy redemptions | 420 | +1.7% | 58% | +5.3% | 24% |
+| | middle | 1,260 | +5.1% | 73% | +9.9% | 11% |
+| | heavy creations | 420 | +5.2% | 69% | +10.6% | 15% |
+| **2019-2021** | heavy redemptions | 158 | -0.7% | 49% | -0.1% | **37%** |
+| | middle | 476 | +4.5% | 69% | +8.3% | 14% |
+| | heavy creations | 158 | +4.3% | 66% | +8.4% | 8% |
+| **2022-2023** | heavy redemptions | 109 | +3.3% | 66% | +8.2% | 7% |
+| | middle | 328 | +2.9% | 72% | +6.1% | 7% |
+| | heavy creations | 109 | +3.1% | 49% | +6.4% | **28%** |
+| **2024-2026** | heavy redemptions | 152 | +6.1% | 74% | +11.5% | 16% |
+| | middle | 458 | +6.2% | 74% | +13.8% | 13% |
+| | heavy creations | 152 | +7.9% | 82% | +14.2% | 9% |
+
+**What it says:**
+- **77.8's "momentum, not contrarian" came from the weekly steps over the whole span. It does not hold by era:**
+  - 2019-2021: redemptions came before falls;
+  - 2022-2023: creations came before falls;
+  - 2024-2026: the fifths barely differ.
+- **The market changed under the measure:** 4 funds in 2019, 19 in 2025.
+- **78.1's row for the funds' flows now reads:** no stable link to what follows; not an input to the risk of a
+  fall.
+- **G2's measures stay in the table** for the forward ledger's context. A flow input would need its own
+  registration, and nothing here supports one.
+
+The cut-points see every day, so this is descriptive. No variant is added to the count: 119.
 
 **NEON MIGRATION REQUIRED = NO.**

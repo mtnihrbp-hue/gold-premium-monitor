@@ -6,7 +6,8 @@ move them (the audit's B8): from research/data/tsetmc_full.json, for each day th
 - turnover:  the funds' traded value against its own median of the 60 days before (a surge reads above 1);
 - funds:     how many funds reported that day.
 
-And from fipiran (research/data/fipiran_funds.json, daily to 2020-02, weekly after): units_flow, the net units
+And from fipiran (research/data/fipiran_funds.json, daily from 2019; weekly 2020-03 to 2026-10 until
+research/fetch_fipiran_gap.py filled it on 2026-10-30): units_flow, the net units
 created or redeemed times the NAV, as a share of net assets, over each step between two fipiran days, for the
 19 gold funds. It covers 2020, where TSETMC's own flow record is thin.
 
