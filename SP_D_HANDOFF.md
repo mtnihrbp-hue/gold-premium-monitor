@@ -8289,3 +8289,33 @@ Register-ScheduledTask -TaskName "Gold engine shadow ledger" -Action (New-Schedu
   - A dropped line keeps the run's pages for the next run.
   - A file is replaced whole or not at all.
 
+### 82.4 The backfill moved to GitHub's runner
+
+**What the workstation read (2026-10-30, 16:00 to 19:30, three processes):**
+
+| Channel | Held back to |
+|---|---|
+| bourse24ir | 2024-04-17 |
+| betasahm1 | 2024-04-14 |
+| bidarbourse | 2023-07-03 |
+| khabarfouri | 2025-03-12 |
+
+- **Then Psiphon's tunnel stopped carrying traffic.** t.me and Google were closed at once (0.0 s) while
+  GitHub answered. Every later run failed on its first page. The guard of 82.3 kept what each run had read.
+- **Later in the evening** the proxy port refused connections altogether. Git reached GitHub direct.
+
+**The runner reads t.me direct.** The temporary branch `probe-news-labels` (pushed from a separate worktree,
+never a checkout here) now has two jobs:
+1. **backfill:** the four channels in parallel from the workstation's progress, at most 5.5 hours
+   (`BACKFILL_SECONDS`), the archives committed to that branch;
+2. **label:** only when every channel is held to before 2022-01-01. Then E-9's span, every third day first,
+   at most 170,000 tokens a run.
+
+**A fix found on the way:**
+- **The fault:** the backfill kept only posts on or after its start date, so a finished channel never showed
+  a post before 2022-01-01. Its "already held" stop and the label job's check could never pass.
+- **The fix:** the page that crosses the date now keeps its older posts, the mark that the span is complete.
+
+**The results come back by `git show origin/probe-news-labels:<path>`.** One push a day resumes the work until
+E-9's 600 days are labelled.
+
