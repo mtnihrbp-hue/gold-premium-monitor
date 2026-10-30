@@ -7926,3 +7926,54 @@ windows.
   - 113 variants have now been tried on this record.
 - **So R3 at 0.30 is a candidate for the forward test (Ed-1), not a rule.** Its forward record from November,
   frozen, would be the first evidence no study here has seen.
+
+### 77.5 The news, read against what followed (`research/rd_news_read.py`; descriptive)
+
+**The data:** 318 labelled days (2025-10-15 to 2026-09-06; `news_days.jsonl`, now the labelling branch's
+full set).
+
+**All days:** the dollar +1.54% over the next 5 days, 18K +5.79% over 20, a 10% fall within 40 days on 28%.
+
+| Label | Days | the dollar, 5 days | 18K, 20 days | A 10% fall within 40 days |
+|---|---|---|---|---|
+| talks = progress | 120 | +1.43% | +4.35% | **39%** |
+| talks = none | 158 | +1.70% | +6.25% | 21% |
+| talks = setback | 40 | +1.22% | +8.33% | 22% |
+| conflict = escalation | 207 | +1.17% | +3.08% | 37% |
+| conflict = none | 104 | +2.17% | +11.04% | 11% |
+| sanctions = tightened | 63 | +3.23% | +3.83% | 43% |
+| sanctions = eased | 15 | +2.33% | +8.74% | 0% |
+| dollar pressure = up | 157 | +1.42% | +4.36% | 34% |
+| dollar pressure = down | 67 | +2.22% | +10.27% | 9% |
+| a central-bank intervention | 17 | +3.30% | +9.43% | 6% |
+
+**Before the labelled span's tops:**
+- **2026-02-25** (then -18.8%): "talks = progress" on 8 of the 11 labelled days before it, with "dollar pressure =
+  up".
+- **2026-05-03** (then -23.0%): "conflict = escalation" on 11 of 11, "sanctions = tightened" on 6.
+
+**What it says:**
+- One year, overlapping windows, many values: leads to test, not results.
+- **Talks in progress preceded falls more often** (39% against 21%). Hope for the rial is the plain reading.
+- **The news's own "dollar pressure up" preceded falls more often than "down".** By the time the news says the
+  dollar is under pressure, it has often already moved.
+- **To test news over more than a year:** GDELT holds daily coverage counts and tone from 2017-01-01 to
+  2026-10-02 (3,530 days) for Iran's military news, its nuclear talks, sanctions, its currency, the Fed and the
+  dollar (`research/data/gdelt.json`, section 14).
+  - Section 14 found 18K weaker in the 20 days after coverage jumps (+2.4% to +2.6% against +4.6%).
+  - As a drop detector alone it was near chance (AUC 0.53 to 0.54).
+
+### 77.6 E-7, news added to the risk of a fall (registered before its run)
+
+**The question:** does GDELT's coverage add to R3 (77.1)?
+
+**The news inputs,** from GDELT's days strictly before t (a UTC day ends after Tehran's close):
+- for "iran nuclear talks", "iran military" and "iran sanctions", the jump: the log of the theme's share of all
+  coverage over the last 5 days against its last 60 days.
+
+**The model, R6:** R3's three inputs and these three; ridge C = 0.3; the same target, method and periods as E-5.
+
+**The test:** R6's Brier score lower than R3's by 5% or more on the same days, in 2 of 3 periods. The AUC is
+reported.
+
+The count rises to 114.
