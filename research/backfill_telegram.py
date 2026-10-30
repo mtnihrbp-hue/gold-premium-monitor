@@ -1,7 +1,9 @@
 """Backfill one Telegram channel's history from GitHub's runner, for the news event study (SP-D,
 SP_D_HANDOFF.md section 35.8): what the dollar and Tether did after each kind of event the owner's
 channels reported. Telegram is blocked in Iran; the runner reads t.me/s/<channel> page by page back to
-SINCE. Writes research/data/telegram/<channel>.jsonl.gz, one post a line: channel, id, at (UTC), text.
+SINCE. Writes research/data/telegram/<channel>.jsonl.gz, one post a line: channel, id, at (UTC), text. A file
+already held is extended further back from its oldest post (posts newer than its newest are not read), so a run
+cut by MAX_SECONDS resumes. t.me also opens from the workstation through the system proxy (Psiphon).
 
 Run: python research/backfill_telegram.py <channel> [since YYYY-MM-DD]
 """
@@ -40,6 +42,17 @@ def page(channel, before):
 def main(channel, since):
     started = time.monotonic()
     posts, before, pages = {}, None, 0
+    out = os.path.join(os.path.dirname(__file__), "data", "telegram", f"{channel}.jsonl.gz")
+    if os.path.exists(out):                      # resume: extend the held file further back from its oldest post
+        with gzip.open(out, "rt", encoding="utf-8") as f:
+            for line in f:
+                p = json.loads(line)
+                posts[p["id"]] = {**p, "at": datetime.fromisoformat(p["at"])}
+        if posts:
+            before = min(posts)
+            if posts[before]["at"] < since:
+                print(f"{channel}: already held back to {posts[before]['at']:%Y-%m-%d}")
+                return
     while time.monotonic() - started < MAX_SECONDS:
         batch = page(channel, before)
         pages += 1
@@ -54,7 +67,6 @@ def main(channel, since):
         before = oldest
         time.sleep(PAUSE)
     kept = sorted((p for p in posts.values() if p["at"] >= since), key=lambda p: p["id"])
-    out = os.path.join(os.path.dirname(__file__), "data", "telegram", f"{channel}.jsonl.gz")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with gzip.open(out, "wt", encoding="utf-8") as f:
         for p in kept:

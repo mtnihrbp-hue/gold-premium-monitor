@@ -63,7 +63,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    76 the ground worked: G1 completeness, G2 the money flow, G3 macro, G4 the windows read;
                                                                    77 the loop: hypotheses from the ground, registered and tested;
                                                                    78 what the ground and the loop established: every element, every move;
-                                                                   79 the forward test's engine, built and run once
+                                                                   79 the forward test's engine, built and run once;
+                                                                   80 E-9, the news leads on years they did not come from
        member, the LLM member
 ```
 
@@ -8132,5 +8133,52 @@ says otherwise.
   - its worst drop;
   - its entries.
   - Nothing in the rule changes before that date. A change opens a new version, with its own date.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 80. E-9, the news leads on years they did not come from (registered before the labels exist, 2026-10-30)
+
+**Why:** 77.5's leads come from one labelled year, 2025-10-15 to 2026-09-06, with a war in it. They are leads,
+not results. GDELT's counts could not stand in for them (E-7). The test is the same reading on years nobody
+here has seen labelled.
+
+**The data, being made now:**
+- **The channels:** khabarfouri, betasahm1, bourse24ir and bidarbourse, extended back to 2022-01-01 from the
+  workstation. t.me opens through the system proxy. `research/backfill_telegram.py` now resumes from the oldest
+  post held.
+- **The labels:** `research/label_news_days.py` unchanged: the same model (`openai/gpt-oss-120b`, low
+  reasoning), prompt, headline filter and 70-headline cap, on GitHub's runner. The model never sees a price.
+- **The span tested:** 2022-01-01 to 2025-10-14 only. The year the leads came from is reported beside it,
+  never counted.
+
+**The outcome, as in 77.5:** a fall of 10% or more in 18K's close within the next 40 trading days, and the
+dollar's next 5 days.
+
+**The four leads, each judged alone:**
+
+| | Lead | Passes when, on the span tested |
+|---|---|---|
+| L1 | talks = progress before falls | the fall rate after "progress" is 10 points or more above the rate after "none" |
+| L2 | conflict = escalation before falls | the rate after "escalation" is 10 points or more above "none" |
+| L3 | the news's own dollar pressure, read backwards | the rate after "up" is 10 points or more above "down" |
+| L4 | the owner's: the central bank's intervention, then the dollar falls | the dollar's median 5 days after a labelled intervention is below the median of all days, with 15 or more such days |
+
+**And for each:** the difference has the same sign in at least 2 of the 3 sub-spans, 2022-2023, 2024 and
+2025-01 to 2025-10-14.
+- Overlapping 40-day windows make the days far from independent, so a p-value on days would flatter the
+  lead.
+- A lead that lives in one episode is not a lead.
+
+**E-10, run only if one of L1-L3 passes:**
+- **R11** = R3's three inputs plus each passing label as the share of the last 10 labelled days carrying it.
+- The same target, ridge C = 0.3 and walk-forward as E-5, trained from 2022 on.
+- **The test:** R11's Brier score 5% or more below R3's on the same days, 2024-01-01 to 2025-10-14.
+  - One period only, because the labels start in 2022, so it is weak by design.
+  - The seen year is reported, not counted.
+
+**If the labelling stops short** (Groq's free tier): E-9 runs on what is labelled, once 600 or more days of the
+span tested are held, and says how many.
+
+**The count rises to 119 (E-9's four leads), and to 120 if E-10 runs.**
 
 **NEON MIGRATION REQUIRED = NO.**

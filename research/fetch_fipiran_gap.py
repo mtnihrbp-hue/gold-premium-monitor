@@ -1,5 +1,6 @@
 """fipiran's units outstanding, daily, across TSETMC's flow hole (SP_D_HANDOFF.md section 78.6): 2020-02-24 to
-2021-10-31, where research/data/fipiran_funds.json holds one day in seven. Same request as fetch_fipiran.py
+2021-10-31 by default, where research/data/fipiran_funds.json held one day in seven; any span with FIPIRAN_FROM
+and FIPIRAN_TO (ISO dates). Same request as fetch_fipiran.py
 (POST /services/fund/fundcompare), same kept fields, the same file; days already held are skipped, so it resumes.
 From Iran, direct.
 
@@ -25,7 +26,8 @@ KEEP = ("regNo", "name", "fundType", "date", "statisticalNav", "cancelNav", "iss
 
 def main():
     data = json.load(open(OUT, encoding="utf-8")) if os.path.exists(OUT) else {}
-    day, last = date(2020, 2, 24), date(2021, 10, 31)
+    day = date.fromisoformat(os.environ.get("FIPIRAN_FROM", "2020-02-24"))
+    last = date.fromisoformat(os.environ.get("FIPIRAN_TO", "2021-10-31"))
     t0, fetched = time.time(), 0
     while day <= last:
         key = day.isoformat()
