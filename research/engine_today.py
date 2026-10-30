@@ -14,7 +14,9 @@ One run:
    rule's state. The line is written before its outcome exists.
 
 It never sends anything and never touches production. Before 21:00 Tehran a candle dated today is not closed,
-so it is left out and the last closed day is scored. On the workstation, Task Scheduler runs it each evening
+so it is left out and the last closed day is scored. Closed days missed since the last line (the laptop was off),
+up to 15, are scored first, each from the rows up to it only, and marked "late"; the evaluation can leave them
+out. On the workstation, Task Scheduler runs it each evening
 through research/run_engine_today.cmd (SP_D_HANDOFF.md section 82).
 
     python research/engine_today.py [--no-refresh]
@@ -37,6 +39,7 @@ sys.path.insert(0, HERE)
 LEDGER = os.path.join(HERE, "data", "shadow_ledger.jsonl")
 THRESHOLD, MIN_STAY, HARD_K = 0.30, 5, 3.0
 CLOSED_BY = 21                                   # Tehran hour after which today's candle counts as closed
+MAX_LATE = 15                                    # closed days a run catches up when the laptop was off
 FROZEN = "E-8 candidate, frozen 2026-10-30 (SP_D_HANDOFF.md 77.7-77.8, 79)"
 
 
@@ -113,17 +116,27 @@ def main():
         rows = rows[:-1]                         # today's candle is not closed yet: score the last closed day
     calm_path = os.path.join(HERE, "data", "calm_forecasts_b.json")
     calm_series = json.load(open(calm_path, encoding="utf-8")) if os.path.exists(calm_path) else {}
+    lines = [json.loads(l) for l in open(LEDGER, encoding="utf-8")] if os.path.exists(LEDGER) else []
+    done = lines[-1]["date"] if lines else None
+    todo = [k for k, r in enumerate(rows) if done is None or r["date"] > done][-1 if done is None else 0:]
+    if not todo:
+        print(f"already recorded for {done}")
+        return
+    if len(todo) > MAX_LATE + 1:                 # a long absence stays a gap: revisions grow with the delay
+        print(f"{len(todo) - MAX_LATE - 1} closed days left as a gap after {done}")
+        todo = todo[-(MAX_LATE + 1):]
+    prev = lines[-1] if lines else {"state": "gold"}
+    for k in todo:                               # each missed day from the rows up to it only, marked late
+        prev = record(rows[:k + 1], calm_series, prev, late=k != len(rows) - 1)
+
+
+def record(rows, calm_series, prev, late):
     calm, used = calm_today(rows)
     calm_series[rows[-1]["date"]] = dict(calm_series.get(rows[-1]["date"], {}), X=calm)
     risk = risk_today(rows, calm_series)
     last = rows[-1]
-    lines = [json.loads(l) for l in open(LEDGER, encoding="utf-8")] if os.path.exists(LEDGER) else []
-    prev = lines[-1] if lines else {"state": "gold"}
     state, entry = prev.get("state", "gold"), prev.get("entry")
     action = "hold"
-    if lines and lines[-1]["date"] == last["date"]:
-        print(f"already recorded for {last['date']}")
-        return
     if state == "gold" and risk["R3"] is not None and risk["R3"] >= THRESHOLD:
         state, action = "half", "in: half into fixed income at the next close"
         entry = {"date": last["date"], "g18": last["g18"], "sigma": math.exp(calm)}
@@ -139,9 +152,12 @@ def main():
                                                                      for k in ("g18", "usd", "tether", "coin", "gvz_prev", "fi")},
             "calm_daily_vol": math.exp(calm), "R3": risk["R3"], "R10": risk["R10"], "state": state, "action": action,
             "entry": entry}
+    if late:
+        line["late"] = True                      # written after its day, from the data up to that day
     with open(LEDGER, "a", encoding="utf-8") as f:
         f.write(json.dumps(line, ensure_ascii=False) + "\n")
     print(json.dumps({k: line[k] for k in ("date", "calm_daily_vol", "R3", "R10", "state", "action")}, ensure_ascii=False))
+    return line
 
 
 if __name__ == "__main__":

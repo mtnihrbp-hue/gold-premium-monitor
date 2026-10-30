@@ -66,7 +66,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    79 the forward test's engine, built and run once;
                                                                    80 E-9, the news leads on years they did not come from;
                                                                    81 the funds' flows, daily: the link changes sign by era;
-                                                                   82 the forward test's daily line on the workstation: ready, not scheduled
+                                                                   82 the forward test's daily line on the workstation: ready, not scheduled;
+                                                                   83 the owner's answers (2026-10-30 night); the missed days caught up; the risk as a reader would see it
        member, the LLM member
 ```
 
@@ -8318,4 +8319,53 @@ never a checkout here) now has two jobs:
 
 **The results come back by `git show origin/probe-news-labels:<path>`.** One push a day resumes the work until
 E-9's 600 days are labelled.
+
+## 83. The owner's answers; missed days caught up; the risk as a reader would see it (2026-10-30, night)
+
+**The owner, on 82's questions:**
+- **Groq's shared quota for E-9's labelling:** OK.
+- **The phone for the forward test:** asked. It is the wrong home:
+  - the engine needs numpy and scikit-learn and the research table, which is built from workstation data;
+  - CBOE and the IMF are foreign.
+  - GitHub's runner is the second home if the laptop is not.
+- **Keep the laptop on?** Not each evening:
+  - `research/engine_today.py` now scores the closed days missed since the last line, up to 15, each from the
+    rows up to that day only, marked `"late"`.
+  - Tested on a copy of the ledger left at 10-25: 10-26 to 10-28 came out late, and 10-29 reproduced the line
+    written on the day exactly (calm 1.92%, R3 22.38%).
+  - The evaluation can leave late lines out.
+- **The evaluation date, 2027-03-20, is the last day of 1405.** The owner asked whether that is rational. It is
+  not. Two reasons:
+  - the market closes for Nowruz, and the last weeks before it carry seasonal demand;
+  - five months may hold no entry at all: R3 reached 0.30 on 47 days in nine years, 42 of them in 2026.
+  - **Proposed, for the owner:**
+    - the first verdict on 2027-06-21 (31 Khordad 1406), after the market reopens;
+    - judged on two things: R3's own daily forecasts (each resolves 40 trading days later) and the rule's
+      trades;
+    - with no trade by then, the verdict is "no evidence on the trades yet" and the default holds.
+- **M2:** the owner asked for a cleaner source.
+  - Searched: CEIC holds Iran's monthly M2 in rials from 1999, behind a subscription (zero spending).
+  - The central bank's pages stand behind an F5 bot shield ("TSPD"). Driving a headless browser through it
+    was refused by the session's guard as circumvention, rightly.
+  - Left: the owner's browser, once for the history and once a month after; or the test waits.
+- **The message:** the owner proposes acting at 30% but showing the risk to users in the nightly message
+  even below it. To be talked through. The record for that talk is below.
+
+**The risk as a reader would see it** (E-5's walk-forward R3, 2020 on, 1,924 days):
+
+| R3 | Days | A 10% fall within 40 days followed |
+|---|---|---|
+| 0-5% | 1,035 | 9% |
+| 5-10% | 467 | 17% |
+| 10-20% | 268 | 21% |
+| 20-30% | 80 | 42% |
+| 30% and up | 33 | 55% |
+
+- **The probability's size understates the danger at the top** (E-5: ranking yes, size no). A reader shown
+  "22%" would read less danger than the record holds.
+- **Today (10-29), 22%, is above 93% of days since 2020.** On days in its band a 10% fall followed 42 times in
+  100: overlapping windows, 80 days, mostly 2026.
+- **The house style already reads this way:** the Direction draft's "on days like today it came 27 in 100".
+
+**NEON MIGRATION REQUIRED = NO.**
 
