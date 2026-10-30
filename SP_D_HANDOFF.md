@@ -61,7 +61,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    74 the engine locked; phase a registered: calm (E-1), the move and the way back (E-2);
                                                                    75 back to the ground: the key elements, the windows, the data (nothing locked);
                                                                    76 the ground worked: G1 completeness, G2 the money flow, G3 macro, G4 the windows read;
-                                                                   77 the loop: hypotheses from the ground, registered and tested
+                                                                   77 the loop: hypotheses from the ground, registered and tested;
+                                                                   78 what the ground and the loop established: every element, every move
        member, the LLM member
 ```
 
@@ -7990,3 +7991,110 @@ probability to halve.
 - **The threshold, the choice on the years before, the costs and the test (Eb-5)** are E-6's.
 
 The count rises to 115.
+
+### 77.8 E-7's and E-8's results; the flows' direction
+
+**E-7 (`research/rd_fall_risk_news.py`): GDELT's coverage makes the risk of a fall worse.**
+- Brier R6 against R3: -1.7% / -1.3% / -2.6%.
+- AUC: 0.49 to 0.46, 0.71 to 0.62, 0.76 to 0.69.
+- **0 of 3: it fails.** World coverage counts are noise for this question.
+
+**E-8 (`research/rd_fall_policy_e8.py`): the faster way back.**
+- **At WallGold's fee:** P1 and P2 in gold (no entry), P3 **+11.4%** over holding, worst drop -21.7% against
+  -24.9%, 6 entries, half in fixed income 21% of days.
+- **At Daric's cost:** +13.3%. **At Ayyareh's 2%:** +3.6%.
+- **By the test, 1 of 3: it fails.**
+- **How thin it is:** R3's probability reached 0.30 on 47 days in nine years (2020: 4, 2025: 1, 2026: 42).
+  - Five of P3's six windows are in 2026, the most volatile year on record (GVZ up to 43).
+  - The sixth began on 2025-04-04's single day and stayed out 101 days (18K +1.7%, fixed income +12.4%).
+  - **E-8's gain rests on a few decisions in one unusual year.**
+
+**The flows' direction** (descriptive; fipiran's 588 unit steps, 2019-2026):
+
+| After a step with | 18K, next 20 days | Up within 20 | Next 40 |
+|---|---|---|---|
+| heavy redemptions (bottom fifth) | +2.3% | 59% | +5.3% |
+| middle | +4.1% | 72% | +7.6% |
+| heavy creations (top fifth) | +5.2% | 68% | +10.3% |
+
+**So money into the funds is momentum, not contrarian.** G4's redemptions at the lows end declines; they do not
+announce the rebound.
+
+## 78. What the ground and the loop established: every element, every move (2026-10-30)
+
+The owner asked for "robust and foundational answers to every aspect. every element, every move." This section
+is the record's answer at this date: what is verified, what is a candidate, what failed, and what is untested.
+
+**115 variants have been tried on this record.** Every verdict below is out of sample (walk-forward) unless it
+says otherwise.
+
+### 78.1 The elements: what moves 18K
+
+| Element | What the record says | Status |
+|---|---|---|
+| **the dollar** | 61% of 18K's daily movement, 75% over 5 days, 70% over 20; every decline was the dollar's | **verified (75.3)** |
+| world gold | 3% daily, 21% over 20 days; its 20-day move and GVZ are ordinary at every window start | verified, a minor part |
+| the basis (18K against both) | 35% daily, 8% over 20 days: mostly noise and lags | verified |
+| Tether | surges before tops (rank 94), falls before lows (11); trades every day | a lead, as section 42 found |
+| the real dollar | never in its bottom fifth before a decline (0 of 26) | a fact; as a forecast it fails (E-4) |
+| the dollar's acceleration | fixed income beat 18K 47% of the time after it, 26% after slowing | **passes at 60 days, small (E-4)** |
+| the coin premium | widens in declines, narrows in rises; falling into tops | descriptive |
+| the funds' flows | individuals' flows ordinary at every start; fipiran inflows lead to more gains | descriptive (77.8) |
+| news | labelled: "talks in progress" preceded falls (one year); GDELT coverage adds nothing | leads (77.5); GDELT fails (E-7) |
+| liquidity (M2) | not reached: behind the central bank's bot shield | **untested** |
+
+### 78.2 The windows
+
+- **Rises:** 77% of days.
+- **Declines:** 23%, typically 15 days and sharp. Ten lasted 30 days or more, the longest 2023-04 to 10 (123
+  days).
+- **Sideways:** 49% of days. Fixed income won 26 of 42 after the fact, but sideways starts look ordinary on
+  almost every driver.
+
+### 78.3 What can be forecast
+
+| Question | Answer | Study |
+|---|---|---|
+| calm ahead (volatility, 20 days) | **yes:** beats HAR in 3 of 3 periods; rank correlation +0.45 to +0.65 | **E-1b, verified** |
+| direction, 20-60 days, from daily features | no | 72.3 |
+| whether fixed income beats 18K, 60 days | weakly: the dollar's acceleration only | E-4 |
+| a 10% fall within 40 days | the ranking yes from 2020 (AUC 0.71-0.76); the probability's size no | E-5 |
+
+### 78.4 The moves
+
+| Move | Record | Status |
+|---|---|---|
+| **in, on calm** | loses at a real fee: too many short windows; the declines are not calm | failed (E-2, E-3) |
+| **in, on the risk of a fall** | E-8 at WallGold's fee: out for 2025-04's fall and 2026-03's crash; +11.4% in P3; never triggered 2018-2023 | **the best candidate, thin (77.8)** |
+| **back to gold** | a slow way back sat through rallies (E-6); the faster one (E-8) improved P3 from +3.6% to +11.4% | part of the candidate |
+| how much | 50% only, tested; no fixed share beat 100% gold in any period (71.2) | steps untested |
+| where | the fee decides: WallGold's 0.5% works; Ayyareh's 2% takes most of the gain | verified (74.5-74.6, 77.8) |
+| default | 100% gold | verified (71.2) |
+
+### 78.5 Today (2026-10-29)
+
+**The drivers' ranks:**
+- 18K's 60 days 84; the dollar's acceleration 78; the real dollar 77;
+- the calm forecast 87, an active market ahead;
+- fipiran inflows 96, momentum;
+- Tether 66; the coin premium 35.
+
+**The risk of a fall:** R3 25%, below the candidate's 0.30; R10 68%. **The candidate rule is in gold.**
+
+### 78.6 What follows
+
+1. **The forward test (Ed-1):**
+   - freeze E-8's candidate: R3 with its 10 inputs as they stand, the threshold 0.30, the faster way back;
+   - freeze E-1b's calm forecast and R10 beside it;
+   - record each day's state before its outcome, in production, as a shadow ledger: no message;
+   - evaluate on a date fixed now: 2027-03-20.
+   - **That is the first evidence no study here has seen.** Wiring it is code in production, for the owner's
+     review.
+2. **The data:**
+   - monthly M2 (the owner: a table saved from cbi.ir in a browser);
+   - fipiran's units daily for 2020-2026 (slow; about 2 hours in the background);
+   - news labelled further back, to test the leads of 77.5 over more than one year.
+3. **Messages: none from this yet.** The evidence supports no advice beyond 100% gold. The candidate's state can
+   be shown to the owner as research only.
+
+**NEON MIGRATION REQUIRED = NO.**
