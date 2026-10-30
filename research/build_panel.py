@@ -12,6 +12,8 @@ Columns, and when each is known:
 - flow_power: the gold funds' money-flow power (src/seed/gold_fund_flows.json) of the day itself, never carried.
   None across 2019-10 to 2021-10, the seed's gap (B8).
 - news: the day's labels (research/data/news_days.jsonl), None where the day is not labelled.
+- gvz_prev: world gold's implied volatility (CBOE GVZ, research/data/gvz.csv, from 2009-09) of the last US day
+  before; vix_prev the same for the S&P 500 (research/data/vix.csv). Both close after Tehran's day ends.
 
 Saved to research/data/panel.json with its rules. A row never changes when later data is added
 (tests/test_panel.py).
@@ -39,6 +41,7 @@ RULES = {
     "fi": "seed fixed income, the day or the last before", "tedpix": "seed tedpix, the day or the last before",
     "flow_power": "seed gold-fund flow power of the day itself; None in 2019-10..2021-10",
     "news": "research/data/news_days.jsonl labels of the day, or None",
+    "gvz_prev": "CBOE GVZ close of the last US day before", "vix_prev": "CBOE VIX close of the last US day before",
 }
 
 
@@ -63,10 +66,11 @@ class Series:
         return self.values[i] if i < len(self.days) and self.days[i] == day else None
 
 
-def build(tgju, fi, tedpix, flow_power, news):
+def build(tgju, fi, tedpix, flow_power, news, gvz=(), vix=()):
     """Rows from the inputs: `tgju` {key: [(date, close)]}, the others [(date, value)] or {date: labels}."""
     s = {k: Series(v) for k, v in tgju.items()}
     fi_s, ted_s, flow_s = Series(fi), Series(tedpix), Series(flow_power)
+    gvz_s, vix_s = Series(gvz), Series(vix)
     rows = []
     for day in s["geram18"].days:
         g18 = s["geram18"].on(day)
@@ -86,6 +90,8 @@ def build(tgju, fi, tedpix, flow_power, news):
         row["tedpix"] = ted_s.asof(day, max_age_days=10)
         row["flow_power"] = None if FLOW_GAP[0] <= day < FLOW_GAP[1] else flow_s.on(day)   # a day's flow, never carried
         row["news"] = news.get(day)
+        row["gvz_prev"] = gvz_s.asof(day, strictly_before=True, max_age_days=5)
+        row["vix_prev"] = vix_s.asof(day, strictly_before=True, max_age_days=5)
         rows.append(row)
     return rows
 
@@ -109,7 +115,22 @@ def load_inputs():
                 if line.strip():
                     x = json.loads(line)
                     news[date.fromisoformat(x["day"])] = {k: v for k, v in (x.get("labels") or {}).items() if k != "summary"}
-    return tgju, fi, ted, flows, news
+    def cboe(name, column):
+        path = os.path.join(HERE, "data", name)
+        if not os.path.exists(path):
+            return []
+        out = []
+        with open(path, encoding="utf-8") as f:
+            header = f.readline().strip().split(",")
+            k = header.index(column)
+            for line in f:
+                cells = line.strip().split(",")
+                if len(cells) > k and cells[k]:
+                    m, d, y = cells[0].split("/")
+                    out.append((date(int(y), int(m), int(d)), float(cells[k])))
+        return out
+
+    return tgju, fi, ted, flows, news, cboe("gvz.csv", "GVZ"), cboe("vix.csv", "CLOSE")
 
 
 def main():

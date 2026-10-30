@@ -57,7 +57,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    70 the outage's writes held for review; the path agreed, collection first (v1.39safe);
                                                                    71 the spool reviewed; the share in gold; the KPIs made SMART;
                                                                    72 SP-Eb.RD opens: the research table; the first forecast study;
-                                                                   73 the engine: calm, the move to fixed income, the way back
+                                                                   73 the engine: calm, the move to fixed income, the way back (v1.40safe);
+                                                                   74 the engine locked; phase a registered: calm (E-1), the move and the way back (E-2)
        member, the LLM member
 ```
 
@@ -7245,5 +7246,85 @@ The owner: "1-ok".
 - **The phone's comparison pages** (61.3): the phone reads Taline, HoorGold and MioGold every 15 minutes for a
   study that ended. I remove it from `node.py`; the owner runs `git pull` on the phone whenever convenient.
 - **The fee table:** collected from the platforms by me (73.5).
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 74. The engine locked; phase a, the model, registered (2026-10-30)
+
+### 74.1 The owner
+
+- "i can say i lock the engine, but need a) model establishment, then b) verification with data and c) fine
+  tuning ... start your heavy load work."
+- **WallGold's fee:** "1gr of gold is 25778000 with 128890 tomans as commission": 0.50% a side, 1.0% for a round
+  trip. The fee table's first row (Ea-6).
+
+### 74.2 Data added
+
+- **GVZ, world gold's implied volatility:** CBOE's own history, daily from 2009-09-18 to 2026-10-29
+  (`research/data/gvz.csv`). FRED refused the proxy.
+- **VIX** from the same source.
+- Both enter the research table from the last US day before (`gvz_prev`, `vix_prev`). `tests/test_panel.py`
+  still passes.
+- **Liquidity (M2), the money base and inflation: not reached.** The central bank's site rejects the request
+  and its data portal (tsd.cbi.ir) times out from this line. CEIC holds the series behind a paywall. Part 3, the
+  drift, waits for a route. Parts 2, 4 and 5 run on the daily data held.
+
+### 74.3 Study E-1, part 2: calm ahead (registered before its run)
+
+- **The target:** the log of 18K's realised volatility over the 20 trading days from t+2 (a day's delay).
+- **The inputs,** known at t:
+  - the log of 18K's realised volatility over 5, 20 and 60 days;
+  - the dollar's over 20;
+  - Tether's over 20 (from 2020-11);
+  - the log of GVZ, and its 20-day change;
+  - the log of VIX;
+  - the size of the coin premium's 20-day change;
+  - 18K's 60-day efficiency ratio.
+- **The models:**
+  - P, persistence: tomorrow's 20 days like the last 20;
+  - H, HAR: least squares on 18K's 5, 20 and 60-day volatility (Corsi, 2009);
+  - X: H plus the outside inputs, ridge-regularised (1.0) on standardised inputs. Tether is used once 250
+    training days have it (the rule of 72.2).
+- **The method:** walk-forward, refitted monthly on an expanding window, purged by 21 days; test days from
+  2018-01-01; the periods of 72.2.
+- **The score:** the mean squared error of the log volatility, and the rank correlation, by period.
+- **The tests:**
+  - **H against P:** 5% lower error in 2 of 3 periods. Does structure beat "like the last 20 days"?
+  - **X against H:** 5% lower error in 2 of 3 periods. Do the dollar, Tether, world gold's fear and the coin
+    add?
+
+### 74.4 Study E-2, parts 4 and 5: the move and the way back (registered before its run)
+
+**Default:** 100% gold.
+
+**Into fixed income, 50%,** decided at t's close and traded at t+1's, when both hold:
+- E-1's forecast volatility, model X (and separately H), is at or below the q-quantile of its own forecasts
+  over the 500 days before;
+- 18K's 60-day log return is at or below m: the drift guard, so a calm rise is not sold.
+
+**Back to 100% gold,** at the first of:
+- 18K's close is above the entry close by more than k x the forecast daily volatility x the square root of the
+  days since entry: an upward break;
+- the last 5 days' realised volatility exceeds twice the forecast made at entry: turbulence;
+- Tether's 5-day return exceeds +3%, where Tether exists: the dollar moving;
+- 40 trading days pass. The rule may then enter again the next day.
+
+**The parameters:** q in {0.20, 0.33, 0.50}, k in {1.0, 2.0}, m in {0, no guard}: 12 variants.
+- They are chosen each 1 January on all the years before, from 2015-03, by wealth against holding gold.
+- The chosen set is applied to the next year (walk-forward selection, 12 variants counted).
+
+**The costs:**
+- the gold leg at WallGold's 0.50% a side; fixed income 0.05% a side;
+- the moved money idle 2 trading days each way.
+- **Shown beside, not for the test:** Daric's 0.15% a side and Ayyareh's 2% of 10-29.
+
+**Reported for each period:**
+- wealth against B1 (holding gold);
+- the worst drop;
+- the entries and the share of days half in fixed income;
+- the parameters chosen each year.
+
+**The test (Eb-5):** more wealth than holding gold in 2 of 3 periods with no deeper worst drop, at WallGold's
+cost.
 
 **NEON MIGRATION REQUIRED = NO.**
