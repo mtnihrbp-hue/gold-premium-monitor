@@ -8265,3 +8265,13 @@ Register-ScheduledTask -TaskName "Gold engine shadow ledger" -Action (New-Schedu
 - **So M2 stays untested (78.1).** The way left is the owner's: the central bank's monthly table, saved from
   cbi.ir in a browser (its bot shield refuses scripts).
 
+### 82.2 E-9's script, fixed before its labels
+
+- **`research/rd_news_e9.py`** is 80's test in code, committed before any label of 2022-2025 exists. It
+  reproduces 77.5 on the year the leads came from: 39% against 21%, 37% against 11%, 34% against 9%, 17
+  intervention days.
+- **A check, not a result:** applied to that year's own three parts (2025-Q4, 2026-H1, 2026-Q3), the sub-span
+  rule already fails L1 and L2. Their gaps sit in 2026's first half, the war months. Only L3 holds there.
+- **The labelling** waits for the four channels to reach 2022-01-01. A day labelled from part of its headlines
+  would never be labelled again.
+
