@@ -52,7 +52,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    65 the discount on the gram platforms; WallGold's site addresses read (v1.38safe);
                                                                    66 the model's R&D, step 1: the simple alternatives;
                                                                    67 the sources by category, a verdict for each;
-                                                                   68 ready for 1 November: no migration before the write-back
+                                                                   68 ready for 1 November: no migration before the write-back;
+                                                                   69 SP-E: priorities, path, KPIs (proposed)
        member, the LLM member
 ```
 
@@ -6711,3 +6712,80 @@ while the owner was away. It decides nothing yet.
 - `SPOOL: N stored, 0 rejected, L still held` is watched until L is 0.
 
 **NEON MIGRATION REQUIRED = NO.**
+
+## 69. SP-E: priorities, the path, and the KPIs of each milestone (proposed, 2026-10-30)
+
+**The owner:** "what are the priorities, whats the path. and what are the KPIs to check if we have achieved the
+milestone? ... still we have to do more in the sources part, and on the collection side."
+
+### 69.1 The priorities, in order
+
+1. **Data that can be trusted.** Collection comes first: every later step rests on it, and category A's
+   history cannot be bought later (62.3).
+2. **A model with measured value, or the honest answer.** Step 1 found no simple rule beating holding gold
+   (66.2). The honest answer may be "hold gold; choose your step by the drop you accept".
+3. **Messages that each answer one question** (59), rebuilt surface by surface (59.2).
+4. **Safe running for fewer than 20 users:** security, confirmed delivery, free tiers.
+
+### 69.2 The path
+
+| Stage | When (estimate) | Content |
+|---|---|---|
+| SP-E0, the return | 11-01 to 11-07 | the write-back (68); transfer and storage measured; A8's unique keys on a Neon branch; a GitHub "production" environment for `main` only; A1 and A2 (the owner); a heartbeat for the phone |
+| SP-Ea, collection | from 11-08, about 3 weeks | C1 to C7 below |
+| SP-Eb, the model | from 11-08, beside SP-Ea, on the history already held | the room on the harness of 66; candidate drivers one at a time; the steps; the owner's risk choice |
+| SP-Ec, the surfaces | after SP-Ea's KPIs pass | UPDATE as "where", a daily "how much" note, the pulse, SERVICE; each new one replaces an old one at its merge |
+| SP-Ed, the forward test and the users | after SP-Ec | the frozen policy and its evaluation date; friends added |
+
+**SP-Ea, collection, in seven parts:**
+- **C1, contracts:** one written contract for each source kept: what it gives, its side, unit, own time, where
+  it is read from, how often, where stored. Starts from 67.
+- **C2, the measured record:** after 11-01, each platform's availability, deferrals, frozen share and noise on
+  the full record from August. Redo 63.3 and confirm or change the index.
+- **C3, the two collection points:**
+  - which source is read from the runner and which from the phone;
+  - the phone's heartbeat and what stops when it sleeps;
+  - whether a second device inside Iran is needed (zero spending: an existing device only).
+- **C4, the quality gate:** every stored reading carries its own time or quote time, its status, and what it
+  may be used for. A message shows "unknown" rather than an old value.
+- **C5, new sources, collected forward:**
+  - Tether every run (etfbaz);
+  - Afran's live price and NAV (the phone, TSETMC);
+  - the coin's premium (tgju);
+  - the official rate and IME's gold certificates: to find;
+  - the fee table (by hand).
+- **C6, cleanup:**
+  - stop what serves nothing: the phone's comparison pages; news if the owner pauses it;
+  - cut world gold to two sources.
+- **C7, the budget:**
+  - a budget of bytes a run for Neon's 5 GB of transfer, and a storage budget;
+  - each reader's share measured;
+  - store once, read little.
+
+### 69.3 The KPIs of each milestone
+
+| Milestone | KPI | Pass |
+|---|---|---|
+| SP-E0 | the spool written back | `L` at 0, `D` at 0; no duplicate by natural key |
+| | Neon transfer | the first week projected under 1.5 GB a month |
+| | the production boundary | a run from any other branch gets no production secret |
+| | A1, A2 | a forged webhook call is refused; the classic token revoked |
+| SP-Ea | contracts (C1) | 100% of the sources kept have one; none collected without one |
+| | the index (C2) | a price in at least 98% of scheduled runs over 14 days; the backup covers 100% of the index's misses |
+| | freshness (C4) | 100% of stored platform readings carry an own time, a quote time or a status saying they have none; 0 stale copies reaching a message over 14 days |
+| | new sources (C5) | Tether in at least 95% of runs over 14 days; the fee table filled for all 7 gram platforms |
+| | the budget (C7) | an average of 3 MB or less of Neon transfer a run over 7 days; storage growth within the cap; a run's median under 4 minutes |
+| | the phone (C3) | a heartbeat missing for 2 hours raises a SERVICE notice |
+| SP-Eb | the harness | one function, the delay and costs required; reproduces 66.2 exactly (a test) |
+| | the room | run on the harness; its verdict recorded against 66.1's test |
+| | each candidate | registered before its run; its verdict recorded; the number of rules tried kept |
+| | the model kept | it beats holding gold on wealth in 2 of 3 periods with no deeper drop; **or** it meets the owner's risk choice: at most X% of wealth given up for a worst drop at least Y points shallower. X and Y are the owner's to set |
+| SP-Ec, each surface | one question | every line labelled fact, description, record or advice, tied to one number in the code |
+| | the words | `kpi_coherence.test_64` passes; phone width held |
+| | the owner | the preview approved before its merge |
+| | "where" | the first platform shown is the lowest total cost to buy, fees included, in 100% of the test fixtures |
+| SP-Ed | the forward test | the policy frozen with its version and evaluation date; each day's posture recorded before its outcome |
+| | delivery | confirmed sends (A6): at least 99% delivered; a failed send retried |
+| | the users | only listed chat ids answered; a limit per person |
+
+**NEON MIGRATION REQUIRED = NO** (for this record; A8 will need one).
