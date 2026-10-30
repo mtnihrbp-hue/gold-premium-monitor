@@ -67,7 +67,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    80 E-9, the news leads on years they did not come from;
                                                                    81 the funds' flows, daily: the link changes sign by era;
                                                                    82 the forward test's daily line on the workstation: ready, not scheduled;
-                                                                   83 the owner's answers (2026-10-30 night); the missed days caught up; the risk as a reader would see it
+                                                                   83 the owner's answers (2026-10-30 night); the missed days caught up; the risk as a reader would see it;
+                                                                   84 the cases: what followed strikes and deals; the event odds real money sets
        member, the LLM member
 ```
 
@@ -8366,6 +8367,70 @@ E-9's 600 days are labelled.
 - **Today (10-29), 22%, is above 93% of days since 2020.** On days in its band a 10% fall followed 42 times in
   100: overlapping windows, 80 days, mostly 2026.
 - **The house style already reads this way:** the Direction draft's "on days like today it came 27 in 100".
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 84. The cases: what followed strikes and deals; the event odds real money sets (2026-10-30, night)
+
+**The owner, 23:00:**
+- world gold has lost $4,000, and the rial price holds by the dollar rising;
+- a heavy strike seems imminent, while mediators are in Tehran;
+- the lens has to see all of it;
+- "a 10% fall within 40 days, 42 times in 100" is not a call.
+
+**This week, from tgju's closes to Thursday 10-29.** Live sources timed out from the workstation at 23:15.
+
+| Since 10-21 | Change |
+|---|---|
+| world gold | -1.5% (-3.1% at 10-25, $3,994) |
+| the dollar | +0.6% |
+| Tether | +1.7% |
+| 18K | **-3.1%** |
+
+- **18K against its world price:** +1.0% on 10-21, **-1.2% on 10-29.**
+- **The dollar and Tether are rising, but 18K has not held.** It fell more than world gold, and its cushion
+  above the world price is gone.
+
+**What followed each case in the record:**
+
+| Case | The dollar after | 18K after | What the record shows |
+|---|---|---|---|
+| 2025-06-13, Israel strikes (12-day war) | +10% in the week after the ceasefire | +10% | no rows 06-12 to 06-24: the market was shut |
+| 2026-02-28, US-Israeli attack | **-12%** when quotes resumed 03-15 | **-16%**, low -17% in 40 days | tgju frozen two weeks; **Tether kept trading, -11% by 03-12**; world gold -16% to 03-24 |
+| 2026-06-15, a peace agreement announced | -6% the next day, +13% in 40 days | -5%, then +7% | |
+| 2026-07-14, attacks resume | +22% in 40 days | +29% | |
+
+- **The same kind of event went both ways.**
+  - A strike lifted the dollar 10% (2025) and cut it 12% (2026).
+  - The sign was set by the case: what world gold did, what Tether showed, and what followed.
+  - No model fitted to price history holds that, however elaborate. Three cases are cases, not statistics.
+- **In a war, tgju froze while Tether traded.** In March 2026 Tether was the only live dollar for two weeks,
+  and it showed the direction first.
+
+**The event odds, priced with real money** (Polymarket, read through Psiphon, 10-30 23:20):
+
+| Market | Yes |
+|---|---|
+| US x Iran ceasefire continues through Oct 31 | 94.3% ($8.5M traded) |
+| through Nov 2 | 90.9% |
+| through the midterms, Nov 4 | 89% |
+| through Nov 8 | **74.5%** ($0.8M) |
+| a final nuclear deal by Oct 31 | 0.25% |
+| the US invades Iran before 2027 | 18% ($76M) |
+| the regime falls before 2027 | 5.5% ($28.7M) |
+
+- **About 1 in 4 that the ceasefire breaks by Nov 8.** The odds step up after the US midterms.
+- **This is the forecast of the event that no model of ours can make.** Money sets it, by the minute.
+- The read API needs no key: through Psiphon from the workstation, direct from GitHub's runner.
+
+**What the lens needs, from this:**
+1. the event odds each run, from where money prices them;
+2. a library of cases: each past event and what followed, with the live signs that told the cases apart (Tether
+   against the dollar, world gold, 18K against its world price, tgju frozen);
+3. a blackout mode, in which Tether stands for the dollar when tgju freezes;
+4. a message that shows the cases and the odds, not a lone probability.
+
+**For the owner's review, before any wiring:** talk, preview, then wire.
 
 **NEON MIGRATION REQUIRED = NO.**
 
