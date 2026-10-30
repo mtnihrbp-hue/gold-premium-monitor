@@ -1,14 +1,14 @@
 """The Iran-side node (SP_D_HANDOFF.md section 30).
 
 Runs on the owner's phone in Termux, from an Iranian connection, and reads what GitHub's
-runner cannot reach: Daric (403 to the runner since 2026-10-03); and Taline, HoorGold and
-MioGold, whose pages the runner may be served as an old copy, to compare with production's
-(section 31); and TSETMC's daily money flow of the gold funds (section 33), which TSETMC gives
-only to Iranian addresses. Each reading goes to Neon's HTTPS endpoint as one row of
-iran_node_readings; production reads Daric's from there.
+runner cannot reach: Daric (403 to the runner since 2026-10-03); and TSETMC's daily money flow
+of the gold funds (section 33), which TSETMC gives only to Iranian addresses, and its live flow
+inside the session (section 48). Each reading goes to Neon's HTTPS endpoint as one row of
+iran_node_readings; production reads Daric's and TSETMC's days from there. Taline, HoorGold and
+MioGold, read here from 10-06 to compare Iran's view with the runner's (section 31), are no longer
+read: the study ended and production never read them (SP_D_HANDOFF.md 73.9).
 
-Needs Python, requests and beautifulsoup4 (the repository's collectors parse the three
-pages). Settings live in ~/.iran_node.env, never in the repo:
+Needs Python and requests. Settings live in ~/.iran_node.env, never in the repo:
 
     NEON_URL=postgresql://iran_node:<password>@<host>/neondb?sslmode=require
     NODE=s10
@@ -22,7 +22,6 @@ international link loses nothing.
     python node.py --setup   ask for the node's password, write ~/.iran_node.env, send once
 """
 
-import importlib
 import json
 import os
 import sys
@@ -58,13 +57,6 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (Linux; Android 12; SM-G973F) AppleWebKit/
                          "(KHTML, like Gecko) Chrome/128.0 Mobile Safari/537.36",
            "Accept": "application/json"}
 
-# Platforms whose page the runner may be served as an old copy (SP_D_HANDOFF.md section 32):
-# read from Iran as well, through the repository's own collectors, so production's stored value
-# can be set against what Iran saw at the same minute. Needs beautifulsoup4 on the phone.
-COMPARED = (("taline", "TALINE_18K", "collector.taline", "get_taline_price"),
-            ("hoorgold", "HOORGOLD_18K", "collector.hoorgold", "get_hoorgold_price"),
-            ("miogold", "MIOGOLD_18K", "collector.miogold", "get_miogold_price"))
-REPO_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src")
 
 # TSETMC's money flow for the room's money-flow member (SP_D_HANDOFF.md sections 24, 27, 33): each
 # gold fund's day, individuals and institutions, buy and sell, value and count. TSETMC refuses
@@ -140,25 +132,6 @@ def read_daric():
     except Exception as e:  # noqa: BLE001 -- an error is a reading too
         row["detail"] = f"{type(e).__name__}: {e}"[:300]
     return row
-
-
-def read_compared():
-    """Taline, HoorGold and MioGold as Iran sees them: the price in `value`, both sides where
-    the platform publishes them. One failure does not stop the others."""
-    if REPO_SRC not in sys.path:
-        sys.path.insert(0, REPO_SRC)
-    rows = []
-    for source, instrument, module, function in COMPARED:
-        row = {"source": source, "instrument": instrument, "bid": None, "ask": None, "value": None,
-               "status": "ERROR", "detail": None, "payload": None}
-        try:
-            result = getattr(importlib.import_module(module), function)()
-            row.update(value=float(result["price"]), bid=result.get("sell"), ask=result.get("buy"),
-                       status="OK")
-        except Exception as e:  # noqa: BLE001
-            row["detail"] = f"{type(e).__name__}: {e}"[:300]
-        rows.append(row)
-    return rows
 
 
 class RowRefused(RuntimeError):
@@ -309,7 +282,7 @@ def main(argv):
     except Exception as e:  # noqa: BLE001 -- the research read must never cost Daric's reading
         live = []
         log(f"tsetmc live failed: {type(e).__name__}")
-    readings = [dict(row, node=node, observed_at=now) for row in [read_daric()] + read_compared() + flows + live]
+    readings = [dict(row, node=node, observed_at=now) for row in [read_daric()] + flows + live]
     summary = "; ".join(describe(row) for row in readings if row["source"] not in ("tsetmc", "tsetmc_live"))
     if flows:
         summary += f"; tsetmc {len(flows)} fund-days ({', '.join(sorted({r['detail'] for r in flows}))})"

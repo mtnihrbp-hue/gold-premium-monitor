@@ -1803,7 +1803,7 @@ class KPICoherence(unittest.TestCase):
                 return self.body
         tmp = tempfile.mkdtemp()
         saved = {k: getattr(node, k) for k in ("SPOOL", "REJECTED", "LOG", "STATE_FILE", "LOCK", "ENV_FILE", "settings",
-                                                 "read_daric", "read_compared", "read_tsetmc", "read_tsetmc_live")}
+                                                 "read_daric", "read_tsetmc", "read_tsetmc_live")}
         real_post = node.requests.post
         try:
             for k, name in (("SPOOL", "spool"), ("REJECTED", "rejected"), ("LOG", "log"), ("STATE_FILE", "state"),
@@ -1814,9 +1814,9 @@ class KPICoherence(unittest.TestCase):
             rows = [{"source": "daric", "instrument": f"R{k}", "bid": None, "ask": None, "value": float(k),
                      "status": "OK", "detail": None, "payload": None} for k in range(4)]
             node.read_daric = lambda: rows[0]
-            node.read_compared = lambda: rows[1:]
+            # the comparison pages went on 2026-10-30 (SP_D_HANDOFF.md 73.9): the other rows come as live reads
             node.read_tsetmc = lambda remember=True, any_minute=False: []
-            node.read_tsetmc_live = lambda any_minute=False: []
+            node.read_tsetmc_live = lambda any_minute=False: rows[1:]
             answers = {"R1": _R(400, {"code": "22P02", "message": "invalid input"})}
             node.requests.post = lambda url, **k: answers.get(_json.loads(k["data"])["params"][2], _R(200, {}))
             with redirect_stdout(io.StringIO()):
