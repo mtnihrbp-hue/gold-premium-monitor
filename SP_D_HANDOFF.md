@@ -65,7 +65,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    78 what the ground and the loop established: every element, every move;
                                                                    79 the forward test's engine, built and run once;
                                                                    80 E-9, the news leads on years they did not come from;
-                                                                   81 the funds' flows, daily: the link changes sign by era
+                                                                   81 the funds' flows, daily: the link changes sign by era;
+                                                                   82 the forward test's daily line on the workstation: ready, not scheduled
        member, the LLM member
 ```
 
@@ -8223,5 +8224,35 @@ share of net assets, cut into fifths. After each fifth: 18K's next 20 and 40 day
   registration, and nothing here supports one.
 
 The cut-points see every day, so this is descriptive. No variant is added to the count: 119.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 82. The forward test's daily line on the workstation: ready, not scheduled (2026-10-30)
+
+**Why now:** every evening not recorded is a day the forward test (79) loses. A day missed when R3 crosses 0.30
+is an entry missed.
+
+**What was done:**
+- **`research/engine_today.py`:** before 21:00 Tehran, a candle dated today is left out. A run in the trading
+  day would otherwise score an unclosed price. The rule is unchanged.
+- **`research/run_engine_today.cmd`:** the TSE project's pattern (its own scheduled tasks on this laptop). It
+  runs the engine with `-I -X utf8` and appends to `research/data/engine_today.log`.
+- **Run once at 16:15:**
+  - 26 seconds with the refresh;
+  - "already recorded for 2026-10-29": the guard against a second line holds.
+
+**What was not done:** registering it in Task Scheduler was refused by the session's permission guard. It
+would be a persistent task, so it is the owner's to start.
+
+**The owner's step, in PowerShell, if the workstation is chosen (79 (a)):**
+
+```
+Register-ScheduledTask -TaskName "Gold engine shadow ledger" -Action (New-ScheduledTaskAction -Execute "$env:USERPROFILE\Documents\Projects\gold-premium-monitor\research\run_engine_today.cmd") -Trigger (New-ScheduledTaskTrigger -Daily -At "21:45") -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 1))
+```
+
+- **StartWhenAvailable:** a laptop that was off runs it on waking. A day is still lost when the laptop is off
+  past the next close: the ledger's dates show each gap.
+- **Production as a shadow step (79 (a), second way) has no gaps.** It is code in production, for the owner's
+  review.
 
 **NEON MIGRATION REQUIRED = NO.**

@@ -13,7 +13,9 @@ One run:
 4. appends one line to research/data/shadow_ledger.jsonl: the date, the inputs' last dates, the forecasts, the
    rule's state. The line is written before its outcome exists.
 
-It never sends anything and never touches production.
+It never sends anything and never touches production. Before 21:00 Tehran a candle dated today is not closed,
+so it is left out and the last closed day is scored. On the workstation, Task Scheduler runs it each evening
+through research/run_engine_today.cmd (SP_D_HANDOFF.md section 82).
 
     python research/engine_today.py [--no-refresh]
 """
@@ -25,7 +27,7 @@ import os
 import subprocess
 import sys
 from contextlib import redirect_stdout
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import requests
@@ -34,6 +36,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 LEDGER = os.path.join(HERE, "data", "shadow_ledger.jsonl")
 THRESHOLD, MIN_STAY, HARD_K = 0.30, 5, 3.0
+CLOSED_BY = 21                                   # Tehran hour after which today's candle counts as closed
 FROZEN = "E-8 candidate, frozen 2026-10-30 (SP_D_HANDOFF.md 77.7-77.8, 79)"
 
 
@@ -105,6 +108,9 @@ def main():
         refresh()
     with open(os.path.join(HERE, "data", "panel.json"), encoding="utf-8") as f:
         rows = json.load(f)["rows"]
+    tehran = datetime.now(timezone.utc) + timedelta(hours=3, minutes=30)
+    if rows[-1]["date"] == tehran.date().isoformat() and tehran.hour < CLOSED_BY:
+        rows = rows[:-1]                         # today's candle is not closed yet: score the last closed day
     calm_path = os.path.join(HERE, "data", "calm_forecasts_b.json")
     calm_series = json.load(open(calm_path, encoding="utf-8")) if os.path.exists(calm_path) else {}
     calm, used = calm_today(rows)
