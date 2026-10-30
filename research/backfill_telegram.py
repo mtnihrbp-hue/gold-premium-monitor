@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from collector.news.telegram_channels import BASE, HEADERS, TIMEOUT, parse_page  # noqa: E402
 
 PAUSE = 0.4            # seconds between pages, to stay a polite reader
-MAX_SECONDS = 50 * 60  # a job's budget; what was read is written either way
+MAX_SECONDS = int(os.environ.get("BACKFILL_SECONDS", 50 * 60))  # a run's budget; what was read is written either way
 
 
 def page(channel, before):
