@@ -8256,3 +8256,12 @@ Register-ScheduledTask -TaskName "Gold engine shadow ledger" -Action (New-Schedu
   review.
 
 **NEON MIGRATION REQUIRED = NO.**
+
+### 82.1 Liquidity (M2): one more source tried
+
+- **tgju's atlas** (`tgju.org/atlas/ir`, one of the owner's links) answers direct.
+- **It shows each Iranian indicator's latest and previous value only:** inflation, GDP, the interest rate and a
+  "money" line (1,868,414 in Jun/26, against 1,375,100). There is no history behind them.
+- **So M2 stays untested (78.1).** The way left is the owner's: the central bank's monthly table, saved from
+  cbi.ir in a browser (its bot shield refuses scripts).
+
