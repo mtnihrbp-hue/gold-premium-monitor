@@ -7463,3 +7463,32 @@ income's. The owner's own example is the dollar against liquidity.
 more tuning of parts 4 and 5.
 
 **NEON MIGRATION REQUIRED = NO.**
+
+### 74.10 Study E-4, part 3: the drift's slow anchors (registered before its run)
+
+**The question:** does a slow anchor known at t say when fixed income will beat 18K over the next 60 or 120
+trading days?
+
+**The target:** y = 1 when fixed income's log return from t+1 to t+1+H exceeds 18K's; H = 60 and 120.
+
+**The anchors**, known at t:
+1. **The dollar's distance from its own trend:** ln(dollar) minus a straight line fitted to ln(dollar) over the
+   750 trading days to t. The stand-in for the dollar against liquidity, which grows close to a steady
+   exponential.
+2. 18K's distance from its own 750-day log trend.
+3. The dollar's last 250 days against its 750-day pace: acceleration.
+4. The gap to the world price (72.1), against its own 750-day mean.
+
+**The models:**
+- the base rate;
+- a logistic regression on each anchor alone;
+- a logistic regression on the four;
+- 10 models at 2 horizons, counted.
+
+**The method:** walk-forward, refitted monthly, purged by H; trained from 2015-03 (fixed income's start); test
+days from 2018; the periods of 72.2.
+
+**The test:** a Brier skill of +5% or more against the base rate in 2 of 3 periods, at the same H.
+
+**The caution:** at H = 120 there are about 4, 8 and 5 independent windows in the periods. A pass there is weak
+evidence, said so.
