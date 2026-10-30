@@ -7076,3 +7076,52 @@ Money flow and news are left out: the flows' clean record starts in 2021-10, and
 
 **The test (KPI Eb-4):** a model passes with a skill of +5% or more in at least 2 of the 3 periods, at the same
 H. A pass is a candidate for the policy test (Eb-5), not a result for a message.
+
+### 72.3 The results (`research/rd_forecast_1.py`, run after 72.2)
+
+**How often 18K beat fixed income** on the test days: 65% / 54% / 68% at 20 days, 66% / 57% / 70% at 60 days
+(P1 / P2 / P3). The independent windows are few: 25 / 56 / 38 at 20 days, 8 / 18 / 12 at 60.
+
+**The Brier skill against the base rate:**
+
+| Model | 20 days: P1 / P2 / P3 | 60 days: P1 / P2 / P3 |
+|---|---|---|
+| M1, all features | -7.4% / -20.1% / -26.3% | -67.4% / -51.2% / -67.0% |
+| 18K's 20-day return | +6.1% / +1.9% / +2.6% | -29.5% / +1.1% / -0.1% |
+| 18K against its 50D MA | +2.6% / +2.1% / +0.4% | -36.6% / +1.3% / -1.5% |
+| the dollar's 20-day return | **+16.4%** / -0.3% / +2.2% | -1.9% / -0.4% / +0.6% |
+| Tether's 5-day return | - / -9.0% / +0.9% | - / -18.6% / -0.8% |
+| world gold's 20-day return | +2.7% / -4.4% / -0.5% | +1.6% / -6.3% / -1.0% |
+| the gap to the world price | -0.9% / +1.3% / -0.1% | -9.2% / +1.9% / -2.6% |
+| the coin's premium | **+14.8%** / -11.0% / -1.0% | -5.1% / -11.7% / -1.4% |
+| the coin premium's change | +0.9% / +2.3% / -4.9% | +8.9% / -2.3% / -6.4% |
+| the stock index's 20-day return | -5.9% / +5.9% / +1.2% | -8.3% / +0.2% / +2.2% |
+| fixed income's rate | -9.9% / -2.3% / +3.1% | -44.6% / -1.4% / +2.5% |
+| 18K's efficiency ratio | -3.5% / +6.2% / -1.4% | -7.7% / +4.5% / -7.3% |
+
+**By the test fixed in advance, none passes** (+5% in 2 of 3 periods).
+
+**What it says:**
+- **No single feature holds across periods.** The dollar's momentum (+16.4%) and the coin's premium (+14.8%)
+  helped in 2018-2019 alone, the years of the dollar's shock. The coin's premium then cost -11.0% in 2020-2023.
+  With 26 models scored, a +15% in one period is what chance alone produces now and then.
+- **All features together do worst** (-7% to -67%). The fit follows the training years and fails on the next
+  ones. That is the over-fitting the audit warned of (B5).
+- **The base rate is the robust forecast:** 18K beat fixed income on 54% to 70% of windows in every period. With
+  71.2, the data's answer stays 100% gold.
+
+### 72.4 What follows in SP-Eb.RD
+
+The record now argues against forecasting direction from daily price features. The next studies change the
+question, not the features:
+1. **When fixed income wins:** describe the windows where 18K lost to fixed income (the 30% to 46% of 72.3),
+   their length and size, and what was known when each began. That is an event study, not a regression.
+2. **Events:** the news leads of 50.4 (sanctions eased, oil exports down) as triggers. This needs the news
+   revamp's daily table first (Ea-10).
+3. **Risk, not direction:** a step down after an extreme (say, the coin's premium in its top decile, or a
+   20-day move of +15%). It is judged by the drop avoided against the wealth given up, on the harness.
+4. **The room on the harness** (Eb-3), so its claim is measured on the same ground.
+
+Each is registered before its run.
+
+**NEON MIGRATION REQUIRED = NO.**
