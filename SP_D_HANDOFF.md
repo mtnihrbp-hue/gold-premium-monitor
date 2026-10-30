@@ -7747,3 +7747,70 @@ to G4 of 75.6, then the loop. Research only: nothing reaches main or production 
   turnover (daily) cover it.
 - All are in the research table: `net_i`, `power_i`, `turnover`, `units_flow`, `flow_funds`. A day's flow is
   never carried to another day. `tests/test_panel.py` passes.
+
+### 76.3 G3, macro
+
+**Reached:**
+- **Iran's CPI, monthly, April 2004 to August 2026, 269 months:** IMF's data service
+  (`api.imf.org ... IMF.STA,CPI/IRN.CPI._T.IX.M`), through Psiphon.
+- **The US CPI, monthly, 1955 to 2026-09:** the same service.
+- Both are in `research/data/macro.json`.
+
+**This gives the dollar's real level:** the free dollar x US CPI / Iran CPI. CPI is taken with a full month's
+lag for publication. It is the long-run anchor of the owner's example, on inflation rather than liquidity.
+
+**Not reached:**
+- **Monthly M2 and the money base.**
+  - The central bank's pages build their menus by script behind a bot shield (TSPD), so they need a real browser.
+  - The IMF holds no monetary series for Iran: the monetary datasets return none.
+  - The World Bank's broad money stops in 2016.
+  - iranstatis sells its datasets, which the zero-spending rule excludes.
+  - **For the owner:** a monthly liquidity table saved from cbi.ir in a browser would close this.
+- **amar.org.ir** fails on its certificate from this line.
+
+### 76.4 G4, the windows read (`research/rd_windows_read.py`, `research/data/windows_read.json`)
+
+**The method:** on each window's first day, each driver ranked against all days from 2015-03 (50 =
+ordinary). The counts are of starts in the top or bottom fifth.
+
+| Driver | Before declines (top / bottom) | Sideways starts | Before rises |
+|---|---|---|---|
+| 18K's 20-day return | 95 (19 / 0) | 55 | 10 (5 / 19) |
+| 18K's 60-day return | 91 (18 / 2) | 38 | 62 |
+| the efficiency ratio | 90 (17 / 3) | 38 | 57 |
+| the dollar's 20-day return | 89 (17 / 2) | 50 | 26 (3 / 13) |
+| **the dollar's acceleration** | 77 (11 / 0) | 47 | 66 |
+| **the real dollar against its 5 years** | 77 (11 / 0) | 41 | 57 |
+| Tether's 5 days | 94 (11 / 0, of 16) | 79 (11 / 4) | 11 (1 / 12) |
+| world gold's 20 days | 57 | 44 | 39 |
+| GVZ | 57 | 54 | 50 |
+| the coin premium | 53 | 46 | 59 |
+| the coin premium's 20-day change | 34 (7 / 11) | 48 | 62 |
+| the gap to the world price | 71 (12 / 6) | 52 | 31 (3 / 11) |
+| individuals' net buying, 5 days | 51 | 42 | 25 (0 / 6) |
+| buyers' power, 5 days | 59 | 62 | 33 |
+| turnover, 5 days | 74 (10 / 4) | 52 | 35 |
+| **fipiran's units, the last step** | 49 | 57 | **19 (0 / 12)** |
+| the calm forecast (high = active) | 82 (14 / 0) | 41 | 73 |
+
+**The patterns, to be tested, not yet results:**
+- **A top follows a sharp run with the dollar and Tether surging** (ranks 89 to 95). Part of this is mechanical:
+  a top ends a rise. The question is a hazard: given the state, how likely is a fall soon?
+- **The slow anchors never sat low before a decline.** The real dollar and the dollar's acceleration were in the
+  bottom fifth at 0 of 26 tops. A cheap dollar did not precede a fall.
+- **At tops 18K sat above the world price more often (71), and the coin's premium was falling (34).**
+- **Investors redeemed fund units at the lows** (fipiran units 19, 12 of 22 in the bottom fifth). Selling at
+  the bottom is the classic contrarian signal.
+- **Sideways starts look ordinary on almost every driver.** That is why a sideways stretch is hard to call
+  ahead. Tether's rise (79) is the exception.
+- **World gold and GVZ say nothing at any start.**
+
+**Today (10-29), the ranks:**
+- 18K's 20 days 20, 60 days 84, efficiency 85;
+- the dollar's 20 days 42, acceleration 78, real level 77;
+- Tether 66; world gold 23; GVZ 87;
+- the coin premium 35; the gap 28; turnover 19;
+- **fipiran units 96:** money flowing in.
+- The calm forecast 87, an active market ahead.
+
+**NEON MIGRATION REQUIRED = NO.**
