@@ -60,7 +60,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    73 the engine: calm, the move to fixed income, the way back (v1.40safe);
                                                                    74 the engine locked; phase a registered: calm (E-1), the move and the way back (E-2);
                                                                    75 back to the ground: the key elements, the windows, the data (nothing locked);
-                                                                   76 the ground worked: G1 completeness, G2 the money flow, G3 macro, G4 the windows read
+                                                                   76 the ground worked: G1 completeness, G2 the money flow, G3 macro, G4 the windows read;
+                                                                   77 the loop: hypotheses from the ground, registered and tested
        member, the LLM member
 ```
 
@@ -7814,3 +7815,53 @@ ordinary). The counts are of starts in the top or bottom fifth.
 - The calm forecast 87, an active market ahead.
 
 **NEON MIGRATION REQUIRED = NO.**
+
+## 77. The loop: hypotheses from the ground, registered and tested (2026-10-30)
+
+### 77.1 E-5, the risk of a fall (registered before its run)
+
+**The question G4 leaves:** given the state at a day's close, how likely is 18K to fall 10% or more soon? The
+owner's declines (75.4; 2026-03 to 06) are this event. Being out for them is the value; calm alone was not
+(74.12).
+
+**The target:** y = 1 when 18K's lowest close in the 40 trading days after t+1 is 10% or more below t+1's close
+(a decision at t, traded at t+1).
+
+**The inputs** (10), chosen from G4 before this run:
+1. 18K's 20-day return;
+2. 18K's 60-day return;
+3. the dollar's 20-day return;
+4. the dollar's acceleration;
+5. the real dollar against its 5 years;
+6. Tether's 5 days;
+7. the gap to the world price;
+8. the coin premium's 20-day change;
+9. turnover, 5 days;
+10. E-1b's calm forecast.
+
+**The models:**
+- **M0:** the base rate;
+- **R10:** a logistic regression on all 10, ridge C = 0.3;
+- **R3:** a logistic regression on three alone: 18K's 20-day return, the real dollar, the calm forecast.
+- A model missing an input on a day uses its fit without it (G1).
+
+**The method:** walk-forward, refitted monthly, purged by 41 days; trained from 2015-03; tested from 2018; the
+periods of 72.2.
+
+**The score:** the Brier skill against M0, and the AUC, by period.
+
+**The test:** a skill of +5% or more in 2 of 3 periods. The count of what was tried rises to 110 (108 + R10 + R3).
+
+### 77.2 E-6, the move on the risk (registered before its run, run whatever E-5 shows)
+
+**The rule:**
+- Half into fixed income when the chosen model's probability of a fall is at or above a threshold. The
+  threshold is chosen each 1 January on the years before, from {0.30, 0.40, 0.50}, by wealth against holding
+  gold. The year is held in gold if none beat holding.
+- **Back to gold** when the probability falls below half the threshold, or on the hard stop of 74.7 (3 x the
+  forecast daily volatility x the square root of the days in), after a minimum stay of 10 days. The hard stop
+  holds at any time.
+
+**The costs:** WallGold's 0.50% a side, fixed income 0.05%, 2 days idle each way.
+
+**The test (Eb-5):** more wealth than holding gold in 2 of 3 periods with no deeper worst drop.
