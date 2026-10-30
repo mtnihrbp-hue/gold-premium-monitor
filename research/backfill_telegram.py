@@ -83,7 +83,8 @@ def read(channel, since, out):
             break
         before = oldest
         time.sleep(PAUSE)
-    kept = sorted((p for p in posts.values() if p["at"] >= since), key=lambda p: p["id"])
+    # every post read: the page that crosses SINCE keeps its older posts, the mark that the span is complete
+    kept = sorted(posts.values(), key=lambda p: p["id"])
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with gzip.open(out + ".tmp", "wt", encoding="utf-8") as f:
         for p in kept:
