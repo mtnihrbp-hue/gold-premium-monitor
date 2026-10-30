@@ -62,7 +62,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    75 back to the ground: the key elements, the windows, the data (nothing locked);
                                                                    76 the ground worked: G1 completeness, G2 the money flow, G3 macro, G4 the windows read;
                                                                    77 the loop: hypotheses from the ground, registered and tested;
-                                                                   78 what the ground and the loop established: every element, every move
+                                                                   78 what the ground and the loop established: every element, every move;
+                                                                   79 the forward test's engine, built and run once
        member, the LLM member
 ```
 
@@ -8096,5 +8097,40 @@ says otherwise.
    - news labelled further back, to test the leads of 77.5 over more than one year.
 3. **Messages: none from this yet.** The evidence supports no advice beyond 100% gold. The candidate's state can
    be shown to the owner as research only.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 79. The forward test's engine, built and run once (2026-10-30)
+
+**`research/engine_today.py`, one run:**
+1. **Refresh:** tgju direct; CBOE's GVZ and VIX and the IMF's CPI through the system proxy, Psiphon whatever its
+   port. Then the research table is rebuilt.
+2. **Fit:** E-1b's calm model and E-5's R3 and R10, on every day whose outcome is complete.
+3. **Score today** with **E-8's rule, frozen:**
+   - in: half into fixed income when R3 >= 0.30;
+   - back: the hard stop at any time, or after 5 days R3 below 0.30 with 18K's close above the entry close.
+4. **Append one line** to `research/data/shadow_ledger.jsonl`: the inputs' last dates, the forecasts, the
+   rule's state, written before the outcome exists.
+- It never sends a message and never touches production.
+
+**The first line, on the data held:**
+- **2026-10-29: the calm model's daily volatility 1.92%; R3 22%; R10 67%. The rule is in gold.**
+
+**Its fragility:**
+- CBOE answered one Psiphon exit and refused the next (403, 15:40). A failed refresh keeps the last copy, and
+  the calm model falls back without GVZ when its copy is more than 5 days old.
+- GitHub's runner reaches CBOE and the IMF as production's side. Production is the steadier home.
+
+**What the forward test needs, for the owner:**
+- **(a) Where it runs each day:**
+  - the workstation, as a scheduled task like the D: backup (direct to tgju; Psiphon for CBOE and the IMF);
+  - or production, wired as a shadow step of the 21:00 run, with no message.
+  - The second is code in production and needs the owner's review.
+- **(b) The evaluation date fixed now:** 2027-03-20 (Ed-1).
+- **(c) What counts:**
+  - the frozen rule's wealth against holding gold, at WallGold's fee;
+  - its worst drop;
+  - its entries.
+  - Nothing in the rule changes before that date. A change opens a new version, with its own date.
 
 **NEON MIGRATION REQUIRED = NO.**
