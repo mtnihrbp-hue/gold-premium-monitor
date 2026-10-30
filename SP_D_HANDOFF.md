@@ -7888,3 +7888,41 @@ windows.
 - **E-6 decides with a threshold chosen on earlier years, so it needs the ranking, not the calibration.** It is
   the test that matters for the decision.
 - **On 10-29:** R10 gives a 68% chance of a 10% fall within 40 days, R3 25%, against a base of 12%. Unverified.
+
+### 77.4 E-6's results (`research/rd_fall_policy.py`)
+
+**At WallGold's 0.50% a side** (the test):
+
+| Model | P1 | P2 | P3 | Test |
+|---|---|---|---|---|
+| R10 | gold throughout (no threshold paid on the years before) | gold | gold | 0 of 3 |
+| R3 | gold | gold (threshold 0.30 chosen from 2021; never reached in 2021-2023) | **+3.6% over holding; worst drop -24.7% against -24.9%; 4 entries; half out 12% of days** | **1 of 3** |
+
+- **At Daric's cost:** R3's P3 +4.9%; R10 -9.6% in P2.
+- **At Ayyareh's 2%:** R3's P3 -1.8%.
+- On the years before, R3 at 0.30 was 9.6% to 19.1% ahead of holding.
+
+**By the test, 0 and 1 of 3. Neither passes.**
+
+**R3's four windows in P3:**
+
+| In | Out | Days | 18K | Its lowest | Fixed income |
+|---|---|---|---|---|---|
+| 2025-04-04 | 2025-04-16 | 11 | -10.9% | -13.8% | +1.3% |
+| **2026-02-24** | 2026-04-11 | 37 | **-11.2%** | -16.2% | +4.2% |
+| 2026-04-26 | 2026-05-09 | 11 | +12.5% | +0.0% | +0.9% |
+| 2026-09-06 | 2026-10-13 (data end) | 32 | +10.2% | -1.2% | +2.4% |
+
+**What it says:**
+- **R3 was out for the owner's decline:** in on 2026-02-24, the day before 18K's top of 20.44M, and through the
+  March crash. It was out for April 2025's too.
+- **It also stood out of two rallies** (April-May and September-October 2026). Its way back is slow: the
+  probability must halve, or the hard stop fire.
+- **The two fixes the record asks for:** a faster way back, and a check on the first two before a third
+  variant.
+- **The caution:**
+  - G4 chose R3's inputs reading every window, P3's included.
+  - P3 is not untouched for R3.
+  - 113 variants have now been tried on this record.
+- **So R3 at 0.30 is a candidate for the forward test (Ed-1), not a rule.** Its forward record from November,
+  frozen, would be the first evidence no study here has seen.
