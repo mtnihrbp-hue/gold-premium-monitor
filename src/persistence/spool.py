@@ -108,7 +108,7 @@ def _keep(path, entries):
         print(f"SPOOL: not rewritten: {e}")
 
 
-def flush(session, writers, entries, clock=time.monotonic):
+def flush(session, writers, entries, clock=time.monotonic, keep=()):
     """Write `entries` (held()) through `writers` {kind: fn(session, payload)}, oldest first, for
     at most FLUSH_SECONDS, committing each reading and day's input alone and observations in
     batches. A rejected batch is retried one write at a time and a rejected write dropped; an
@@ -158,5 +158,5 @@ def flush(session, writers, entries, clock=time.monotonic):
                 break
     finally:
         if path is not None:
-            _keep(path, entries[k:])
+            _keep(path, entries[k:] + list(keep))      # `keep`: held entries not to be written now
     return written, dropped, len(entries) - k

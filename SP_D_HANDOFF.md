@@ -56,7 +56,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    69 SP-E: priorities, path, KPIs (proposed);
                                                                    70 the outage's writes held for review; the path agreed, collection first (v1.39safe);
                                                                    71 the spool reviewed; the share in gold; the KPIs made SMART;
-                                                                   72 SP-Eb.RD opens: the research table; the first forecast study
+                                                                   72 SP-Eb.RD opens: the research table; the first forecast study;
+                                                                   73 the engine: calm, the move to fixed income, the way back
        member, the LLM member
 ```
 
@@ -7123,5 +7124,126 @@ question, not the features:
 4. **The room on the harness** (Eb-3), so its claim is measured on the same ground.
 
 Each is registered before its run.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 73. The engine the owner asked for: calm, the move to fixed income, and the way back (2026-10-30)
+
+### 73.1 The owner
+
+- **"the case is that i see we are not on the same page yet."** 18K has been sideways for about 20 days. An
+  app that saw it could have moved about 50% to fixed income, earned more, and at the first signals sold the
+  fixed income and gone back to gold: "thats the real value".
+- **"so what do we want for that? a robust model, that predicts, based on data and patterns."** The data: the
+  dollar and Tether, world gold's chart and forecast, the news, technical analysis, Iran's macro-economy. For
+  example, the dollar near 270k toman against the total liquidity in dollars has a historical trend: it can say
+  whether the dollar stays calm for a while.
+- **The policy:** "if the prediction is to stay calm, we cautiously enter the fixed income and once parameters
+  change, or the system sniffs a change, the user gets back into gold."
+- **"we have data, but not classified. we have thoughts not models. you havent done your job properly ... the
+  R&D has a big flaw. so the system, as an expert judgment system should encompass a robust mathematically
+  proven prediction engine as well."**
+- On 72's questions: the write-back set "ok"; the KPI dates "to be reviewed later, separately"; the phone's
+  comparison pages and the fees: not known to the owner.
+
+### 73.2 The flaw, named
+
+- **72.2 asked the wrong question:** whether 18K beats fixed income over the next 20 or 60 days, from 11
+  price features in a linear model. That is a forecast of direction.
+- **The owner's value is a forecast of calm:** will the next weeks be a range, and will the range's end be seen
+  early? Calm is a forecast of volatility, and volatility clusters. That is one of the steadiest regularities
+  of markets, with a mathematical literature behind it: Engle's ARCH (1982), Bollerslev's GARCH (1986), Corsi's
+  HAR-RV (2009), Hamilton's regime switching (1989).
+- **Direction failed (72.3), and calm was not tested.**
+
+### 73.3 A first look (`research/rd_calm_look.py`; exploratory, not a registered test)
+
+On the research table, 2015-08 to 2026-09, 2,889 days:
+- **18K's volatility over the last 20 days against the next 20** (from t+2): rank correlation **+0.68**.
+  Against the largest move of the next 20 days: **+0.53**.
+- **The dollar's volatility against 18K's next 20 days: +0.64.**
+- **By today's volatility ranked against the 500 days before:**
+
+| Tercile | Days | 18K lost to fixed income | Typical excess of 18K | Largest move, typical |
+|---|---|---|---|---|
+| calm third | 950 | 47% | +0.3% | 4.9% |
+| middle | 913 | 37% | +2.5% | 8.4% |
+| active third | 1,026 | 43% | +1.4% | 9.1% |
+
+- **By period, 18K lost to fixed income** on 56% of calm days (against 46% of the others) in 2015-2019, 46%
+  (42%) in 2020-2023, and 25% (33%) in 2024-2026.
+- **So calm is forecastable, and calm alone is not the edge.** In 2024-2026, calm stretches kept drifting up.
+  The engine needs calm plus the slow forces that set the drift, plus a fast way back.
+
+### 73.4 The engine
+
+| Part | Job | Method | Inputs |
+|---|---|---|---|
+| 1. Where we are | the regime now: a range, a trend, turbulence | a Markov regime-switching model on 18K's returns (Hamilton); the box and the efficiency ratio already built (52, 72.2) | 18K |
+| 2. Calm ahead | the chance the next 20-40 days stay inside a band | a volatility model of the HAR kind, with outside inputs, giving a calibrated probability | 18K's, the dollar's and Tether's realised volatility; world gold's implied volatility (CBOE GVZ); news intensity; the funds' flow surges |
+| 3. The drift | whether calm stretches drift up, as in 2024-2026 | slow anchors: the dollar against liquidity (the owner's example), the inflation gap, world gold's trend | M2 and the money base (CBI), inflation (SCI), the dollar, world gold |
+| 4. The way back | the first signs a calm stretch ends | online change-point detection (CUSUM; Adams and MacKay's Bayesian method), scored by lead time and false alarms on past breaks | a close out of the box (the pulse, 57), Tether's night and weekend moves (42.4), the dollar, world gold, the funds' flows, news escalations |
+| 5. The policy | 100% gold by default; 50% to fixed income when part 2 says calm, part 3 does not say up, and the cost allows; back at once when part 4 fires | decision under costs, a fractional growth-optimal share (71.2); judged on the harness of 66 | the four parts, the platform's real fees, fixed income's T+2 |
+
+**"Mathematically proven" means two things:**
+- The methods above have proven properties: the literature cited.
+- Whether they make money here is proven only by measurement, out of sample: the KPIs Eb-4 and Eb-5.
+
+### 73.5 The economics, before any model
+
+- **What calm can earn:** in a calm 20-day stretch, fixed income earns about 2.4% (30% a year). Half the savings
+  in it gains about 1.2% when 18K stands still.
+- **The round trip, on half the savings:**
+  - at Daric's cost (0.30% both ways), about 0.15%, plus the days out of the market;
+  - at Ayyareh's fees of 10-29 (2% each side), about 2%: more than the gain.
+- **So the platform's real fee decides whether the move can pay at all.** That makes the fee table a
+  precondition. The owner does not know the fees, so I will collect them from the platforms' own pages and
+  apps' public terms (Ea-6).
+
+### 73.6 Data to collect and classify (SP-Ea for the engine)
+
+| Data | Status | Source |
+|---|---|---|
+| 18K, the dollar, Tether, world gold, the coins, the index, fixed income | held, in the research table (72.1) | tgju, the seeds |
+| world gold's implied volatility (GVZ) | to fetch, daily from 2008 | FRED (GVZCLS), free |
+| liquidity (M2), the money base | to find, monthly | CBI |
+| inflation | to find, monthly | SCI, CBI |
+| the funds' flows | held, clean from 2021-10 | TSETMC (the phone), the seed |
+| news, classified | 179 labelled days; a year of Telegram channel posts and GDELT held locally, unlabelled | to label by a fixed schema (Ea-10) |
+| the regimes, classified | none | labelled from the record: range, trend, turbulence |
+
+### 73.7 The order of SP-Eb.RD
+
+1. Fetch and join GVZ, M2, the money base and inflation. Label the regimes and the news.
+2. Part 2, calm: registered, walk-forward, calibrated. The test: a Brier skill of at least +5% on "the next 20
+   days stay inside the band", in 2 of 3 periods.
+3. Part 4, the way back: registered. Lead time and false alarms on the record's breaks.
+4. Part 3, the drift: registered.
+5. The policy on the harness: registered, at three fee levels, against holding gold (Eb-5).
+
+Each step's verdict is recorded, and what fails is said so.
+
+### 73.8 The write-back, as confirmed
+
+The owner: "1-ok".
+- **`config.spool.write_back` = ["reading", "observation", "candles"]:** the run of 11-01 06:00 writes back the
+  readings, price observations and daily inputs, through the stale-quote re-check. The news stays held.
+  - `main._write_back_kinds` reads the list (true for every kind, false for none);
+  - `spool.flush(keep=...)` keeps the entries not written.
+- **SERVICE's notice:** "Kept meanwhile: N readings, now written." and "N news items kept for a check, not
+  written."
+- **The news** is exported to the workstation after 11-01 and cleared from the spool once safe.
+- **The outage's first two days** (10-13 21:00 to 10-15 19:00 Tehran) are in no spool: the spool went live with
+  SP-De's second batch on 10-15. Each run printed its platforms' prices to its log, and GitHub keeps logs 90
+  days, so those 30 or so readings can be rebuilt from the logs. To be proposed with the write-back's check.
+- **Tests:** `kpi_coherence.test_66` covers the confirmed list, a partial write-back that opens no database when
+  only kept kinds are held, the notice's words, and `flush(keep=)`. The KPI suite 30/30 (coherence 61), the
+  unit tests 20/20, compileall.
+
+### 73.9 Housekeeping I take on, without the owner
+
+- **The phone's comparison pages** (61.3): the phone reads Taline, HoorGold and MioGold every 15 minutes for a
+  study that ended. I remove it from `node.py`; the owner runs `git pull` on the phone whenever convenient.
+- **The fee table:** collected from the platforms by me (73.5).
 
 **NEON MIGRATION REQUIRED = NO.**

@@ -2087,7 +2087,9 @@ class KPICoherence(unittest.TestCase):
         from persistence import spool
         with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "config.json"),
                   encoding="utf-8") as f:
-            self.assertIs(json.load(f)["spool"]["write_back"], False, "held until the owner confirms")
+            # confirmed by the owner on 2026-10-30: readings, observations and daily inputs; news held (73)
+            self.assertEqual(json.load(f)["spool"]["write_back"], ["reading", "observation", "candles"])
+        self.assertEqual(main._write_back_kinds(), {"reading", "observation", "candles"})
         folder = tempfile.mkdtemp()
         os.environ["RECORD_SPOOL_FILE"] = os.path.join(folder, "spool.jsonl")
         self.addCleanup(os.environ.pop, "RECORD_SPOOL_FILE", None)
@@ -2110,6 +2112,24 @@ class KPICoherence(unittest.TestCase):
                              held_for_review=True)
         self.assertIn("held for a check before they are written", text)
         self.assertNotIn("still being written", text)
+        # only some kinds: news alone held, the database not opened, and the notice says what was kept
+        asked.clear()
+        try:
+            main.get_session = lambda: asked.append(1)
+            with redirect_stdout(io.StringIO()) as out:
+                main._flush_spool({"spool": {"write_back": ["reading", "observation", "candles"]}})
+        finally:
+            main.get_session = real
+        self.assertEqual((asked, len(spool.held())), ([], 1), "nothing of the kinds written back is held")
+        self.assertIn("held writes of other kinds kept", out.getvalue())
+        text = build_message("database", "back", record, datetime(2026, 11, 1, 3, 30),
+                             kept={"reading": 300, "news": 400}, left={}, held_kinds={"news"})
+        self.assertIn("Kept meanwhile: 300 readings, now written.", text)
+        self.assertIn("400 news items kept for a check, not written.", text)
+        # a flush keeps the entries it is told to keep, after the ones it could not write
+        held = spool.held()
+        written = spool.flush(None, {}, [], keep=held)
+        self.assertEqual((written, spool.held()), ((0, 0, 0), held))
 
 if __name__ == "__main__":
     print("=" * 55)

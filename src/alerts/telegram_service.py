@@ -38,10 +38,12 @@ def _count(n, one, many):
     return f"{n:,} {one if n == 1 else many}"
 
 
-def build_message(name, change, record, now, kept=None, left=None, mirror_built=False, held_for_review=False):
+def build_message(name, change, record, now, kept=None, left=None, mirror_built=False, held_for_review=False,
+                  held_kinds=()):
     """The push for one service's change. `kept` and `left` count the spool's held writes by kind
     ({"reading": n, "news": n}): kept while the database was out of reach, and still to be written.
-    `held_for_review`: they are not written back by themselves (config spool.write_back, SP-D section 70)."""
+    `held_for_review`: none is written back by itself; `held_kinds`: these kinds are not (config
+    spool.write_back, SP-D sections 70 and 73)."""
     local = to_tehran(now)
     lines = [f"{TITLE} · {persian_day(local.date())}, {local:%H:%M}"]
     since = datetime.fromisoformat(record["since"]) if record.get("since") else now
@@ -66,6 +68,12 @@ def build_message(name, change, record, now, kept=None, left=None, mirror_built=
             waiting = sum(left.values())
             if held_for_review:
                 lines.append(f"Kept meanwhile: {what}, held for a check before they are written.")
+            elif "news" in held_kinds and news:
+                if readings:
+                    written = left.get("reading", 0)
+                    lines.append(f"Kept meanwhile: {_count(readings, 'reading', 'readings')}, "
+                                 + ("now written." if not written else f"{written} still being written."))
+                lines.append(f"{_count(news, 'news item', 'news items').capitalize()} kept for a check, not written.")
             else:
                 lines.append(f"Kept meanwhile, now written: {what}." if not waiting
                              else f"Kept meanwhile: {what}; {_count(waiting, 'more is', 'more are')} still being written.")

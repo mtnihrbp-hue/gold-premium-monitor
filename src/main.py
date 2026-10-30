@@ -312,15 +312,29 @@ def _collect_room_inputs(now=None):
         session.close()
 
 
-def _write_back_on(config=None):
-    """Whether the outage's held writes go back to Neon by themselves (config spool.write_back). Off since
-    2026-10-30 (owner: "we should only write back the data we will use and is trustworthy ... clean up, and
-    once confirmed move it to neon"; SP_D_HANDOFF.md section 70): they stay held until the owner confirms the
-    cleaned set. Without the key, on, as before."""
+WRITE_BACK_KINDS = ("reading", "observation", "candles", "news")
+
+
+def _write_back_kinds(config=None):
+    """The kinds of held writes that go back to Neon by themselves (config spool.write_back): true for every
+    kind, false for none, or a list of kinds. Held for review on 2026-10-30 (owner: "we should only write back
+    the data we will use and is trustworthy ... clean up, and once confirmed move it to neon"; SP_D_HANDOFF.md
+    section 70); the owner confirmed readings, observations and daily inputs, news kept locally (73). Without
+    the key, every kind, as before."""
     try:
-        return bool((config if config is not None else load_config()).get("spool", {}).get("write_back", True))
+        value = (config if config is not None else load_config()).get("spool", {}).get("write_back", True)
     except Exception:  # noqa: BLE001 -- no config, the behaviour before the switch
-        return True
+        value = True
+    if value is True:
+        return set(WRITE_BACK_KINDS)
+    if not value:
+        return set()
+    return {k for k in value if k in WRITE_BACK_KINDS}
+
+
+def _write_back_on(config=None):
+    """Whether any held write goes back to Neon by itself."""
+    return bool(_write_back_kinds(config))
 
 
 def _flush_spool(config=None):
@@ -333,8 +347,15 @@ def _flush_spool(config=None):
     entries = spool.held()
     if not entries:
         return
-    if not _write_back_on(config):
+    kinds = _write_back_kinds(config)
+    if not kinds:
         print(f"SPOOL: {len(entries)} held writes kept for review, not written back (config spool.write_back)")
+        return
+    kept = [e for e in entries if e["kind"] not in kinds]
+    entries = [e for e in entries if e["kind"] in kinds]
+    if kept:
+        print(f"SPOOL: {len(kept)} held writes of other kinds kept, not written back (config spool.write_back)")
+    if not entries:
         return
     session = get_session()
     if session is None:
@@ -344,7 +365,7 @@ def _flush_spool(config=None):
         entries, deferred = _recheck_held(session, entries)
         if deferred:
             print(f"SPOOL re-check: {deferred} held quotes deferred by the stale-quote rules")
-        written, dropped, left = spool.flush(session, spool_writers(session, entries), entries)
+        written, dropped, left = spool.flush(session, spool_writers(session, entries), entries, keep=kept)
         print(f"SPOOL: {written} held writes stored, {dropped} rejected, {left} still held")
     except Exception as e:
         session.rollback()
@@ -1294,7 +1315,8 @@ def _service_watch(state, now, world, world_from_fallback, usd, raw_markets):
             on_db = name == "database"
             send_service(build_message(name, change, rec, now, kept=database.get("kept") if on_db else None,
                                        left=kinds if on_db else None, mirror_built=mirror.built_at() is not None,
-                                       held_for_review=on_db and not _write_back_on()))
+                                       held_for_review=on_db and not _write_back_on(),
+                                       held_kinds=(set(WRITE_BACK_KINDS) - _write_back_kinds()) if on_db else ()))
             print(f"SERVICE: {name} {change}, announced")
             if on_db and change == "back":
                 database.pop("kept", None)
