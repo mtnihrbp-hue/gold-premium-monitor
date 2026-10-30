@@ -58,7 +58,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    71 the spool reviewed; the share in gold; the KPIs made SMART;
                                                                    72 SP-Eb.RD opens: the research table; the first forecast study;
                                                                    73 the engine: calm, the move to fixed income, the way back (v1.40safe);
-                                                                   74 the engine locked; phase a registered: calm (E-1), the move and the way back (E-2)
+                                                                   74 the engine locked; phase a registered: calm (E-1), the move and the way back (E-2);
+                                                                   75 back to the ground: the key elements, the windows, the data (nothing locked)
        member, the LLM member
 ```
 
@@ -7551,5 +7552,116 @@ exist; 60-day fixed income minus 18K, in logs):
 - Tether's lead as the way back.
 
 Each is registered before its run. Every study, kept or failed, adds to the count of what was tried.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 75. Back to the ground: the key elements, the windows, the data (2026-10-30)
+
+### 75.1 The owner
+
+- **"there is a flaw in phase b":** windows longer than 9 days exist, "like the march to early june period,
+  while the gold dropped significantly".
+- **"before jumping to work, we have to fix the ground. identify the key elements, breakdown windows of time,
+  and see the patterns."**
+- **The money flow** from TSETMC, other platforms or GitHub projects "can help us much".
+- **The macro sources:** cbi.ir/section/1378.aspx, amar.org.ir/economic-accounts, tgju.org/atlas/ir,
+  iranstatis.com/economic, economic.mfa.gov.ir (basic indicators).
+- **"lots of work to do still, nothing locked at this stage for this part of the project."** 74.1's lock is
+  withdrawn. The engine's design is open again.
+
+### 75.2 The flaw, and a deeper one
+
+- **The decline:** 18K fell 23.4%, from 20.44M on 2026-02-25 to 15.65M on 06-16. It dropped 17% in six days in
+  mid-March as the dollar fell from 166k to 144k, rose to 19.7M by early May, then fell again.
+  - E-2's rule was mostly in gold through it: it entered only on forecast calm, and a falling market is not calm.
+- **The data hole:**
+  - **On 933 of 2,440 test days (38%) model X had no forecast at all.** The dollar's or Tether's 20-day
+    volatility needs every one of 20 days; one missing day blanks 20.
+  - April 2026 and much of 2022-2023 were blank. Among the windows the engine could not act on were the declines.
+  - Missing values are not always flagged in the code: my own printout showed them as 0.00%.
+- **So E-2 and E-3 judged an implementation with a hole in it, not the owner's idea.** Their verdicts stand
+  for that implementation only.
+
+### 75.3 The key elements
+
+18K is the dollar x world gold x the basis. The share of 18K's variance each carries, 2015-03 to 2026-10:
+
+| Over | The dollar | World gold | The basis |
+|---|---|---|---|
+| 1 day | 61% | 3% | 35% |
+| 5 days | 75% | 10% | 15% |
+| 20 days | 70% | 21% | 8% |
+
+**The dollar is the key element.** A model of when 18K stalls or falls is first a model of when the dollar
+does. Its candidate drivers:
+- Tether, which trades round the clock;
+- the news: talks, sanctions, interventions (50.4);
+- liquidity;
+- oil.
+
+### 75.4 The windows (`research/rd_windows.py`, `research/data/windows.json`)
+
+**The method:**
+- turning points by a zigzag at 8% reversals;
+- sideways stretches of 20 days or more within a 6% band, inside the swings;
+- 2015-03-15 to 2026-10-29.
+
+| Kind | Windows | Typical days | 18K | The dollar | World gold | Coin premium | Fixed income beat 18K |
+|---|---|---|---|---|---|---|---|
+| rise | 29 | 39 | +44.9% | +29.1% | +3.8% | -1.7 pp | 0 of 29 |
+| decline | 28 | 15 | -14.6% | -10.8% | -1.2% | +1.3 pp | 28 of 28 |
+| sideways | 42 | 26 | +1.7% | +1.0% | +0.4% | +0.1 pp | 26 of 42 |
+
+**The patterns:**
+- 77% of days lie in a rise, 23% in a decline, and 49% inside a sideways stretch.
+- **Declines are the dollar's declines.** The dollar fell in nearly every 18K decline, and world gold barely
+  moved. They are short and sharp (15 days typical) except a few:
+  - 2015-04 to 07 (67 days), 2018-10 to 12 (47);
+  - 2021-12 to 2022-02 (54), 2022-06 to 08 (57);
+  - 2023-04 to 10 (123 days, -18.3%);
+  - 2025-03 to 05 (39), 2026-05 to 06 (36).
+- **The coin's premium widens in declines (+1.3 pp) and narrows in rises (-1.7 pp).** The coin holds while 18K
+  falls.
+- **Fixed income won 26 of 42 sideways stretches after the fact.** The owner's thesis holds then. The question
+  is seeing the stretch in time, and its end.
+
+### 75.5 The data
+
+**Money flow, from TSETMC directly:**
+- This line reaches TSETMC. One call returns a fund's whole history:
+  - `cdn.tsetmc.com/api/ClientType/GetClientTypeHistory/{insCode}`: individuals' and institutions' buys and
+    sells, by value and count;
+  - `ClosingPrice/GetClosingPriceDailyList/{insCode}/0`: its daily prices.
+  - For one fund: 1,724 days from 2018-06-09, but only 39 in 2020. **The 2019-2021 hole of B8 is in TSETMC's
+    own record.**
+- The open-source TSETMC clients (pytse-client, finpy-tse) read these same endpoints. Reading them directly
+  needs no library.
+
+**Money flow, by units:**
+- fipiran publishes each fund's units outstanding, NAV and net assets daily.
+- Units created or redeemed are the money entering or leaving the fund itself. That covers 2020.
+- The local copy (`research/data/fipiran_funds.json`) is weekly after 2019; fipiran itself is to be read daily.
+
+**Macro, the owner's links:**
+- **cbi.ir/section/1378.aspx answers with browser headers.** Its statistics pages are to be followed for M2,
+  the money base and the CPI.
+- **tgju.org/atlas/ir answers.** It is an economy atlas served by tgju's API.
+- **iranstatis.com/economic answers,** but loads its table (M2 growth, M1, the money base, inflation, the two
+  dollars) by script. It notes a publication stopped from spring 1403.
+- **amar.org.ir** fails on its certificate from this line.
+- **economic.mfa.gov.ir** answers, with annual basic indicators.
+
+### 75.6 The ground to fix first (proposed; nothing locked)
+
+1. **G1, completeness:**
+   - one calendar for every input (Tether trades every day; 18K Saturday to Thursday);
+   - features that tolerate a missing day;
+   - a coverage report per input and year, so no model runs on a blank.
+2. **G2, the money flow:** the 19 gold funds' full TSETMC histories, and fipiran's daily units; how much of 2020
+   can be filled.
+3. **G3, macro:** M2, the money base and the CPI, monthly, from the links above.
+4. **G4, the windows read:** for each decline and sideways onset, what came before it. The dollar, Tether, the
+   news, the flows, the coin premium; event tables, descriptive.
+5. Then hypotheses, each registered before its test.
 
 **NEON MIGRATION REQUIRED = NO.**
