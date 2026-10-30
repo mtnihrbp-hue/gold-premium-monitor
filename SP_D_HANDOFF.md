@@ -54,7 +54,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    67 the sources by category, a verdict for each;
                                                                    68 ready for 1 November: no migration before the write-back;
                                                                    69 SP-E: priorities, path, KPIs (proposed);
-                                                                   70 the outage's writes held for review; the path agreed, collection first
+                                                                   70 the outage's writes held for review; the path agreed, collection first (v1.39safe);
+                                                                   71 the spool reviewed; the share in gold; the KPIs made SMART
        member, the LLM member
 ```
 
@@ -6848,3 +6849,143 @@ milestone? ... still we have to do more in the sources part, and on the collecti
 The webhook secret and the fine-grained tokens (A1, A2), by the owner, as the lowest priority.
 
 **NEON MIGRATION REQUIRED = NO.**
+
+## 71. The spool reviewed; what the data says about the share in gold; the KPIs made SMART (2026-10-30)
+
+### 71.1 The spool, as the temporary database
+
+**Exported** by `probe-spool` (70.3) on 10-30 at 10:46 UTC: 13.6 MB and 10,086 held writes. The artifact and
+the branch were deleted after the download.
+
+**Loaded** into a local SQLite file for review (outside the repo).
+
+| Kind | Held | Span (UTC) | Duplicates by natural key |
+|---|---|---|---|
+| readings | 236 (232 scheduled, 4 /Update) | 2026-10-15 15:31 to 10-30 06:31 | 0 |
+| price observations | 3,366 | the same | 0 |
+| daily inputs (tablokhani, etfbaz) | 123 | 10-15 to 10-30 | 0 |
+| news | 6,361 | dated 08-18 to 10-30, by their publishers | 0 |
+
+**Found:**
+- **No readings before 10-15 15:31 UTC.** The outage began 10-13 at 17:30 UTC (21:00 Tehran), so its first
+  two days, about 30 readings, are not in the export. The path-list change of 10-15/16 (37.14) and its one-off
+  recovery step are the likely cause; the recovery cache is to be read the same way.
+- **Readings per Tehran day:** 16 every day from 10-16, so every scheduled run is there.
+- **47 readings with a positive premium,** the single cheapest above the world price, between 10-20 and 10-26.
+  The highest is +1.51% (10-23, 08:00 Tehran). Two causes, both visible:
+  - **World gold fell:** from 4,133 to 3,981 dollars between 10-21 and 10-23. 18K did not follow it down at
+    once.
+  - **The morning dollar:** bonbast held 267,600 from 06:00 to 09:00 on 10-22, then 270,000 at 10:00, and the
+    premium fell from 1.20% to 0.51%. On 10-23 (a Friday) it held 272,300 until 11:00. The morning stale
+    dollar is a known defect of the whole record (CLAUDE.md), not of the outage alone.
+- **News is the bulk:** 6,361 of 10,086.
+  - 4,348 (68%) are UNKNOWN to the keyword classifier;
+  - two Persian business feeds give 3,380 (53%);
+  - the feeds hand old items again: dated from 08-18.
+
+**Proposed, for the owner's confirmation** (the owner's rule: "only ... the data we will use and is trustworthy"):
+
+| Kind | Proposal | Why |
+|---|---|---|
+| readings | write back, through the stale-quote re-check (37.1) as the write-back does | the same record as before and after; the morning dollar is a C4 fix for the whole record, not a reason to drop these alone |
+| price observations | write back | the outcome evaluator resolves the snapshots of before 10-13 from them |
+| daily inputs | write back | Afran and the index feed the room; one row a day |
+| news | **not to Neon**: kept locally, compressed, for the news revamp | nothing a reader sees reads it; most of it unlabelled; it is the revamp's raw material |
+
+### 71.2 What the data says about the share in gold, and how much to move
+
+**Question (owner):** "what the data says about an optimum range? and how the stacks should move between the
+assets? ... the goal is to gain the most and beat other possible singular investments."
+
+**Measured** (`research/rd_allocation_frontier.py`, the harness of 66): each fixed share of gold, rebalanced
+monthly, by period.
+
+| Share of gold | P1 wealth, worst drop | P2 | P3 |
+|---|---|---|---|
+| 0% | 2.70, -0.1% | 2.47, -5.8% | 2.28, -0.0% |
+| 40% | 3.59, -19.9% | 3.48, -12.9% | 4.33, -8.5% |
+| 70% | 4.32, -33.9% | 4.35, -25.0% | 6.72, -17.0% |
+| 100% | 5.08, -45.2% | 5.28, -37.2% | 10.10, -24.9% |
+
+- Each 10 points of fixed income gave up wealth and took 2 to 4 points off the worst drop, close to a straight
+  line.
+- No fixed share beat 100% gold on wealth in any period.
+
+**The theory.** For an asset whose log growth is mu with variance sigma^2 a year, against a safe asset growing
+r, the share that grows wealth fastest is f* = (mu + sigma^2/2 - r) / sigma^2 (the audit's B6).
+
+| Period | Gold (log mean) | Volatility | Fixed income | f* |
+|---|---|---|---|---|
+| P1 | +40% a year | 29% | +23% | 2.1 |
+| P2 | +52% | 30% | +25% | 2.7 |
+| P3 | +132% | 36% | +35% | 4.7 |
+
+Above 1 means all gold, since nothing is borrowed. Measured over each period, the best fixed share was 100%.
+
+**So the share moves only with a forecast.**
+- f* is 1 when gold's expected log growth equals r + sigma^2/2, and 0 at r - sigma^2/2.
+- With fixed income near 30% and sigma^2 near 0.13, that band runs from about 23.5% to 36.5% a year of expected
+  gold growth. Each point of expected growth moves the share by 1/sigma^2, about 8 points.
+- That makes the share very sensitive to the forecast. A half-share (half of f*) and the owner's steps keep a
+  weak forecast from swinging it.
+
+**When to move.** Only when the forecast clears that band by more than the move's cost over its horizon. At
+the research's Daric cost, a round trip is 0.40% plus 4 days idle.
+- At Ayyareh's fees of 10-29, 2% each side, a round trip costs about 4%. A move there would need a forecast
+  edge about ten times larger.
+- **So where you trade sets how often a move can pay.**
+
+**What we have today:** no forecast with skill. Direction's 20-day figure scored -3.1% (1.1). The trend rules
+lost in P2 and P3 (66.2), and leaving for sideways markets lost in every period (16). Until a forecast passes
+Eb-4 below, the data's answer is 100% gold. A step down needs a measured forecast, not a view. Building that
+forecast is SP-Eb.RD's whole job.
+
+### 71.3 WallGold, and the Iranian MCPs
+
+- **WallGold:** nothing is broken.
+  - Its address is right (65), its quote time passes check 1 (64.3), and it was never frozen (63.3).
+  - What is missing is its fees. Its pages say "buying and selling gold without wage and tax" and quote no
+    figure, and its buy and sell answers are the same number.
+  - The order screen of the owner's account shows the real cost: that is the fee table's first row.
+- **github.com/sepehr071:** 14 Iranian MCP servers (Snappfood, Digikala, MrBilit, Jabama, Otaghak, Technolife,
+  Masterkala, Shopino, Khanoumi, Asalbanoo, Doctoreto, Paziresh24, Bale, PayPing).
+  - None covers gold, currency, the exchange or news, so none is a source for us.
+  - The shape is worth keeping in mind: one small read-only server per Iranian site.
+
+### 71.4 The KPIs, made SMART
+
+The owner: "the KPIs, should have SMART Goals ... written down to measure against at each milestone."
+
+Each has a number, a baseline, a method and a date. They are also in `.project_state.json` (`sp_e_kpis`) to be
+measured at each milestone.
+
+| Id | Stage | What | Baseline | Target | How measured | By |
+|---|---|---|---|---|---|---|
+| E0-1 | SP-E0 | The outage's spool reviewed and its cleaned set written back | 10,086 writes held (10-30) | the owner confirms the set; written with 0 rejected and 0 duplicates by natural key | the write-back's log; a count by natural key | 2026-11-07 |
+| E0-2 | SP-E0 | Neon's transfer in November's first week | unmeasured since the cuts of 34 | projected under 1.5 GB for the month | data_transfer_bytes on 11-01 at 06:00 and 11-08 | 2026-11-08 |
+| E0-3 | SP-E0 | Neon's storage | unknown | measured; under 50% of the plan's cap | pg_database_size and Neon's project page | 2026-11-02 |
+| E0-4 | SP-E0 | A8's unique keys on the record's tables | none | applied after a Neon-branch test; 0 duplicates found | a GROUP BY count per table | 2026-11-07 |
+| E0-5 | SP-E0 | The production boundary | every branch gets production secrets | a run from any other branch gets none | a probe run from a branch | 2026-11-07 |
+| Ea-1 | SP-Ea | Every source kept has a written contract | 0 written (67 is a draft) | 100% of kept sources | the register in SP_D_HANDOFF and a test that no collector runs without one | 2026-11-22 |
+| Ea-2 | SP-Ea | The index answers | WallGold 100% of readings, 08-04 to 10-04 (63.3) | a price in at least 98% of scheduled runs, and the backup covers every miss | 14 days of runs from 11-08 | 2026-11-22 |
+| Ea-3 | SP-Ea | Every stored platform reading carries its own time, a quote time, or a status saying it has none | Goldika, Milli and WallGold only | 100% of stored platform readings | a query over 7 days | 2026-11-29 |
+| Ea-4 | SP-Ea | No stale copy reaches a message | four on record in Sept-Oct (SP_C 44, SP_D 58.2) | 0 over 14 days | the stale rules' log and the stored quote times | 2026-11-29 |
+| Ea-5 | SP-Ea | Tether collected every run | once a day at 21:00 | in at least 95% of scheduled runs | 14 days of runs | 2026-11-22 |
+| Ea-6 | SP-Ea | The fee table | Ayyareh's from its own answer only | all 7 gram platforms: buy, sell and withdrawal costs, dated | the table, filled by the owner | 2026-11-15 |
+| Ea-7 | SP-Ea | Neon transfer a run | about 450 MB a day before 34; unmeasured after | an average of 3 MB or less over 7 days | data_transfer_bytes across 7 days divided by the runs | 2026-11-29 |
+| Ea-8 | SP-Ea | A run's length | a median 1.5 minutes without Neon (10-28) | a median under 4 minutes with Neon | gh run list over 7 days | 2026-11-29 |
+| Ea-9 | SP-Ea | The phone's heartbeat | none | 2 hours without a phone row raises a SERVICE notice | a test, and one real case | 2026-11-22 |
+| Ea-10 | SP-Ea | News: one daily table of labelled events | 6,361 items in 15 days, 68% unlabelled (70) | every item labelled by the fixed schema; a daily event table from 2026-01 onward for the R&D | the label counts | 2026-11-29 |
+| Eb-1 | SP-Eb.RD | One harness for every study | two scripts (66, 71) | the delay and costs required arguments; reproduces 66.2 exactly | a test | 2026-11-15 |
+| Eb-2 | SP-Eb.RD | The research panel | the series in separate files | one daily table, each column with the time it became known | a test that no column uses a later day | 2026-11-15 |
+| Eb-3 | SP-Eb.RD | The room on the harness | +4.7% to +7.2% over holding per two years, its own harness (53) | its verdict against 66.1's test, recorded | the harness | 2026-11-22 |
+| Eb-4 | SP-Eb.RD | A forecast of 18K against fixed income with skill | Direction's 20-day figure: -3.1% skill (1.1) | a Brier skill of at least +5% over the base rate, out of sample, in 2 of 3 periods | walk-forward, registered first | 2026-12-13 |
+| Eb-5 | SP-Eb.RD | A policy kept | no rule beats holding gold (66.2) | beats holding gold on wealth in 2 of 3 periods with no deeper drop, after the real platform's costs | the harness | 2026-12-13 |
+| Ec-1 | SP-Ec | Each new message | the current six | every line labelled and tied to one number; test_64 passes; the owner's approved preview | the preview and the tests | 2026-12-20 |
+| Ed-1 | SP-Ed | The forward test | none | the policy frozen with its version; each day's answer recorded before its outcome; evaluated on its fixed date | the ledger | 2027-03-20 |
+| Ed-2 | SP-Ed | Delivery | unconfirmed sends | at least 99% delivered and confirmed; a failure retried | the send log | 2026-12-20 |
+
+The dates are estimates for the owner's approval. Each milestone is closed only when all its KPIs pass, and its
+record says which passed and how.
+
+**NEON MIGRATION REQUIRED = NO** (for this record; Eb and A8 will need their own).

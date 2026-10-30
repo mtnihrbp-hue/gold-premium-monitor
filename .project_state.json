@@ -273,7 +273,7 @@
     "sp_c_status": "CLOSED -- merged into main 2026-09-28 (2b7c5f8); tag v1.3safe = main before the merge",
     "sp_d_status": "IN PROGRESS: Direction merged 2026-10-03, PAPER 2026-10-05; each batch reaches main only after the owner's review, with a safe tag on main first",
     "until_2026_10_03": "PAST. Owner direction 2026-09-29: SP-D is for the next phase; anything found before 2026-10-03 is fixed on main, through a short-lived branch cut from main and fast-forwarded after owner review.",
-    "latest_safe_tag": "v1.38safe (d9d08ef, main before the gram-only discount, 2026-10-29)",
+    "latest_safe_tag": "v1.39safe (37a1028, main before the write-back hold, 2026-10-30)",
     "sp_e_merge_method": "surface by surface (owner, 2026-10-28, SP_D_HANDOFF.md 59.2): SP-E is cut from main and matures on its branch; each merge replaces one message, with a safe tag first; the last merge removes the old code; no two systems run side by side"
   },
   "verified_production_state": {
@@ -440,5 +440,241 @@
     "2026-10-22, closed (locked by the owner, wired, SP_D_HANDOFF.md 57): The pulse (SP_D_HANDOFF.md 56.3): a push at the first scheduled run after a confirming close -- a box broken up or down, a flag broken out -- previewed in alerts/telegram_pulse.py, not wired; awaits the owner's lock.",
     "2026-10-28, closed (SP_D_HANDOFF.md 60): tgju's cache defeated by a unique parameter (58.2); a box break back inside the box told as such and not pushed (59.4)",
     "2026-10-29, merged (SP_D_HANDOFF.md 64-65): world price in every message (v1.37safe before it); the discount on the gram platforms, the gold-product platforms apart (v1.38safe before it). WallGold's priceExpiresAt is the quote's issue time plus 24 h, a new quote each minute: it detects a stale copy (64.3 check 1 passes); its fees are still to be known."
-  ]
+  ],
+  "sp_e_kpis": {
+    "source": "SP_D_HANDOFF.md section 71.4 (proposed 2026-10-30, dates for the owner's approval)",
+    "rule": "a milestone closes only when all its KPIs pass; its record says which passed and how",
+    "kpis": [
+      {
+        "id": "E0-1",
+        "stage": "SP-E0",
+        "what": "The outage's spool reviewed and its cleaned set written back",
+        "baseline": "10,086 writes held (10-30)",
+        "target": "the owner confirms the set; written with 0 rejected and 0 duplicates by natural key",
+        "measure": "the write-back's log; a count by natural key",
+        "by": "2026-11-07",
+        "status": "open"
+      },
+      {
+        "id": "E0-2",
+        "stage": "SP-E0",
+        "what": "Neon's transfer in November's first week",
+        "baseline": "unmeasured since the cuts of 34",
+        "target": "projected under 1.5 GB for the month",
+        "measure": "data_transfer_bytes on 11-01 at 06:00 and 11-08",
+        "by": "2026-11-08",
+        "status": "open"
+      },
+      {
+        "id": "E0-3",
+        "stage": "SP-E0",
+        "what": "Neon's storage",
+        "baseline": "unknown",
+        "target": "measured; under 50% of the plan's cap",
+        "measure": "pg_database_size and Neon's project page",
+        "by": "2026-11-02",
+        "status": "open"
+      },
+      {
+        "id": "E0-4",
+        "stage": "SP-E0",
+        "what": "A8's unique keys on the record's tables",
+        "baseline": "none",
+        "target": "applied after a Neon-branch test; 0 duplicates found",
+        "measure": "a GROUP BY count per table",
+        "by": "2026-11-07",
+        "status": "open"
+      },
+      {
+        "id": "E0-5",
+        "stage": "SP-E0",
+        "what": "The production boundary",
+        "baseline": "every branch gets production secrets",
+        "target": "a run from any other branch gets none",
+        "measure": "a probe run from a branch",
+        "by": "2026-11-07",
+        "status": "open"
+      },
+      {
+        "id": "Ea-1",
+        "stage": "SP-Ea",
+        "what": "Every source kept has a written contract",
+        "baseline": "0 written (67 is a draft)",
+        "target": "100% of kept sources",
+        "measure": "the register in SP_D_HANDOFF and a test that no collector runs without one",
+        "by": "2026-11-22",
+        "status": "open"
+      },
+      {
+        "id": "Ea-2",
+        "stage": "SP-Ea",
+        "what": "The index answers",
+        "baseline": "WallGold 100% of readings, 08-04 to 10-04 (63.3)",
+        "target": "a price in at least 98% of scheduled runs, and the backup covers every miss",
+        "measure": "14 days of runs from 11-08",
+        "by": "2026-11-22",
+        "status": "open"
+      },
+      {
+        "id": "Ea-3",
+        "stage": "SP-Ea",
+        "what": "Every stored platform reading carries its own time, a quote time, or a status saying it has none",
+        "baseline": "Goldika, Milli and WallGold only",
+        "target": "100% of stored platform readings",
+        "measure": "a query over 7 days",
+        "by": "2026-11-29",
+        "status": "open"
+      },
+      {
+        "id": "Ea-4",
+        "stage": "SP-Ea",
+        "what": "No stale copy reaches a message",
+        "baseline": "four on record in Sept-Oct (SP_C 44, SP_D 58.2)",
+        "target": "0 over 14 days",
+        "measure": "the stale rules' log and the stored quote times",
+        "by": "2026-11-29",
+        "status": "open"
+      },
+      {
+        "id": "Ea-5",
+        "stage": "SP-Ea",
+        "what": "Tether collected every run",
+        "baseline": "once a day at 21:00",
+        "target": "in at least 95% of scheduled runs",
+        "measure": "14 days of runs",
+        "by": "2026-11-22",
+        "status": "open"
+      },
+      {
+        "id": "Ea-6",
+        "stage": "SP-Ea",
+        "what": "The fee table",
+        "baseline": "Ayyareh's from its own answer only",
+        "target": "all 7 gram platforms: buy, sell and withdrawal costs, dated",
+        "measure": "the table, filled by the owner",
+        "by": "2026-11-15",
+        "status": "open"
+      },
+      {
+        "id": "Ea-7",
+        "stage": "SP-Ea",
+        "what": "Neon transfer a run",
+        "baseline": "about 450 MB a day before 34; unmeasured after",
+        "target": "an average of 3 MB or less over 7 days",
+        "measure": "data_transfer_bytes across 7 days divided by the runs",
+        "by": "2026-11-29",
+        "status": "open"
+      },
+      {
+        "id": "Ea-8",
+        "stage": "SP-Ea",
+        "what": "A run's length",
+        "baseline": "a median 1.5 minutes without Neon (10-28)",
+        "target": "a median under 4 minutes with Neon",
+        "measure": "gh run list over 7 days",
+        "by": "2026-11-29",
+        "status": "open"
+      },
+      {
+        "id": "Ea-9",
+        "stage": "SP-Ea",
+        "what": "The phone's heartbeat",
+        "baseline": "none",
+        "target": "2 hours without a phone row raises a SERVICE notice",
+        "measure": "a test, and one real case",
+        "by": "2026-11-22",
+        "status": "open"
+      },
+      {
+        "id": "Ea-10",
+        "stage": "SP-Ea",
+        "what": "News: one daily table of labelled events",
+        "baseline": "6,361 items in 15 days, 68% unlabelled (70)",
+        "target": "every item labelled by the fixed schema; a daily event table from 2026-01 onward for the R&D",
+        "measure": "the label counts",
+        "by": "2026-11-29",
+        "status": "open"
+      },
+      {
+        "id": "Eb-1",
+        "stage": "SP-Eb.RD",
+        "what": "One harness for every study",
+        "baseline": "two scripts (66, 71)",
+        "target": "the delay and costs required arguments; reproduces 66.2 exactly",
+        "measure": "a test",
+        "by": "2026-11-15",
+        "status": "open"
+      },
+      {
+        "id": "Eb-2",
+        "stage": "SP-Eb.RD",
+        "what": "The research panel",
+        "baseline": "the series in separate files",
+        "target": "one daily table, each column with the time it became known",
+        "measure": "a test that no column uses a later day",
+        "by": "2026-11-15",
+        "status": "open"
+      },
+      {
+        "id": "Eb-3",
+        "stage": "SP-Eb.RD",
+        "what": "The room on the harness",
+        "baseline": "+4.7% to +7.2% over holding per two years, its own harness (53)",
+        "target": "its verdict against 66.1's test, recorded",
+        "measure": "the harness",
+        "by": "2026-11-22",
+        "status": "open"
+      },
+      {
+        "id": "Eb-4",
+        "stage": "SP-Eb.RD",
+        "what": "A forecast of 18K against fixed income with skill",
+        "baseline": "Direction's 20-day figure: -3.1% skill (1.1)",
+        "target": "a Brier skill of at least +5% over the base rate, out of sample, in 2 of 3 periods",
+        "measure": "walk-forward, registered first",
+        "by": "2026-12-13",
+        "status": "open"
+      },
+      {
+        "id": "Eb-5",
+        "stage": "SP-Eb.RD",
+        "what": "A policy kept",
+        "baseline": "no rule beats holding gold (66.2)",
+        "target": "beats holding gold on wealth in 2 of 3 periods with no deeper drop, after the real platform's costs",
+        "measure": "the harness",
+        "by": "2026-12-13",
+        "status": "open"
+      },
+      {
+        "id": "Ec-1",
+        "stage": "SP-Ec",
+        "what": "Each new message",
+        "baseline": "the current six",
+        "target": "every line labelled and tied to one number; test_64 passes; the owner's approved preview",
+        "measure": "the preview and the tests",
+        "by": "2026-12-20",
+        "status": "open"
+      },
+      {
+        "id": "Ed-1",
+        "stage": "SP-Ed",
+        "what": "The forward test",
+        "baseline": "none",
+        "target": "the policy frozen with its version; each day's answer recorded before its outcome; evaluated on its fixed date",
+        "measure": "the ledger",
+        "by": "2027-03-20",
+        "status": "open"
+      },
+      {
+        "id": "Ed-2",
+        "stage": "SP-Ed",
+        "what": "Delivery",
+        "baseline": "unconfirmed sends",
+        "target": "at least 99% delivered and confirmed; a failure retried",
+        "measure": "the send log",
+        "by": "2026-12-20",
+        "status": "open"
+      }
+    ]
+  }
 }
