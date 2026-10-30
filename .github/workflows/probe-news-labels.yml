@@ -1,4 +1,9 @@
-# Temporary (SP-D 35.9): the AI model labels each day of the owner's channels for the news event study.
+# Temporary (SP-D 35.9; E-9, SP-D 80 and 82.4): the owner's channels back to 2022-01-01, then the AI model labels
+# each day for the news study. The workstation's Psiphon tunnel dropped, and GitHub's runner reads t.me direct.
+# 1. backfill: the four channels in parallel from the oldest post held, at most 5.5 hours, the archives committed;
+# 2. label: only once every channel reaches 2022-01-01 (a day labelled from part of its headlines is never
+#    labelled again). E-9's span, 2022-01-01 to 2025-10-14, every third day first; stops on Groq's daily quota
+#    or at 170,000 tokens, leaving the shared account's TSE news notes their share. One push a day resumes it.
 # Uses GROQ_API_KEY (never printed); no database, no bot. Deleted with its branch once read.
 name: probe-news-labels
 on:
@@ -6,8 +11,10 @@ on:
     branches: [probe-news-labels]
 permissions:
   contents: write
+concurrency:
+  group: probe-news-labels
 jobs:
-  label:
+  backfill:
     runs-on: ubuntu-24.04
     timeout-minutes: 350
     steps:
@@ -15,11 +22,58 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - run: pip install requests==2.34.2 beautifulsoup4==4.15.0 lxml==6.1.3
+      - name: The four channels, in parallel
+        env:
+          BACKFILL_SECONDS: "19800"
+        run: |
+          for ch in khabarfouri bourse24ir betasahm1 bidarbourse; do
+            python research/backfill_telegram.py $ch 2022-01-01 > "backfill_$ch.log" 2>&1 &
+          done
+          wait
+          for f in backfill_*.log; do echo "::notice::$(tail -n 1 $f)"; done
+      - if: always()
+        run: |
+          git config user.name "probe" && git config user.email "probe@users.noreply.github.com"
+          git add -f research/data/telegram/*.jsonl.gz
+          git commit -m "The channels read further back (temporary)" || true
+          git push origin HEAD:probe-news-labels
+  label:
+    needs: backfill
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: probe-news-labels
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - run: pip install requests==2.34.2
-      - run: python research/label_news_days.py 320
+      - name: Every channel back to 2022-01-01?
+        id: ready
+        run: |
+          python - <<'EOF'
+          import gzip, json, os
+          ok = True
+          for ch in ("khabarfouri", "bourse24ir", "betasahm1", "bidarbourse"):
+              with gzip.open(f"research/data/telegram/{ch}.jsonl.gz", "rt", encoding="utf-8") as f:
+                  oldest = min(json.loads(l)["at"][:10] for l in f if l.strip())
+              print(f"::notice::{ch} held back to {oldest}")
+              ok = ok and oldest < "2022-01-01"     # the crossing page's older posts: the span is complete
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"ready={'yes' if ok else 'no'}\n")
+          EOF
+      - if: steps.ready.outputs.ready == 'yes'
+        run: python research/label_news_days.py 320
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      - if: always()
+          LABEL_FROM: "2022-01-01"
+          LABEL_TO: "2025-10-14"
+          LABEL_STRIDE: "3"
+          LABEL_TOKEN_BUDGET: "170000"
+      - if: always() && steps.ready.outputs.ready == 'yes'
         run: |
           git config user.name "probe" && git config user.email "probe@users.noreply.github.com"
           git add -f research/data/news_days.jsonl
