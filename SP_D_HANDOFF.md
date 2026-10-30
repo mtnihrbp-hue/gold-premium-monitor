@@ -7977,3 +7977,16 @@ full set).
 reported.
 
 The count rises to 114.
+
+### 77.7 E-8, a faster way back (registered before its run)
+
+**What changes,** from E-6's windows (77.4): two rallies were sat through because the way back waited for the
+probability to halve.
+
+**E-8 is E-6 for R3, one variant:**
+- **Back to gold, after 5 days in,** when R3's probability is below the threshold itself and 18K's close is
+  above the entry close: the danger has passed and the price has recovered.
+- **The hard stop** stays (3 x the forecast daily volatility x the square root of the days in).
+- **The threshold, the choice on the years before, the costs and the test (Eb-5)** are E-6's.
+
+The count rises to 115.
