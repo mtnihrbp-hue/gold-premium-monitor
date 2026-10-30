@@ -7865,3 +7865,26 @@ periods of 72.2.
 **The costs:** WallGold's 0.50% a side, fixed income 0.05%, 2 days idle each way.
 
 **The test (Eb-5):** more wealth than holding gold in 2 of 3 periods with no deeper worst drop.
+
+### 77.3 E-5's results (`research/rd_fall_risk.py`, `research/data/fall_risk.json`)
+
+**The base rate** of a 10% fall within 40 days: 15% / 16% / 13% of days. About 12, 28 and 19 independent
+windows.
+
+| Model | Brier skill P1 / P2 / P3 | AUC P1 / P2 / P3 | Days scored |
+|---|---|---|---|
+| R10 | -7.5% / -38.9% / +16.1% | 0.53 / 0.75 / 0.81 | 214 / 679 / 767 |
+| R3 | +3.1% / +1.6% / +10.7% | 0.59 / 0.71 / 0.76 | 505 / 1,113 / 770 |
+
+**By the test fixed in advance, neither passes.**
+
+**What it says:**
+- **The ranking is real from 2020:** an AUC of 0.71 to 0.81. The days with a fall ahead are ranked above the
+  others three times in four.
+- **The probabilities are not:** R10's -38.9% in P2 is over-confidence. A fall is a rare event, its rate moves
+  with the era, and a logistic fit on few events over-sizes it.
+- **2018-2019 is the exception again** (AUC 0.53 to 0.59), the dollar's shock.
+- R10 scored only 214 days in P1: Tether, its turnover and acceleration inputs start late.
+- **E-6 decides with a threshold chosen on earlier years, so it needs the ranking, not the calibration.** It is
+  the test that matters for the decision.
+- **On 10-29:** R10 gives a 68% chance of a 10% fall within 40 days, R3 25%, against a base of 12%. Unverified.
