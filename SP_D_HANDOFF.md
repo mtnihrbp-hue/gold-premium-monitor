@@ -7328,3 +7328,58 @@ The owner: "1-ok".
 cost.
 
 **NEON MIGRATION REQUIRED = NO.**
+
+### 74.5 E-1's results: calm ahead is forecastable (`research/rd_engine_calm.py`)
+
+Forecasts from 2015-01 to 2026-10 (3,171 days), each walk-forward. Scored from 2018 on the days all three
+models have:
+
+| Period | Days | Error P | Error H | Error X | H against P | X against H | Rank correlation of X with the outcome |
+|---|---|---|---|---|---|---|---|
+| P1 | 248 | 0.328 | 0.334 | 0.376 | -2.0% | -12.5% | +0.44 |
+| P2 | 647 | 0.261 | 0.196 | 0.164 | **+24.9%** | **+16.2%** | +0.61 |
+| P3 | 591 | 0.261 | 0.208 | 0.188 | **+20.2%** | **+9.7%** | +0.36 |
+
+**Both tests pass:**
+- H beats persistence by 5% or more in 2 of 3 periods.
+- X, with the dollar, Tether, GVZ, VIX, the coin and the efficiency ratio, beats H in 2 of 3.
+- **The engine's part 2 stands:** calm ahead can be forecast, and the outside inputs add to it. P1 is the
+  exception: 2018-2019, the dollar's shock.
+- The forecasts are kept in `research/data/calm_forecasts.json` for the studies that use them.
+
+### 74.6 E-2's results: the move and the way back, as registered, lose (`research/rd_engine_policy.py`)
+
+**At WallGold's 0.50% a side** (the test), model X's forecasts:
+
+| Period | Wealth | Holding gold | Against | Worst drop (holding) | Entries | Days half in fixed income |
+|---|---|---|---|---|---|---|
+| P1 | 3.44 | 3.44 | -0.0% | -45.2% (-45.2%) | 0 | 0% |
+| P2 | 4.86 | 5.22 | -6.9% | -34.9% (-36.4%) | 10 | 11% |
+| P3 | 9.91 | 10.11 | -2.0% | -24.9% (-24.9%) | 10 | 7% |
+
+- **By the test fixed in advance: 0 of 3. It fails.**
+- The parameters chosen each year never beat holding gold even on the years before. The best training
+  ratio was 1.007 (2022); the others 0.96 to 1.00.
+- Model H's forecasts fail the same way.
+- **At Daric's cost** the worst drop is shallower (P2 -31.0% against -36.4%) but the wealth still lower (-2.1%,
+  -5.6%).
+- **At Ayyareh's 2%:** -13.3% and -12.4%.
+
+**Why** (`research/rd_engine_trades.py`, the 18 windows of model X at WallGold's fee):
+- **Most windows lasted 4 to 7 days.** They were ended by Tether's +3% in 5 days, which fires often, or by
+  turbulence.
+- **The carry against the fee:** fixed income earns about 0.12% a day; a round trip costs 1.0% of the half moved.
+  A window must last about 9 trading days just to pay its fee while 18K stands still.
+- **Inside the windows, fixed income minus 18K, on half the savings, summed: -0.4% before fees.**
+- **The good windows exist:**
+  - 2021-04-03 to 05-11: 18K -7.0%, fixed income +2.1%;
+  - 2026-05-06 to 06-08: -6.5% against +3.0%.
+- **What took them back:**
+  - exits before drops (2021-03-28, then 18K -8.3% in 20 days);
+  - entries before rises (2026-07 and 08: up breaks, then +8.8% to +17.3%).
+
+**What stands and what does not:**
+- **Stands:** the calm forecast (E-1).
+- **Does not:** the decision rule around it, as registered. It traded too often and on a hair trigger.
+
+**NEON MIGRATION REQUIRED = NO.**
