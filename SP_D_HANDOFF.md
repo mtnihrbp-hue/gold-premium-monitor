@@ -7419,3 +7419,47 @@ untouched. Whatever E-3 shows, the true out-of-sample test is the forward record
 
 **The test (Eb-5):** more wealth than holding gold in 2 of 3 periods with no deeper worst drop, at WallGold's
 cost.
+
+### 74.8 E-3's results: the slower rule loses too (`research/rd_engine_policy2.py`)
+
+**At WallGold's 0.50% a side** (the test):
+
+| Period | Wealth | Holding gold | Against | Worst drop | Entries | Half in fixed income |
+|---|---|---|---|---|---|---|
+| P1 | 3.44 | 3.44 | -0.0% | -45.2% (same) | 0 | 0% |
+| P2 | 5.03 | 5.22 | -3.8% | -36.4% (same) | 1 | 2% |
+| P3 | 8.80 | 10.11 | **-13.0%** | -24.9% (same) | 3 | 5% |
+
+**The choice each year:**
+- **2018 to 2021, gold:** no variant had beaten holding on the years before.
+- **From 2022:** q 0.20, calm confirmed 5 days, a 10-day minimum stay, k 2.5, no Tether exit, the drift guard
+  at 0. It was 3.0% to 3.7% ahead of holding on the years before, then -13.0% in P3.
+- **That is the over-fitting B5 warned of, measured:** ahead in sample, behind out of it.
+- **At Daric's cost:** -6.8% and -12.1%.
+- **At Ayyareh's 2%:** no variant ever paid, so gold throughout.
+
+**By the test, 0 of 3. It fails.** 108 variants have now been tried on this record (12 in E-2, 96 in E-3).
+
+### 74.9 What phase a and phase c say, together
+
+- **Stands, verified:** part 2, calm ahead (E-1).
+- **Fails, twice:** turning calm into a half move to fixed income at a real platform's fee (E-2, E-3).
+- **The reason is the drift:**
+  - 18K rose 40% to 132% a year in the periods (71.2), against fixed income's 23% to 35%. Calm stretches kept
+    drifting up, at a slower pace.
+  - A move pays only in the rare calm stretches where 18K falls: April 2021 (-7.0%), May 2026 (-6.5%).
+  - Nothing tried so far tells those apart. That is direction again, and direction from daily prices failed
+    (72.3).
+
+**What is missing is the engine's part 3:** the slow anchors that say when 18K's drift will fall below fixed
+income's. The owner's own example is the dollar against liquidity.
+- **The data:** the central bank's site answers this line with a bot-shield script (TSPD), so the M2 series
+  needs a browser.
+- **A first proxy from data held:** M2 grew close to a steady exponential. The dollar's distance from its own
+  multi-year log trend approximates the dollar against liquidity. It can be tested now as E-4, registered first,
+  while M2 is fetched.
+
+**The record's verdict so far:** the data's answer stays 100% gold (71.2). The way to change it is part 3, not
+more tuning of parts 4 and 5.
+
+**NEON MIGRATION REQUIRED = NO.**
