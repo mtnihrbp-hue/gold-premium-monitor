@@ -7492,3 +7492,64 @@ days from 2018; the periods of 72.2.
 
 **The caution:** at H = 120 there are about 4, 8 and 5 independent windows in the periods. A pass there is weak
 evidence, said so.
+
+### 74.11 E-4's results (`research/rd_engine_drift.py`)
+
+**A defect, fixed before reading the anchors it affected:** the first run fitted the 750-day trend only on
+windows with every day present. The dollar misses about 100 days of tgju's record, so anchor 1 and "all four"
+produced no forecast at all. The fit now uses the days present (at least 500). The other anchors are unchanged
+and gave the same numbers in both runs.
+
+**The Brier skill against the base rate:**
+
+| Anchor | 60 days: P1 / P2 / P3 | 120 days: P1 / P2 / P3 |
+|---|---|---|
+| all four | -48.2% / -10.8% / +1.7% | -50.5% / -13.7% / +15.7% |
+| the dollar against its trend (the liquidity stand-in) | -24.9% / +0.7% / +7.4% | -32.5% / -3.7% / +17.2% |
+| 18K against its trend | -73.0% / +1.6% / +3.8% | -48.9% / -1.3% / +13.6% |
+| **the dollar's acceleration** | +1.2% / **+5.6%** / **+7.0%** | +2.8% / -0.4% / +16.1% |
+| the gap against its mean | -1.2% / +2.4% / +2.5% | +3.9% / -0.8% / +10.6% |
+
+**By the test, one passes:** the dollar's acceleration at 60 days.
+- It is positive in all three periods, and over 5% in two.
+- **Its direction:** fixed income beat 18K over 60 days on 47% of days in its top third (the dollar's last year
+  faster than its 3-year pace), 44% in the middle, and 26% in the bottom third (2015-03 to 2026, 2,501 days).
+- **Today (10-29) it reads +0.208,** in the top third (above +0.104).
+- **The dollar against its trend fails.** In 2018-2019 the dollar was far above its trend and kept rising. That
+  is -24.9%, the shock the stand-in cannot see. The true series, M2, may differ.
+
+**The anchor beside the calm forecast** (descriptive, not a test; 770 days from 2020-02 to 2026-07, where both
+exist; 60-day fixed income minus 18K, in logs):
+
+| Days | Count | Fixed income won | Mean | Typical | Worst |
+|---|---|---|---|---|---|
+| all | 770 | 35% | -7.8% | -5.7% | -52.2% |
+| the dollar accelerating | 257 | 39% | -8.9% | -16.2% | -38.4% |
+| calm forecast | 262 | 30% | -7.2% | -3.9% | -41.8% |
+| **both** | 50 (all in 2024-2026) | **24%** | **-17.3%** | -23.9% | -34.8% |
+
+- **On the record held, calm after a dollar surge was followed by 18K's strongest rises.** Stepping out then
+  was the worst choice, not the best.
+- The anchor improves a probability a little. It does not, with calm, find windows where half in fixed income
+  pays.
+
+### 74.12 Where the engine stands after phases a and c
+
+| Part | Verdict |
+|---|---|
+| 2, calm ahead (E-1) | **verified:** forecastable, and the outside inputs add |
+| 3, the drift (E-4) | one weak anchor (the dollar's acceleration, 60 days); the liquidity stand-in fails; M2 itself not yet reached |
+| 4 and 5, the move and the way back (E-2, E-3) | **fail at a real fee,** 108 variants; ahead in sample, behind out of it |
+| calm and the anchor together | the worst moment to step out, on 2020-2026 |
+
+**What the data supports today:** 100% gold (71.2). A calm 18K is not, on this record, a reason to leave it.
+
+**What is not yet tested:**
+- M2 itself, behind the central bank's bot shield;
+- news events as triggers: 318 labelled days now held, from the labelling branch;
+- the funds' flow surges, on the clean record from 2021-10;
+- Tether's lead as the way back.
+
+Each is registered before its run. Every study, kept or failed, adds to the count of what was tried.
+
+**NEON MIGRATION REQUIRED = NO.**
