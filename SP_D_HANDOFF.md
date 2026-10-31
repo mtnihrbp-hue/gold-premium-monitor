@@ -68,7 +68,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    81 the funds' flows, daily: the link changes sign by era;
                                                                    82 the forward test's daily line on the workstation: ready, not scheduled;
                                                                    83 the owner's answers (2026-10-30 night); the missed days caught up; the risk as a reader would see it;
-                                                                   84 the cases: what followed strikes and deals; the event odds real money sets
+                                                                   84 the cases: what followed strikes and deals; the event odds real money sets;
+                                                                   85 the lens on 9 Aban: the wider case library, today's read (a preview)
        member, the LLM member
 ```
 
@@ -8431,6 +8432,65 @@ E-9's 600 days are labelled.
 4. a message that shows the cases and the odds, not a lone probability.
 
 **For the owner's review, before any wiring:** talk, preview, then wire.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 85. The lens on 9 Aban 1405 (2026-10-31, 08:10): the wider case library, today's read (a preview)
+
+**The case library, widened to every deal and strike since 2015** (the research table, 2013 on). Each move
+runs from the last close before the news.
+
+| Case | Date | The dollar +5 / +20 / +40 days | 18K +5 / +20 / +40 |
+|---|---|---|---|
+| deal | 2015-04-02 Lausanne | +1 / +1 / +0 | +1 / +2 / -1 |
+| deal | 2015-07-14 JCPOA | +1 / +4 / +6 | -2 / +1 / +3 |
+| deal | 2016-01-16 implementation | -0 / -0 / +1 | +1 / +7 / +10 |
+| blow | 2018-05-08 US leaves the JCPOA | -1 / +1 / +29 | -3 / +4 / +29 |
+| strike | 2020-01-03 Soleimani | +1 / +1 / +18 | -0 / +6 / +30 |
+| strike | 2020-01-08 Al Asad | -3 / -2 / +11 | -2 / +1 / +19 |
+| strike | 2024-04-13 Iran on Israel | -6 / -7 / -6 | -1 / -12 / -13 |
+| strike | 2024-10-01 Iran on Israel | +2 / +10 / +11 | +1 / +14 / +6 |
+| strike | 2024-10-26 Israel on Iran | +4 / +4 / +11 | +5 / -0 / +10 |
+| strike | 2025-06-13 the 12-day war (rows resume 06-25) | +10 / +5 / +11 | +9 / +6 / +9 |
+| strike | 2026-02-28 US-Israeli attack (tgju frozen to 03-14) | +1 / -5 / -8 | +0 / -13 / -13 |
+| deal | 2026-06-15 peace agreement | -6 / +4 / +13 | -6 / +2 / +7 |
+| strike | 2026-07-14 attacks resume | +7 / +4 / +22 | +6 / +5 / +29 |
+
+**What it says:**
+- **After 9 strikes and blows,** 18K was higher 40 days later in 7 (the dollar's median +11%). It was lower in 2,
+  both -13%, both when the dollar fell: 2024-04 and 2026-02.
+- **After 4 deals,** 18K moved little. Once it fell 6% in the first week (2026-06) and recovered within 10 days.
+- **Strikes did not turn the usual direction (up); they made the moves bigger.** 84's four cases had shown the
+  sign as split. The wider record shows the down case as the less common one.
+- **In the last two wars the market shut** for 1 to 2 weeks: no rows in 2025-06, tgju frozen in 2026-03.
+  - A move made after a strike may not be possible.
+
+**Today, before the market opens:**
+- **The platforms, 08:00-08:10:** WallGold 255.9M, Milli 256.6M, Ayyareh 256.3M, Taline 256.5M, against
+  tgju's Thursday close of 262.2M: **-2.3%**.
+- **World gold** closed Friday at **$3,879**: -3.6% in the day, the lowest since 2025-10-02, and -28% from
+  $5,400 (2026-01-29).
+- **Tether** closed Friday at **2,732,450 rials**: a record, +0.7%.
+- **18K stands at its world price times Tether.** The dollar took about a third of world gold's fall.
+
+**The odds (Polymarket, 08:05):** the ceasefire holds through Nov 2: 91.6%; through Nov 8: **71%** (74.5% at
+23:20).
+
+**The news since Friday morning** (the four channels):
+- **Toward a strike:**
+  - a US airlift across the region over 48 hours, 80 US tankers in Israel;
+  - US embassy staff ordered out of Saudi Arabia;
+  - Trump's and Vance's campaign events cancelled;
+  - CENTCOM's commander with Trump;
+  - eight tankers mined at Hormuz in 48 hours; Brent $116-119.
+- **Toward a deal:**
+  - Qatari mediators 12 hours in Tehran;
+  - Vance's letter offering to meet;
+  - a draft reported by Al Arabiya: the enriched uranium to a third country, inspectors for frozen assets;
+  - Trump: "talks are going on; they want to negotiate".
+
+**The read:** the event has not changed 18K's usual direction in the record. World gold is the part that is
+falling, and it is not Iran's story. A move to fixed income has to be made before a strike, if at all.
 
 **NEON MIGRATION REQUIRED = NO.**
 
