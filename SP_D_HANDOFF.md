@@ -69,7 +69,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    82 the forward test's daily line on the workstation: ready, not scheduled;
                                                                    83 the owner's answers (2026-10-30 night); the missed days caught up; the risk as a reader would see it;
                                                                    84 the cases: what followed strikes and deals; the event odds real money sets;
-                                                                   85 the lens on 9 Aban: the wider case library, today's read (a preview)
+                                                                   85 the lens on 9 Aban: the wider case library, today's read (a preview);
+                                                                   86 the LENS built: the nightly read, wired on sp-de
        member, the LLM member
 ```
 
@@ -8494,3 +8495,66 @@ falling, and it is not Iran's story. A move to fixed income has to be made befor
 
 **NEON MIGRATION REQUIRED = NO.**
 
+## 86. The LENS built: the nightly read, wired on sp-de (2026-10-31)
+
+**The owner,** on 85's preview: "Groq, not itself, right?". Answered: yes. Then "1-approved. 2-go ahead".
+
+**What runs:** the first scheduled run from 21:00 Tehran, once per Tehran day (`state.json` "lens"), behind
+`config.lens.send`. It needs no database, and it never raises.
+
+| Part | Module | What it does |
+|---|---|---|
+| the odds | `collector/polymarket.py` | the "US x Iran ceasefire continues through <date>?" ladder from the public API, soonest first; [] on failure |
+| the headlines | `intelligence/news_lens.py` | the four channels' last 24 hours, filtered as `research/label_news_days.py` filters (copied, since that script is frozen for E-9; `kpi_lens.test_03` holds them equal) |
+| the model | `intelligence/news_lens.read` | Groq picks at most 3 headlines toward a strike and 3 toward a deal, and translates them. `validate` drops a pick it was not given, one on both sides, and a translation with a number its headline lacks |
+| the cases | `research/build_cases.py` writes `seed/cases.json`; `analysis/cases.py` summarises it | 13 cases since 1394 against any day: base 71 in 100 higher after 40 days, typical move 7.9% |
+| the numbers and flags | `analysis/lens.py` | now against tgju's last close before today; 18K against its world price then and now; the odds shown; the read's three flags, from the numbers only |
+| the message | `alerts/telegram_lens.py` | formats; Persian dates; the vocabulary (`kpi_coherence.test_64` covers it) |
+
+**Production:**
+- `gold-monitor.yml` gives the Execute step `GROQ_API_KEY`. The cache steps are unchanged.
+- bonbast's dollar (Tomans) reaches the lens as Rials.
+
+**The preview from live data on the workstation** (`research/preview_lens.py`, 08:41, nothing sent; no Groq key
+here, so the headlines show as not read):
+
+```
+GOLDPremium: LENS · 9 Aban, 08:41
+
+NOW vs the last close (7 Aban)
+18K 25.70M (market, tgju): −2.0%
+World gold $3,876: −3.7%
+USD/IRR 274,000: +1.1%
+Tether 273,245: +0.7%, the highest on record
+Premium 0.3% above world price (was 0.3% below)
+
+THE EVENT
+Ceasefire holds to 11 Aban: 92 in 100; to 17 Aban: 71 in 100
+Real-money odds, Polymarket
+The headlines were not read tonight.
+
+WHAT FOLLOWED BEFORE (since 1394)
+8 strikes: 18K higher 40 days later in 6 (any day: 71 in 100); typical move 12.8% (any day: 7.9%)
+Lower in 2, each when the dollar dropped: −13.1% (25 Farvardin 1403), −12.6% (9 Esfand 1404)
+4 deals: 18K higher 40 days later in 3; typical move 5.1%; the worst first week −6.0% (25 Khordad 1405), back above within 10 days
+The market shut for 14 and 15 days in the last 2 wars
+
+READ
+Past strikes did not change 18K's usual direction; they made the moves bigger.
+Today's move comes from world gold, not the dollar.
+A move to fixed income has to come before a strike: the market may shut.
+
+Decision support, not an instruction to trade.
+```
+
+**Tests:**
+- `kpi/kpi_lens.py`: 13 tests, no network.
+- `kpi_coherence`: test_64 covers the lens; test_27 knows `ceasefire_odds`.
+- KPI suite 31/31 files, unit tests 20/20, compile OK.
+
+**Before `main`:**
+1. the model's part run once on GitHub's runner, with the secret, sending nothing;
+2. the owner's review of a full message with headlines;
+3. the safe tag on `main`, then the merge. The layout is locked after that review.
+
+**NEON MIGRATION REQUIRED = NO.**

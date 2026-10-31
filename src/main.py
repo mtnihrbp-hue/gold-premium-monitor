@@ -1445,6 +1445,36 @@ def _evening_fallback(markets, now, state):
         print(f"EVENING failed: {e}")
 
 
+def _lens_run(markets, world, usd, now, state, config=None):
+    """The nightly LENS (SP_D_HANDOFF.md sections 84-86), once per Tehran day from 21:00, kept in state.json
+    with the ceasefire's odds for tomorrow's "(was ...)". `usd` is bonbast's, in Tomans. Reads tgju, Polymarket,
+    the channels and the AI model; needs no database. Never raises."""
+    try:
+        from analysis import paper
+        from timeutil import local_date, local_now
+
+        if not ((config or load_config()).get("lens") or {}).get("send", False):
+            return
+        if local_now(now).hour < paper.REPORT_HOUR:
+            return
+        day = local_date(now).isoformat()
+        kept = (state or {}).get("lens") or {}
+        if kept.get("date") == day:
+            return
+        from analysis.lens import build_view
+        from alerts.telegram_lens import build_lens_message, send_lens
+
+        view = build_view(markets, world, usd * 10 if usd else None, now, previous_odds=kept.get("odds"))
+        send_lens(build_lens_message(view))
+        if state is not None:
+            state["lens"] = {"date": day, "odds": view["odds_state"]}
+        news = view["news"]
+        print(f"LENS sent: odds {len(view['odds'])}, headlines {view['headlines']}, picked "
+              f"{'none: not read' if news is None else sum(len(v) for v in news.values())}")
+    except Exception as e:
+        print(f"LENS failed: {e}")
+
+
 def _send_direction_report():
     """Answer the Telegram Direction command from the stored panel. Writes nothing. When no stored
     panel can be read -- the database out of reach -- the panel is computed now from tgju's full
@@ -1906,6 +1936,7 @@ def main():
         _direction_precompute(markets, signal_state, now)
         _paper_run(markets, signal_state, now)
         _evening_fallback(markets, now, state)
+        _lens_run(markets, world, usd, now, state, config)
         if snapshot_id is not None:
             try:
                 analysis_snapshot_id = build_analysis_snapshot(config=config)

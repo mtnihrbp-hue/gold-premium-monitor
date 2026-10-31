@@ -124,5 +124,9 @@
   "spool": {
     "write_back": ["reading", "observation", "candles"],
     "note": "Owner, 2026-10-30: the outage's held writes are not written back by themselves when Neon returns: \"we should only write back the data we will use and is trustworthy, not everything that we have collected so far ... clean up, and once confirmed move it to neon\". They stay held in the spool, exported, checked and cleaned outside production, and written back only once the owner confirms (SP_D_HANDOFF.md section 70). Confirmed by the owner on 2026-10-30 (\"1-ok\"): readings, price observations and daily inputs are written back; news stays held, to be kept locally for the news revamp, not in Neon (section 73)."
+  },
+  "lens": {
+    "send": true,
+    "note": "The nightly LENS (SP_D_HANDOFF.md 84-86): now against the last close, the ceasefire's real-money odds (Polymarket), the day's headlines toward a strike or a deal picked and translated by the AI model (Groq; approved by the owner 2026-10-31: \"1-approved. 2-go ahead\"), what followed past strikes and deals (src/seed/cases.json), and the read from the numbers. Once per Tehran day from 21:00. false stops it."
   }
 }

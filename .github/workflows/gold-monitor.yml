@@ -213,6 +213,10 @@ jobs:
 
           RELAY_TOKEN: ${{ secrets.RELAY_TOKEN }}
 
+          # The nightly LENS's headlines, picked and translated by the AI model (SP_D_HANDOFF.md 86; owner
+          # 2026-10-31). Unset, the lens says the headlines were not read; nothing else uses it.
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+
         run: |
 
           python src/main.py

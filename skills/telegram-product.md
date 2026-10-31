@@ -23,6 +23,7 @@ Scheduled, not commanded:
   with lift; never BUY, SELL or WAIT; not pushed when the next close is back inside the box, and the evening
   then says "Broke up on X; back inside the box since Y" (60);
 - the room's 21:00 report, with the day's chart as a photo;
+- the LENS, at the first run from 21:00 (`SP_D_HANDOFF.md` 84-86): now against the last close, the ceasefire's real-money odds, the day's headlines toward a strike or a deal (the AI model picks and translates them, never writes a claim), what followed past strikes and deals against any day, and the read from the numbers; previewed 2026-10-31, its layout locked once the owner reviews it on `main`;
 - the room's trades;
 - the BUY signal, parked by the owner on 2026-10-18 (computed and logged, not sent; `SP_D_HANDOFF.md` 50.1);
 - the deep-discount push, parked until Neon returns.

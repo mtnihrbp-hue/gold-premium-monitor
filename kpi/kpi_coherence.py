@@ -625,6 +625,7 @@ class KPICoherence(unittest.TestCase):
             "get_usd_sell_rate": ("subprocess.run",),
             "get_market_prices": ("COLLECTORS",),
             "fetch_feed": ("requests.get", "feedparser.parse"),
+            "ceasefire_odds": ("requests.get",),
         }
 
         def offenders_in(source):
@@ -2026,7 +2027,7 @@ class KPICoherence(unittest.TestCase):
         self.assertIn("fair value", never)
         self.assertGreaterEqual(len(never), 12)
         surfaces = ("telegram_update_v1", "telegram_analyze", "telegram_signal", "telegram_service",
-                    "telegram_direction", "telegram_paper", "telegram_pulse", "gold_funds", "chart")
+                    "telegram_direction", "telegram_paper", "telegram_pulse", "gold_funds", "chart", "telegram_lens")
         found = []
         for module in surfaces:
             path = os.path.join(root, "src", "alerts", f"{module}.py")

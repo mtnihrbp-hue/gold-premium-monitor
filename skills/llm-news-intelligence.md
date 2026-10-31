@@ -112,6 +112,18 @@ If the LLM is unavailable:
 - news-derived fields become `UNKNOWN`
 - the worker does not crash
 
+## The one AI call in production: the LENS's headlines
+
+Since 2026-10-31 on sp-de (owner: "1-approved. 2-go ahead"; `SP_D_HANDOFF.md` 86), `intelligence/news_lens.py`:
+- **The input:** the last 24 hours of the four channels' headlines, filtered as the labelling filters them,
+  never a price.
+- **The task:** the model only picks (at most three toward a strike, three toward a deal) and translates.
+- **The checks:** `validate` drops a pick it was not given, a headline on both sides, and a translation
+  carrying a number its headline does not carry.
+- **When it fails:** no key, a spent daily quota or an unreadable reply leave the news out, and the lens says so.
+- **What it never does:** the read is not the model's. Neither is any number.
+- **The cost:** one request a night, about 2,500 tokens of the shared 200,000.
+
 ## Where the news comes from
 
 - **RSS feeds**, read by GitHub's runner (`config.news.sources`).
