@@ -18,13 +18,15 @@ from datetime import datetime
 import requests
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-from collector.news.telegram_channels import BASE, HEADERS, TIMEOUT, parse_page  # noqa: E402
+from collector.news.telegram_channels import BASE, HEADERS, TIMEOUT, page_messages  # noqa: E402
 
 PAUSE = 0.4            # seconds between pages, to stay a polite reader
 MAX_SECONDS = int(os.environ.get("BACKFILL_SECONDS", 50 * 60))  # a run's budget; what was read is written either way
 
 
 def page(channel, before):
+    """Every message on the page before `before`, text or not: a page of photos alone is not the channel's end
+    (khabarfouri's before 2022-03-14 stopped the backfill for a day; SP_D_HANDOFF.md section 87)."""
     for attempt in range(5):
         try:
             r = requests.get(BASE.format(channel=channel), params={"before": before} if before else None,
@@ -33,7 +35,7 @@ def page(channel, before):
                 time.sleep(int(r.headers.get("Retry-After", 10)) + 1)
                 continue
             r.raise_for_status()
-            return parse_page(r.text, channel)
+            return page_messages(r.text, channel)
         except requests.RequestException:
             time.sleep(2 * (attempt + 1))
     raise RuntimeError(f"{channel}: page before {before} failed five times")
@@ -66,6 +68,7 @@ def read(channel, since, out):
             if posts[before]["at"] < since:
                 print(f"{channel}: already held back to {posts[before]['at']:%Y-%m-%d}")
                 return
+    held_at = posts[before]["at"] if posts else None    # the oldest post held, the mark the label job reads
     while time.monotonic() - started < MAX_SECONDS:
         try:
             batch = page(channel, before)
@@ -73,13 +76,15 @@ def read(channel, since, out):
             print(e)
             break
         pages += 1
-        fresh = [p for p in batch if p["id"] not in posts]
-        for p in fresh:
-            posts[p["id"]] = p
+        texts = [p for p in batch if p["text"]]
+        for p in texts:
+            posts.setdefault(p["id"], p)
+        if texts:
+            held_at = min(held_at or texts[0]["at"], texts[0]["at"])
         if not batch:
             break
-        oldest = min(p["id"] for p in batch)
-        if batch[0]["at"] < since or oldest <= 1 or (before is not None and oldest >= before):
+        oldest = batch[0]["id"]
+        if (held_at is not None and held_at < since) or oldest <= 1 or (before is not None and oldest >= before):
             break
         before = oldest
         time.sleep(PAUSE)
