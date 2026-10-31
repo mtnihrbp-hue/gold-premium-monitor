@@ -70,7 +70,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    83 the owner's answers (2026-10-30 night); the missed days caught up; the risk as a reader would see it;
                                                                    84 the cases: what followed strikes and deals; the event odds real money sets;
                                                                    85 the lens on 9 Aban: the wider case library, today's read (a preview);
-                                                                   86 the LENS built: the nightly read, wired on sp-de
+                                                                   86 the LENS built: the nightly read, wired on sp-de;
+                                                                   87 the LENS's translation tested and fixed; a page of photos is not a channel's end
        member, the LLM member
 ```
 
@@ -8556,5 +8557,59 @@ Decision support, not an instruction to trade.
 1. the model's part run once on GitHub's runner, with the secret, sending nothing;
 2. the owner's review of a full message with headlines;
 3. the safe tag on `main`, then the merge. The layout is locked after that review.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 87. The LENS's translation tested and fixed; a page of photos is not a channel's end (2026-10-31)
+
+**Step 1 of 86's list, done.** The LENS was rendered on GitHub's runner with the secret (probe-lens, 08:54, nothing
+sent). The model picked 3 headlines a side and every pick passed `validate`. Two translations were wrong:
+- "پل هوایی" (an airlift) came out as "an unprecedented bridge operation";
+- "مذاکرات فشرده" (intensive talks) came out as "Compact Qatar talks".
+
+**The probe** (`research/probe_translate.py`, probe-lens only): one headline list, the prompts side by side with
+the Persian.
+- **First run, four variants:**
+  - the model is not deterministic at temperature 0: the same prompt gave "Compact" at 08:54 and "Intensive" at
+    12:10;
+  - an editor's instruction alone turned "العربی الجدید" (Al-Araby Al-Jadeed) into "Arab News", another outlet;
+  - medium reasoning cost 40% more tokens and turned Foreign Policy's analysis into "Gulf says";
+  - the variant with examples hit the per-minute limit (four calls back to back).
+- **Second run:** the first prompt (A) against a candidate (E), three rounds each, 70 seconds apart. Both picked
+  the same six headlines in every round.
+
+| Headline | A, the first prompt | E, the candidate |
+|---|---|---|
+| the army's spokesman: "make a new adventure, we widen the war's geography" | "expand the geography of war" in 2 of 3: the "if" lost, the meaning turned | the condition kept in 3 of 3 |
+| Axios, a diplomatic source: Qatari negotiators 12 hours in Tehran | "Axios" dropped in 3 of 3; "12 hours" dropped once | "Axios: ..." in 3 of 3 |
+| پل هوایی | "airborne bridge operation" | "airbridge operation" (an airlift's other English name) |
+| مذاکرات فشرده | "intensive" in 3 of 3 | "intensive" in 3 of 3 |
+| tokens a call | about 2,950 | about 2,880 |
+
+**The fix:** `news_lens.SYSTEM` is E word for word as tested. It keeps:
+- the meaning, not the words;
+- who says it, with an outlet transliterated rather than replaced;
+- a condition as a condition.
+
+`kpi_lens.test_04` holds the four rules in the prompt. `validate` still checks numbers only: names and conditions
+rest on the prompt, and the three rounds are the evidence for it.
+
+**A page of photos is not a channel's end.** E-9's backfill on the runner this morning read one page of
+khabarfouri and stopped, without an error, at 2022-03-14.
+- The page before post 224654 holds 20 posts, all photos (the week before Nowruz 1401). `parse_page` returns no
+  posts for it, and the loop took an empty list for the channel's start. The pages before it carry text.
+- `fetch_since`, which the LENS reads the channels with, had the same flaw: 20 photo posts in a row in the last 24
+  hours would have cut a channel's older headlines out of the night's message without a word.
+- **The fix:**
+  - `telegram_channels.page_messages` reads every message, text or not;
+  - `fetch_since` and the backfill page back from the oldest of them;
+  - the backfill's span is complete only once a post with text older than its start is held, the mark the label job
+    reads.
+- `kpi_lens.test_14` serves a page of photos between two pages of text. On the old reader it fails as khabarfouri
+  did (`[30, 31]` against `[10, 11, 30, 31]`).
+- `kpi_coherence.test_27` knows `fetch_since` as an entry point.
+- LESSONS_LEARNED 31.
+
+**Tests:** kpi_lens 14/14; KPI suite 31/31 files, unit tests 20/20, compile OK.
 
 **NEON MIGRATION REQUIRED = NO.**

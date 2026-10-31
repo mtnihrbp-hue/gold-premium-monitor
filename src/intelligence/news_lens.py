@@ -28,11 +28,19 @@ MARKS = re.compile(r"[🔺🔹🔸🔻▪️⭕️✅❌📌📊📈📉🔴🟢
 MODEL = "openai/gpt-oss-120b"
 URL = "https://api.groq.com/openai/v1/chat/completions"
 PER_SIDE = 3
+# The translation rules as tested on 9 Aban, three rounds against the first prompt on one headline list
+# (SP_D_HANDOFF.md section 87): the first dropped "Axios" in 3 of 3 and a threat's "if" in 2 of 3.
 SYSTEM = """You read numbered headlines from Iranian news channels (Persian), from the last day. You never see
 prices. Pick the headlines that point toward a US or Israeli strike on Iran, or the war resuming ("strike"),
 and those that point toward a deal, talks or a de-escalation ("deal"): at most 3 a side, the most significant,
-none on both sides; a side may be empty. Translate each pick into one plain English line of at most 90
-characters, adding nothing that is not in the headline: no number, name or claim of your own.
+none on both sides; a side may be empty.
+Translate each pick as a news editor would, into one plain English line of at most 90 characters:
+- the meaning, not word for word: an idiom becomes the English term ("پل هوایی" is an airlift, "مذاکرات فشرده"
+  are intensive talks);
+- who says it stays: a headline that opens with a source opens with that source in English ("Axios:",
+  "Foreign Policy:"); an outlet you cannot name with certainty is transliterated, never replaced by another;
+- a condition stays a condition, a claim stays a claim;
+- nothing that is not in the headline: no number, name or claim of your own.
 Answer with JSON only: {"strike": [{"id": <number>, "en": "<line>"}], "deal": [{"id": <number>, "en": "<line>"}]}"""
 DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
 

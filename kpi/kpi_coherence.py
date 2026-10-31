@@ -626,6 +626,7 @@ class KPICoherence(unittest.TestCase):
             "get_market_prices": ("COLLECTORS",),
             "fetch_feed": ("requests.get", "feedparser.parse"),
             "ceasefire_odds": ("requests.get",),
+            "fetch_since": ("requests.get",),
         }
 
         def offenders_in(source):
