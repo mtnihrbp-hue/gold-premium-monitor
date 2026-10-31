@@ -118,17 +118,22 @@ Since 2026-10-31 on sp-de (owner: "1-approved. 2-go ahead"; `SP_D_HANDOFF.md` 86
 - **The input:** the last 24 hours of the four channels' headlines, filtered as the labelling filters them,
   never a price.
 - **The task:** the model only picks (at most three toward a strike, three toward a deal) and translates.
+- **The translation rules** (tested 2026-10-31, `SP_D_HANDOFF.md` 87): the meaning, not the words; who says it
+  stays, an outlet transliterated rather than replaced; a condition stays a condition. The first prompt dropped
+  "Axios" in 3 of 3 rounds and a threat's "if" in 2 of 3. Test a prompt change the same way: one headline list,
+  three rounds each, beside the Persian. The model is not deterministic at temperature 0, so one run proves nothing.
 - **The checks:** `validate` drops a pick it was not given, a headline on both sides, and a translation
   carrying a number its headline does not carry.
 - **When it fails:** no key, a spent daily quota or an unreadable reply leave the news out, and the lens says so.
 - **What it never does:** the read is not the model's. Neither is any number.
-- **The cost:** one request a night, about 2,500 tokens of the shared 200,000.
+- **The cost:** one request a night, about 2,900 tokens of the shared 200,000.
 
 ## Where the news comes from
 
 - **RSS feeds**, read by GitHub's runner (`config.news.sources`).
 - **Telegram channels**, read from GitHub's side, because t.me is blocked from Iran
-  (`collector/news/telegram_channels.py`; research so far).
+  (`collector/news/telegram_channels.py`; the LENS's headlines). A page of photos alone has no posts and is
+  not the channel's end: page back from `page_messages`, every message, text or not (`SP_D_HANDOFF.md` 87).
 - **The Iranian sites** (Tasnim, cbi.ir, Donya-e-Eqtesad, Tejarat News) are read by GitHub's runner too.
   Tasnim moved to `tasnimnews.ir`, and cbi.ir rejects some user agents and serves no charset. Before
   routing a source to the phone (`iran_node/`, as TSETMC is), probe it from the runner

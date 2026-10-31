@@ -918,3 +918,19 @@ with it.
 filter by title is not a definition. When an input is found wrong, re-measure every figure that
 depends on it, and change the published numbers the same day. A figure in a locked message is published
 too.
+
+## 31. An empty parse is not an empty page
+
+**The pattern.** A reader pages through a source and stops when a page yields nothing. The parser, though,
+returns only the items it keeps, so a page full of items it drops looks exactly like the end. The run ends
+green, with less than it should have, and says nothing.
+
+**Where it happened.** The Telegram reader keeps posts with text. On 2026-10-31 E-9's backfill stopped at
+khabarfouri's 2022-03-14, one page into the run, because the 20 posts before it were all photos
+(`SP_D_HANDOFF.md` 87). The label job waited on that channel, so a day of labelling was lost. The same
+reader feeds the LENS's headlines, where a burst of photos would have cut a channel's older news out of the
+night's message.
+
+**The check.** Page by what the source holds, not by what the parser keeps: the oldest message on the page,
+kept or not. Stop on a page the source returns empty, or one that goes nowhere. A test serves a page of
+dropped items between two pages of kept ones.

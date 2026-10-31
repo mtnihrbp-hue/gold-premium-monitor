@@ -9,6 +9,8 @@ Load-bearing properties:
 - the model only picks and translates: a pick outside the headlines, on both sides, beyond three a side, or a
   translation carrying a number its headline does not carry is dropped; an unreadable reply, no key or a spent
   daily quota leaves the news out;
+- the translation keeps who says it and a condition as a condition (9 Aban's three rounds, SP-D 87);
+- the channels are paged back from their oldest message, text or not: a page of photos alone is not the end;
 - the case summary is computed from the seed, never written by hand;
 - every number the message prints is computed in analysis/lens.py; the message formats;
 - the read's flags come from the numbers, never from the model;
@@ -118,6 +120,10 @@ class LensKPI(unittest.TestCase):
         self.assertIsNone(news_lens.validate("text", HEADS))
         many = {"deal": [{"id": i, "en": f"line number {i}"} for i in range(1, 5)]}
         self.assertEqual(len(news_lens.validate(many, [f"سرخط {i}" for i in range(1, 5)])["deal"]), 3)
+        # the prompt as tested (SP-D 87): the first dropped "Axios" in 3 of 3 rounds and a threat's "if" in 2 of 3
+        for rule in ("who says it stays", "a condition stays a condition", "never replaced by another",
+                     "the meaning, not word for word"):
+            self.assertIn(rule, news_lens.SYSTEM)
 
     def test_05_no_key_a_spent_quota_or_an_unreadable_reply_leaves_the_news_out(self):
         class R:
@@ -251,6 +257,37 @@ class LensKPI(unittest.TestCase):
         self.assertIn("GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}", execute)
         with open(os.path.join(ROOT, "config", "config.json"), encoding="utf-8") as f:
             self.assertIn("send", json.load(f)["lens"])
+
+    def test_14_a_page_of_photos_alone_is_not_the_channels_end(self):
+        import collector.news.telegram_channels as channels
+
+        def post(i, hour, text=True):
+            body = f'<div class="tgme_widget_message_text">headline {i}<br>more</div>' if text else ""
+            return (f'<div class="tgme_widget_message" data-post="chan/{i}">{body}<a class="tgme_widget_message_date">'
+                    f'<time datetime="2026-10-31T{hour:02d}:00:00+00:00"></time></a></div>')
+
+        pages = {None: [post(30, 20), post(31, 21)],                         # the newest page
+                 30: [post(20, 15, False), post(21, 16, False)],             # photos alone (khabarfouri, 1401)
+                 20: [post(10, 9), post(11, 10)]}                            # older posts with text
+
+        class R:
+            def __init__(self, html):
+                self.text = html
+
+            def raise_for_status(self):
+                pass
+
+        real = channels.requests.get
+        channels.requests.get = lambda url, params=None, **kw: R("".join(pages[(params or {}).get("before")]))
+        try:
+            got = channels.fetch_since("chan", datetime(2026, 10, 31, 8), max_pages=10)
+        finally:
+            channels.requests.get = real
+        self.assertEqual([p["id"] for p in got], [10, 11, 30, 31])          # past the photos, none of them kept
+        self.assertEqual(got[0]["text"], "headline 10\nmore")
+        everything = channels.page_messages("".join(pages[30]), "chan")
+        self.assertEqual([(p["id"], p["text"]) for p in everything], [(20, ""), (21, "")])
+        self.assertEqual(channels.parse_page("".join(pages[30]), "chan"), [])
 
 
 if __name__ == "__main__":
