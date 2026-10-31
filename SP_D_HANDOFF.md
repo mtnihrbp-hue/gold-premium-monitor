@@ -8609,6 +8609,10 @@ khabarfouri and stopped, without an error, at 2022-03-14.
   did (`[30, 31]` against `[10, 11, 30, 31]`).
 - `kpi_coherence.test_27` knows `fetch_since` as an entry point.
 - LESSONS_LEARNED 31.
+- **E-9 resumed the same day** (probe-news-labels, b3a7d78):
+  - khabarfouri was read back to 2021-12-31: 774 pages, 963 seconds, 301,838 posts;
+  - the label job labelled 69 days (2022-01-01 to 2022-07-24, every third day) before its 170,000-token budget;
+  - that is 69 of the 600 days E-9 needs, about eight more daily runs.
 
 **Tests:** kpi_lens 14/14; KPI suite 31/31 files, unit tests 20/20, compile OK.
 
