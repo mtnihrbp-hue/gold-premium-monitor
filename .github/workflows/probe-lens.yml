@@ -18,8 +18,7 @@ jobs:
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
-          python research/probe_translate.py || true
-          echo skipped > lens.txt
+          python research/preview_lens.py > lens.txt 2>&1 || true
           cat lens.txt
           python - <<'PY'
           text = open("lens.txt", encoding="utf-8").read()
