@@ -71,7 +71,8 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    84 the cases: what followed strikes and deals; the event odds real money sets;
                                                                    85 the lens on 9 Aban: the wider case library, today's read (a preview);
                                                                    86 the LENS built: the nightly read, wired on sp-de;
-                                                                   87 the LENS's translation tested and fixed; a page of photos is not a channel's end
+                                                                   87 the LENS's translation tested and fixed; a page of photos is not a channel's end;
+                                                                   88 health check of 10 Aban: Neon back, the outage written back, the room's move
        member, the LLM member
 ```
 
@@ -8615,5 +8616,55 @@ khabarfouri and stopped, without an error, at 2022-03-14.
   - that is 69 of the 600 days E-9 needs, about eight more daily runs.
 
 **Tests:** kpi_lens 14/14; KPI suite 31/31 files, unit tests 20/20, compile OK.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 88. Health check of 10 Aban: Neon back, the outage written back, the room's move (2026-11-01)
+
+Taken at 12:20 Tehran (`PROJECT_OPERATIONS.md` 15), read-only.
+
+- **Runs.** Every run since 9 Aban succeeded on `main`, hourly from 06:00. GitHub's API stamps the 12:00 run an hour
+  ahead: created 09:30 UTC, finished 09:34, while its own `Date` header and Neon's clock read 08:48. Its reading is
+  stored at 08:31. It is GitHub's metadata, not a missed run.
+- **Neon's return.** 10-31's runs were still refused ("Your account..."). The 06:00 run of 11-01 reached Neon.
+- **The write-back** (readings, observations, daily inputs; news held, section 73):
+
+| Run | Stored | Rejected | Still held | Deferred by the re-check (37.1) |
+|---|---|---|---|---|
+| 06:00 | 2,041 | 0 | 2,038 | 79 |
+| 07:00 | 2,036 | 0 | 0 | 2 |
+
+  - The news, about 6,600 held writes, stays in the spool ("held writes of other kinds kept").
+  - No duplicate by natural key: snapshots by time and mode, observations by instrument, source, time and side.
+  - Each Tehran day from 10-16 to 10-31 has its 16 scheduled readings. 10-14 has none (before the spool, 35.4),
+    10-15 has 3.
+  - SP-E0's first KPI (69.3) passes: L at 0, D at 0, no duplicate.
+- **SERVICE** announced the database back at 07:00. **The mirror** was first built at 06:05 (8,947 rows) and
+  refreshes each run.
+- **Decisions.**
+  - The 263 states from 10-15 15:31 to 10-31 are UNKNOWN: held without the database, no rank, the engine abstained.
+  - Today it is FAIR and WAIT, with the structure PREMIUM_DOMINANT or MIXED: 18K has moved from a discount to a
+    small premium (the LENS preview of 9 Aban read +0.3% to +0.4%).
+  - No BUY candidate since 10-13; the 7 final BUYs on record are all from 9-18 to 10-13.
+- **The room** at 12:00: SELL 2 g at 254,279,390 on Daric, its move out (2 g to Afran, 3 g kept): "18K is less
+  discounted than usual against world gold and the dollar; the dollar is ahead of the cost of money". Pushed to
+  Telegram.
+- **Platforms, last 24 hours:**
+  - Taline is in 1 of 16 readings, discarded by its 1% band at +1.04% and +1.42% from the others' median. Read
+    from the workstation at 12:20, Taline was 255,615,000, −0.05% from the others: the runner is served a stale copy
+    and the band is right. Taline belongs to C3, a read from the phone (69.2).
+  - HoorGold timed out once and Invi's page failed to parse once; both are back the next run.
+- **Daily inputs:** tgju and etfbaz to 10-31, Afran to 11-01. **Direction:** the 06:00 panel stored.
+- **The phone:** its spool flushed, 11,203 rows in 24 hours (TSETMC's live flow, Daric, the days). The comparison
+  pages were last read 10-30 09:15, as 73.9 has it.
+- **Neon's transfer** from 11-01 00:00 UTC to 08:48: 24.3 MB over 7 runs, the write-back and the mirror's first
+  build among them. That is 3.5 MB a run, about 1.7 GB a month if every run cost the same. It is under the 4 GB
+  alarm and above SP-E0's 1.5 GB target. It is to be measured again on a day of ordinary runs.
+
+**Verdict:** healthy. Neon is back and the outage is written back without a rejection or a duplicate. Open:
+- Taline's stale copy on the runner (C3);
+- the transfer per ordinary run;
+- A8's unique keys on a Neon branch, now that branches can be made;
+- the LENS's review (87).
 
 **NEON MIGRATION REQUIRED = NO.**
