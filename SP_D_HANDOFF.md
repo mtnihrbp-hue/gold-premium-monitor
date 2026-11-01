@@ -74,6 +74,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    87 the LENS's translation tested and fixed; a page of photos is not a channel's end;
                                                                    88 health check of 10 Aban: Neon back, the outage written back, the room's move
                                                                    89 Neon's storage measured; A8's unique keys tested on a Neon branch; the owner's answers of 10 Aban
+                                                                   90 A8 applied; tags on pulled replies; the forward test on GitHub's runner; the production environment; the LENS off (v1.41safe)
        member, the LLM member
 ```
 
@@ -8792,3 +8793,117 @@ database holds what the code assumes:
   locked).
 
 **NEON MIGRATION REQUIRED = YES** (A8): verified on a temporary Neon branch; not applied.
+
+## 90. A8 applied; tags on pulled replies; the forward test on GitHub's runner; the production environment (2026-11-01)
+
+**The owner, on 89:** "OK, go ahead."
+- The keys applied to production, and the tags on the last line, as recommended.
+- The forward test as its own job.
+- The production boundary's steps.
+- `sp-de` merged with the LENS switched off.
+
+### 90.1 A8's unique keys, applied (KPI E0-4: passes)
+
+- **When:** 14:10 UTC (17:40 Tehran), between the 17:00 and 18:00 runs.
+- **First, the backup:** the 2,126 later news copies, read-only, to
+  `research/data/neon_backup/news_events_later_copies_2026-11-01.jsonl.gz` (583 KB, every column; local, in the
+  D: backup).
+- **The other four tables were re-checked:** 0 repeated.
+- **The migration** ran in 0.2 s as one transaction. Only the 2,126 news copies left, and the five keys are in
+  place:
+
+| Table | Before | After |
+|---|---|---|
+| market_snapshots | 1,146 | 1,146 |
+| platform_prices | 11,489 | 11,489 |
+| price_observations | 12,775 | 12,775 |
+| news_events | 11,594 | 9,468 |
+| iran_node_readings | 14,262 | 14,262 |
+
+- **The 18:00 run after it:** green.
+  - It stored 1 reading, 10 platform prices, 14 observations and 18 news items.
+  - Its log has no refused write.
+  - The phone sent 38 rows in its first 20 minutes.
+- **Rollback:** the file's own; the news copies come back from the backup.
+
+### 90.2 A tag on each pulled reply
+
+- **What the owner sees:** the command as a tag on its own last line: `#update`, `#analyze`, `#direction`,
+  `#status`. Telegram makes each one a link that finds every reply to that command.
+- **Where it is added:**
+  - at the send, through `alerts/telegram.tagged`, never inside a builder, so every locked layout above it is
+    unchanged;
+  - `send_update_v1` and its fallback, `send_analyze`, `send_direction`, ANALYZE's "database out of reach";
+  - "data unavailable" only when a user pulled it: a scheduled run's copy is a push.
+- **Status** is answered by the worker: `#status` is in `src/worker/telegram-trigger.js`, live once the owner
+  pastes it into Cloudflare (its README).
+- **Untagged:**
+  - the worker's acknowledgements ("Update triggered"), so a search does not show each request twice;
+  - every scheduled message: the LENS, the room, the pulse, SERVICE, the BUY signal, the push.
+- **Test:** `kpi_coherence.test_68`.
+
+### 90.3 The forward test on GitHub's runner
+
+**The owner's choice:** "a step inside production run, if there will be no problem." There was one.
+- The repository gives workflow tokens read access only. Starting a second workflow from inside `gold-monitor.yml`
+  needs `actions: write`, so production's token permissions would have changed.
+- That cannot be tested without a production run, and a wrong permission could cost the run its state cache.
+
+**Built instead:** `.github/workflows/forward-test.yml`, started by GitHub when a run of the production workflow
+finishes.
+- Its job runs only for the ANALYZE run started in the 17:xx UTC hour, the 21:00 Tehran run.
+- GitHub's own schedule at 18:15 UTC (21:45 Tehran) starts it too, as a fallback. A second start finds the day
+  recorded and commits nothing.
+- `gold-monitor.yml`'s note "Do not re-add" the native schedule is about its own schedule, which duplicated
+  cron-job.org's runs. This one cannot duplicate a line.
+- **No secret:** tgju, CBOE and the IMF are public. Its token writes `forward-ledger` alone.
+- **Production's workflow does not refer to it** (`kpi_coherence.test_69`).
+
+**The branch `forward-ledger`** (orphan, never merged; 0dcf7ba):
+- the workstation's ledger, byte for byte: one line, 2026-10-29;
+- seven inputs as of 2026-10-30, and a README;
+- each new line is one commit: the commit's time is the public record that the line came before its outcome.
+- The inputs are committed only with a new line, so the branch holds what each line was scored from.
+
+**The minimal set, proven** (no fetch, a separate worktree, the real ledger untouched):
+- **On the workstation:**
+  - 10-29 scored from the full `research/data` (155 MB) gives the line written on 10-30, every field equal;
+  - from the eight files alone, the same;
+  - the research table rebuilt from them is identical, 3,542 rows; `build_flows` fails for lack of TSETMC's and
+    fipiran's files, as it will on the runner.
+- **On GitHub's runner** (`probe-forward`, a push-triggered copy against a probe copy of the ledger; both
+  branches deleted after):
+  - 10-29 rebuilt from the branch: calm and R3 equal to the workstation's;
+  - R10 differs in the 16th digit (0.6684967275665831 against ...832), a last-bit rounding of Python 3.12 against
+    3.13;
+  - **the real path** fetched tgju, CBOE and the IMF from the runner and scored **2026-10-31: R3 19.1%, calm
+    1.73% a day, R10 68.1%, the rule in gold**.
+
+**Expected tonight:** the first official run after 21:00 writes 10-31, marked late (the probe's copy is not
+carried over), and 11-01 on time.
+
+### 90.4 The production boundary (KPI E0-5: waiting for the owner's steps)
+
+- **Built:**
+  - `gold-monitor.yml`'s job declares `environment: production`;
+  - the environment was created by the API with one deployment rule, the branch `main`;
+  - it holds no secret yet, so runs read the repository's secrets as before.
+- **The owner's steps** are `PROJECT_OPERATIONS.md` section 19: the five production secrets into the
+  environment, a green run, then the repository copies deleted. `GROQ_API_KEY` stays a repository secret.
+- **Until then,** `CLAUDE.md`'s rule stands: every run of `gold-monitor.yml`, from any branch, is production.
+
+### 90.5 The LENS off, and the merge
+
+- **`config.lens.send` is false**, with a note: "the LENS need more time from my side." The LENS's code reaches
+  `main` silent, and goes on when the owner has reviewed a full message.
+- **Checks:**
+  - the KPI suite 31/31 (coherence 64), the unit tests 20/20, compileall;
+  - both workflow files parse.
+- **Merged:** `main` tagged `v1.41safe` first (7d33103, SP-D 73), then fast-forwarded to `sp-de`.
+
+**Also recorded:**
+- `LESSONS_LEARNED.md` 32, a duplicate only under the right key;
+- `skills/telegram-product.md`, the tag rule.
+
+**NEON MIGRATION REQUIRED = YES** (A8, `sql/neon_migration_a8_unique_keys.sql`): applied to production on
+2026-11-01 at 14:10 UTC, verified.

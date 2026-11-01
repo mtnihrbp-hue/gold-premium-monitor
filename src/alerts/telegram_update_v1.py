@@ -16,7 +16,7 @@ Visual design decisions:
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from alerts.telegram import _money, _send
+from alerts.telegram import _money, _send, tagged
 from alerts.helpers import (
     format_clock,
     format_pct,
@@ -584,4 +584,4 @@ def send_update_v1(
         _build_platforms(markets, baselines, fair=fair),
         _build_timestamp(),
     ])
-    _send(body)
+    _send(tagged(body, "update"))

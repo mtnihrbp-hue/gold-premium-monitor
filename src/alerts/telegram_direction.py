@@ -21,7 +21,7 @@ system's decision keeps its authority in UPDATE.
 from datetime import date, datetime
 
 from alerts.helpers import format_m_tomans_short, to_tehran
-from alerts.telegram import _send
+from alerts.telegram import _send, tagged
 from analysis.direction import DIP_PCT, DOLLAR_SHARE
 from timeutil import local_now, persian_day
 
@@ -229,4 +229,4 @@ def build_direction_message(panel):
 
 
 def send_direction(panel):
-    _send(build_direction_message(panel))
+    _send(tagged(build_direction_message(panel), "direction"))

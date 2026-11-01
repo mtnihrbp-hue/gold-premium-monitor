@@ -144,7 +144,8 @@ ${escapeHtml(errBody.slice(0, 400))}`);
     // ─── Status ───
     if (command === "status") {
       const statusMsg = await getWorkflowStatus(env);
-      await sendTelegram(env, chatId, statusMsg);
+      // the command as a tag on the last line, as on the pulled reports (SP_D_HANDOFF.md section 90)
+      await sendTelegram(env, chatId, `${statusMsg}\n\n#status`);
       return new Response("OK");
     }
 

@@ -16,6 +16,12 @@ Implemented (`PROJECT_MEMORY.md` section 3):
 - `Status` — the latest run, and the service line the last scheduled run left (database, world gold,
   dollar, platforms; `SP_D_HANDOFF.md` 37.15)
 
+Each pulled reply ends with its command as a tag on its own last line, `#update`, `#analyze`, `#direction` or
+`#status`, so the owner can find every reply to one command (the owner, 2026-11-01; `SP_D_HANDOFF.md` 90). It is
+added at the send (`alerts/telegram.tagged`), never inside a builder, so the layouts below are unchanged. A
+pulled reply that found no data carries its command's tag too. The worker's acknowledgements and every
+scheduled message carry none (`kpi_coherence.test_68`).
+
 Scheduled, not commanded:
 - SERVICE, when a service stops or comes back, once two runs agree;
 - the pulse, BREAKOUT or BREAKDOWN, at the first run of a day whose last close broke a box or a flag
@@ -23,7 +29,7 @@ Scheduled, not commanded:
   with lift; never BUY, SELL or WAIT; not pushed when the next close is back inside the box, and the evening
   then says "Broke up on X; back inside the box since Y" (60);
 - the room's 21:00 report, with the day's chart as a photo;
-- the LENS, at the first run from 21:00 (`SP_D_HANDOFF.md` 84-86): now against the last close, the ceasefire's real-money odds, the day's headlines toward a strike or a deal (the AI model picks and translates them, never writes a claim), what followed past strikes and deals against any day, and the read from the numbers; previewed 2026-10-31, its layout locked once the owner reviews it on `main`;
+- the LENS, at the first run from 21:00 (`SP_D_HANDOFF.md` 84-86): now against the last close, the ceasefire's real-money odds, the day's headlines toward a strike or a deal (the AI model picks and translates them, never writes a claim), what followed past strikes and deals against any day, and the read from the numbers; previewed 2026-10-31, its layout locked once the owner reviews it; switched off by `config.lens.send` from 2026-11-01 until that review (`SP_D_HANDOFF.md` 90);
 - the room's trades;
 - the BUY signal, parked by the owner on 2026-10-18 (computed and logged, not sent; `SP_D_HANDOFF.md` 50.1);
 - the deep-discount push, parked until Neon returns.

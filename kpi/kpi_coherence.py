@@ -2216,6 +2216,64 @@ class KPICoherence(unittest.TestCase):
         finally:
             s.close()
 
+    def test_68_each_pulled_reply_ends_with_its_commands_tag_and_no_push_carries_one(self):
+        """The owner, 2026-11-01: "add a #xxxx [update, analyze, direction and so on] on each msg being delivered to
+        tlrgm via user pull, so i can easily search and categorize" (SP_D_HANDOFF.md section 90). The tag is added
+        at the send, on its own last line, so every agreed layout above it is unchanged. The worker's
+        acknowledgements and every scheduled message carry none."""
+        import inspect
+        from alerts import telegram, telegram_analyze, telegram_direction, telegram_update_v1
+        self.assertEqual(telegram.tagged("BODY", "update"), "BODY\n\n#update")
+        sent = []
+        modules = (telegram, telegram_analyze, telegram_direction)
+        real = [m._send for m in modules] + [telegram_analyze.build_analyze_message,
+                                            telegram_direction.build_direction_message]
+        try:
+            for m in modules:
+                m._send = sent.append
+            telegram_analyze.build_analyze_message = lambda report: "ANALYZE"
+            telegram_direction.build_direction_message = lambda panel: "DIRECTION"
+            telegram_analyze.send_analyze(None)
+            telegram_direction.send_direction(None)
+            telegram.send_data_unavailable(reason="Dollar rate unavailable.", tag="update")
+            telegram.send_data_unavailable(reason="World gold price unavailable.")
+        finally:
+            for m, f in zip(modules, real):
+                m._send = f
+            telegram_analyze.build_analyze_message, telegram_direction.build_direction_message = real[3:]
+        self.assertEqual(sent[:2], ["ANALYZE\n\n#analyze", "DIRECTION\n\n#direction"])
+        self.assertTrue(sent[2].endswith("\n\n#update"), "a pulled Update that found no data")
+        self.assertNotIn("#", sent[3], "a scheduled run's notice is a push")
+        self.assertIn('_send(tagged(body, "update"))', inspect.getsource(telegram_update_v1.send_update_v1))
+        self.assertIn('"update")', inspect.getsource(telegram.send_manual_update), "UPDATE's fallback")
+        main_src = (SRC / "main.py").read_text(encoding="utf-8")
+        self.assertIn('tag=None if is_scheduled else "update"', main_src)
+        self.assertIn('_send(tagged(build_unavailable_message(), "analyze"))', main_src)
+        worker = (SRC / "worker" / "telegram-trigger.js").read_text(encoding="utf-8")
+        self.assertIn("`${statusMsg}\\n\\n#status`", worker)
+        self.assertNotIn("#update", worker, "the acknowledgements carry no tag: a search would show each request twice")
+        for name in ("telegram_lens", "telegram_paper", "telegram_pulse", "telegram_service", "telegram_signal"):
+            self.assertNotIn("tagged(", (SRC / "alerts" / f"{name}.py").read_text(encoding="utf-8"), name)
+        self.assertNotIn("tagged(", inspect.getsource(telegram_analyze.send_push), "the deep-discount push")
+
+    def test_69_the_forward_test_runs_beside_production_with_no_secret(self):
+        """The forward test's daily line (SP_D_HANDOFF.md section 90): its own workflow, started when the 21:00
+        Tehran run finishes, holding no secret and writing to the branch forward-ledger alone. The production
+        workflow only declares its environment, which admits main alone."""
+        flow = (REPO / ".github" / "workflows" / "forward-test.yml").read_text(encoding="utf-8")
+        self.assertNotIn("secrets.", flow, "tgju, CBOE and the IMF are public: no production secret")
+        self.assertIn('workflows: ["Gold Premium Monitor"]', flow)
+        self.assertIn("contains(github.event.workflow_run.run_started_at, 'T17:')", flow, "21:00 Tehran is 17:30 UTC")
+        self.assertIn("LEDGER_BRANCH: forward-ledger", flow)
+        self.assertEqual(flow.count("git push"), 1)
+        self.assertIn('git push -q origin "HEAD:${LEDGER_BRANCH}"', flow)
+        self.assertIn("python research/engine_today.py\n", flow, "the engine as the workstation ran it")
+        production = (REPO / ".github" / "workflows" / "gold-monitor.yml").read_text(encoding="utf-8")
+        self.assertIn("environment: production", production)
+        self.assertNotIn("forward", production, "production's workflow does not start it")
+        self.assertIn('FROZEN = "E-8 candidate, frozen 2026-10-30', (REPO / "research" / "engine_today.py").read_text(
+            encoding="utf-8"), "a change to the rule opens a new version")
+
 if __name__ == "__main__":
     print("=" * 55)
     print("CROSS-CUTTING COHERENCE")

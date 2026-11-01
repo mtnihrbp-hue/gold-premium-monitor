@@ -12,7 +12,7 @@ have already happened.
 
 from typing import Optional
 
-from alerts.telegram import _send
+from alerts.telegram import _send, tagged
 from alerts.helpers import format_m_tomans_short, format_timestamp, to_tehran
 from analysis.bubble_position import DEFAULT_WINDOW_DAYS
 
@@ -240,7 +240,7 @@ def build_unavailable_message() -> str:
 
 
 def send_analyze(report):
-    _send(build_analyze_message(report))
+    _send(tagged(build_analyze_message(report), "analyze"))
 
 
 # ---------------------------------------------------------------------------

@@ -20,6 +20,12 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 APP_HEADER = "GOLDPremium:"
 
 
+def tagged(text: str, command: str) -> str:
+    """A pulled message with its command as a tag on its own last line: Telegram makes "#update" a link to
+    every reply to that command (the owner, 2026-11-01; SP_D_HANDOFF.md section 90). Pushes carry none."""
+    return f"{text}\n\n#{command}"
+
+
 def _send(text: str):
     if not TELEGRAM_BOT_TOKEN:
         print("TELEGRAM SKIP: TELEGRAM_BOT_TOKEN not set", file=sys.stderr)
@@ -198,17 +204,18 @@ def send_alert(signal, world, usd, fair, lowest, premium, markets, trends=None, 
 
 def send_manual_update(world, usd, fair, lowest, premium, markets, trends=None, momentum=None, previous_markets=None, input_directions=None, signal_state=None):
     body = _build_common_body(world, usd, fair, lowest, premium, markets, trends, momentum, previous_markets, input_directions, signal_state)
-    _send(_build_message("<b>MANUAL UPDATE</b>", "", body))
+    _send(tagged(_build_message("<b>MANUAL UPDATE</b>", "", body), "update"))
 
 
-def send_data_unavailable(usd=None, markets=None, reason=None):
+def send_data_unavailable(usd=None, markets=None, reason=None, tag=None):
     lines = [APP_HEADER, "", "<b>DATA UNAVAILABLE</b>", "", reason or "Unable to fetch required market data."]
     if usd is not None:
         lines.append(f"USD Rate: {_money(usd)} IRR")
     if markets:
         valid = [name for name, info in markets.items() if info.get("status") == "OK"]
         lines.append(f"Available platforms: {len(valid)}")
-    _send("\n".join(lines))
+    text = "\n".join(lines)
+    _send(tagged(text, tag) if tag else text)
 
 
 def send_processing():

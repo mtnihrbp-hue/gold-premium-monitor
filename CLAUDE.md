@@ -63,7 +63,8 @@ pip install -r requirements.txt
 
 CI workflows (`.github/workflows/`):
 - `kpi-suite.yml` — full KPI suite + unit tests + `compileall`, on `main`, SP-C and SP-D pushes, PRs, and manual dispatch. Never given `DATABASE_URL`, so it cannot reach production Neon. Safe to run freely.
-- `gold-monitor.yml` — the live app (`src/main.py`). **Not sandboxed on any branch**: it uses repository secrets, so running it from a feature branch still writes to production Neon and sends real Telegram messages. Treat every run as production.
+- `gold-monitor.yml` — the live app (`src/main.py`). **Not sandboxed on any branch**: it uses repository secrets, so running it from a feature branch still writes to production Neon and sends real Telegram messages. Treat every run as production. Its job declares `environment: production` (main only); the boundary holds once the owner has moved the secrets into it (`PROJECT_OPERATIONS.md` §19).
+- `forward-test.yml` — the forward test's daily line (`research/engine_today.py`), started when the 21:00 Tehran run finishes; no secret; it commits only to the branch `forward-ledger`, which is never edited by hand (`PROJECT_OPERATIONS.md` §18).
 
 Required environment variables (see `.github/workflows/gold-monitor.yml` and `src/database/connection.py`, `src/alerts/*`): `DATABASE_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `RESEND_API_KEY`, `EMAIL_TO`. `SCHEDULED_RUN=true` switches `src/main.py` from the lightweight UPDATE path into the full scheduled Analysis path.
 

@@ -640,8 +640,8 @@ def _send_analyze_report():
     from alerts.telegram_analyze import build_unavailable_message, send_analyze
 
     if not _database_reachable():
-        from alerts.telegram import _send
-        _send(build_unavailable_message())
+        from alerts.telegram import _send, tagged
+        _send(tagged(build_unavailable_message(), "analyze"))
         print("REPORT: the database is out of reach; said so")
         return
     session = get_session()
@@ -1801,7 +1801,8 @@ def main():
                              world_observed_at=world_observed_at, world_from_fallback=world_from_fallback)
 
     if world is None:
-        send_telegram_unavailable(usd=usd, markets=markets, reason="World gold price unavailable. All APIs failed and no recent cached data.")
+        send_telegram_unavailable(usd=usd, markets=markets, reason="World gold price unavailable. All APIs failed and no recent cached data.",
+                                  tag=None if is_scheduled else "update")
         return
     if usd is None:
         # Without the dollar there is no fair value. calculate_fair_price(world, None) raised here and
@@ -1809,7 +1810,7 @@ def main():
         # reader, so a scheduled run says nothing more.
         print("\nERROR: Dollar rate unavailable. Skipping.")
         if not is_scheduled:
-            send_telegram_unavailable(usd=usd, markets=markets, reason="Dollar rate unavailable.")
+            send_telegram_unavailable(usd=usd, markets=markets, reason="Dollar rate unavailable.", tag="update")
         return
 
     # calculate_fair_price inherits its unit from usd_irr, which bonbast reports in

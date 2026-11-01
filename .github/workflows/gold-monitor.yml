@@ -67,6 +67,9 @@ jobs:
     # Pinned, not ubuntu-latest: GitHub moves ubuntu-latest to Ubuntu 26 from 2026-10-19, and a
     # runner change under the pins broke production once already (SP_D_HANDOFF.md 28, 35.5).
     runs-on: ubuntu-24.04
+    # The production boundary (the audit's A-plan, SP-E0; SP_D_HANDOFF.md section 90): the environment
+    # admits main alone, and once the secrets live in it a run from any other branch gets none of them.
+    environment: production
     # The Analyze path has been exceeding 10 minutes and being cancelled, which is why
     # roughly half of recent scheduled runs produced no analysis snapshot.
     timeout-minutes: 20
