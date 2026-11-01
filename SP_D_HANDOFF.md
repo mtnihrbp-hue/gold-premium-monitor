@@ -73,6 +73,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    86 the LENS built: the nightly read, wired on sp-de;
                                                                    87 the LENS's translation tested and fixed; a page of photos is not a channel's end;
                                                                    88 health check of 10 Aban: Neon back, the outage written back, the room's move
+                                                                   89 Neon's storage measured; A8's unique keys tested on a Neon branch; the owner's answers of 10 Aban
        member, the LLM member
 ```
 
@@ -8668,3 +8669,126 @@ Taken at 12:20 Tehran (`PROJECT_OPERATIONS.md` 15), read-only.
 - the LENS's review (87).
 
 **NEON MIGRATION REQUIRED = NO.**
+
+## 89. Neon's storage; A8's unique keys tested on a Neon branch; the owner's answers of 10 Aban (2026-11-01)
+
+**The owner:**
+- "do these two now. Neon's storage, A8: unique keys on the record's tables."
+- The LENS (87) needs more time on the owner's side.
+- The forward test (79 (a)): "a step inside production run, if there will be no problem."
+- The evaluation date: "i agree with the 21 june" (83).
+- New: "add a #xxxx [update, analyze, direction and so on] on each msg being delivered to tlrgm via user pull, so i
+  can easily search and categorize that category."
+
+### 89.1 Neon's storage (KPI E0-3: passes)
+
+- **The database:** 51 MB (`pg_database_size`). Neon's own figure for the branch is 77 MB, against its limit of
+  1,024 MB a branch (the API's `branch_logical_size_limit`): 8%. The target was under 50%.
+- **The largest tables:**
+
+| Table | Size | Rows |
+|---|---|---|
+| news_events | 13 MB | 11,575 |
+| analysis_snapshots | 9.8 MB | 538 |
+| iran_node_readings | 5.8 MB | 14,207 |
+| market_daily_candles | 3.7 MB | 19,919 |
+| price_observations | 3.2 MB | 12,747 |
+| platform_candles | 3.1 MB | 6,506 |
+
+- **The transfer, for E0-2:** 39.3 MB from 11-01 00:00 UTC by the afternoon (24.3 MB at 12:20, section 88). It
+  carries the write-back and this section's read-only checks. It is measured again on 11-08.
+
+### 89.2 A8's unique keys, tested on a Neon branch (KPI E0-4: waiting for the owner's authorization)
+
+**The keys** are the ones the code already checks (`repository.spool_writers`, `get_stored_dedup_keys`), so the
+database holds what the code assumes:
+
+| Table | Key | Production, 11-01 |
+|---|---|---|
+| market_snapshots | time, collection mode | 1,144 rows, 0 repeated |
+| platform_prices | snapshot, platform | 11,469 rows, 0 repeated |
+| price_observations | instrument, source, time, side | 12,747 rows, 0 repeated |
+| iran_node_readings | node, source, instrument, time, detail | 14,205 rows, 0 repeated |
+| news_events | dedup key | 11,575 rows: 720 keys stored 2 to 39 times, 2,126 later copies |
+
+- **A trap found on the way:** the phone's key needs `detail`.
+  - One phone run sends several trading days of a fund, all stamped with the run's time (`node.read_tsetmc`);
+    `detail` holds the day.
+  - Without `detail`, 20 such groups looked like repeats, and the key would have refused the phone's catch-up
+    days.
+  - With it there are none.
+- **The news copies:**
+  - all were stored from 08-24 to 10-12, by the 24-hour window that `get_stored_dedup_keys` replaced on 10-17
+    (section 45);
+  - none since: the 290 items stored on 11-01 have no copy.
+  - The migration keeps the first copy stored, the time the item became known, and deletes the later ones.
+  - Nothing references a news row: no foreign key.
+- **NULLS NOT DISTINCT** (Postgres 18) where a NULL is a value: a Daric row has no `detail`, and a resent one is
+  the same row. Not on news: an item without a dedup key is not deduplicated today, and stays so.
+
+**What a refused write does, read in the code and run on the branch:**
+- a reading, an observation and a news item each write in their own session; a refusal is an `IntegrityError`,
+  which `spool.unreachable` does not count as the database out of reach, so it is printed and never held;
+- the spool's flush drops the one refused write and goes on;
+- the phone sets a refused row aside (class 23, `ROW_ERRORS`, the A9 fix of 52.4) and sends the rest;
+- a run's platform list comes from a dict keyed by platform, so one reading cannot carry a platform twice;
+- `detail` is cut at 300 characters on the phone, so no row is too long for the index.
+
+**The branch test** (`temp-a8-keys`, from production at 11-01 about 17:00 Tehran; deleted after):
+- the migration ran in 0.3 s as one transaction;
+- it deleted 2,126 news rows, exactly the later copies, and left every other table's count unchanged;
+- the five keys are in place, and no news key repeats.
+
+| Write, against the branch | Result |
+|---|---|
+| a stored observation again (`save_price_observation`) | refused, -1, not held |
+| a new observation | stored |
+| a stored news item again (`save_news_event`) | refused, -1, not held |
+| a stored reading again (`save_market_snapshot`) | refused; not "unreachable", so `main` does not hold it; nothing half-written |
+| the flush, a duplicate beside a new write | written 1, dropped 1, left 0 |
+| the phone's resent row (`node.send`, Neon's HTTPS endpoint) | refused with 23505, set aside as a row |
+| another trading day of the same fund, same run time | stored |
+| a resent Daric row, no `detail` | refused |
+
+**In the repository** (`sp-de`):
+- `sql/neon_migration_a8_unique_keys.sql`: the migration, its verification and its rollback;
+- `models.py` and `sql/neon_schema.sql` carry the same five keys, so every KPI's database enforces them;
+- `kpi_coherence.test_67`:
+  - the models, the migration and the schema name the same keys;
+  - `spool_writers` checks the same columns;
+  - a refused observation or news item is -1 and not held;
+  - the flush drops a duplicate alone;
+  - the phone's days of one run are distinct rows, and a resent day is refused.
+- **Three test fixtures** stored readings at exactly the same time and mode, which production cannot produce.
+  The new key refused them, and each is now spaced so its meaning holds:
+  - `kpi_coherence.test_41`: 7 minutes off the hour;
+  - `kpi_sp_c1.test_49`: "one day sampled forty times", a minute apart;
+  - `kpi_sp_c4.test_38`: two a day, a minute apart.
+- **Checks:** the KPI suite 31/31 (coherence 62), the unit tests 20/20, compileall.
+
+**To apply, after the owner's authorization:**
+1. the 2,126 later news copies exported read-only to `research/data/neon_backup/` (local, in the D: backup);
+2. the migration run between two scheduled runs (at about :20), as one transaction;
+3. the verification queries of the file;
+4. the next scheduled run and the phone's next send watched: stored, 0 refused.
+
+### 89.3 The owner's answers
+
+- **The evaluation date:** the forward test's first verdict is on 2027-06-21 (31 Khordad 1406), as proposed in
+  83, in place of 2027-03-20. KPI Ed-1 moves with it.
+- **The LENS:** waits on the owner's review. It holds the merge of `sp-de`, which carries it.
+- **The forward test in production, reviewed:** inside the production run itself there are three problems.
+  - **The research table is built from the workstation's files** (154 MB in `research/data`, not in the
+    repository): tgju's histories, CBOE's and the IMF's series, and the funds' flows. The flows come from inside
+    Iran; the runner would fetch the rest each night.
+  - **A research script in production's job:** a slow fetch or a crash there sits beside the 21:00 messages.
+  - **The ledger needs a durable home:** GitHub's cache saves only when a job succeeds (A4). A lost ledger is a
+    lost forward test.
+  - **Proposed:** a workflow of its own, started by the 21:00 run's last step. It runs the engine with no
+    production secret and commits each day's line to a branch of its own. A commit's time is public evidence that
+    the line was written before its outcome. Production gains one step, whose failure touches nothing. Waiting for
+    the owner's OK.
+- **A tag on each pulled message:** proposed with a preview, waiting for the owner's OK (agreed layouts are
+  locked).
+
+**NEON MIGRATION REQUIRED = YES** (A8): verified on a temporary Neon branch; not applied.

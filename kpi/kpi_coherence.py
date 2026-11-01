@@ -1073,7 +1073,8 @@ class KPICoherence(unittest.TestCase):
         import main
 
         s = _test_get_session()
-        start = datetime(2026, 9, 20, 6, 0)
+        # off the hour: _seed's readings are on the hour, and a reading's time and mode are its key (A8)
+        start = datetime(2026, 9, 20, 6, 7)
         offsets = {"WallGold": 1.000, "Milli": 0.992, "Goldika": 1.010, "Ayyareh": 0.998}
         frozen = None
         try:
@@ -2132,6 +2133,88 @@ class KPICoherence(unittest.TestCase):
         held = spool.held()
         written = spool.flush(None, {}, [], keep=held)
         self.assertEqual((written, spool.held()), ((0, 0, 0), held))
+
+    def test_67_the_records_keys_are_the_ones_the_code_checks_and_a_refused_write_fails_alone(self):
+        """The audit's A8 (SP_D_HANDOFF.md section 89): a unique key on each table of the record, the keys
+        repository.spool_writers already checks, so the database holds what the code assumes. A write a key
+        refuses fails alone and is never held for a write-back: an IntegrityError is a row refused, not the
+        database out of reach. NULLS NOT DISTINCT (a resent Daric row) was tested on a Neon branch; SQLite has it not."""
+        import inspect
+        import io
+        import tempfile
+        from contextlib import redirect_stdout
+        from sqlalchemy import UniqueConstraint
+        from sqlalchemy.exc import IntegrityError
+        from database import repository as repo
+        from database.models import IranNodeReading, PriceObservation
+        from persistence import spool
+        keys = {name: sorted((k.name, tuple(c.name for c in k.columns)) for k in table.constraints
+                             if isinstance(k, UniqueConstraint))
+                for name, table in Base.metadata.tables.items()}
+        expected = {
+            "market_snapshots": ("uq_market_snapshots_reading", ("timestamp", "collection_mode")),
+            "platform_prices": ("uq_platform_prices_snapshot_platform", ("snapshot_id", "platform_name")),
+            "price_observations": ("uq_price_observations_identity", ("instrument", "source", "timestamp", "quote_side")),
+            "news_events": ("uq_news_events_dedup_key", ("dedup_key",)),
+            "iran_node_readings": ("uq_iran_node_readings_identity",
+                                   ("node", "source", "instrument", "observed_at", "detail")),
+        }
+        migration = (REPO / "sql" / "neon_migration_a8_unique_keys.sql").read_text(encoding="utf-8")
+        schema = (REPO / "sql" / "neon_schema.sql").read_text(encoding="utf-8")
+        for table, (name, columns) in expected.items():
+            self.assertEqual(keys[table], [(name, columns)], table)
+            self.assertIn(f"ALTER TABLE {table} ADD CONSTRAINT {name}", migration)
+            for text in (migration, schema):
+                self.assertRegex(text, rf"{name}\s+UNIQUE[A-Z ]*\({', '.join(columns)}\)", table)
+        writers = inspect.getsource(repo.spool_writers)
+        self.assertIn("MarketSnapshot.timestamp, MarketSnapshot.collection_mode", writers)
+        self.assertIn("PriceObservation.instrument, PriceObservation.source, PriceObservation.timestamp, "
+                      "PriceObservation.quote_side", writers)
+        self.assertIn("NewsEvent.dedup_key", writers)
+
+        os.environ["RECORD_SPOOL_FILE"] = os.path.join(tempfile.mkdtemp(), "spool.jsonl")
+        self.addCleanup(os.environ.pop, "RECORD_SPOOL_FILE", None)
+        when = datetime(2026, 11, 1, 9, 0)
+        observation = dict(instrument="USD/IRR", source="kpi67", timestamp=when, price=272_000.0, quote_side="SINGLE",
+                           collection_mode="scheduled")
+        item = {"dedup_key": "kpi67", "title": "a headline stored once", "source": "kpi67"}
+        real_session = repo.get_session
+        try:
+            repo.get_session = _test_get_session
+            with redirect_stdout(io.StringIO()):
+                stored = (repo.save_price_observation(**observation), repo.save_news_event(item))
+                again = (repo.save_price_observation(**observation), repo.save_news_event(item))
+        finally:
+            repo.get_session = real_session
+        self.assertTrue(all(i > 0 for i in stored), stored)
+        self.assertEqual(again, (-1, -1), "refused by the key")
+        self.assertEqual(spool.held(), [], "a refused write is not held: it would be refused again at every flush")
+
+        # the write-back: a write past its check is dropped alone, the one beside it stored
+        payload = dict(observation, freshness="FRESH", collection_run_id=None)
+        entries = [{"kind": "observation", "payload": payload},
+                   {"kind": "observation", "payload": dict(payload, timestamp=when + timedelta(hours=1))}]
+        s = _test_get_session()
+        try:
+            with redirect_stdout(io.StringIO()):
+                result = spool.flush(s, {"observation": lambda session, p: session.add(PriceObservation(**p))}, entries)
+        finally:
+            s.close()
+        self.assertEqual(result, (1, 1, 0), "written, dropped, left")
+
+        # the phone: one run sends several trading days of a fund, all with the run's time; a resent day is refused
+        row = dict(node="s10", source="tsetmc", instrument="CLIENTTYPE_KPI67", observed_at=when, status="OK")
+        s = _test_get_session()
+        try:
+            s.add_all([IranNodeReading(**row, detail="20261028"), IranNodeReading(**row, detail="20261029")])
+            s.commit()
+            s.add(IranNodeReading(**row, detail="20261029"))
+            with self.assertRaises(IntegrityError):
+                s.commit()
+            s.rollback()
+            self.assertEqual(s.query(IranNodeReading).filter(IranNodeReading.instrument == "CLIENTTYPE_KPI67").count(), 2)
+        finally:
+            s.close()
 
 if __name__ == "__main__":
     print("=" * 55)
