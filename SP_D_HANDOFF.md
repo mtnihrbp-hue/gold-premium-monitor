@@ -75,6 +75,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    88 health check of 10 Aban: Neon back, the outage written back, the room's move
                                                                    89 Neon's storage measured; A8's unique keys tested on a Neon branch; the owner's answers of 10 Aban
                                                                    90 A8 applied; tags on pulled replies; the forward test on GitHub's runner; the production environment; the LENS off (v1.41safe)
+                                                                   91 health check of 11 Aban; the forward test's first night: two findings; the recovery steps removed
        member, the LLM member
 ```
 
@@ -8907,3 +8908,123 @@ carried over), and 11-01 on time.
 
 **NEON MIGRATION REQUIRED = YES** (A8, `sql/neon_migration_a8_unique_keys.sql`): applied to production on
 2026-11-01 at 14:10 UTC, verified.
+
+## 91. Health check of 11 Aban; the forward test's first night; the recovery steps removed (2026-11-02)
+
+The owner: "a) continue the unfinished tasks, b) daily health check and system report."
+
+Taken at 10:10 Tehran (`PROJECT_OPERATIONS.md` 15), read-only.
+
+### 91.1 The health check
+
+- **The merge of 90:**
+  - the KPI suite passed on `main` and `SP-D`;
+  - every production run since has succeeded on `main`, the first ones under the `production` environment's rule.
+- **Runs** since the check of 88:
+  - 15 ANALYZE, 3 UPDATE and 1 REPORT, all green, no hour missing;
+  - an ANALYZE run's median is 3.4 minutes, its longest 5.0. Ea-8's target is under 4 with Neon.
+- **Freshness, 24 hours:**
+  - one scheduled reading an hour, 16 hours;
+  - 16 analysis snapshots, 48 outcomes, 266 observations, 400 news items;
+  - Direction's 06:00 panel, 59 daily candles.
+- **Platforms,** readings in 24 hours of 19:
+  - Daric, Eligold, Goldika, Invi, Milli and MioGold 19; HoorGold and WallGold 18; Ayyareh and Parasteh 17;
+    Taline 6.
+  - **Taline** was discarded or deferred at +1.1% to +1.5% from the others' median: the stale copy on the runner
+    of 88, a C3 item.
+  - **Parasteh and Ayyareh** timed out twice and once.
+- **Decisions:**
+  - FAIR and WAIT on all 19 states; the structure PREMIUM_DOMINANT on 18 and MIXED on 1;
+  - the stored premium ranged from -0.68% to +0.68%, and was +0.28% at 10:01. 18K sits near the world price.
+- **Daily inputs:** tgju to 11-01 (world gold to 10-31, its Friday), etfbaz to 11-01, Afran to 11-02.
+- **PAPER:**
+  - the hourly evaluations;
+  - the room's one trade of 11-01 12:01 (88);
+  - six 21:00 reports. The room's report was sent with its chart: 3 g, 9,256 Afran units, 6,373 cash, at Daric's
+    254,609,630.
+- **The LENS** sent nothing at 21:00 (`config.lens.send` false, 90.5).
+- **The pulled replies** of 11-01 20:05 and 20:09 were delivered: "REPORT sent", "UPDATE v1 sent". Their tags
+  (90.2) are not in the log; the owner's phone shows them.
+- **A8's keys:** five in place; no refused write in the runs' logs.
+- **Storage:** 54 MB.
+- **The phone:** 570 rows in 24 hours. Daric's last good read was 09:45.
+  - **Daric's refusals for too many requests (HTTP 429) are new:**
+
+| Tehran day | 10-27 to 10-30 | 10-31 | 11-01 | 11-02, to 10:00 |
+|---|---|---|---|---|
+| 429s | 0 | 6 | 12 | 6 |
+
+  - About 85% of reads succeed, and the next 15-minute read answers. A watch item: one request every 15 minutes
+    from a home line is not a rate a server should refuse, so Daric's limit may have tightened.
+- **Neon's transfer:**
+  - 77.2 MB from 11-01 00:00 UTC to 11-02 06:38;
+  - since the 24.3 MB of 88, 52.9 MB for 14 scheduled runs, 4 pulls and the checks of 89-90: about 3.8 MB a
+    run;
+  - about 1.75 GB a month if it holds. That is above E0-2's 1.5 GB target and under the 4 GB alarm. E0-2 is read
+    on 11-08; C7 (the budget) is the fix if it holds.
+- **Verdict:** healthy. Open:
+  - Taline's stale copy (C3);
+  - Daric's 429s;
+  - the transfer per run;
+  - the forward test's two findings below.
+
+### 91.2 The forward test's first night
+
+**The ledger** (`forward-ledger`):
+
+| Day | R3 | R10 | Calm | State | Written (Tehran) | By |
+|---|---|---|---|---|---|---|
+| 10-29 | 22.4% | 66.8% | 1.92% | gold | 10-30 15:33 | the workstation |
+| 10-31 | 19.1% | 68.1% | 1.73% | gold | 11-01 21:05 | after the 21:00 run |
+| 11-01 | 13.8% | 14.7% | 1.54% | gold | 11-02 01:29 | GitHub's schedule |
+
+- The other starts after production runs were skipped, as designed.
+
+**Finding 1: tgju's day candle is not out at 21:05.**
+- The run after 21:00 found no 11-01 candle, so it scored 10-31.
+- The candle was there by 01:29, when GitHub's schedule ran: due at 21:45, it came 3 hours 43 minutes late.
+- So the trigger of 90.3 records the day only through the fallback, whose timing GitHub does not keep.
+- **Proposed:** start it after the 06:00 run (02:30 UTC) instead. The engine then scores yesterday's closed
+  candle, about 9 hours after the close and 40 trading days before its outcome. The schedule moves to a morning
+  fallback.
+- For the owner: it changes the agreed trigger.
+
+**Finding 2: one of R3's three inputs drops out when the IMF is late.**
+- "real dollar vs 5y" reads the CPI of the month two before the day's month (`rd_windows_read.cpi_asof`), with
+  no fallback.
+- The IMF's series for Iran ends at 2026-08, so every November day lacks September's figure.
+- R3 then fits on two inputs, and R10 on eight.
+- The backtest never met this: historical CPI is complete.
+- Rebuilt from the branch's files (equal to the ledger's figures to every digit):
+
+| Day | R3 as frozen | R3 with August's CPI carried | R10 as frozen | R10 with August carried |
+|---|---|---|---|---|
+| 10-31 | 19.1% | 19.0% | 68.1% | 66.0% |
+| 11-01 | 13.8% | 15.5% | 14.7% | 68.3% |
+
+- R10's fall to 14.7% is this input and "turnover 5d" (the funds' flows frozen at 10-30, as 90.3 expected).
+- R3 moved 1.7 points: far from 0.30 today, enough near it to change an entry.
+- **For the owner:** keep version 1 as frozen, or open version 2 now, before any entry, with the newest CPI
+  published (up to three months old) carried forward and its own evaluation date.
+- The ledger holds three lines, so a restart costs little now and more later.
+
+### 91.3 Unfinished items continued
+
+- **E-9's labels resumed:** a push to `probe-news-labels` at 06:53 UTC.
+  - The job had not run since 10-31: one push a day resumes it (82.4).
+  - It stood at 69 labelled days of E-9's span, against the 600 the test needs.
+  - Groq's quota is the LENS's no longer while the LENS is off.
+- **The one-off recovery steps removed** from `gold-monitor.yml` (37.14; `PROJECT_OPERATIONS.md` 17, step 8):
+  - the three steps of 10-16, 43 lines;
+  - their add-once step had printed "nothing to recover" on every run;
+  - the first step went on restoring the four-file cache entry of 10-16, `gold-monitor-state-38908370958`, so
+    every run kept the stale entry alive;
+  - `Restore State` and `Save State` and their list are unchanged (`test_52`); coherence 64/64.
+  - On `sp-de`, for the next merge.
+- **Waiting on the owner:**
+  - the five secrets into the `production` environment (`PROJECT_OPERATIONS.md` 19, E0-5);
+  - the worker pasted into Cloudflare for `#status`;
+  - the LENS's review;
+  - the two forward-test questions above.
+
+**NEON MIGRATION REQUIRED = NO.**

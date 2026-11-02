@@ -661,7 +661,8 @@ Neon's free plan resets its monthly transfer on the first of the month (UTC), so
 7. **The transfer after the 07:00 run:** the difference from step 1 is one run plus the write-back.
    Project the month against the 5 GB.
 8. **The same week:**
-   - remove the one-off recovery step in `gold-monitor.yml` (37.14);
+   - remove the one-off recovery step in `gold-monitor.yml` (37.14): removed on `sp-de` 2026-11-02, after its
+     add-once step had printed "nothing to recover" on every run (`SP_D_HANDOFF.md` 91);
    - re-run on the full record the engine replay (`research/rd_engine_replay.py`, 39.3), the deep zone,
      and the platforms' Fridays against Tether (42.4);
    - delete `probe-news-labels` once the labels are complete and backed up.
