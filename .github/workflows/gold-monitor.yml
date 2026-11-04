@@ -67,6 +67,9 @@ jobs:
     # Pinned, not ubuntu-latest: GitHub moves ubuntu-latest to Ubuntu 26 from 2026-10-19, and a
     # runner change under the pins broke production once already (SP_D_HANDOFF.md 28, 35.5).
     runs-on: ubuntu-24.04
+    # The production boundary (the audit's A-plan, SP-E0; SP_D_HANDOFF.md section 90): the environment
+    # admits main alone, and once the secrets live in it a run from any other branch gets none of them.
+    environment: production
     # The Analyze path has been exceeding 10 minutes and being cancelled, which is why
     # roughly half of recent scheduled runs produced no analysis snapshot.
     timeout-minutes: 20
@@ -74,31 +77,6 @@ jobs:
     steps:
 
       - uses: actions/checkout@v4
-
-      # One-off recovery, to be removed after 2026-11-01 (SP_D_HANDOFF.md section 37.14). The runs of
-      # 2026-10-16 12:30 and 13:30 UTC cached the state under a four-file list. A cache entry belongs
-      # to its exact list of paths, so those runs could not see the entries before them and started
-      # from an empty state and spool. Their own held writes are restored here, set aside, and added
-      # once to the spool the next step restores; state.json marks it done.
-      - name: Recover the writes held under the four-file cache
-        id: recover
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            state.json
-            candle_cache.json
-            record_spool.jsonl
-            record_mirror.sqlite
-          key: gold-monitor-state-recover-none
-          restore-keys: |
-            gold-monitor-state-
-
-      - name: Set the recovered writes aside
-        if: steps.recover.outputs.cache-matched-key != ''
-        run: |
-          mkdir -p recovered
-          if [ -f record_spool.jsonl ]; then mv record_spool.jsonl recovered/record_spool.jsonl; fi
-          rm -f state.json candle_cache.json record_mirror.sqlite
 
       - name: Restore State
         # Restore only; the step "Save State" at the end saves, for scheduled runs alone (section 52).
@@ -119,24 +97,6 @@ jobs:
           key: gold-monitor-state-${{ github.run_id }}
           restore-keys: |
             gold-monitor-state-
-
-      - name: Add the recovered writes once
-        if: steps.recover.outputs.cache-matched-key != ''
-        run: |
-          python3 - <<'PY'
-          import json, os
-          state = json.load(open("state.json")) if os.path.exists("state.json") else {}
-          path = "recovered/record_spool.jsonl"
-          if not state.get("recovered_2026_10_16") and os.path.exists(path):
-              lines = [l for l in open(path, encoding="utf-8") if l.strip()]
-              with open("record_spool.jsonl", "a", encoding="utf-8") as f:
-                  f.writelines(lines)
-              state["recovered_2026_10_16"] = True
-              json.dump(state, open("state.json", "w"))
-              print(f"recovered {len(lines)} held writes")
-          else:
-              print("nothing to recover")
-          PY
 
       - name: Restore the record mirror
         uses: actions/cache/restore@v4
@@ -195,10 +155,6 @@ jobs:
           CANDLE_CACHE_FILE: candle_cache.json
           RECORD_SPOOL_FILE: record_spool.jsonl
           RECORD_MIRROR_FILE: record_mirror.sqlite
-
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-
-          EMAIL_TO: ${{ secrets.EMAIL_TO }}
 
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
 

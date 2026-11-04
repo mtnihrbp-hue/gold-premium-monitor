@@ -701,8 +701,8 @@ class KPISPC4(unittest.TestCase):
         base = NOW - timedelta(days=3)
         for i in range(40):
             _seed_priced(session, base + timedelta(hours=i), "scheduled", 23_000_000 + i)
-        for i in range(40):
-            _seed_priced(session, NOW - timedelta(days=20 + i // 2), "unknown", 22_500_000 + i)
+        for i in range(40):                     # two a day, a minute apart: time and mode are a reading's key (A8)
+            _seed_priced(session, NOW - timedelta(days=20 + i // 2, minutes=i % 2), "unknown", 22_500_000 + i)
         session.commit()
         session.close()
         result = resolve_relative_valuation(

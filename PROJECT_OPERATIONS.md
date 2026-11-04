@@ -580,7 +580,10 @@ Tehran time. Read-only throughout: no query below writes.
    After an outage, the first scheduled runs that reach Neon print `SPOOL: N held writes stored,
    D rejected, L still held` (`SP_D_HANDOFF.md` section 35.4): L reaches 0 within one or two runs,
    and D is 0. While Neon is down, every run prints `DB unreachable: the reading is held for later`.
-10. **Verdict** in one line, the open defects named, then the record in the sprint's
+10. **The forward test** (from 2026-11-01, section 18): one commit a closed day on `forward-ledger`, after
+   06:00 Tehran. `git fetch origin forward-ledger && git log origin/forward-ledger --oneline -5`; the last line
+   of `data/shadow_ledger_v2.jsonl` names the day, R3 and the rule's state.
+11. **Verdict** in one line, the open defects named, then the record in the sprint's
    handoff.
 
 **Reaching production from the workstation** (2026-10-07). The claude.ai Neon connector
@@ -658,7 +661,64 @@ Neon's free plan resets its monthly transfer on the first of the month (UTC), so
 7. **The transfer after the 07:00 run:** the difference from step 1 is one run plus the write-back.
    Project the month against the 5 GB.
 8. **The same week:**
-   - remove the one-off recovery step in `gold-monitor.yml` (37.14);
+   - remove the one-off recovery step in `gold-monitor.yml` (37.14): removed on `sp-de` 2026-11-02, after its
+     add-once step had printed "nothing to recover" on every run (`SP_D_HANDOFF.md` 91);
    - re-run on the full record the engine replay (`research/rd_engine_replay.py`, 39.3), the deep zone,
      and the platforms' Fridays against Tether (42.4);
    - delete `probe-news-labels` once the labels are complete and backed up.
+
+## 18. The forward test's daily line (2026-11-01)
+
+The E-8 candidate, frozen on 2026-10-30, is scored on each closed Tehran day before its outcome exists
+(`SP_D_HANDOFF.md` sections 79, 82, 83, 89.3, 90 and 94). Version 2 from 2026-11-04 carries the real dollar's
+CPI forward up to three months while the IMF has not published the month two before; version 1 left the input
+out (91.2). It never sends a message and never touches Neon.
+
+```text
+workflow    .github/workflows/forward-test.yml (on main)
+code        research/engine_today.py and the research modules it imports, from main
+data        branch forward-ledger: data/shadow_ledger_v2.jsonl (version 1's, data/shadow_ledger.jsonl, closed
+            at 2026-11-03) and the engine's inputs; one commit per new line
+started     when a Gold Premium Monitor run started at 02:xx UTC finishes (the 06:00 Tehran ANALYZE), and by
+            GitHub's schedule at 04:30 UTC (08:00 Tehran) as a fallback; a second start commits nothing. It
+            scores yesterday's closed candle: tgju's day candle is not out at 21:05 (section 94)
+secrets     none: tgju, CBOE and the IMF are public; GITHUB_TOKEN writes to forward-ledger alone
+verdict     version 2's first on 2027-06-21 (31 Khordad 1406), the date the owner set for version 1
+```
+
+- **A missed morning** is caught up by the next run, up to 15 closed days, each from the data up to its day,
+  marked `"late"`.
+- **A failed run** (tgju, CBOE or the IMF out of reach) commits nothing; the next run catches up. CBOE or the
+  IMF failing keeps the last copy on the branch, as the workstation did.
+- **Frozen copies:** `calm_forecasts_b.json`, `flows_daily.json` and `news_days.jsonl` stay as of 2026-10-30.
+  The funds' flows are read from inside Iran, so R10's turnover input drops out for new days, as it did on the
+  workstation. R3, the rule's trigger, needs none of them beyond the calm forecasts.
+- **Never edit the ledger's lines by hand.** A change to the rule opens a new version with its own ledger file
+  and evaluation date, as version 2 did.
+
+## 19. The production boundary (2026-11-01; KPI E0-5)
+
+`gold-monitor.yml`'s job declares `environment: production`, and the environment admits the branch `main`
+alone. While the secrets are repository secrets, every branch can still read them; the boundary holds once they
+live in the environment only. The owner's steps, once (GitHub never shows a secret's value, so they cannot be
+moved by script):
+
+1. GitHub, the repository, **Settings → Environments → production**: confirm "Deployment branches and tags"
+   lists `main` only.
+2. In the same page, **Add environment secret** for each of `DATABASE_URL`, `TELEGRAM_BOT_TOKEN` and
+   `TELEGRAM_CHAT_ID`, with the same values as today. (`RESEND_API_KEY` and `EMAIL_TO` served the email, removed
+   on 2026-11-04, `SP_D_HANDOFF.md` 92: no longer needed anywhere.)
+3. Wait for the next hourly run and confirm it is green (section 15, step 1).
+4. **Settings → Secrets and variables → Actions:** delete the repository's `DATABASE_URL`,
+   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, and the unused `RESEND_API_KEY`, `EMAIL_TO`, `GOLD_API_KEY` and
+   `TRIGGER_TOKEN`. `GROQ_API_KEY` stays a repository secret: the probes use it, and it opens no production
+   data.
+5. The check (E0-5): a probe run from another branch that prints whether `DATABASE_URL` is set prints no.
+
+**Done 2026-11-04** (`SP_D_HANDOFF.md` 92-93):
+- the three secrets are in the environment, the repository's copies deleted;
+- the check from `probe-boundary` found none of them on another branch;
+- the environment's job was refused: "Branch "probe-boundary" is not allowed to deploy to production due to
+  environment protection rules."
+
+A secret production needs is added to the environment, never to the repository.

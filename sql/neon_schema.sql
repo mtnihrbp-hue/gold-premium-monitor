@@ -20,7 +20,9 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
     signal VARCHAR(10),
     confidence NUMERIC(5, 4),
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    collection_mode VARCHAR(20) NOT NULL DEFAULT 'unknown'
+    collection_mode VARCHAR(20) NOT NULL DEFAULT 'unknown',
+    -- the record's keys: sql/neon_migration_a8_unique_keys.sql (the audit's A8)
+    CONSTRAINT uq_market_snapshots_reading UNIQUE NULLS NOT DISTINCT (timestamp, collection_mode)
 );
 
 -- ============================================================
@@ -33,7 +35,8 @@ CREATE TABLE IF NOT EXISTS platform_prices (
     platform_name VARCHAR(50) NOT NULL,
     price_irr NUMERIC(20, 2) NOT NULL,
     change_irr NUMERIC(20, 2),
-    timestamp TIMESTAMP NOT NULL
+    timestamp TIMESTAMP NOT NULL,
+    CONSTRAINT uq_platform_prices_snapshot_platform UNIQUE NULLS NOT DISTINCT (snapshot_id, platform_name)
 );
 
 -- ============================================================
@@ -119,7 +122,8 @@ CREATE TABLE IF NOT EXISTS news_events (
     uncertainty_notes TEXT,
     classification_method VARCHAR(20) NOT NULL,
     processed_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_news_events_dedup_key UNIQUE (dedup_key)
 );
 
 CREATE INDEX IF NOT EXISTS idx_news_events_dedup_key
@@ -139,7 +143,8 @@ CREATE TABLE IF NOT EXISTS price_observations (
     freshness VARCHAR(30),
     collection_run_id VARCHAR(100),
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    collection_mode VARCHAR(20) NOT NULL DEFAULT 'unknown'
+    collection_mode VARCHAR(20) NOT NULL DEFAULT 'unknown',
+    CONSTRAINT uq_price_observations_identity UNIQUE NULLS NOT DISTINCT (instrument, source, timestamp, quote_side)
 );
 
 CREATE INDEX IF NOT EXISTS idx_price_observations_instrument_timestamp
@@ -451,7 +456,9 @@ CREATE TABLE IF NOT EXISTS iran_node_readings (
     status VARCHAR(10) NOT NULL,
     detail TEXT,
     payload JSONB,
-    received_at TIMESTAMP NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+    received_at TIMESTAMP NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+    -- detail is the trading day: one run sends several days of a fund, stamped with the run's time
+    CONSTRAINT uq_iran_node_readings_identity UNIQUE NULLS NOT DISTINCT (node, source, instrument, observed_at, detail)
 );
 
 CREATE INDEX IF NOT EXISTS ix_iran_node_readings_lookup

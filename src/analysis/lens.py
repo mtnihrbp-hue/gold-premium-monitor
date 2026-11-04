@@ -93,10 +93,14 @@ def build_view(markets, world, usd, now, previous_odds=None, fetch_candles=None,
             out = {}
             for key, rows in (("geram18", 6), ("ons", 6), ("price_dollar_rl", 6), ("crypto-tether-irr", 6),
                               ("tether_history", 2500)):
-                try:
-                    out[key] = fetch_daily_candles("crypto-tether-irr" if key == "tether_history" else key, rows=rows)
-                except Exception as e:  # noqa: BLE001 -- the line is left out
-                    print(f"LENS: tgju {key} not read: {type(e).__name__}")
+                for attempt in (1, 2):           # once more after a timeout: one cost the run of 10-31 three lines
+                    try:
+                        out[key] = fetch_daily_candles("crypto-tether-irr" if key == "tether_history" else key, rows=rows)
+                        break
+                    except Exception as e:  # noqa: BLE001 -- the line says the close was not read
+                        if attempt == 2 or "Timeout" not in type(e).__name__:
+                            print(f"LENS: tgju {key} not read: {type(e).__name__}")
+                            break
             return out
     if fetch_odds is None:
         from collector.polymarket import ceasefire_odds as fetch_odds

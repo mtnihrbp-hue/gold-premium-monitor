@@ -498,8 +498,9 @@ class KPISPC1(unittest.TestCase):
         self.assertEqual(above.versus_short, "ABOVE")
 
     def test_49_each_day_weighs_the_same(self):
-        # One day sampled forty times must not outweigh days sampled once.
-        _seed([-8.0] * 40, start=NOW - timedelta(days=3), step_hours=0)
+        # One day sampled forty times must not outweigh days sampled once. A minute apart: a reading's
+        # time and mode are its key (A8).
+        _seed([-8.0] * 40, start=NOW - timedelta(days=3), step_hours=1 / 60)
         _seed([-2.0], start=NOW - timedelta(days=2), step_hours=1)
         _seed([-2.0], start=NOW - timedelta(days=1), step_hours=1)
         trend = resolve_bubble_trend(_test_get_session(), now=NOW)

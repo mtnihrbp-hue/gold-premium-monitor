@@ -63,9 +63,10 @@ pip install -r requirements.txt
 
 CI workflows (`.github/workflows/`):
 - `kpi-suite.yml` — full KPI suite + unit tests + `compileall`, on `main`, SP-C and SP-D pushes, PRs, and manual dispatch. Never given `DATABASE_URL`, so it cannot reach production Neon. Safe to run freely.
-- `gold-monitor.yml` — the live app (`src/main.py`). **Not sandboxed on any branch**: it uses repository secrets, so running it from a feature branch still writes to production Neon and sends real Telegram messages. Treat every run as production.
+- `gold-monitor.yml` — the live app (`src/main.py`). Every run of it is production. Since 2026-11-04 its secrets (`DATABASE_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`) live only in the `production` environment, which admits `main` alone: a run from any other branch is refused before it starts, and no other workflow can read them (KPI E0-5, `PROJECT_OPERATIONS.md` §19). `GROQ_API_KEY` is still a repository secret: any branch can read it, and it opens no production data.
+- `forward-test.yml` — the forward test's daily line (`research/engine_today.py`), version 2 of the E-8 candidate, started when the 06:00 Tehran run finishes; no secret; it commits only to the branch `forward-ledger`, which is never edited by hand (`PROJECT_OPERATIONS.md` §18).
 
-Required environment variables (see `.github/workflows/gold-monitor.yml` and `src/database/connection.py`, `src/alerts/*`): `DATABASE_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `RESEND_API_KEY`, `EMAIL_TO`. `SCHEDULED_RUN=true` switches `src/main.py` from the lightweight UPDATE path into the full scheduled Analysis path.
+Required environment variables (see `.github/workflows/gold-monitor.yml` and `src/database/connection.py`, `src/alerts/*`): `DATABASE_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (email was removed on 2026-11-04: Telegram is the only channel, `SP_D_HANDOFF.md` §92). `SCHEDULED_RUN=true` switches `src/main.py` from the lightweight UPDATE path into the full scheduled Analysis path.
 
 ## Architecture
 
@@ -305,7 +306,7 @@ Fail-safe law used throughout collection/analysis: on missing data, use a safe d
 - `src/analysis/` — the Analysis Wing pipeline: scheduler, snapshot builder, regime detection, structure, outcome evaluation, runner; and the SP-D PAPER portfolio (`paper.py`, `quant.py`, `room.py`: the front office's posture from eight members, `SP_D_HANDOFF.md` sections 27 and 33). `src/seed/` holds the room's histories production cannot fetch (TEDPIX and the cost of money, built by `research/build_seeds.py`; the gold funds' money flow, `research/build_flow_seed.py`), which production extends with its own daily readings: tablokhani's, and TSETMC's money flow from the Iran-side node (`iran_node_readings`).
 - `src/intelligence/` — evidence package, interpretation, feature intelligence, read model (+ integration/audit), forecast engine/features/readiness, C.14C diagnostics (error classification, regime-conditioned analysis, feature reliability, event interpretation — read-only, no adaptation).
 - `src/database/` — SQLAlchemy models/connection/repository against Neon Postgres.
-- `src/alerts/` — Telegram and email/resend delivery; `telegram_update_v1.py` is the current UPDATE presentation surface.
+- `src/alerts/` — Telegram delivery, the only channel; `telegram_update_v1.py` is the current UPDATE presentation surface.
 - `src/update/` — RUN/DAY baseline resolution for the UPDATE v1 Telegram surface.
 - `src/persistence/state.py` — lightweight JSON state (`state.json`) used by the Live Wing between runs (separate from Neon). Beside it, all cached by the workflow: `spool.py` (writes held while Neon is out of reach), `candle_cache.py` (daily candles between runs) and `mirror.py` (the last 61 days of readings, read-only, for the reads a run makes while Neon is out of reach; `SP_D_HANDOFF.md` §37.12).
 - `kpi/` — one executable KPI spec per phase (`kpi_pre_sp_cN.py`, `kpi_sp_bN.py`, etc.); these are the authoritative acceptance tests for each phase, not just unit tests.

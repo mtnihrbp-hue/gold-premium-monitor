@@ -1,0 +1,83 @@
+name: Forward test
+
+# The forward test's daily line (SP_D_HANDOFF.md sections 79, 82, 83, 89.3, 90 and 94): research/engine_today.py,
+# the E-8 candidate frozen on 2026-10-30, version 2 from 2026-11-04, scored on each closed Tehran day before its
+# outcome exists. Its inputs and its ledger live on the branch forward-ledger, and each day's line is one commit
+# there: the commit's time is the public record that the line came before its outcome. It needs no secret (tgju,
+# CBOE and the IMF are public) and writes only to that branch.
+#
+# Started when the production workflow's 06:00 Tehran run finishes (dispatched at 02:30 UTC as ANALYZE), and by
+# GitHub's own schedule at 08:00 Tehran in case that one did not start it. A second start finds the day recorded
+# and commits nothing. Until 2026-11-04 it followed the 21:00 run, but tgju's day candle is not out by 21:05, so
+# every day was written by the late-running fallback instead (SP_D_HANDOFF.md 91.2, 94). In the morning the
+# engine scores yesterday's closed candle, about 9 hours after the close and 40 trading days before its outcome.
+# The production workflow is not changed by any of it: a step inside it would have needed its token's
+# permissions widened (the owner, 2026-11-01: "a step inside production run, if there will be no problem").
+
+on:
+  workflow_run:
+    workflows: ["Gold Premium Monitor"]
+    types: [completed]
+  schedule:
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: forward-test
+  cancel-in-progress: false
+
+env:
+  LEDGER_BRANCH: forward-ledger
+
+jobs:
+
+  line:
+    if: >-
+      github.event_name != 'workflow_run'
+      || (github.event.workflow_run.display_title == 'ANALYZE'
+          && contains(github.event.workflow_run.run_started_at, 'T02:'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.LEDGER_BRANCH }}
+          path: ledger
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Only what the engine imports, at production's pins: numpy comes with scikit-learn.
+      - name: Install
+        run: pip install $(grep -E '^(requests|scikit-learn)==' requirements.txt)
+
+      - name: The day's line
+        run: |
+          mkdir -p research/data
+          cp ledger/data/* research/data/
+          python research/engine_today.py
+
+      # The inputs are kept only with a new line, so the branch holds what that line was scored from. Version 2's
+      # ledger is shadow_ledger_v2.jsonl; version 1's, shadow_ledger.jsonl, closed at 2026-11-03 (section 94).
+      - name: Commit it to the ledger
+        run: |
+          cp research/data/shadow_ledger_v2.jsonl ledger/data/
+          cd ledger
+          git add -N data/shadow_ledger_v2.jsonl
+          if git diff --quiet data/shadow_ledger_v2.jsonl; then echo "No new line: nothing committed."; exit 0; fi
+          for f in tgju_more.json gvz.csv vix.csv macro.json; do cp "../research/data/$f" data/; done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          day=$(tail -n 1 data/shadow_ledger_v2.jsonl | python -c "import json, sys; print(json.load(sys.stdin)['date'])")
+          git commit -q -m "The forward test's line for $day, version 2 (main ${GITHUB_SHA::7})"
+          git push -q origin "HEAD:${LEDGER_BRANCH}"
+          git log --oneline -1

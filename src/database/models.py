@@ -26,6 +26,13 @@ class MarketSnapshot(Base):
     confidence = Column(Numeric(5, 4), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
+    # The record's keys (the audit's A8, sql/neon_migration_a8_unique_keys.sql): the same ones
+    # repository.spool_writers checks, so the database holds what the code assumes.
+    __table_args__ = (
+        UniqueConstraint("timestamp", "collection_mode", name="uq_market_snapshots_reading",
+                         postgresql_nulls_not_distinct=True),
+    )
+
 
 class PlatformPrice(Base):
     __tablename__ = "platform_prices"
@@ -36,6 +43,11 @@ class PlatformPrice(Base):
     price_irr = Column(Numeric(20, 2), nullable=False)
     change_irr = Column(Numeric(20, 2), nullable=True)
     timestamp = Column(DateTime, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("snapshot_id", "platform_name", name="uq_platform_prices_snapshot_platform",
+                         postgresql_nulls_not_distinct=True),
+    )
 
 
 class SystemEvent(Base):
@@ -154,6 +166,11 @@ class NewsEvent(Base):
     processed_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
+    # An item without a dedup key is not deduplicated, as before A8: NULLs stay distinct.
+    __table_args__ = (
+        UniqueConstraint("dedup_key", name="uq_news_events_dedup_key"),
+    )
+
 ###########
 
 
@@ -180,6 +197,8 @@ class PriceObservation(Base):
     __table_args__ = (
         Index("idx_price_obs_instrument_ts", "instrument", "timestamp"),
         Index("idx_price_obs_run_id", "collection_run_id"),
+        UniqueConstraint("instrument", "source", "timestamp", "quote_side", name="uq_price_observations_identity",
+                         postgresql_nulls_not_distinct=True),
     )
 
 ########
@@ -476,6 +495,9 @@ class IranNodeReading(Base):
     payload = Column(JSON, nullable=True)
     received_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
 
+    # detail is in the key: one run sends several trading days of a fund, all stamped with the run's time.
     __table_args__ = (
         Index("ix_iran_node_readings_lookup", "source", "instrument", "observed_at"),
+        UniqueConstraint("node", "source", "instrument", "observed_at", "detail", name="uq_iran_node_readings_identity",
+                         postgresql_nulls_not_distinct=True),
     )

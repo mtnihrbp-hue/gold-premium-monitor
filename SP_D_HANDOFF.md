@@ -71,7 +71,15 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    84 the cases: what followed strikes and deals; the event odds real money sets;
                                                                    85 the lens on 9 Aban: the wider case library, today's read (a preview);
                                                                    86 the LENS built: the nightly read, wired on sp-de;
-                                                                   87 the LENS's translation tested and fixed; a page of photos is not a channel's end
+                                                                   87 the LENS's translation tested and fixed; a page of photos is not a channel's end;
+                                                                   88 health check of 10 Aban: Neon back, the outage written back, the room's move
+                                                                   89 Neon's storage measured; A8's unique keys tested on a Neon branch; the owner's answers of 10 Aban
+                                                                   90 A8 applied; tags on pulled replies; the forward test on GitHub's runner; the production environment; the LENS off (v1.41safe)
+                                                                   91 health check of 11 Aban; the forward test's first night: two findings; the recovery steps removed
+                                                                   92 the production keys in the environment; email removed, Telegram the only channel
+                                                                   93 the production boundary holds (E0-5); 91-92 merged (v1.42safe)
+                                                                   94 the forward test after the 06:00 run; version 2, the CPI carried (v1.43safe)
+                                                                   95 the revamp's path as a page; the funds' in-session trades: a lost session made visible, a first look
        member, the LLM member
 ```
 
@@ -8609,7 +8617,681 @@ khabarfouri and stopped, without an error, at 2022-03-14.
   did (`[30, 31]` against `[10, 11, 30, 31]`).
 - `kpi_coherence.test_27` knows `fetch_since` as an entry point.
 - LESSONS_LEARNED 31.
+- **E-9 resumed the same day** (probe-news-labels, b3a7d78):
+  - khabarfouri was read back to 2021-12-31: 774 pages, 963 seconds, 301,838 posts;
+  - the label job labelled 69 days (2022-01-01 to 2022-07-24, every third day) before its 170,000-token budget;
+  - that is 69 of the 600 days E-9 needs, about eight more daily runs.
 
 **Tests:** kpi_lens 14/14; KPI suite 31/31 files, unit tests 20/20, compile OK.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 88. Health check of 10 Aban: Neon back, the outage written back, the room's move (2026-11-01)
+
+Taken at 12:20 Tehran (`PROJECT_OPERATIONS.md` 15), read-only.
+
+- **Runs.** Every run since 9 Aban succeeded on `main`, hourly from 06:00. GitHub's API stamps the 12:00 run an hour
+  ahead: created 09:30 UTC, finished 09:34, while its own `Date` header and Neon's clock read 08:48. Its reading is
+  stored at 08:31. It is GitHub's metadata, not a missed run.
+- **Neon's return.** 10-31's runs were still refused ("Your account..."). The 06:00 run of 11-01 reached Neon.
+- **The write-back** (readings, observations, daily inputs; news held, section 73):
+
+| Run | Stored | Rejected | Still held | Deferred by the re-check (37.1) |
+|---|---|---|---|---|
+| 06:00 | 2,041 | 0 | 2,038 | 79 |
+| 07:00 | 2,036 | 0 | 0 | 2 |
+
+  - The news, about 6,600 held writes, stays in the spool ("held writes of other kinds kept").
+  - No duplicate by natural key: snapshots by time and mode, observations by instrument, source, time and side.
+  - Each Tehran day from 10-16 to 10-31 has its 16 scheduled readings. 10-14 has none (before the spool, 35.4),
+    10-15 has 3.
+  - SP-E0's first KPI (69.3) passes: L at 0, D at 0, no duplicate.
+- **SERVICE** announced the database back at 07:00. **The mirror** was first built at 06:05 (8,947 rows) and
+  refreshes each run.
+- **Decisions.**
+  - The 263 states from 10-15 15:31 to 10-31 are UNKNOWN: held without the database, no rank, the engine abstained.
+  - Today it is FAIR and WAIT, with the structure PREMIUM_DOMINANT or MIXED: 18K has moved from a discount to a
+    small premium (the LENS preview of 9 Aban read +0.3% to +0.4%).
+  - No BUY candidate since 10-13; the 7 final BUYs on record are all from 9-18 to 10-13.
+- **The room** at 12:00: SELL 2 g at 254,279,390 on Daric, its move out (2 g to Afran, 3 g kept): "18K is less
+  discounted than usual against world gold and the dollar; the dollar is ahead of the cost of money". Pushed to
+  Telegram.
+- **Platforms, last 24 hours:**
+  - Taline is in 1 of 16 readings, discarded by its 1% band at +1.04% and +1.42% from the others' median. Read
+    from the workstation at 12:20, Taline was 255,615,000, −0.05% from the others: the runner is served a stale copy
+    and the band is right. Taline belongs to C3, a read from the phone (69.2).
+  - HoorGold timed out once and Invi's page failed to parse once; both are back the next run.
+- **Daily inputs:** tgju and etfbaz to 10-31, Afran to 11-01. **Direction:** the 06:00 panel stored.
+- **The phone:** its spool flushed, 11,203 rows in 24 hours (TSETMC's live flow, Daric, the days). The comparison
+  pages were last read 10-30 09:15, as 73.9 has it.
+- **Neon's transfer** from 11-01 00:00 UTC to 08:48: 24.3 MB over 7 runs, the write-back and the mirror's first
+  build among them. That is 3.5 MB a run, about 1.7 GB a month if every run cost the same. It is under the 4 GB
+  alarm and above SP-E0's 1.5 GB target. It is to be measured again on a day of ordinary runs.
+
+**Verdict:** healthy. Neon is back and the outage is written back without a rejection or a duplicate. Open:
+- Taline's stale copy on the runner (C3);
+- the transfer per ordinary run;
+- A8's unique keys on a Neon branch, now that branches can be made;
+- the LENS's review (87).
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 89. Neon's storage; A8's unique keys tested on a Neon branch; the owner's answers of 10 Aban (2026-11-01)
+
+**The owner:**
+- "do these two now. Neon's storage, A8: unique keys on the record's tables."
+- The LENS (87) needs more time on the owner's side.
+- The forward test (79 (a)): "a step inside production run, if there will be no problem."
+- The evaluation date: "i agree with the 21 june" (83).
+- New: "add a #xxxx [update, analyze, direction and so on] on each msg being delivered to tlrgm via user pull, so i
+  can easily search and categorize that category."
+
+### 89.1 Neon's storage (KPI E0-3: passes)
+
+- **The database:** 51 MB (`pg_database_size`). Neon's own figure for the branch is 77 MB, against its limit of
+  1,024 MB a branch (the API's `branch_logical_size_limit`): 8%. The target was under 50%.
+- **The largest tables:**
+
+| Table | Size | Rows |
+|---|---|---|
+| news_events | 13 MB | 11,575 |
+| analysis_snapshots | 9.8 MB | 538 |
+| iran_node_readings | 5.8 MB | 14,207 |
+| market_daily_candles | 3.7 MB | 19,919 |
+| price_observations | 3.2 MB | 12,747 |
+| platform_candles | 3.1 MB | 6,506 |
+
+- **The transfer, for E0-2:** 39.3 MB from 11-01 00:00 UTC by the afternoon (24.3 MB at 12:20, section 88). It
+  carries the write-back and this section's read-only checks. It is measured again on 11-08.
+
+### 89.2 A8's unique keys, tested on a Neon branch (KPI E0-4: waiting for the owner's authorization)
+
+**The keys** are the ones the code already checks (`repository.spool_writers`, `get_stored_dedup_keys`), so the
+database holds what the code assumes:
+
+| Table | Key | Production, 11-01 |
+|---|---|---|
+| market_snapshots | time, collection mode | 1,144 rows, 0 repeated |
+| platform_prices | snapshot, platform | 11,469 rows, 0 repeated |
+| price_observations | instrument, source, time, side | 12,747 rows, 0 repeated |
+| iran_node_readings | node, source, instrument, time, detail | 14,205 rows, 0 repeated |
+| news_events | dedup key | 11,575 rows: 720 keys stored 2 to 39 times, 2,126 later copies |
+
+- **A trap found on the way:** the phone's key needs `detail`.
+  - One phone run sends several trading days of a fund, all stamped with the run's time (`node.read_tsetmc`);
+    `detail` holds the day.
+  - Without `detail`, 20 such groups looked like repeats, and the key would have refused the phone's catch-up
+    days.
+  - With it there are none.
+- **The news copies:**
+  - all were stored from 08-24 to 10-12, by the 24-hour window that `get_stored_dedup_keys` replaced on 10-17
+    (section 45);
+  - none since: the 290 items stored on 11-01 have no copy.
+  - The migration keeps the first copy stored, the time the item became known, and deletes the later ones.
+  - Nothing references a news row: no foreign key.
+- **NULLS NOT DISTINCT** (Postgres 18) where a NULL is a value: a Daric row has no `detail`, and a resent one is
+  the same row. Not on news: an item without a dedup key is not deduplicated today, and stays so.
+
+**What a refused write does, read in the code and run on the branch:**
+- a reading, an observation and a news item each write in their own session; a refusal is an `IntegrityError`,
+  which `spool.unreachable` does not count as the database out of reach, so it is printed and never held;
+- the spool's flush drops the one refused write and goes on;
+- the phone sets a refused row aside (class 23, `ROW_ERRORS`, the A9 fix of 52.4) and sends the rest;
+- a run's platform list comes from a dict keyed by platform, so one reading cannot carry a platform twice;
+- `detail` is cut at 300 characters on the phone, so no row is too long for the index.
+
+**The branch test** (`temp-a8-keys`, from production at 11-01 about 17:00 Tehran; deleted after):
+- the migration ran in 0.3 s as one transaction;
+- it deleted 2,126 news rows, exactly the later copies, and left every other table's count unchanged;
+- the five keys are in place, and no news key repeats.
+
+| Write, against the branch | Result |
+|---|---|
+| a stored observation again (`save_price_observation`) | refused, -1, not held |
+| a new observation | stored |
+| a stored news item again (`save_news_event`) | refused, -1, not held |
+| a stored reading again (`save_market_snapshot`) | refused; not "unreachable", so `main` does not hold it; nothing half-written |
+| the flush, a duplicate beside a new write | written 1, dropped 1, left 0 |
+| the phone's resent row (`node.send`, Neon's HTTPS endpoint) | refused with 23505, set aside as a row |
+| another trading day of the same fund, same run time | stored |
+| a resent Daric row, no `detail` | refused |
+
+**In the repository** (`sp-de`):
+- `sql/neon_migration_a8_unique_keys.sql`: the migration, its verification and its rollback;
+- `models.py` and `sql/neon_schema.sql` carry the same five keys, so every KPI's database enforces them;
+- `kpi_coherence.test_67`:
+  - the models, the migration and the schema name the same keys;
+  - `spool_writers` checks the same columns;
+  - a refused observation or news item is -1 and not held;
+  - the flush drops a duplicate alone;
+  - the phone's days of one run are distinct rows, and a resent day is refused.
+- **Three test fixtures** stored readings at exactly the same time and mode, which production cannot produce.
+  The new key refused them, and each is now spaced so its meaning holds:
+  - `kpi_coherence.test_41`: 7 minutes off the hour;
+  - `kpi_sp_c1.test_49`: "one day sampled forty times", a minute apart;
+  - `kpi_sp_c4.test_38`: two a day, a minute apart.
+- **Checks:** the KPI suite 31/31 (coherence 62), the unit tests 20/20, compileall.
+
+**To apply, after the owner's authorization:**
+1. the 2,126 later news copies exported read-only to `research/data/neon_backup/` (local, in the D: backup);
+2. the migration run between two scheduled runs (at about :20), as one transaction;
+3. the verification queries of the file;
+4. the next scheduled run and the phone's next send watched: stored, 0 refused.
+
+### 89.3 The owner's answers
+
+- **The evaluation date:** the forward test's first verdict is on 2027-06-21 (31 Khordad 1406), as proposed in
+  83, in place of 2027-03-20. KPI Ed-1 moves with it.
+- **The LENS:** waits on the owner's review. It holds the merge of `sp-de`, which carries it.
+- **The forward test in production, reviewed:** inside the production run itself there are three problems.
+  - **The research table is built from the workstation's files** (154 MB in `research/data`, not in the
+    repository): tgju's histories, CBOE's and the IMF's series, and the funds' flows. The flows come from inside
+    Iran; the runner would fetch the rest each night.
+  - **A research script in production's job:** a slow fetch or a crash there sits beside the 21:00 messages.
+  - **The ledger needs a durable home:** GitHub's cache saves only when a job succeeds (A4). A lost ledger is a
+    lost forward test.
+  - **Proposed:** a workflow of its own, started by the 21:00 run's last step. It runs the engine with no
+    production secret and commits each day's line to a branch of its own. A commit's time is public evidence that
+    the line was written before its outcome. Production gains one step, whose failure touches nothing. Waiting for
+    the owner's OK.
+- **A tag on each pulled message:** proposed with a preview, waiting for the owner's OK (agreed layouts are
+  locked).
+
+**NEON MIGRATION REQUIRED = YES** (A8): verified on a temporary Neon branch; not applied.
+
+## 90. A8 applied; tags on pulled replies; the forward test on GitHub's runner; the production environment (2026-11-01)
+
+**The owner, on 89:** "OK, go ahead."
+- The keys applied to production, and the tags on the last line, as recommended.
+- The forward test as its own job.
+- The production boundary's steps.
+- `sp-de` merged with the LENS switched off.
+
+### 90.1 A8's unique keys, applied (KPI E0-4: passes)
+
+- **When:** 14:10 UTC (17:40 Tehran), between the 17:00 and 18:00 runs.
+- **First, the backup:** the 2,126 later news copies, read-only, to
+  `research/data/neon_backup/news_events_later_copies_2026-11-01.jsonl.gz` (583 KB, every column; local, in the
+  D: backup).
+- **The other four tables were re-checked:** 0 repeated.
+- **The migration** ran in 0.2 s as one transaction. Only the 2,126 news copies left, and the five keys are in
+  place:
+
+| Table | Before | After |
+|---|---|---|
+| market_snapshots | 1,146 | 1,146 |
+| platform_prices | 11,489 | 11,489 |
+| price_observations | 12,775 | 12,775 |
+| news_events | 11,594 | 9,468 |
+| iran_node_readings | 14,262 | 14,262 |
+
+- **The 18:00 run after it:** green.
+  - It stored 1 reading, 10 platform prices, 14 observations and 18 news items.
+  - Its log has no refused write.
+  - The phone sent 38 rows in its first 20 minutes.
+- **Rollback:** the file's own; the news copies come back from the backup.
+
+### 90.2 A tag on each pulled reply
+
+- **What the owner sees:** the command as a tag on its own last line: `#update`, `#analyze`, `#direction`,
+  `#status`. Telegram makes each one a link that finds every reply to that command.
+- **Where it is added:**
+  - at the send, through `alerts/telegram.tagged`, never inside a builder, so every locked layout above it is
+    unchanged;
+  - `send_update_v1` and its fallback, `send_analyze`, `send_direction`, ANALYZE's "database out of reach";
+  - "data unavailable" only when a user pulled it: a scheduled run's copy is a push.
+- **Status** is answered by the worker: `#status` is in `src/worker/telegram-trigger.js`, live once the owner
+  pastes it into Cloudflare (its README).
+- **Untagged:**
+  - the worker's acknowledgements ("Update triggered"), so a search does not show each request twice;
+  - every scheduled message: the LENS, the room, the pulse, SERVICE, the BUY signal, the push.
+- **Test:** `kpi_coherence.test_68`.
+
+### 90.3 The forward test on GitHub's runner
+
+**The owner's choice:** "a step inside production run, if there will be no problem." There was one.
+- The repository gives workflow tokens read access only. Starting a second workflow from inside `gold-monitor.yml`
+  needs `actions: write`, so production's token permissions would have changed.
+- That cannot be tested without a production run, and a wrong permission could cost the run its state cache.
+
+**Built instead:** `.github/workflows/forward-test.yml`, started by GitHub when a run of the production workflow
+finishes.
+- Its job runs only for the ANALYZE run started in the 17:xx UTC hour, the 21:00 Tehran run.
+- GitHub's own schedule at 18:15 UTC (21:45 Tehran) starts it too, as a fallback. A second start finds the day
+  recorded and commits nothing.
+- `gold-monitor.yml`'s note "Do not re-add" the native schedule is about its own schedule, which duplicated
+  cron-job.org's runs. This one cannot duplicate a line.
+- **No secret:** tgju, CBOE and the IMF are public. Its token writes `forward-ledger` alone.
+- **Production's workflow does not refer to it** (`kpi_coherence.test_69`).
+
+**The branch `forward-ledger`** (orphan, never merged; 0dcf7ba):
+- the workstation's ledger, byte for byte: one line, 2026-10-29;
+- seven inputs as of 2026-10-30, and a README;
+- each new line is one commit: the commit's time is the public record that the line came before its outcome.
+- The inputs are committed only with a new line, so the branch holds what each line was scored from.
+
+**The minimal set, proven** (no fetch, a separate worktree, the real ledger untouched):
+- **On the workstation:**
+  - 10-29 scored from the full `research/data` (155 MB) gives the line written on 10-30, every field equal;
+  - from the eight files alone, the same;
+  - the research table rebuilt from them is identical, 3,542 rows; `build_flows` fails for lack of TSETMC's and
+    fipiran's files, as it will on the runner.
+- **On GitHub's runner** (`probe-forward`, a push-triggered copy against a probe copy of the ledger; both
+  branches deleted after):
+  - 10-29 rebuilt from the branch: calm and R3 equal to the workstation's;
+  - R10 differs in the 16th digit (0.6684967275665831 against ...832), a last-bit rounding of Python 3.12 against
+    3.13;
+  - **the real path** fetched tgju, CBOE and the IMF from the runner and scored **2026-10-31: R3 19.1%, calm
+    1.73% a day, R10 68.1%, the rule in gold**.
+
+**Expected tonight:** the first official run after 21:00 writes 10-31, marked late (the probe's copy is not
+carried over), and 11-01 on time.
+
+### 90.4 The production boundary (KPI E0-5: waiting for the owner's steps)
+
+- **Built:**
+  - `gold-monitor.yml`'s job declares `environment: production`;
+  - the environment was created by the API with one deployment rule, the branch `main`;
+  - it holds no secret yet, so runs read the repository's secrets as before.
+- **The owner's steps** are `PROJECT_OPERATIONS.md` section 19: the five production secrets into the
+  environment, a green run, then the repository copies deleted. `GROQ_API_KEY` stays a repository secret.
+- **Until then,** `CLAUDE.md`'s rule stands: every run of `gold-monitor.yml`, from any branch, is production.
+
+### 90.5 The LENS off, and the merge
+
+- **`config.lens.send` is false**, with a note: "the LENS need more time from my side." The LENS's code reaches
+  `main` silent, and goes on when the owner has reviewed a full message.
+- **Checks:**
+  - the KPI suite 31/31 (coherence 64), the unit tests 20/20, compileall;
+  - both workflow files parse.
+- **Merged:** `main` tagged `v1.41safe` first (7d33103, SP-D 73), then fast-forwarded to `sp-de`.
+
+**Also recorded:**
+- `LESSONS_LEARNED.md` 32, a duplicate only under the right key;
+- `skills/telegram-product.md`, the tag rule.
+
+**NEON MIGRATION REQUIRED = YES** (A8, `sql/neon_migration_a8_unique_keys.sql`): applied to production on
+2026-11-01 at 14:10 UTC, verified.
+
+## 91. Health check of 11 Aban; the forward test's first night; the recovery steps removed (2026-11-02)
+
+The owner: "a) continue the unfinished tasks, b) daily health check and system report."
+
+Taken at 10:10 Tehran (`PROJECT_OPERATIONS.md` 15), read-only.
+
+### 91.1 The health check
+
+- **The merge of 90:**
+  - the KPI suite passed on `main` and `SP-D`;
+  - every production run since has succeeded on `main`, the first ones under the `production` environment's rule.
+- **Runs** since the check of 88:
+  - 15 ANALYZE, 3 UPDATE and 1 REPORT, all green, no hour missing;
+  - an ANALYZE run's median is 3.4 minutes, its longest 5.0. Ea-8's target is under 4 with Neon.
+- **Freshness, 24 hours:**
+  - one scheduled reading an hour, 16 hours;
+  - 16 analysis snapshots, 48 outcomes, 266 observations, 400 news items;
+  - Direction's 06:00 panel, 59 daily candles.
+- **Platforms,** readings in 24 hours of 19:
+  - Daric, Eligold, Goldika, Invi, Milli and MioGold 19; HoorGold and WallGold 18; Ayyareh and Parasteh 17;
+    Taline 6.
+  - **Taline** was discarded or deferred at +1.1% to +1.5% from the others' median: the stale copy on the runner
+    of 88, a C3 item.
+  - **Parasteh and Ayyareh** timed out twice and once.
+- **Decisions:**
+  - FAIR and WAIT on all 19 states; the structure PREMIUM_DOMINANT on 18 and MIXED on 1;
+  - the stored premium ranged from -0.68% to +0.68%, and was +0.28% at 10:01. 18K sits near the world price.
+- **Daily inputs:** tgju to 11-01 (world gold to 10-31, its Friday), etfbaz to 11-01, Afran to 11-02.
+- **PAPER:**
+  - the hourly evaluations;
+  - the room's one trade of 11-01 12:01 (88);
+  - six 21:00 reports. The room's report was sent with its chart: 3 g, 9,256 Afran units, 6,373 cash, at Daric's
+    254,609,630.
+- **The LENS** sent nothing at 21:00 (`config.lens.send` false, 90.5).
+- **The pulled replies** of 11-01 20:05 and 20:09 were delivered: "REPORT sent", "UPDATE v1 sent". Their tags
+  (90.2) are not in the log; the owner's phone shows them.
+- **A8's keys:** five in place; no refused write in the runs' logs.
+- **Storage:** 54 MB.
+- **The phone:** 570 rows in 24 hours. Daric's last good read was 09:45.
+  - **Daric's refusals for too many requests (HTTP 429) are new:**
+
+| Tehran day | 10-27 to 10-30 | 10-31 | 11-01 | 11-02, to 10:00 |
+|---|---|---|---|---|
+| 429s | 0 | 6 | 12 | 6 |
+
+  - About 85% of reads succeed, and the next 15-minute read answers. A watch item: one request every 15 minutes
+    from a home line is not a rate a server should refuse, so Daric's limit may have tightened.
+- **Neon's transfer:**
+  - 77.2 MB from 11-01 00:00 UTC to 11-02 06:38;
+  - since the 24.3 MB of 88, 52.9 MB for 14 scheduled runs, 4 pulls and the checks of 89-90: about 3.8 MB a
+    run;
+  - about 1.75 GB a month if it holds. That is above E0-2's 1.5 GB target and under the 4 GB alarm. E0-2 is read
+    on 11-08; C7 (the budget) is the fix if it holds.
+- **Verdict:** healthy. Open:
+  - Taline's stale copy (C3);
+  - Daric's 429s;
+  - the transfer per run;
+  - the forward test's two findings below.
+
+### 91.2 The forward test's first night
+
+**The ledger** (`forward-ledger`):
+
+| Day | R3 | R10 | Calm | State | Written (Tehran) | By |
+|---|---|---|---|---|---|---|
+| 10-29 | 22.4% | 66.8% | 1.92% | gold | 10-30 15:33 | the workstation |
+| 10-31 | 19.1% | 68.1% | 1.73% | gold | 11-01 21:05 | after the 21:00 run |
+| 11-01 | 13.8% | 14.7% | 1.54% | gold | 11-02 01:29 | GitHub's schedule |
+
+- The other starts after production runs were skipped, as designed.
+
+**Finding 1: tgju's day candle is not out at 21:05.**
+- The run after 21:00 found no 11-01 candle, so it scored 10-31.
+- The candle was there by 01:29, when GitHub's schedule ran: due at 21:45, it came 3 hours 43 minutes late.
+- So the trigger of 90.3 records the day only through the fallback, whose timing GitHub does not keep.
+- **Proposed:** start it after the 06:00 run (02:30 UTC) instead. The engine then scores yesterday's closed
+  candle, about 9 hours after the close and 40 trading days before its outcome. The schedule moves to a morning
+  fallback.
+- For the owner: it changes the agreed trigger.
+
+**Finding 2: one of R3's three inputs drops out when the IMF is late.**
+- "real dollar vs 5y" reads the CPI of the month two before the day's month (`rd_windows_read.cpi_asof`), with
+  no fallback.
+- The IMF's series for Iran ends at 2026-08, so every November day lacks September's figure.
+- R3 then fits on two inputs, and R10 on eight.
+- The backtest never met this: historical CPI is complete.
+- Rebuilt from the branch's files (equal to the ledger's figures to every digit):
+
+| Day | R3 as frozen | R3 with August's CPI carried | R10 as frozen | R10 with August carried |
+|---|---|---|---|---|
+| 10-31 | 19.1% | 19.0% | 68.1% | 66.0% |
+| 11-01 | 13.8% | 15.5% | 14.7% | 68.3% |
+
+- R10's fall to 14.7% is this input and "turnover 5d" (the funds' flows frozen at 10-30, as 90.3 expected).
+- R3 moved 1.7 points: far from 0.30 today, enough near it to change an entry.
+- **For the owner:** keep version 1 as frozen, or open version 2 now, before any entry, with the newest CPI
+  published (up to three months old) carried forward and its own evaluation date.
+- The ledger holds three lines, so a restart costs little now and more later.
+
+### 91.3 Unfinished items continued
+
+- **E-9's labels resumed:** a push to `probe-news-labels` at 06:53 UTC.
+  - The job had not run since 10-31: one push a day resumes it (82.4).
+  - It stood at 69 labelled days of E-9's span, against the 600 the test needs.
+  - Groq's quota is the LENS's no longer while the LENS is off.
+- **The one-off recovery steps removed** from `gold-monitor.yml` (37.14; `PROJECT_OPERATIONS.md` 17, step 8):
+  - the three steps of 10-16, 43 lines;
+  - their add-once step had printed "nothing to recover" on every run;
+  - the first step went on restoring the four-file cache entry of 10-16, `gold-monitor-state-38908370958`, so
+    every run kept the stale entry alive;
+  - `Restore State` and `Save State` and their list are unchanged (`test_52`); coherence 64/64.
+  - On `sp-de`, for the next merge.
+- **Waiting on the owner:**
+  - the five secrets into the `production` environment (`PROJECT_OPERATIONS.md` 19, E0-5);
+  - the worker pasted into Cloudflare for `#status`;
+  - the LENS's review;
+  - the two forward-test questions above.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 92. The production keys in the environment; email removed (2026-11-04)
+
+### 92.1 The keys (KPI E0-5, in progress)
+
+- **The owner added** to the `production` environment:
+  - `DATABASE_URL` at 06:28 UTC;
+  - `TELEGRAM_BOT_TOKEN` at 06:30, replaced at 06:42;
+  - `TELEGRAM_CHAT_ID` at 06:37.
+- **The 10:00 run** (06:30:31 UTC) was the first to read the environment's copies, which take precedence over the
+  repository's while both exist. It saved its reading at 10:01 through the new `DATABASE_URL`.
+- **The first bot token was most likely another bot's.**
+  - The owner read the chat id through Telegram's `getUpdates`, which answered normally with message ids 2 and 3.
+  - Production's bot has the worker's webhook, and Telegram refuses `getUpdates` on a bot with a webhook.
+  - Production's chat also runs to thousands of messages.
+  - The owner replaced it at 06:42, before any run sent with it.
+  - The test is an Update in the usual chat: the report must arrive in the same chat as the worker's
+    acknowledgement.
+- **The chat id** is `chat.id`. In a private chat it is the user's own id, the same for every bot.
+- **Next:**
+  - the repository copies deleted, after the Update test;
+  - the check of `PROJECT_OPERATIONS.md` 19, step 5.
+
+### 92.2 Email removed
+
+**The owner:** "the email, lets shut it down in the code as well, the main platform is the tlrgm so we dont need
+the email thing"; Resend "if its for the email, we can opt it out". Resend is an email-sending service and served
+nothing else.
+
+**Removed:**
+- `src/alerts/resend_mail.py` (Resend) and `src/alerts/gmail.py` (SMTP, imported by nothing);
+- `main`'s three email sends: the BUY signal's, the old BUY/SELL alert's and the daily recap's, with their import;
+- `resend==2.44.0` from `requirements.txt`;
+- `RESEND_API_KEY` and `EMAIL_TO` from `gold-monitor.yml`;
+- the two email tests of `tests/test_alert_routing.py`. Its Telegram tests, which hold `final_decision` as the
+  alert's sole authority, stay.
+
+**Kept:**
+- `config.email.send_alerts` and `send_daily_recap`, both false. They also park the Telegram copies of the old
+  alert (50.1) and of the recap (35.6), so their names and meaning are unchanged.
+- Each Telegram send is untouched.
+
+**Test:** `kpi_coherence.test_70`:
+- no mail module, import, package or secret is left;
+- both switches are still false and still read by `main`.
+
+**Checks:** the KPI suite 31/31 (coherence 65), the unit tests 20/20, compileall, `main` imports.
+
+**The repository's `RESEND_API_KEY` and `EMAIL_TO`** can be deleted now, before the merge: `main`'s email paths
+are parked, so nothing reads them.
+
+**On `sp-de`** with 91's removal of the recovery steps, for the owner's review before the merge.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 93. The production boundary holds; 91-92 merged (2026-11-04)
+
+**The owner:**
+- "yes that was me": the Update of 10:15 reached the usual chat, so the bot token is production's;
+- "yes merge";
+- "i deleted the keys that we have in production from the secrets and variables".
+
+### 93.1 The keys (KPI E0-5: passes)
+
+- **The repository** keeps `GROQ_API_KEY`, and four that nothing reads after 92: `RESEND_API_KEY`, `EMAIL_TO`,
+  `GOLD_API_KEY`, `TRIGGER_TOKEN`. They can be deleted at the owner's convenience.
+- **The `production` environment** holds `DATABASE_URL`, `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. Its one
+  deployment rule is the branch `main`.
+- **The check,** from the temporary branch `probe-boundary` (both deleted after the run):
+
+| Job | Result |
+|---|---|
+| without the environment | `DATABASE_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` not set; `GROQ_API_KEY` set |
+| with `environment: production` | refused before it started: "Branch "probe-boundary" is not allowed to deploy to production due to environment protection rules." |
+
+- The jobs printed "set" or "not set" only, never a value, and ran no production code.
+- **So a run of `gold-monitor.yml` from a branch other than `main` is no longer production:** it is refused. Every
+  run from `main` is. `CLAUDE.md` and `PROJECT_OPERATIONS.md` 19 say so.
+
+### 93.2 The merge
+
+- `main` tagged `v1.42safe` (00fd766, SP-D 90), then fast-forwarded with `SP-D` to `sp-de` (15381b0):
+  - 91's removal of the recovery steps;
+  - 92's removal of email.
+- **Checks before:** the KPI suite 31/31 (coherence 65), the unit tests 20/20, compileall.
+- **After:** the KPI suite green on `main`.
+- **The 11:00 run** was the first on the new `main` and the first with the environment's copies alone. It was
+  green, saved its reading at 11:01 and refreshed the mirror.
+
+### 93.3 E-9
+
+- Resumed again (82.4) at 139 labelled days of E-9's span, against the 600 the test needs. The run of 11-02 added
+  70.
+- 11-03 had no push, so a day was lost.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 94. The forward test: after the 06:00 run, and version 2 (2026-11-04)
+
+**The owner, on 91.2's two questions:** "GO AHEAD".
+
+### 94.1 The trigger
+
+**What three nights showed:**
+- The run after 21:00 found no candle for the day on any night.
+- Each day was written by GitHub's fallback schedule, 3 to 5 hours late:
+
+| Day | Written |
+|---|---|
+| 11-01 | 01:29 |
+| 11-02 | 04:26 |
+| 11-03 | 02:49 |
+
+**Changed in `forward-test.yml`:**
+- It starts after the ANALYZE run started in the 02:xx UTC hour, the 06:00 Tehran run.
+- GitHub's schedule moves to 04:30 UTC (08:00 Tehran) as the fallback.
+- In the morning the engine scores yesterday's closed candle. Today's candle is left out before 21:00, as before.
+- A line is written about 9 hours after its close, and 40 trading days before its outcome.
+
+### 94.2 Version 2
+
+**The rule:** version 1 with one change.
+- The real dollar's CPI is the month two before the day's month, as before.
+- While that month is not published, version 2 carries forward the newest of the three months before it
+  (`rd_windows_read.cpi_asof_carried`).
+- Nothing else changed: the inputs, the models, the 0.30 threshold and the way back.
+- `drivers` takes it as `asof=`, and its default stays the strict rule, so every study recorded before this
+  section reproduces (`kpi_coherence.test_69`).
+
+**What it changes in the history:**
+- **27 days, 2025-12-01 to 12-31,** where version 1 had no real dollar: the IMF's Iran series has no 2025-10.
+- **244 days of 2026,** whose value moves slightly, because the 5-year mean now includes December.
+- 42 of R3's 47 days at 0.30 or above are in 2026, so the record was re-measured. Version 1 reproduces 77.8 exactly:
+
+| P3 (2025-2026), WallGold's fee | Version 1 | Version 2 |
+|---|---|---|
+| Wealth against holding gold | +11.4% | +10.4% |
+| Worst drop (holding -24.9%) | -21.7% | -15.5% |
+| Entries | 6 | 3 |
+| Half in fixed income | 21% of days | 32% |
+| R3's skill (P1 / P2 / P3) | +3.1% / +1.6% / +10.7% | +3.1% / +1.6% / +10.6% |
+| R3's AUC in P3 | 0.76 | 0.76 |
+| The test (Eb-5) | 1 of 3 | 1 of 3 |
+
+- **Daric's cost:** +11.4% (version 1: +13.3%). **Ayyareh's 2%:** +6.1% (version 1: +3.6%).
+- **The forecast is the same.** The trades move: fewer entries and a shallower worst drop.
+- **Chosen for a data reason, before these figures existed:** the owner's go-ahead came first.
+- P1 and P2 have no entry in either version. Version 2 passes no more of the test than version 1, so the forward
+  test remains the candidate's only real evidence.
+
+**Its first line**, from the ledger's files on the workstation, before the merge:
+- 2026-11-03: R3 13.2% (version 1: 11.2%), R10 64.8% (14.9%), in gold.
+- R10's return to its level of 10-31 is the real dollar back.
+
+**The ledgers:**
+- version 1's five lines stay in `data/shadow_ledger.jsonl`, closed at 2026-11-03;
+- version 2 writes `data/shadow_ledger_v2.jsonl`, and its rule text names the version.
+
+**The verdict:** version 2's first is on 2027-06-21 (31 Khordad 1406), the date the owner set for version 1 (83,
+89.3). Its reasons hold for version 2: after the market reopens from Nowruz, and with time for entries.
+
+**Checks:**
+- `kpi_coherence.test_69`:
+  - the morning trigger and version 2's ledger;
+  - the strict default for the studies;
+  - the carry-forward: August used for November, never more than three months further back;
+- the KPI suite and the unit tests; compileall.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 95. The revamp's path as a page; the funds' in-session trades: coverage, a lost session made visible, a first look (2026-11-04)
+
+**The owner:**
+- "visualize the path, and from now on, once i ask, update and share that path as well";
+- "we agreed to collect in-day trading volume for gold etfs as well, so if there is sudden thing in the trades
+  the system can pick that. proceed".
+
+### 95.1 The path page
+
+https://claude.ai/artifact/7U1vyGnnhuaZEu19NtVguc ("SP-E Revamp Path"; private to the owner):
+- the five stages of 69.2 on a timeline from 29 Oct to 27 Dec, with today's line, and the forward test's verdict
+  of 2027-06-21 past the edge;
+- each stage's targets of 71.4, with their status: 5 done, 1 on track, 4 in progress, 2 at risk, 2 not met yet,
+  10 not started, 1 parked;
+- what waits on the owner, and what was done since the last update.
+
+The page holds its content in one data block. On the owner's request it is updated from `.project_state.json`
+and this handoff, and republished to the same address.
+
+### 95.2 The funds' in-session trades
+
+**Collected since 2026-10-18 (48.2):**
+- the phone's `read_tsetmc_live`, every 15 minutes from 12:00 to 18:15 Tehran, Saturday to Wednesday, for the 19
+  gold funds;
+- for each fund: individuals' and institutions' buy and sell volume and counts so far, and the price, volume, value
+  and number of trades so far;
+- stored as `tsetmc_live` in `iran_node_readings`. No production reader asks for these rows (`test_57`).
+
+**Coverage, 13 sessions to 11-04:**
+
+| Session | Reads |
+|---|---|
+| 10 whole sessions | 26 each |
+| 10-18, the first day | from 12:45 |
+| 10-27 | stopped at 13:45 |
+| 11-03 | none |
+
+- **11-03 was a trading day:**
+  - TSETMC's closed-day records exist for it, for 19 funds;
+  - Afran's close moved from 55,917 to 56,324;
+  - the phone was alive, with 62 good Daric reads that day.
+- **The read failed in silence.**
+  - A failed request skipped its fund without a trace.
+  - A refused request (an HTTP error) was read as "no trade yet".
+  - So nothing in Neon or the run's summary said a session was being lost.
+
+**Fixed on the phone** (`iran_node/node.py`):
+- An HTTP error now counts as a failure.
+- When any fund cannot be read, the read adds one row:
+  - source `tsetmc_live`, instrument `LIVE`, status `ERROR`;
+  - the reason in `detail`, for example "19 of 19 funds not read: HTTPError 429 x19".
+- A lost or partial session then shows in Neon and in the health check the same day.
+- The phone's log line counts the funds read and gives the reason.
+- A fund with no trade yet is still not a failure.
+- **Test:** `kpi_coherence.test_57` serves one fund timing out and the others refused with 429; one ERROR row names
+  both.
+- **On the phone's branch `sp-d-iran-node`.** It is live after the owner's `git pull` on the phone.
+
+**A first look** (`research/rd_fund_live_look.py`; exploratory, not registered). The 10 whole sessions, the 19
+funds together, each against the median of the others:
+
+| Session | By 14:00 | By the close | Individuals' net by the close | Largest 15 minutes (share of a usual day) |
+|---|---|---|---|---|
+| 10-19 | 1.0x | 0.9x | +1,588 bn toman | 30% at 13:45 (usual 5%) |
+| 10-20 | 1.7x | 1.5x | +2,473 | 41% at 13:30 (4%) |
+| 10-21 | 1.2x | 0.9x | +257 | 19% at 12:15 (16%) |
+| 10-24 | 1.2x | 1.2x | +1,322 | 43% at 14:00 (4%) |
+| 10-25 | 1.0x | 1.3x | +1,306 | 21% at 12:45 (5%) |
+| 10-26 | 1.0x | 1.1x | -33 | 13% at 12:15 (17%) |
+| 10-28 | 0.5x | 0.6x | -307 | 23% at 15:30 (4%) |
+| 10-31 | 1.2x | 1.3x | +243 | 22% at 12:15 (17%) |
+| 11-01 | 0.7x | 0.7x | -135 | 11% at 12:15 (16%) |
+| 11-02 | 0.8x | 0.8x | +68 | 18% at 17:30 (3%) |
+
+- A whole session traded about 6,500 to 15,100 billion toman across the 19 funds.
+- **Bursts are common.** In 5 of 10 sessions one 15-minute window carried 18% to 43% of a usual day, where the
+  usual for that window is 3% to 5%.
+  - A plain alert on value would fire every other session: noise, not news.
+  - The detector has to say who traded and which way: individuals' net in the window, against its own record at
+    that time of day.
+- **Ten sessions cannot calibrate that.** 48.2's study, at about 60 sessions (mid-January), stays the gate.
+
+**For the system to pick a sudden move, proposed:**
+1. **The detector registered before the study's data is complete:** individuals' net money in a 15-minute window,
+   and the session's pace, each against the same window's record; what 18K, the platforms and the funds did over
+   the rest of the day and the next.
+2. **If it holds,** a line where the reader sees it, previewed for the owner first: the evening message or
+   Direction.
+3. **No push unless the study supports one,** as 47.1 found for whole days.
+
+Production does not read the rows until then.
 
 **NEON MIGRATION REQUIRED = NO.**

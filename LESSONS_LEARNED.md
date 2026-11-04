@@ -934,3 +934,19 @@ night's message.
 **The check.** Page by what the source holds, not by what the parser keeps: the oldest message on the page,
 kept or not. Stop on a page the source returns empty, or one that goes nowhere. A test serves a page of
 dropped items between two pages of kept ones.
+
+## 32. A duplicate is a duplicate only under the right key
+
+**The pattern.** A count of repeats by the columns that look like a row's identity finds "duplicates" that are
+distinct rows: the column that tells them apart was left out of the key. Deleting them, or a unique key on those
+columns, would destroy real data and refuse the next real row.
+
+**Where it happened.** Before A8's unique keys (2026-11-01, `SP_D_HANDOFF.md` 89), `iran_node_readings` grouped by
+node, source, instrument and time showed 20 keys stored four times. They were four trading days of one fund, sent
+in one phone run and stamped with the run's time; the day is in `detail`. A key without `detail` would have refused
+the phone's catch-up days. With it there were none.
+
+**The check.** Before calling rows duplicates, compare every column of the repeated groups, and read the code that
+writes them for how one run can produce several rows. A key is the set of columns the writer guarantees unique,
+not the set that looks unique.
+
