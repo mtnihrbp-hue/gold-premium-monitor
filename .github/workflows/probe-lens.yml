@@ -14,10 +14,10 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - name: The models compared
+      - name: The lens, rendered
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        run: python research/probe_lens_models.py
+        run: python research/preview_lens.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
