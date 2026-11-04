@@ -177,17 +177,32 @@ class LensKPI(unittest.TestCase):
         answers = iter([R(503, text="over capacity"), R(200, {"choices": [{"message": {"content": json.dumps(
             {"strike": [], "deal": [{"id": 3, "en": "Trump: talks go on"}]})}}]})])
         got = news_lens.read(HEADS, key="k", post=lambda *a, **k: (calls.append(k.get("json")), next(answers))[1])
-        self.assertEqual((got["model"], got["deal"][0][1]), (news_lens.MODELS[1], "Trump: talks go on"),
-                         "Qwen over capacity: gpt-oss-120b answers (SP_D_HANDOFF.md section 99)")
+        self.assertEqual((got["models"], got["deal"][0][1]), ([news_lens.MODELS[1]], "Trump: talks go on"),
+                         "Qwen over capacity: gpt-oss-120b judges alone (SP_D_HANDOFF.md sections 99, 101)")
         self.assertEqual(calls[0]["reasoning_format"], "hidden")
         self.assertEqual(calls[1]["reasoning_effort"], "low")
         bad = {"choices": [{"message": {"content": "not json"}}]}
         self.assertIsNone(news_lens.read(HEADS, key="k", post=post(200, bad)))
         good = {"choices": [{"message": {"content": json.dumps({"strike": [], "deal": [{"id": 3, "en": "Trump: talks go on"}]})}}]}
-        self.assertEqual(news_lens.read(HEADS, key="k", post=post(200, good))["deal"][0][1], "Trump: talks go on")
-        sent = calls[-1]["messages"][1]["content"]
-        self.assertEqual(sent, "\n".join(f"{i}. {h}" for i, h in enumerate(HEADS, start=1)),
-                         "the model is given the headlines and nothing else: never a price")
+        calls.clear()
+        both = news_lens.read(HEADS, key="k", post=post(200, good))
+        self.assertEqual((both["deal"][0][1], both["models"]), ("Trump: talks go on", list(news_lens.MODELS)))
+        self.assertEqual([c["messages"][0]["content"] for c in calls], [news_lens.SYSTEM, news_lens.SYSTEM, news_lens.SUM_UP],
+                         "two judges, then the sum-up of what stands")
+        for c in calls[:2]:
+            self.assertEqual(c["messages"][1]["content"], "\n".join(f"{i}. {h}" for i, h in enumerate(HEADS, start=1)),
+                             "the judges are given the headlines and nothing else: never a price")
+        self.assertEqual(calls[2]["messages"][1]["content"], "- Trump: talks go on", "the sum-up sees what stands only")
+
+    def test_05b_two_judges_a_pick_stands_where_both_agree(self):
+        """The owner, 2026-11-04: "1-OK" to two judges (SP_D_HANDOFF.md section 101)."""
+        h = HEADS
+        qwen = {"strike": [(h[0], "Q0")], "deal": [(h[1], "Q1")], "gold": [(h[2], "Q2"), (h[3], "Q3")]}
+        gpt = {"strike": [(h[0], "G0"), (h[1], "G1")], "deal": [], "gold": [(h[3], "G3")]}
+        out = news_lens.agree(qwen, gpt)
+        self.assertEqual(out["strike"], [(h[0], "G0")], "both said strike: it stands, in gpt-oss's line")
+        self.assertEqual(out["deal"], [], "Qwen said deal, gpt-oss strike: left out")
+        self.assertEqual(out["gold"], [(h[3], "Q3"), (h[2], "Q2")], "gold both took first, in Qwen's line, then Qwen's")
 
     def test_06_the_case_summary_is_computed_from_the_seed(self):
         seed = cases.load()

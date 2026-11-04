@@ -84,6 +84,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    97 the LENS cut to the event with the AI's sum-up; the NAV collected; the funds' week; a range forecast measured
                                                                    98 the LENS's sorting tested (prompt B); the funds' week by ticket size; the range made honest
                                                                    99 Qwen sorts the LENS, the headline's verb restored; E-11: every dimension does not beat the calm band
+                                                                   100 five models on the LENS; gold headlines; the funds' line in the owner's form; E-12: no method beats the calm band
        member, the LLM member
 ```
 
@@ -9728,5 +9729,139 @@ The owner's example: "Big sellers lead this week. Next week the price might be i
 
 The range in (b) is B0's 7-day band, the one the record supports. A "-3% window" would claim a lean the weeks of
 sellers do not have: their next week averaged +0.3%.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 100. Five models on the LENS; gold headlines; the funds' line in the owner's form; E-12, the forecast bake-off (2026-11-04)
+
+**The owner:**
+- Kimi "is not on the nvidia ... how about hugging face and else where";
+- the funds' line: "Big holders are selling the gold funds this week. Next Trade Week vs the close of 12 Aban: 60% to drop to 24.70
+  (-2.7%). simple, as that";
+- on the LENS: "maybe even a headline from GOLD itself";
+- on the forecast: "mixing all in a model is ok if the model can predict well and outperforms mathematically. you didnt put your
+  best on ... there are models from economic mathematicians";
+- the vocabulary (64): "DIP ??? STALL ??". Both are on its Never list or outside it. "Drop" is the word.
+
+### 100.1 Where Kimi is
+
+Read from each provider's live list (Psiphon), 2026-11-04:
+- **OpenRouter:** every Kimi is paid now, K2 to K3.1; the free K2 is gone.
+  - Free and listed: NVIDIA Nemotron 3 Ultra (550B), Nemotron 3.5 Super and Lightning, Google Gemma 4 31B and 26B,
+    Thinking Machines' Inkling, and others (14 in all).
+- **Hugging Face:** Kimi K2.6 is live through Novita and DeepInfra, billed to the account's monthly credit. A free
+  account's credit covers a test, not a nightly call. Kimi is tested, at zero cost, but cannot run nightly within the
+  owner's zero spending.
+- **Cloudflare Workers AI:** reports say the Kimi models need the paid Workers plan. Its model page lists
+  per-token prices.
+- **NVIDIA's build catalogue:** no Kimi for the owner's account.
+- **The owner added** `HF_TOKEN` and `OPENROUTER_API_KEY`, at repository level like `GROQ_API_KEY`: they open no
+  production data.
+
+### 100.1b Five models on the same headlines
+
+**The probe** (`probe-lens`): the LENS's prompt as it ships (definitions, whole lines, gold), the 70 headlines of 13
+Aban's afternoon, three rounds each.
+
+| Model | Rounds answered | Seconds | Notes |
+|---|---|---|---|
+| Qwen 3.8 (Groq) | 3 of 3 | 1.2-1.4 | steady (strike 2, deal 2-3, gold 2) |
+| gpt-oss-120b (Groq) | 3 of 3 | 1.8-2.7 | strike 0-1, deal 2-3 |
+| Kimi K2.6 (Hugging Face, Novita) | 0 of 3 | - | HTTP 402: "Purchase pre-paid credits": the free account has no inference credit |
+| Nemotron 3 Ultra (OpenRouter, free) | 1 of 3 with picks | 80-101 | the other two replies held no picks |
+| Gemma 4 31B (OpenRouter, free) | 0 of 3 | - | HTTP 429 from its provider, three times |
+
+**Judged against the definitions,** with the whole lines now visible:
+- **Sky News, "... نشانه‌ای از پیشرفت دیپلماتیک مشاهده می‌شود":** progress is observed, so it is a deal.
+  - gpt-oss: deal, 3 of 3, with its meaning.
+  - Qwen: strike, 3 of 3; its line dropped the progress ("Growing fears of war resumption ..."), an omission that
+    turns the headline.
+- **El-Sayed:** deal for all three.
+  - Qwen named him "Abdel Sattar", another man: against the rule that a name is never replaced.
+  - gpt-oss "Abdul-Said"; Nemotron "US Senate candidate".
+- **Gold itself:**
+  - Qwen and Nemotron took "world gold back above $4,000 after the Republican defeat" and "gold and coin react to the
+    election";
+  - gpt-oss took "the gold and coin price now" and "the gold funds reopen", which carry no move.
+- **Blumenthal's opinion:** strike once for gpt-oss; Qwen and Nemotron left it out.
+- **Nemotron's one round** held the best single picks, among them the Democrats' win of both chambers. Its sum-up
+  passed 260 characters and the guard dropped it.
+
+**Verdict:**
+- No free model is clearly best on this list. Qwen and gpt-oss err on different headlines.
+- Kimi has no zero-cost route left, and the free OpenRouter models are too slow or refused.
+- **Proposed, for the owner:** both Groq models each night, each on its own quota.
+  - A strike or deal pick stands when both put it on the same side.
+  - Where they disagree, it is left out, the prompt's own "When unsure, leave it out".
+  - Gold picks: those both took, then Qwen's.
+  - The line: gpt-oss's for a strike or deal pick, as it dropped less; Qwen's for gold.
+  - About 7,600 tokens a night.
+
+### 100.2 The LENS: gold itself
+
+- **`news_lens.SYSTEM` asks for "gold":** at most 2 headlines about gold itself, in Iran (18K, the coin, the gold
+  funds) or in the world, a move or a fact, never a forecast, on no other side. Held by `validate` as the other picks.
+- **The message adds** "On gold itself:" after the event.
+- **Tests:** `kpi_lens` 16/16 (`test_04`).
+
+### 100.3 The funds' line, in the owner's form, with the record's numbers
+
+- **The level by a rule:** the 3-day range's low edge (98.3), today -2.7% from 12 Aban's close of 25.51M (255,095,000
+  rial), so 24.83. The owner's own example level.
+- **Measured on the record,** 2017-2026, by the week's ticket-size zone (98.2): the next trade week (to 7 days after the
+  week's last session) against the week's last close.
+
+| Zone | Weeks | Ended the next week lower | Dropped to the 3-day low edge | Rose to the 3-day high edge |
+|---|---|---|---|---|
+| sellers lead | 135 | 46% | 25% | 12% |
+| buyers lead | 126 | 29% | 14% | 30% |
+| crowded | 60 | 42% | 23% | 13% |
+| every week | 321 | 38% | 21% | 19% |
+
+- **The line for this week:** "Big holders are selling the gold funds this week. Next trade week vs the close of 12 Aban
+  (25.51M): 46% to close lower; 25% to drop to 24.83 (-2.7%)."
+- **"60% to drop to -2.7%"** would state more than twice the record's 25%.
+- **Buyers lead:** the line turns: "... 30% to rise to <the high edge>".
+- **The zones** are the ones registered in 89ae9f5 for the forward test (98.2). These rates are their past record.
+
+### 100.4 E-12, the forecast bake-off
+
+**Registered** in 6b86a8e before the run (`research/rd_forecast_e12.py`).
+- The first run stopped before scoring, on a missing key for the combination's chance of a rise. ef90598 added it, and
+  no rule changed.
+- **Walk-forward** by year, 2018-2026: the 10th, 50th and 90th percentiles of 18K's move over 3 and 6 trading days, and
+  the chance it rises.
+
+| Model | 3 days, pinball loss vs B0 (P1 / P2 / P3) | Diebold-Mariano, 3 days | 6 days, vs B0 | Diebold-Mariano, 6 days |
+|---|---|---|---|---|
+| G1, GJR-GARCH(1,1), skewed t | +2.3% / +0.9% / +2.1% | +2.19 | +3.2% / +1.9% / +5.9% | +2.84 |
+| E1, error correction on the gap to the world price | +2.7% / -0.1% / +0.2% | +3.19 | +2.9% / +0.2% / +0.8% | +2.90 |
+| Q1, boosted quantiles, conformal | +10.7% / +1.9% / +2.3% | +3.93 | +11.7% / -0.1% / +1.8% | +3.35 |
+| C1, the four combined, equal weights | +0.6% / -1.2% / -0.4% | -0.47 | +0.8% / -1.7% / +0.4% | +0.01 |
+
+- **A positive Diebold-Mariano is worse than B0.** G1, E1 and Q1 are worse at both horizons, well past chance.
+- **The combination ties B0.**
+- **GARCH's band is narrower and holds less:** 70-77% for a claimed 80%.
+- **B0's held** 77%, 81% and 79% (3 days), and 76%, 82% and 77% (6 days).
+- **The chance of a rise** (Brier skill against the training days' base rate):
+  - the logistic model D1: +1.0% and +0.9% at 3 days in P2 and P3, +1.7% at 6 days in P2; but -18.6% and -35.4% in P1;
+  - no model reached +2% in 2 of 3 periods at either horizon.
+- **The verdict, by the registered rule:** no range replaces B0. No chance of a rise is kept; the base rate stands.
+
+**What this says, with 72.3, E-4, E-5, E-11 and E-12 together:**
+- Five families of method have now failed to beat the calibrated volatility band, or to tell 18K's direction from
+  daily data:
+  - regression on daily inputs;
+  - quantile regression and trees;
+  - GARCH;
+  - error correction;
+  - their combination.
+- 18K is the dollar times world gold, and over 3 to 7 days both behave close to a random walk with jumps. The
+  dollar's jumps come with news.
+- **The one separation seen in the record is weekly:** the funds' ticket size (98.2, 100.3). It is registered and waits
+  for new weeks.
+- **The range a reader can rely on is B0's.** It moves with volatility each night, widening and narrowing, and it is
+  asymmetric. Its hit rate is shown beside it.
+- **The direction line is the funds' zone with its record,** not a model's guess.
 
 **NEON MIGRATION REQUIRED = NO.**
