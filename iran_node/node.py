@@ -87,6 +87,11 @@ LIVE_FROM, LIVE_TO = 12 * 60, 18 * 60 + 15             # minutes of the Tehran d
 LIVE_FLOW_KEYS = ("buy_I_Volume", "buy_N_Volume", "buy_CountI", "buy_CountN",
                   "sell_I_Volume", "sell_N_Volume", "sell_CountI", "sell_CountN")
 LIVE_PRICE_KEYS = ("dEven", "hEven", "pDrCotVal", "qTotTran5J", "qTotCap", "zTotTran", "priceYesterday")
+# The fund's own NAV, the value of the gold it holds per unit (redemption and subscription), published through
+# the session: the owner, 2026-11-04, "the nav can walk in" (SP_D_HANDOFF.md section 97). Asked every 30 minutes,
+# not every 15, so TSETMC is asked a third more, not half more.
+TSETMC_LIVE_NAV = "https://cdn.tsetmc.com/api/Fund/GetETFByInsCode/{code}"
+LIVE_NAV_KEYS = ("pRedTran", "pSubTran", "hEven")
 
 COLUMNS = ("node", "source", "instrument", "observed_at", "bid", "ask", "value", "status", "detail",
            "payload")
@@ -184,7 +189,8 @@ def read_tsetmc_live(tehran=None, any_minute=False):
     minute = tehran.hour * 60 + tehran.minute
     if not any_minute and (tehran.weekday() in (3, 4) or not LIVE_FROM <= minute <= LIVE_TO):
         return []                                        # Thursday, Friday, or outside the session
-    rows, failed = [], {}
+    rows, failed, nav_failed = [], {}, {}
+    nav_due = tehran.minute // 15 in (0, 2)              # the reads at :00 and :30
     for code, _symbol in GOLD_FUNDS:
         try:
             got = []
@@ -202,14 +208,28 @@ def read_tsetmc_live(tehran=None, any_minute=False):
             continue                                     # no trade yet today, or a holiday
         payload = {k: flow.get(k) for k in LIVE_FLOW_KEYS}
         payload.update({k: price.get(k) for k in LIVE_PRICE_KEYS})
+        if nav_due:
+            try:                                         # a NAV not read never costs the fund's row
+                r = requests.get(TSETMC_LIVE_NAV.format(code=code), headers=HEADERS, timeout=(5, 10))
+                r.raise_for_status()
+                etf = r.json().get("etf") or {}
+                payload.update({f"nav_{k}": etf.get(k) for k in LIVE_NAV_KEYS})
+            except Exception as e:  # noqa: BLE001 -- counted below
+                status = getattr(getattr(e, "response", None), "status_code", None)
+                reason = f"{type(e).__name__}{f' {status}' if status else ''}"
+                nav_failed[reason] = nav_failed.get(reason, 0) + 1
         rows.append({"source": "tsetmc_live", "instrument": f"CLIENTTYPE_{code}", "bid": None, "ask": None,
                      "value": None, "status": "OK", "detail": f"{price.get('dEven')}-{price.get('hEven')}",
                      "payload": payload})
-    if failed:  # one row saying why: 11-03's session was lost without a trace (SP_D_HANDOFF.md section 95)
-        why = ", ".join(f"{k} x{n}" for k, n in sorted(failed.items()))
+    if failed or nav_failed:  # one row saying why: 11-03's session was lost without a trace (SP_D_HANDOFF.md 95)
+        parts = []
+        if failed:
+            parts.append(f"{sum(failed.values())} of {len(GOLD_FUNDS)} funds not read: "
+                         + ", ".join(f"{k} x{n}" for k, n in sorted(failed.items())))
+        if nav_failed:
+            parts.append("NAV not read: " + ", ".join(f"{k} x{n}" for k, n in sorted(nav_failed.items())))
         rows.append({"source": "tsetmc_live", "instrument": "LIVE", "bid": None, "ask": None, "value": None,
-                     "status": "ERROR", "detail": f"{sum(failed.values())} of {len(GOLD_FUNDS)} funds not read: {why}"[:300],
-                     "payload": None})
+                     "status": "ERROR", "detail": "; ".join(parts)[:300], "payload": None})
     return rows
 
 
