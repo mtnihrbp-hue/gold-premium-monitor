@@ -128,6 +128,14 @@ class LensKPI(unittest.TestCase):
         for rule in ("Each side, exactly:", "public opposition, an election that",
                      "Neither: commentary with no step either way", "When unsure, leave it out."):
             self.assertIn(rule, news_lens.SYSTEM)
+        # gold itself, at most two, none on another side (SP_D_HANDOFF.md section 100)
+        self.assertIn("at most 2 headlines about gold itself", news_lens.SYSTEM)
+        gold = news_lens.validate({"strike": [{"id": 1, "en": "80 US tankers in Israel"}],
+                                   "gold": [{"id": 1, "en": "the strike pick again"}, {"id": 4, "en": "Brent above $118"},
+                                            {"id": 2, "en": "Qatari talks go on in Tehran"}, {"id": 3, "en": "Trump: talks"}]}, HEADS)
+        self.assertEqual([en for _, en in gold["gold"]], ["Brent above $118", "Qatari talks go on in Tehran"],
+                         "a headline on another side is not taken again; two at most")
+        self.assertIn("<b>On gold itself:</b>\n· Brent above $118", telegram_lens.build_lens_message(view(news=gold)))
         # the sum-up of the picks (SP_D_HANDOFF.md section 97): from the picks only, no advice, no price
         for rule in ("Only from the picks", "no advice, nothing about prices or markets", "Empty when nothing was picked"):
             self.assertIn(rule, news_lens.SYSTEM)

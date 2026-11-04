@@ -83,6 +83,8 @@ def _event(v):
                 lines += [f"· {en}" for _, en in news[side]]
         if news.get("read"):
             lines += ["", f"<b>In short:</b> {news['read']}", "<i>The AI model's reading of these headlines only</i>"]
+    if news and news.get("gold"):                # the owner, 2026-11-04: "a headline from GOLD itself" (section 100)
+        lines += ["", "<b>On gold itself:</b>"] + [f"· {en}" for _, en in news["gold"]]
     return lines
 
 

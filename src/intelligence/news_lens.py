@@ -33,6 +33,7 @@ MODEL_OPTIONS = {"qwen/qwen3.8-27b": {"reasoning_format": "hidden"}, "openai/gpt
 MODEL = MODELS[-1]                               # the fallback, as before
 URL = "https://api.groq.com/openai/v1/chat/completions"
 PER_SIDE = 3
+GOLD_PICKS = 2           # headlines about gold itself (the owner, 2026-11-04; SP_D_HANDOFF.md section 100)
 # The translation rules as tested on 9 Aban, three rounds against the first prompt on one headline list
 # (SP_D_HANDOFF.md section 87): the first dropped "Axios" in 3 of 3 and a threat's "if" in 2 of 3.
 SYSTEM = """You read numbered headlines from Iranian news channels (Persian), from the last day. You never see
@@ -54,11 +55,14 @@ Translate each pick as a news editor would, into one plain English line of at mo
   "Foreign Policy:"); an outlet you cannot name with certainty is transliterated, never replaced by another;
 - a condition stays a condition, a claim stays a claim;
 - nothing that is not in the headline: no number, name or claim of your own.
-Then sum up the picks in "read": one or two plain English sentences, at most 220 characters, on where tonight's picked
+Pick also, in "gold", at most 2 headlines about gold itself, in Iran (18K, the coin, the gold funds) or in the world, that
+report a move or a fact, never a forecast; none of them on another side. Translated by the same rules; may be empty.
+Then sum up the strike and deal picks in "read": one or two plain English sentences, at most 220 characters, on where tonight's picked
 headlines point together (toward a strike, toward a deal, or mixed) and how strongly. Only from the picks: no
 number, name or claim that is not in them, no advice, nothing about prices or markets. Empty when nothing was picked.
 Answer with JSON only: {"strike": [{"id": <number>, "en": "<line>", "why": "<at most 12 words>"}],
-"deal": [{"id": <number>, "en": "<line>", "why": "<at most 12 words>"}], "read": "<sentences>"}"""
+"deal": [{"id": <number>, "en": "<line>", "why": "<at most 12 words>"}], "gold": [{"id": <number>, "en": "<line>"}],
+"read": "<sentences>"}"""
 # The sides' definitions as tested on 13 Aban (SP_D_HANDOFF.md section 98), three rounds each on 70 headlines: without
 # them the model put opinion pieces against a war toward a strike in 5 of 6 rounds; with them it left them out, and
 # picked the same four in all three rounds. "why" is asked for the pick's discipline and is not shown.
@@ -115,7 +119,7 @@ def validate(reply, heads):
     if not isinstance(reply, dict):
         return None
     out, used = {}, set()
-    for side in ("strike", "deal"):
+    for side in ("strike", "deal", "gold"):
         picks = reply.get(side) if isinstance(reply.get(side), list) else []
         kept = []
         for p in picks:
@@ -123,7 +127,7 @@ def validate(reply, heads):
                 k, en = int(p["id"]), " ".join(str(p["en"]).split())
             except (KeyError, TypeError, ValueError):
                 continue
-            if not 1 <= k <= len(heads) or k in used or not 8 <= len(en) <= 120 or len(kept) == PER_SIDE:
+            if not 1 <= k <= len(heads) or k in used or not 8 <= len(en) <= 120 or len(kept) == (GOLD_PICKS if side == "gold" else PER_SIDE):
                 continue
             if not _numbers(en) <= _numbers(heads[k - 1]):       # a number the headline does not carry
                 continue
