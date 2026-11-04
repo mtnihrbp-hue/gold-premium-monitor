@@ -78,6 +78,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    91 health check of 11 Aban; the forward test's first night: two findings; the recovery steps removed
                                                                    92 the production keys in the environment; email removed, Telegram the only channel
                                                                    93 the production boundary holds (E0-5); 91-92 merged (v1.42safe)
+                                                                   94 the forward test after the 06:00 run; version 2, the CPI carried (v1.43safe)
        member, the LLM member
 ```
 
@@ -9124,5 +9125,78 @@ are parked, so nothing reads them.
 - Resumed again (82.4) at 139 labelled days of E-9's span, against the 600 the test needs. The run of 11-02 added
   70.
 - 11-03 had no push, so a day was lost.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 94. The forward test: after the 06:00 run, and version 2 (2026-11-04)
+
+**The owner, on 91.2's two questions:** "GO AHEAD".
+
+### 94.1 The trigger
+
+**What three nights showed:**
+- The run after 21:00 found no candle for the day on any night.
+- Each day was written by GitHub's fallback schedule, 3 to 5 hours late:
+
+| Day | Written |
+|---|---|
+| 11-01 | 01:29 |
+| 11-02 | 04:26 |
+| 11-03 | 02:49 |
+
+**Changed in `forward-test.yml`:**
+- It starts after the ANALYZE run started in the 02:xx UTC hour, the 06:00 Tehran run.
+- GitHub's schedule moves to 04:30 UTC (08:00 Tehran) as the fallback.
+- In the morning the engine scores yesterday's closed candle. Today's candle is left out before 21:00, as before.
+- A line is written about 9 hours after its close, and 40 trading days before its outcome.
+
+### 94.2 Version 2
+
+**The rule:** version 1 with one change.
+- The real dollar's CPI is the month two before the day's month, as before.
+- While that month is not published, version 2 carries forward the newest of the three months before it
+  (`rd_windows_read.cpi_asof_carried`).
+- Nothing else changed: the inputs, the models, the 0.30 threshold and the way back.
+- `drivers` takes it as `asof=`, and its default stays the strict rule, so every study recorded before this
+  section reproduces (`kpi_coherence.test_69`).
+
+**What it changes in the history:**
+- **27 days, 2025-12-01 to 12-31,** where version 1 had no real dollar: the IMF's Iran series has no 2025-10.
+- **244 days of 2026,** whose value moves slightly, because the 5-year mean now includes December.
+- 42 of R3's 47 days at 0.30 or above are in 2026, so the record was re-measured. Version 1 reproduces 77.8 exactly:
+
+| P3 (2025-2026), WallGold's fee | Version 1 | Version 2 |
+|---|---|---|
+| Wealth against holding gold | +11.4% | +10.4% |
+| Worst drop (holding -24.9%) | -21.7% | -15.5% |
+| Entries | 6 | 3 |
+| Half in fixed income | 21% of days | 32% |
+| R3's skill (P1 / P2 / P3) | +3.1% / +1.6% / +10.7% | +3.1% / +1.6% / +10.6% |
+| R3's AUC in P3 | 0.76 | 0.76 |
+| The test (Eb-5) | 1 of 3 | 1 of 3 |
+
+- **Daric's cost:** +11.4% (version 1: +13.3%). **Ayyareh's 2%:** +6.1% (version 1: +3.6%).
+- **The forecast is the same.** The trades move: fewer entries and a shallower worst drop.
+- **Chosen for a data reason, before these figures existed:** the owner's go-ahead came first.
+- P1 and P2 have no entry in either version. Version 2 passes no more of the test than version 1, so the forward
+  test remains the candidate's only real evidence.
+
+**Its first line**, from the ledger's files on the workstation, before the merge:
+- 2026-11-03: R3 13.2% (version 1: 11.2%), R10 64.8% (14.9%), in gold.
+- R10's return to its level of 10-31 is the real dollar back.
+
+**The ledgers:**
+- version 1's five lines stay in `data/shadow_ledger.jsonl`, closed at 2026-11-03;
+- version 2 writes `data/shadow_ledger_v2.jsonl`, and its rule text names the version.
+
+**The verdict:** version 2's first is on 2027-06-21 (31 Khordad 1406), the date the owner set for version 1 (83,
+89.3). Its reasons hold for version 2: after the market reopens from Nowruz, and with time for entries.
+
+**Checks:**
+- `kpi_coherence.test_69`:
+  - the morning trigger and version 2's ledger;
+  - the strict default for the studies;
+  - the carry-forward: August used for November, never more than three months further back;
+- the KPI suite and the unit tests; compileall.
 
 **NEON MIGRATION REQUIRED = NO.**

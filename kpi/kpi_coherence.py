@@ -2263,7 +2263,8 @@ class KPICoherence(unittest.TestCase):
         flow = (REPO / ".github" / "workflows" / "forward-test.yml").read_text(encoding="utf-8")
         self.assertNotIn("secrets.", flow, "tgju, CBOE and the IMF are public: no production secret")
         self.assertIn('workflows: ["Gold Premium Monitor"]', flow)
-        self.assertIn("contains(github.event.workflow_run.run_started_at, 'T17:')", flow, "21:00 Tehran is 17:30 UTC")
+        self.assertIn("contains(github.event.workflow_run.run_started_at, 'T02:')", flow,
+                      "after the 06:00 run (02:30 UTC): tgju's day candle is out by then, not at 21:05 (section 94)")
         self.assertIn("LEDGER_BRANCH: forward-ledger", flow)
         self.assertEqual(flow.count("git push"), 1)
         self.assertIn('git push -q origin "HEAD:${LEDGER_BRANCH}"', flow)
@@ -2271,8 +2272,24 @@ class KPICoherence(unittest.TestCase):
         production = (REPO / ".github" / "workflows" / "gold-monitor.yml").read_text(encoding="utf-8")
         self.assertIn("environment: production", production)
         self.assertNotIn("forward", production, "production's workflow does not start it")
-        self.assertIn('FROZEN = "E-8 candidate, frozen 2026-10-30', (REPO / "research" / "engine_today.py").read_text(
-            encoding="utf-8"), "a change to the rule opens a new version")
+        engine = (REPO / "research" / "engine_today.py").read_text(encoding="utf-8")
+        self.assertIn('FROZEN = ("E-8 candidate v2, frozen 2026-11-04', engine, "a change to the rule opens a new version")
+        self.assertIn('"shadow_ledger_v2.jsonl"', engine, "version 2 writes a ledger of its own; version 1's is closed")
+        self.assertIn("asof=g4.cpi_asof_carried", engine)
+        self.assertIn("cp research/data/shadow_ledger_v2.jsonl ledger/data/", flow)
+        import importlib.util
+        from datetime import date as _date
+        spec = importlib.util.spec_from_file_location("rd_windows_read", REPO / "research" / "rd_windows_read.py")
+        g4 = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(g4)
+        import inspect
+        self.assertIs(inspect.signature(g4.drivers).parameters["asof"].default, g4.cpi_asof,
+                      "the studies keep the strict rule, so every result recorded before section 94 reproduces")
+        cpi = {"2026-M07": 676.9, "2026-M08": 700.1}
+        self.assertIsNone(g4.cpi_asof(cpi, _date(2026, 11, 1)), "version 1: September not published")
+        self.assertEqual(g4.cpi_asof_carried(cpi, _date(2026, 11, 1)), 700.1, "version 2: August carried")
+        self.assertEqual(g4.cpi_asof_carried(cpi, _date(2026, 10, 1)), 700.1, "the month two before when published")
+        self.assertIsNone(g4.cpi_asof_carried(cpi, _date(2027, 3, 1)), "never more than three months further back")
 
     def test_70_telegram_is_the_only_channel_and_the_parked_alerts_stay_parked(self):
         """The owner, 2026-11-04: "the main platform is the tlrgm so we dont need the email thing" (SP_D_HANDOFF.md

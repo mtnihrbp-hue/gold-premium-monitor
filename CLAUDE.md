@@ -64,7 +64,7 @@ pip install -r requirements.txt
 CI workflows (`.github/workflows/`):
 - `kpi-suite.yml` — full KPI suite + unit tests + `compileall`, on `main`, SP-C and SP-D pushes, PRs, and manual dispatch. Never given `DATABASE_URL`, so it cannot reach production Neon. Safe to run freely.
 - `gold-monitor.yml` — the live app (`src/main.py`). Every run of it is production. Since 2026-11-04 its secrets (`DATABASE_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`) live only in the `production` environment, which admits `main` alone: a run from any other branch is refused before it starts, and no other workflow can read them (KPI E0-5, `PROJECT_OPERATIONS.md` §19). `GROQ_API_KEY` is still a repository secret: any branch can read it, and it opens no production data.
-- `forward-test.yml` — the forward test's daily line (`research/engine_today.py`), started when the 21:00 Tehran run finishes; no secret; it commits only to the branch `forward-ledger`, which is never edited by hand (`PROJECT_OPERATIONS.md` §18).
+- `forward-test.yml` — the forward test's daily line (`research/engine_today.py`), version 2 of the E-8 candidate, started when the 06:00 Tehran run finishes; no secret; it commits only to the branch `forward-ledger`, which is never edited by hand (`PROJECT_OPERATIONS.md` §18).
 
 Required environment variables (see `.github/workflows/gold-monitor.yml` and `src/database/connection.py`, `src/alerts/*`): `DATABASE_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (email was removed on 2026-11-04: Telegram is the only channel, `SP_D_HANDOFF.md` §92). `SCHEDULED_RUN=true` switches `src/main.py` from the lightweight UPDATE path into the full scheduled Analysis path.
 

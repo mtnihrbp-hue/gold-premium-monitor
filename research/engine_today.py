@@ -1,5 +1,7 @@
 """The engine's state today, for the forward test (SP_D_HANDOFF.md sections 78.6 and 79): the candidate frozen
-from E-8 (77.7-77.8), judged only on days it has not seen.
+from E-8 (77.7-77.8), judged only on days it has not seen. Version 2 from 2026-11-04 (section 94): the real
+dollar's CPI is carried forward up to three months while the IMF has not published the month two before
+(rd_windows_read.cpi_asof_carried); version 1 left the input out on those days (91.2). Nothing else changed.
 
 One run:
 1. refreshes the inputs: tgju's histories (direct), CBOE's GVZ and VIX and the IMF's CPI (through the system
@@ -10,14 +12,15 @@ One run:
    - **in:** half into fixed income when R3 >= 0.30;
    - **back:** 3 x the forecast daily volatility x the square root of the days in above the entry close at any
      time, or, after 5 days, R3 below 0.30 with 18K's close above the entry close;
-4. appends one line to research/data/shadow_ledger.jsonl: the date, the inputs' last dates, the forecasts, the
-   rule's state. The line is written before its outcome exists.
+4. appends one line to research/data/shadow_ledger_v2.jsonl: the date, the inputs' last dates, the forecasts,
+   the rule's state. The line is written before its outcome exists. Version 1's lines stay in
+   shadow_ledger.jsonl, closed at 2026-11-03.
 
 It never sends anything and never touches production. Before 21:00 Tehran a candle dated today is not closed,
 so it is left out and the last closed day is scored. Closed days missed since the last line (the laptop was off),
 up to 15, are scored first, each from the rows up to it only, and marked "late"; the evaluation can leave them
-out. On the workstation, Task Scheduler runs it each evening
-through research/run_engine_today.cmd (SP_D_HANDOFF.md section 82).
+out. GitHub's runner runs it after the 06:00 Tehran run (.github/workflows/forward-test.yml, PROJECT_OPERATIONS.md
+section 18); research/run_engine_today.cmd is the workstation's way (SP_D_HANDOFF.md section 82).
 
     python research/engine_today.py [--no-refresh]
 """
@@ -36,11 +39,12 @@ import requests
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-LEDGER = os.path.join(HERE, "data", "shadow_ledger.jsonl")
+LEDGER = os.path.join(HERE, "data", "shadow_ledger_v2.jsonl")
 THRESHOLD, MIN_STAY, HARD_K = 0.30, 5, 3.0
 CLOSED_BY = 21                                   # Tehran hour after which today's candle counts as closed
 MAX_LATE = 15                                    # closed days a run catches up when the laptop was off
-FROZEN = "E-8 candidate, frozen 2026-10-30 (SP_D_HANDOFF.md 77.7-77.8, 79)"
+FROZEN = ("E-8 candidate v2, frozen 2026-11-04: v1 (2026-10-30) with the CPI carried forward up to three months"
+          " (SP_D_HANDOFF.md 77.7-77.8, 79, 91.2, 94)")
 
 
 def refresh():
@@ -93,7 +97,7 @@ def risk_today(rows, calm_series):
     import rd_fall_risk as e5
     import rd_windows_read as g4
     macro = json.load(open(os.path.join(HERE, "data", "macro.json"), encoding="utf-8"))
-    F = g4.drivers(rows, macro, calm_series)
+    F = g4.drivers(rows, macro, calm_series, asof=g4.cpi_asof_carried)
     y = e5.target(rows)
     n = len(rows)
     train = [j for j in range(n - 41) if y[j] is not None and rows[j]["date"] >= "2015-03-15"]

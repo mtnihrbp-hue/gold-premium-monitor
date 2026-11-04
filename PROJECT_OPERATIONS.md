@@ -581,8 +581,8 @@ Tehran time. Read-only throughout: no query below writes.
    D rejected, L still held` (`SP_D_HANDOFF.md` section 35.4): L reaches 0 within one or two runs,
    and D is 0. While Neon is down, every run prints `DB unreachable: the reading is held for later`.
 10. **The forward test** (from 2026-11-01, section 18): one commit a closed day on `forward-ledger`, after
-   21:00 Tehran. `git fetch origin forward-ledger && git log origin/forward-ledger --oneline -5`; the last line
-   of `data/shadow_ledger.jsonl` names the day, R3 and the rule's state.
+   06:00 Tehran. `git fetch origin forward-ledger && git log origin/forward-ledger --oneline -5`; the last line
+   of `data/shadow_ledger_v2.jsonl` names the day, R3 and the rule's state.
 11. **Verdict** in one line, the open defects named, then the record in the sprint's
    handoff.
 
@@ -670,26 +670,31 @@ Neon's free plan resets its monthly transfer on the first of the month (UTC), so
 ## 18. The forward test's daily line (2026-11-01)
 
 The E-8 candidate, frozen on 2026-10-30, is scored on each closed Tehran day before its outcome exists
-(`SP_D_HANDOFF.md` sections 79, 82, 83, 89.3 and 90). It never sends a message and never touches Neon.
+(`SP_D_HANDOFF.md` sections 79, 82, 83, 89.3, 90 and 94). Version 2 from 2026-11-04 carries the real dollar's
+CPI forward up to three months while the IMF has not published the month two before; version 1 left the input
+out (91.2). It never sends a message and never touches Neon.
 
 ```text
 workflow    .github/workflows/forward-test.yml (on main)
 code        research/engine_today.py and the research modules it imports, from main
-data        branch forward-ledger: data/shadow_ledger.jsonl and the engine's inputs; one commit per new line
-started     when a Gold Premium Monitor run started at 17:xx UTC finishes (the 21:00 Tehran ANALYZE), and by
-            GitHub's schedule at 18:15 UTC (21:45 Tehran) as a fallback; a second start commits nothing
+data        branch forward-ledger: data/shadow_ledger_v2.jsonl (version 1's, data/shadow_ledger.jsonl, closed
+            at 2026-11-03) and the engine's inputs; one commit per new line
+started     when a Gold Premium Monitor run started at 02:xx UTC finishes (the 06:00 Tehran ANALYZE), and by
+            GitHub's schedule at 04:30 UTC (08:00 Tehran) as a fallback; a second start commits nothing. It
+            scores yesterday's closed candle: tgju's day candle is not out at 21:05 (section 94)
 secrets     none: tgju, CBOE and the IMF are public; GITHUB_TOKEN writes to forward-ledger alone
-verdict     the first on 2027-06-21 (31 Khordad 1406)
+verdict     version 2's first on 2027-06-21 (31 Khordad 1406), the date the owner set for version 1
 ```
 
-- **A missed evening** is caught up by the next run, up to 15 closed days, each from the data up to its day,
+- **A missed morning** is caught up by the next run, up to 15 closed days, each from the data up to its day,
   marked `"late"`.
 - **A failed run** (tgju, CBOE or the IMF out of reach) commits nothing; the next run catches up. CBOE or the
   IMF failing keeps the last copy on the branch, as the workstation did.
 - **Frozen copies:** `calm_forecasts_b.json`, `flows_daily.json` and `news_days.jsonl` stay as of 2026-10-30.
   The funds' flows are read from inside Iran, so R10's turnover input drops out for new days, as it did on the
   workstation. R3, the rule's trigger, needs none of them beyond the calm forecasts.
-- **Never edit the branch by hand.** A change to the rule opens a new version with its own evaluation date.
+- **Never edit the ledger's lines by hand.** A change to the rule opens a new version with its own ledger file
+  and evaluation date, as version 2 did.
 
 ## 19. The production boundary (2026-11-01; KPI E0-5)
 

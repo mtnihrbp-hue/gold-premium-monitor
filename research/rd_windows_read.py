@@ -46,7 +46,22 @@ def cpi_asof(series, day):
     return series.get(f"{y:04d}-M{m:02d}")
 
 
-def drivers(rows, macro, calm):
+def cpi_asof_carried(series, day):
+    """cpi_asof, or while that month is not yet published, the newest of the three months before it: the forward
+    test's version 2 (SP_D_HANDOFF.md sections 91.2 and 94). The IMF publishes Iran's CPI late, and has no
+    2025-10, so cpi_asof leaves the real dollar out on those days."""
+    y, m = day.year, day.month - 2
+    for _ in range(4):
+        while m <= 0:
+            y, m = y - 1, m + 12
+        value = series.get(f"{y:04d}-M{m:02d}")
+        if value is not None:
+            return value
+        m -= 1
+    return None
+
+
+def drivers(rows, macro, calm, asof=cpi_asof):
     n = len(rows)
     col = lambda k: [r.get(k) for r in rows]
     g, usd, teth, ons, gvz, coin, gap = (col(k) for k in ("g18", "usd", "tether", "ons_prev", "gvz_prev", "coin_premium", "gap"))
@@ -56,7 +71,7 @@ def drivers(rows, macro, calm):
     cpi_us = dict(macro["cpi_us"])
     real = []
     for i in range(n):
-        a, b = cpi_asof(cpi_ir, dates[i]), cpi_asof(cpi_us, dates[i])
+        a, b = asof(cpi_ir, dates[i]), asof(cpi_us, dates[i])
         real.append(math.log(usd[i] * b / a) if usd[i] and a and b else None)
     out = []
     last_units = None
