@@ -85,6 +85,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    98 the LENS's sorting tested (prompt B); the funds' week by ticket size; the range made honest
                                                                    99 Qwen sorts the LENS, the headline's verb restored; E-11: every dimension does not beat the calm band
                                                                    100 five models on the LENS; gold headlines; the funds' line in the owner's form; E-12: no method beats the calm band
+                                                                   101 two judges on the LENS; the nightly message previewed
        member, the LLM member
 ```
 
@@ -9863,5 +9864,104 @@ Aban's afternoon, three rounds each.
 - **The range a reader can rely on is B0's.** It moves with volatility each night, widening and narrowing, and it is
   asymmetric. Its hit rate is shown beside it.
 - **The direction line is the funds' zone with its record,** not a model's guess.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 101. Two judges on the LENS; the nightly message previewed (2026-11-04)
+
+**The owner, on 100:**
+- "1-OK" to two judges;
+- the funds' line in the owner's form, with the record's numbers: "AHA, much much better";
+- "3-ok" to the forecast: B0's range with its hit rate, the funds' zone for direction, the challengers recorded beside it.
+
+### 101.1 Two judges
+
+**`news_lens.read`:**
+- Qwen 3.8 and gpt-oss-120b each sort the headlines (`_ask`, each on its own Groq quota).
+- **`agree`:**
+  - a strike or deal pick stands when both put its headline on the same side, in gpt-oss's line;
+  - gold: the headlines both took first, then Qwen's, in Qwen's line.
+- **The sum-up** is a third, short call (`SUM_UP`, about 600 tokens), given only the lines that stand. It cannot
+  describe a headline that was left out, and `_read` holds it as before.
+- **One judge alone** when the other cannot answer, its picks as they stand.
+- **Tests:** `kpi_lens` 17/17 (`test_05`, `test_05b`).
+
+**Rendered on the runner** (16:46 Tehran, sending nothing; 719 characters):
+- **Toward a deal,** the one pick both judges put on the same side: "China: supports Tehran-Washington talks to resolve
+  disputes".
+- "In short: The line shows support for Tehran-Washington talks, indicating a tilt toward a diplomatic deal."
+- **On gold itself:**
+  - "Global gold returns above $4,000 after Republican party defeat in Congress elections";
+  - "Gold and coin prices react to Trump's party defeat in elections".
+
+**The trade-off, for the owner:**
+- Strict agreement is precise but thin: tonight one strike or deal headline of 70.
+- **A softer rule:** leave out only the headlines the judges put on opposite sides, and keep one judge's pick the other
+  did not make.
+  - That keeps more detail.
+  - It lets a single judge's error through, such as gpt-oss's Blumenthal pick of 100.1b.
+
+### 101.2 The nightly message, previewed
+
+**Talk, then this preview, then the wiring.**
+- **Today the 21:00 message is the room's report,** the caption of the chart's photo. Telegram holds 1,024 characters
+  of caption.
+- **The new message is a text message** of about 1,700 characters. The chart, if kept, goes as its own photo.
+
+```
+GOLDPremium: NIGHT · 13 Aban 1405, 21:00
+
+NOW vs the close of 12 Aban
+18K 26.03M (market, tgju): +2.1%
+World gold $4,043: +3.1%
+USD/IRR 269,700: −1.0%
+Tether 269,385: +0.0%
+Discount 1.0% below world price (was 1.0% below)
+
+THE RANGE vs the close of 12 Aban (25.51M)
+3D: 24.83 to 26.72 (−2.7% / +4.7%)
+Next trade week: 24.55 to 27.40 (−3.8% / +7.4%)
+8 in 10 by the record: it held 77-82% of the time since 1396
+
+GOLD FUNDS · this week, Sat 9 – Tue 12 Aban (4 sessions)
+Money: individuals took out 687B toman; a usual week's first 4 sessions bring 1,586B in
+Buyers: 68,028 a day, as usual
+Per head: sellers 245M toman, buyers 92M
+Big holders are selling the gold funds this week. Next trade week vs the close of 12 Aban (25.51M): 46% to close lower; 25% to drop to 24.83 (−2.7%).
+
+THE EVENT
+No market priced the ceasefire tonight.
+Toward a deal:
+· China: supports Tehran‑Washington talks to resolve disputes
+In short: The line shows support for Tehran‑Washington talks, indicating a tilt toward a diplomatic deal.
+The AI model's reading of these headlines only
+On gold itself:
+· Global gold returns above $4,000 after Republican party defeat in Congress elections
+· Gold and coin prices react to Trump's party defeat in elections
+
+THE ROOM (PAPER)
+3 g in gold, the rest in Afran (fixed income) since 10 Aban · total 128.2M toman
+
+Decision support, not an instruction to trade.
+```
+
+**Behind each block:**
+- **NOW:** the LENS's, as it runs.
+- **THE RANGE:** B0 of E-11 and E-12, from tonight's calm forecast (1.41% a day), with the record's own percentiles
+  (98.3).
+  - From the wiring on, each night's range is recorded on `forward-ledger` and scored.
+  - "8 in 10 by the record" gives way to its own running hit rate.
+- **GOLD FUNDS:**
+  - the Saturday-to-Wednesday week so far, against the same sessions of the past 52 weeks (97.3);
+  - the line in the owner's form, from the ticket-size zone and its record (100.3).
+- **THE EVENT:** the two judges (101.1).
+- **THE ROOM:** PAPER's posture and value, from `paper_activity`.
+
+**Open, for the owner:**
+1. The two judges, strict or softer.
+2. The chart: kept as a photo of its own, or dropped. The owner rated it low in 59.4.
+3. The order of the blocks.
+4. Direction's GOLD DEMAND and the room's report read the same funds reading. They move to the week with it, so
+   every message says the same.
 
 **NEON MIGRATION REQUIRED = NO.**
