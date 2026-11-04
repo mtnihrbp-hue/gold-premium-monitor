@@ -163,7 +163,16 @@ class LensKPI(unittest.TestCase):
         self.assertIsNone(news_lens.read(HEADS, key=""))
         self.assertIsNone(news_lens.read([], key="k", post=post(200)))
         self.assertIsNone(news_lens.read(HEADS, key="k", post=post(429, text="Rate limit: tokens per day (TPD)")))
-        self.assertEqual(len(calls), 1, "a spent daily quota is not retried")
+        # Groq's quotas are per model: a model whose day is spent is not asked again; the next model is asked once
+        self.assertEqual([c["model"] for c in calls], list(news_lens.MODELS), "each model once, in order")
+        calls.clear()
+        answers = iter([R(503, text="over capacity"), R(200, {"choices": [{"message": {"content": json.dumps(
+            {"strike": [], "deal": [{"id": 3, "en": "Trump: talks go on"}]})}}]})])
+        got = news_lens.read(HEADS, key="k", post=lambda *a, **k: (calls.append(k.get("json")), next(answers))[1])
+        self.assertEqual((got["model"], got["deal"][0][1]), (news_lens.MODELS[1], "Trump: talks go on"),
+                         "Qwen over capacity: gpt-oss-120b answers (SP_D_HANDOFF.md section 99)")
+        self.assertEqual(calls[0]["reasoning_format"], "hidden")
+        self.assertEqual(calls[1]["reasoning_effort"], "low")
         bad = {"choices": [{"message": {"content": "not json"}}]}
         self.assertIsNone(news_lens.read(HEADS, key="k", post=post(200, bad)))
         good = {"choices": [{"message": {"content": json.dumps({"strike": [], "deal": [{"id": 3, "en": "Trump: talks go on"}]})}}]}
@@ -309,6 +318,17 @@ class LensKPI(unittest.TestCase):
         self.assertIn("GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}", execute)
         with open(os.path.join(ROOT, "config", "config.json"), encoding="utf-8") as f:
             self.assertIn("send", json.load(f)["lens"])
+
+    def test_15_the_model_reads_the_whole_first_line_the_selection_stays_the_labellings(self):
+        """Persian ends a sentence on its verb and its negation, so the labelling's 140-character cut can turn
+        "no sign of progress is seen" into "a sign of progr..." (SP_D_HANDOFF.md section 99)."""
+        long = "یلدا حکیم، خبرنگار اسکای نیوز: در حالی که نگرانی‌ها درباره ازسرگیری جنگ میان آمریکا، اسرائیل و ایران رو به افزایش است، نشانه‌ای از پیشرفت دیپلماتیک دیده نمی‌شود"
+        self.assertGreater(len(long), 140)
+        self.assertEqual(news_lens.headline(long), long[:140], "the selection: the labelling's, unchanged")
+        posts = [{"channel": "c", "id": 1, "at": datetime(2026, 11, 4, 9), "text": long + "\nmore"}]
+        heads = news_lens.day_headlines(datetime(2026, 11, 4, 10), fetch=lambda channel, since, max_pages: posts)
+        self.assertEqual(heads, [long], "the model reads the whole first line, its verb included")
+        self.assertTrue(heads[0].endswith("دیده نمی‌شود"))
 
     def test_14_a_page_of_photos_alone_is_not_the_channels_end(self):
         import collector.news.telegram_channels as channels
