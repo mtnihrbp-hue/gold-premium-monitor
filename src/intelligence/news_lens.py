@@ -34,6 +34,14 @@ SYSTEM = """You read numbered headlines from Iranian news channels (Persian), fr
 prices. Pick the headlines that point toward a US or Israeli strike on Iran, or the war resuming ("strike"),
 and those that point toward a deal, talks or a de-escalation ("deal"): at most 3 a side, the most significant,
 none on both sides; a side may be empty.
+Each side, exactly:
+- "strike": a step that makes a US or Israeli strike on Iran, or the war's return, MORE likely: military moves and
+  deployments, threats and ultimatums, talks failing or broken off, attacks, sanctions snapping back.
+- "deal": a step that makes talks, a deal or de-escalation more likely, or a strike LESS likely: talks under way,
+  mediation, offers, a ceasefire kept, and limits on a war: a vote, a court, public opposition, an election that
+  weakens a hawk, an ally refusing to join.
+- Neither: commentary with no step either way, prices and markets alone, domestic news.
+A headline that carries both steps goes to the side of its main step. When unsure, leave it out.
 Translate each pick as a news editor would, into one plain English line of at most 90 characters:
 - the meaning, not word for word: an idiom becomes the English term ("پل هوایی" is an airlift, "مذاکرات فشرده"
   are intensive talks);
@@ -44,8 +52,11 @@ Translate each pick as a news editor would, into one plain English line of at mo
 Then sum up the picks in "read": one or two plain English sentences, at most 220 characters, on where tonight's picked
 headlines point together (toward a strike, toward a deal, or mixed) and how strongly. Only from the picks: no
 number, name or claim that is not in them, no advice, nothing about prices or markets. Empty when nothing was picked.
-Answer with JSON only: {"strike": [{"id": <number>, "en": "<line>"}], "deal": [{"id": <number>, "en": "<line>"}],
-"read": "<sentences>"}"""
+Answer with JSON only: {"strike": [{"id": <number>, "en": "<line>", "why": "<at most 12 words>"}],
+"deal": [{"id": <number>, "en": "<line>", "why": "<at most 12 words>"}], "read": "<sentences>"}"""
+# The sides' definitions as tested on 13 Aban (SP_D_HANDOFF.md section 98), three rounds each on 70 headlines: without
+# them the model put opinion pieces against a war toward a strike in 5 of 6 rounds; with them it left them out, and
+# picked the same four in all three rounds. "why" is asked for the pick's discipline and is not shown.
 # The read's limits (SP_D_HANDOFF.md section 97): the owner asked for the AI's conclusion on the event block; it
 # may sum up the picks and nothing else, so a number they do not carry or a word of advice drops it.
 READ_LIMIT = 260
