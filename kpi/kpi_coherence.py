@@ -1706,9 +1706,12 @@ class KPICoherence(unittest.TestCase):
 
         def fake(url, **k):
             asked.append(url)
-            code = url.split("/")[-1] if "ClosingPrice" in url else url.split("/")[-3]
+            code = url.split("/")[-1] if "ClosingPrice" in url or "Fund" in url else url.split("/")[-3]
             if "ClientType" in url:
                 return _R({"clientType": {key: 1.0 for key in node.LIVE_FLOW_KEYS}})
+            if "GetETFByInsCode" in url:
+                return _R({"etf": {"insCode": code, "deven": 20261018, "hEven": 130102, "pRedTran": 696212.0,
+                                   "pSubTran": 699377.0, "iClose": 0}})
             traded = 0.0 if code == node.GOLD_FUNDS[0][0] else 5e6
             return _R({"closingPriceInfo": {"dEven": 20261018, "hEven": 130500, "pDrCotVal": 712000.0,
                                             "qTotTran5J": traded, "qTotCap": traded * 712000, "zTotTran": 900,
@@ -1720,6 +1723,10 @@ class KPICoherence(unittest.TestCase):
             self.assertEqual(node.read_tsetmc_live(tehran=_dt(2026, 10, 18, 18, 16)), [], "after it")
             self.assertEqual(asked, [], "nothing is asked outside the session")
             rows = node.read_tsetmc_live(tehran=_dt(2026, 10, 18, 13, 5))
+            asked.clear()
+            quarter = node.read_tsetmc_live(tehran=_dt(2026, 10, 18, 13, 20))
+            self.assertFalse(any("GetETFByInsCode" in u for u in asked), "no NAV at the :15 and :45 reads")
+            self.assertNotIn("nav_pRedTran", quarter[0]["payload"])
 
             # a session lost to TSETMC says why in one ERROR row (11-03 left no trace; SP_D_HANDOFF.md section 95)
             class _Refused(Exception):
@@ -1741,9 +1748,12 @@ class KPICoherence(unittest.TestCase):
         self.assertEqual([r["status"] for r in lost], ["OK", "ERROR"])
         n = len(node.GOLD_FUNDS)
         self.assertEqual(lost[1]["instrument"], "LIVE")
-        self.assertEqual(lost[1]["detail"], f"{n - 1} of {n} funds not read: ReadTimeout x1, _Refused 429 x{n - 2}")
+        self.assertEqual(lost[1]["detail"], f"{n - 1} of {n} funds not read: ReadTimeout x1, _Refused 429 x{n - 2};"
+                                            " NAV not read: _Refused 429 x1", "the fund read still has its row")
         self.assertEqual({r["source"] for r in rows}, {"tsetmc_live"})
-        self.assertEqual(set(rows[0]["payload"]), set(node.LIVE_FLOW_KEYS) | set(node.LIVE_PRICE_KEYS))
+        self.assertEqual(set(rows[0]["payload"]), set(node.LIVE_FLOW_KEYS) | set(node.LIVE_PRICE_KEYS)
+                         | {f"nav_{k}" for k in node.LIVE_NAV_KEYS}, "the NAV at the :00 and :30 reads")
+        self.assertEqual((rows[0]["payload"]["nav_pRedTran"], rows[0]["payload"]["nav_pSubTran"]), (696212.0, 699377.0))
         self.assertEqual(rows[0]["detail"], "20261018-130500")
         # production asks the node's table by exact source, and never for the live rows
         callers = []

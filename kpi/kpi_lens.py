@@ -124,6 +124,10 @@ class LensKPI(unittest.TestCase):
         for rule in ("who says it stays", "a condition stays a condition", "never replaced by another",
                      "the meaning, not word for word"):
             self.assertIn(rule, news_lens.SYSTEM)
+        # each side defined exactly, as tested on 13 Aban (SP_D_HANDOFF.md section 98)
+        for rule in ("Each side, exactly:", "public opposition, an election that",
+                     "Neither: commentary with no step either way", "When unsure, leave it out."):
+            self.assertIn(rule, news_lens.SYSTEM)
         # the sum-up of the picks (SP_D_HANDOFF.md section 97): from the picks only, no advice, no price
         for rule in ("Only from the picks", "no advice, nothing about prices or markets", "Empty when nothing was picked"):
             self.assertIn(rule, news_lens.SYSTEM)
