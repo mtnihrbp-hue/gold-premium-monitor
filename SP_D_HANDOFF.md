@@ -83,6 +83,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    96 SP-Ea opened (C2: the index holds); the LENS ready for review; the funds, the nightly message, a forecast wing proposed
                                                                    97 the LENS cut to the event with the AI's sum-up; the NAV collected; the funds' week; a range forecast measured
                                                                    98 the LENS's sorting tested (prompt B); the funds' week by ticket size; the range made honest
+                                                                   99 Qwen sorts the LENS, the headline's verb restored; E-11: every dimension does not beat the calm band
        member, the LLM member
 ```
 
@@ -9624,5 +9625,108 @@ In short: big sellers lead this week. Since 2017, after weeks like this 18K rose
 - **The owner's 24.8 lower edge** was the record's own. The upper edge needs the room the dollar takes.
 - **These edges are fitted on the history they describe.** The build learns them walk-forward, from the past only,
   and scores each night's range when it resolves.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 99. Qwen sorts the LENS, the headline's verb restored; the range from every dimension does not beat the calm band (2026-11-04)
+
+**The owner:**
+- "the KIMI, if available could help us much. try the Qwen as well, then i can lock";
+- the funds' line "is so machine like ... you are giving the user a msg";
+- the range "should compose some dimensions ... the gold fund etfs, the gold ounce prices in USD, the tether trades and
+  new conclusion, the technical situation and the chartist ... the system decides".
+
+### 99.1 Qwen, and the cut that hid the verb
+
+**The probe** (`probe-lens`): prompt B on the 70 headlines of 13 Aban's afternoon, three rounds.
+
+| Headline | gpt-oss-120b | Qwen 3.8 (2 rounds; 1 refused, "over capacity") |
+|---|---|---|
+| Democrats' win in Congress and Trump's power to start a war | not picked | deal, 2 of 2 |
+| Blumenthal: the war's fallout returns to the US | strike, 2 of 3 | not picked |
+| War decides 3 in 4 American votes | strike, 1 of 3 ("public support for war") | not picked |
+| El-Sayed: war with Iran a foolish idea | not picked | deal, 2 of 2 |
+| China backs negotiation | deal, 3 of 3 | deal, 2 of 2 |
+| Qalibaf warns Washington | deal, 3 of 3 | strike, 2 of 2 (debatable: public opposition and a threat) |
+| Picks a round | 3, 6, 5 | 5, 5, the same both times |
+
+**A defect found by the two models' disagreement:**
+- `headline()` cuts at 140 characters, so the model saw Sky News's headline end at "... نشانه‌ای از پیشرفت دیپ",
+  "a sign of diplomatic progr...", without its verb.
+- A Persian sentence ends on its verb and its negation, so the cut leaves the model to guess. gpt-oss guessed "signs of
+  diplomatic progress", Qwen "no sign".
+- With the whole line (below), Qwen read "Despite rising war fears, signs of diplomatic progress are observed" and put it
+  toward a deal. My guess at the cut verb, a negation, was wrong; the cut was the fault either way.
+
+**Built:**
+- **`news_lens.full_line`:** the model reads each headline's whole first line, up to 300 characters.
+  - The selection stays the labelling's 140-character `headline()`, so `kpi_lens.test_03`'s parity with E-9 holds.
+- **`news_lens.MODELS = (qwen/qwen3.8-27b, openai/gpt-oss-120b)`:**
+  - Qwen first, with its reasoning hidden;
+  - gpt-oss-120b answers when Qwen is over capacity, fails or replies unreadably.
+  - Groq's quotas are per model, so a spent day on one moves to the other.
+- **Tests:** `kpi_lens` 16/16 (`test_05`, `test_15`).
+
+**Rendered on the runner** (15:13 Tehran, sending nothing; 917 characters): Qwen answered, with no fallback.
+- Toward a strike: "Ghalibaf warns Washington: If US serves international extortionists, our response will be a
+  nightmare".
+- Toward a deal:
+  - China backs negotiation;
+  - "Sky News: Despite rising war fears, signs of diplomatic progress are observed";
+  - "How will Democrats' congressional win affect Trump's authority to start war with Iran?"
+- "In short: Headlines point toward de-escalation, with China supporting talks and US political shifts limiting war
+  powers, though Iranian threats persist."
+
+**Kimi:**
+- not on this Groq account;
+- free on OpenRouter as Kimi K2 (0711), rate-limited; its K2.6 free listing is uncertain;
+- listed on the free tiers of Cloudflare Workers AI and NVIDIA NIM. The owner already has Cloudflare for the worker.
+- Each needs a key from the owner. It can enter the same probe beside Qwen.
+
+### 99.2 E-11: the range from every dimension
+
+**Registered** in 7f531be before the run (`research/rd_range_e11.py`). Walk-forward by year, 2018-2026; the 10th,
+50th and 90th percentiles of 18K's move:
+- **B0,** the calm model's asymmetric band;
+- **M1,** linear quantile regression on 14 inputs: the funds' power and net money, the ounce's move and GVZ, Tether's
+  move and premium, the dollar's 5- and 20-day moves, the coin premium's change, the platforms' gap, and 18K's
+  20-day move, EMA distance, 60-day place and RSI;
+- **M2,** boosted quantile trees on the same inputs.
+
+| Horizon, period | B0 loss, coverage, width | M1 loss vs B0 | M2 loss vs B0 |
+|---|---|---|---|
+| 3 days, P1 2018-20 | 9.70, 77%, 9.0% | +26.6% | +9.8% |
+| 3 days, P2 2021-23 | 6.61, 81%, 6.5% | +2.4% | -0.3% |
+| 3 days, P3 2024-26 | 8.69, 79%, 8.1% | +0.0% | +0.7% |
+| 7 days, P1 | 13.94, 76%, 13.7% | +43.0% | +4.0% |
+| 7 days, P2 | 9.46, 82%, 9.8% | +5.2% | +1.2% |
+| 7 days, P3 | 12.50, 77%, 12.1% | +1.2% | -1.9% |
+
+- **The verdict: neither is kept, and B0 stands.**
+  - M1 lowered the loss in 0 of 3 periods, M2 in 1 of 3, at each horizon.
+  - Their 7-day coverage left 75-85%.
+- **B0 is calibrated out of sample.** Its 80% band held 77%, 81% and 79% at 3 days, and 76%, 82% and 77% at 7.
+- **Its width already carries the dimensions** that the calm model reads: GVZ, VIX, Tether's and the dollar's
+  volatility, the coin premium's change, 18K's own volatility and efficiency.
+- **What the other inputs add is noise to the centre.** That agrees with 72.3: no daily input has told 18K's direction.
+
+**The call:**
+- **Shown nightly:** B0, with its running hit rate.
+- **Recorded beside it, scored every night:** M2, and the AI model's own range from every dimension, the LENS's event
+  and the chart included. The AI's range cannot be backtested.
+- **The system decides:** whichever beats B0 on the forward record takes its place.
+
+### 99.3 The funds' line as a message
+
+The owner's example: "Big sellers lead this week. Next week the price might be in -3% window than close of x".
+
+**Proposed,** the record behind every word (98.2, 98.3):
+- **(a)** "Big sellers are in charge this week, so a flat week is likelier than a rally: after weeks like this, 18K rose
+  about half the time, against 7 in 10 when buyers led."
+- **(b)** "Big sellers lead this week. From Tuesday's close of 25.51M, next week's likely range is 24.6 to 27.4; a rise
+  is a coin flip, not the usual 6 in 10."
+
+The range in (b) is B0's 7-day band, the one the record supports. A "-3% window" would claim a lean the weeks of
+sellers do not have: their next week averaged +0.3%.
 
 **NEON MIGRATION REQUIRED = NO.**
