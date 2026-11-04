@@ -83,7 +83,7 @@ def main():
         y = {i: math.log(g[i + h] / g[i]) for i in idx}
         scale = {i: sigma[i] * math.sqrt(h) for i in idx}
         P = {m: {} for m in ("B0", "G1", "E1", "Q1", "C1")}
-        up = {m: {} for m in ("BASE", "B0", "G1", "E1", "Q1", "D1")}
+        up = {m: {} for m in ("BASE", "B0", "G1", "E1", "Q1", "C1", "D1")}
         for year in range(2018, 2027):
             test = [i for i in idx if dates[i][:4] == str(year)]
             if not test:
@@ -135,6 +135,7 @@ def main():
                 up["Q1"][i] = float(np.interp(0, [lo * s, md * s, hi * s], [0.1, 0.5, 0.9], left=0.05, right=0.95))
                 up["Q1"][i] = 1 - up["Q1"][i]
                 up["D1"][i] = float(pd1[k])
+                up["C1"][i] = float(np.mean([up[m][i] for m in ("B0", "G1", "E1", "Q1")]))   # the combination's own
         days_all = sorted(P["B0"])
         print(f"\n== {h} trading days")
         print(f"{'period':6} {'model':5} {'pinball':>8} {'vs B0':>7} {'cover':>6} {'width':>6} | {'Brier':>6} {'skill':>7}")
