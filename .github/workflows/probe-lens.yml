@@ -1,5 +1,5 @@
-# Temporary (SP-D 86): the LENS rendered once on GitHub's runner with the AI model's key, sending nothing
-# (no Telegram token, no database). The message goes to the log and to the run's notices. Deleted with its branch.
+# Temporary (SP-D 86, 98): the LENS's headlines sorted by several Groq models and two prompts, three rounds each,
+# sending nothing (no Telegram token, no database). The result is the run's artifact. Deleted with its branch.
 name: probe-lens
 on:
   push:
@@ -7,23 +7,20 @@ on:
 jobs:
   preview:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r requirements.txt
-      - name: The lens, rendered
+      - run: pip install requests==2.34.2 beautifulsoup4==4.15.0 lxml==6.1.3
+      - name: The models compared
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        run: |
-          python research/preview_lens.py > lens.txt 2>&1 || true
-          cat lens.txt
-          python - <<'PY'
-          text = open("lens.txt", encoding="utf-8").read()
-          start = text.find("GOLDPremium: LENS")
-          body = text[start:] if start >= 0 else text[-3000:]
-          for i in range(0, len(body), 900):
-              print("::notice::" + body[i:i + 900].replace("%", "%25").replace("\r", "").replace("\n", "%0A"))
-          PY
+        run: python research/probe_lens_models.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: probe-lens-models
+          path: probe_lens_models.json
+          retention-days: 2
