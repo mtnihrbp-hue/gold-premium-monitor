@@ -25,7 +25,12 @@ MAX_HEADLINES = 70
 RELEVANT = re.compile(r"دلار|ارز|ریال|بانک مرکزی|فرزین|مرکز مبادله|نرخ|تورم|مذاکر|توافق|تفاهم|آتش‌بس|آتش بس|جنگ|حمله|"
                       r"موشک|تحریم|اسنپ|ماشه|نفت|تنگه|هرمز|ترامپ|عراقچی|آمریکا|اسرائیل|اروپا|آژانس|طلا|سکه|تتر")
 MARKS = re.compile(r"[🔺🔹🔸🔻▪️⭕️✅❌📌📊📈📉🔴🟢🟠🟣⚡️🚨‼️❗️◀️↗️↘️💵🏆📺🔍🔝]")
-MODEL = "openai/gpt-oss-120b"
+# Qwen 3.8 sorted best on 13 Aban's headlines (SP_D_HANDOFF.md section 99): the same picks in both its rounds, the
+# Democrats' war-powers headline toward a deal, no opinion piece toward a strike. Groq refused it once in three for
+# capacity, so gpt-oss-120b, the model before it, answers whenever it cannot.
+MODELS = ("qwen/qwen3.8-27b", "openai/gpt-oss-120b")
+MODEL_OPTIONS = {"qwen/qwen3.8-27b": {"reasoning_format": "hidden"}, "openai/gpt-oss-120b": {"reasoning_effort": "low"}}
+MODEL = MODELS[-1]                               # the fallback, as before
 URL = "https://api.groq.com/openai/v1/chat/completions"
 PER_SIDE = 3
 # The translation rules as tested on 9 Aban, three rounds against the first prompt on one headline list
@@ -70,6 +75,16 @@ def headline(text):
     return head if len(head) >= 15 and RELEVANT.search(head) else None
 
 
+# What the model reads: the whole first line, up to LINE_LIMIT. A Persian sentence ends on its verb and its negation,
+# so the labelling's 140-character cut can turn "no sign of progress is seen" into "a sign of progr..." (SP_D_HANDOFF.md
+# section 99). The selection stays the labelling's (`headline`, kpi_lens.test_03).
+LINE_LIMIT = 300
+
+
+def full_line(text):
+    return " ".join(MARKS.sub("", (text or "").strip().split("\n")[0]).split())[:LINE_LIMIT]
+
+
 def day_headlines(now=None, hours=24, fetch=None):
     """The last `hours` of the four channels' headlines, deduplicated, newest first, at most MAX_HEADLINES."""
     if fetch is None:
@@ -87,7 +102,7 @@ def day_headlines(now=None, hours=24, fetch=None):
             key = re.sub(r"\W", "", head or "")[:60]
             if head and key not in seen:
                 seen.add(key)
-                out.append((p["at"], head))
+                out.append((p["at"], full_line(p["text"])))
     return [h for _, h in sorted(out, reverse=True)][:MAX_HEADLINES]
 
 
@@ -135,19 +150,24 @@ def read(heads, key=None, post=None):
     if not key or not heads:
         return None
     post = post or requests.post
-    body = {"model": MODEL, "temperature": 0, "reasoning_effort": "low", "max_completion_tokens": 2000,
-            "response_format": {"type": "json_object"},
-            "messages": [{"role": "system", "content": SYSTEM},
-                         {"role": "user", "content": "\n".join(f"{i}. {h}" for i, h in enumerate(heads, start=1))}]}
-    for attempt in range(2):
-        try:
-            r = post(URL, headers={"Authorization": f"Bearer {key}"}, json=body, timeout=90)
-            if r.status_code == 429 and attempt == 0 and "per day" not in r.text.lower():
-                time.sleep(min(float(r.headers.get("retry-after", 20)), 30) + 1)
-                continue
-            r.raise_for_status()
-            return validate(json.loads(r.json()["choices"][0]["message"]["content"]), heads)
-        except Exception as e:  # noqa: BLE001 -- the lens says the news was not read
-            print(f"LENS NEWS: the model did not answer: {type(e).__name__}: {str(e)[:120]}")
-            return None
+    for model in MODELS:
+        body = {"model": model, "temperature": 0, "max_completion_tokens": 2500, **MODEL_OPTIONS.get(model, {}),
+                "response_format": {"type": "json_object"},
+                "messages": [{"role": "system", "content": SYSTEM},
+                             {"role": "user", "content": "\n".join(f"{i}. {h}" for i, h in enumerate(heads, start=1))}]}
+        for attempt in range(2):
+            try:
+                r = post(URL, headers={"Authorization": f"Bearer {key}"}, json=body, timeout=90)
+                if r.status_code == 429 and attempt == 0 and "per day" not in r.text.lower():
+                    time.sleep(min(float(r.headers.get("retry-after", 20)), 30) + 1)
+                    continue
+                r.raise_for_status()
+                got = validate(json.loads(r.json()["choices"][0]["message"]["content"]), heads)
+                if got is not None:
+                    got["model"] = model
+                    return got
+                print(f"LENS NEWS: {model}'s reply could not be read")
+            except Exception as e:  # noqa: BLE001 -- the next model, then the lens says the news was not read
+                print(f"LENS NEWS: {model} did not answer: {type(e).__name__}: {str(e)[:120]}")
+            break
     return None
