@@ -77,6 +77,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    90 A8 applied; tags on pulled replies; the forward test on GitHub's runner; the production environment; the LENS off (v1.41safe)
                                                                    91 health check of 11 Aban; the forward test's first night: two findings; the recovery steps removed
                                                                    92 the production keys in the environment; email removed, Telegram the only channel
+                                                                   93 the production boundary holds (E0-5); 91-92 merged (v1.42safe)
        member, the LLM member
 ```
 
@@ -9081,5 +9082,47 @@ nothing else.
 are parked, so nothing reads them.
 
 **On `sp-de`** with 91's removal of the recovery steps, for the owner's review before the merge.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 93. The production boundary holds; 91-92 merged (2026-11-04)
+
+**The owner:**
+- "yes that was me": the Update of 10:15 reached the usual chat, so the bot token is production's;
+- "yes merge";
+- "i deleted the keys that we have in production from the secrets and variables".
+
+### 93.1 The keys (KPI E0-5: passes)
+
+- **The repository** keeps `GROQ_API_KEY`, and four that nothing reads after 92: `RESEND_API_KEY`, `EMAIL_TO`,
+  `GOLD_API_KEY`, `TRIGGER_TOKEN`. They can be deleted at the owner's convenience.
+- **The `production` environment** holds `DATABASE_URL`, `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. Its one
+  deployment rule is the branch `main`.
+- **The check,** from the temporary branch `probe-boundary` (both deleted after the run):
+
+| Job | Result |
+|---|---|
+| without the environment | `DATABASE_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` not set; `GROQ_API_KEY` set |
+| with `environment: production` | refused before it started: "Branch "probe-boundary" is not allowed to deploy to production due to environment protection rules." |
+
+- The jobs printed "set" or "not set" only, never a value, and ran no production code.
+- **So a run of `gold-monitor.yml` from a branch other than `main` is no longer production:** it is refused. Every
+  run from `main` is. `CLAUDE.md` and `PROJECT_OPERATIONS.md` 19 say so.
+
+### 93.2 The merge
+
+- `main` tagged `v1.42safe` (00fd766, SP-D 90), then fast-forwarded with `SP-D` to `sp-de` (15381b0):
+  - 91's removal of the recovery steps;
+  - 92's removal of email.
+- **Checks before:** the KPI suite 31/31 (coherence 65), the unit tests 20/20, compileall.
+- **After:** the KPI suite green on `main`.
+- **The 11:00 run** was the first on the new `main` and the first with the environment's copies alone. It was
+  green, saved its reading at 11:01 and refreshed the mirror.
+
+### 93.3 E-9
+
+- Resumed again (82.4) at 139 labelled days of E-9's span, against the 600 the test needs. The run of 11-02 added
+  70.
+- 11-03 had no push, so a day was lost.
 
 **NEON MIGRATION REQUIRED = NO.**

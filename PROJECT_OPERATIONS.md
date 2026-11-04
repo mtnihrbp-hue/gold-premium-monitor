@@ -710,4 +710,10 @@ moved by script):
    data.
 5. The check (E0-5): a probe run from another branch that prints whether `DATABASE_URL` is set prints no.
 
-Until step 4, `CLAUDE.md`'s rule stands: every run of `gold-monitor.yml`, from any branch, is production.
+**Done 2026-11-04** (`SP_D_HANDOFF.md` 92-93):
+- the three secrets are in the environment, the repository's copies deleted;
+- the check from `probe-boundary` found none of them on another branch;
+- the environment's job was refused: "Branch "probe-boundary" is not allowed to deploy to production due to
+  environment protection rules."
+
+A secret production needs is added to the environment, never to the repository.
