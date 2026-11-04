@@ -23,8 +23,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 from intelligence import news_lens  # noqa: E402
 
 URL = "https://api.groq.com/openai/v1/chat/completions"
-WANTED = ("openai/gpt-oss-120b", "openai/gpt-oss-20b", "moonshotai/kimi-k2-instruct-0905", "moonshotai/kimi-k2-instruct",
-          "meta-llama/llama-4-maverick-17b-128e-instruct", "qwen/qwen3-32b", "llama-3.3-70b-versatile")
+WANTED = tuple(os.environ.get("PROBE_MODELS", "openai/gpt-oss-120b,qwen/qwen3.8-27b").split(","))
 ROUNDS = 3
 
 SIDES = """Each side, exactly:
@@ -49,10 +48,15 @@ def ask(key, model, system, heads):
                          {"role": "user", "content": "\n".join(f"{i}. {h}" for i, h in enumerate(heads, start=1))}]}
     if model.startswith("openai/gpt-oss"):
         body["reasoning_effort"] = "low"
+    if model.startswith("qwen/"):
+        body["reasoning_format"] = "hidden"          # Qwen thinks aloud; only the answer is wanted
     for attempt in range(3):
         r = requests.post(URL, headers={"Authorization": f"Bearer {key}"}, json=body, timeout=120)
         if r.status_code == 429:
             time.sleep(min(float(r.headers.get("retry-after", 20)), 60) + 1)
+            continue
+        if r.status_code == 400 and "reasoning_format" in body:
+            body.pop("reasoning_format")
             continue
         if r.status_code != 200:
             return {"error": f"HTTP {r.status_code}: {r.text[:160]}"}
@@ -75,7 +79,7 @@ def main():
     print(f"models listed: {len(available)}; tried: {models}; headlines: {len(heads)}")
     runs = []
     for model in models:
-        for label, system in (("A", news_lens.SYSTEM), ("B", PROMPT_B)):
+        for label, system in (("B", news_lens.SYSTEM),):  # SYSTEM is prompt B since 98.1
             for k in range(ROUNDS):
                 got = ask(key, model, system, heads)
                 picks = {}
