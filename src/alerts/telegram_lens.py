@@ -81,6 +81,8 @@ def _event(v):
             if news.get(side):
                 lines.append(label)
                 lines += [f"· {en}" for _, en in news[side]]
+        if news.get("read"):
+            lines += ["", f"<b>In short:</b> {news['read']}", "<i>The AI model's reading of these headlines only</i>"]
     return lines
 
 
@@ -127,7 +129,8 @@ def _read(f):
 
 def build_lens_message(v):
     head = f"{TITLE} · {persian_day(v['at'].date())}, {v['at']:%H:%M}"
-    blocks = [[head], _now(v["market"]), _event(v), _cases(v), _read(v["flags"]), [FOOTER]]
+    # WHAT FOLLOWED BEFORE and READ left out: the owner, 2026-11-04, "total BS" (SP_D_HANDOFF.md section 97)
+    blocks = [[head], _now(v["market"]), _event(v), [FOOTER]]
     return "\n\n".join("\n".join(b) for b in blocks if b)
 
 

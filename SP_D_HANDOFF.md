@@ -80,6 +80,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    93 the production boundary holds (E0-5); 91-92 merged (v1.42safe)
                                                                    94 the forward test after the 06:00 run; version 2, the CPI carried (v1.43safe)
                                                                    95 the revamp's path as a page; the funds' in-session trades: a lost session made visible, a first look
+                                                                   96 SP-Ea opened (C2: the index holds); the LENS ready for review; the funds, the nightly message, a forecast wing proposed
        member, the LLM member
 ```
 
@@ -9293,5 +9294,111 @@ funds together, each against the median of the others:
 3. **No push unless the study supports one,** as 47.1 found for whole days.
 
 Production does not read the rows until then.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 96. SP-Ea opened; the LENS made ready for review; the funds, the nightly message and a forecast wing proposed (2026-11-04)
+
+**The owner:**
+- "we can start the collection, SP-Ea now as well if the ground is ready";
+- "alongside the R&D, we can work on the understanding of how that gold etf data fits into our model";
+- "the lens, is on my side we can work on it today as well";
+- "the nightly msg, needs a revamp as well";
+- "i want to give it a forecast wing as well. using all the data, the groq and everything now the brain has
+  enough memory to guess what comes next."
+
+### 96.1 SP-Ea opens on 11-04, four days early
+
+**The ground:**
+- Neon is back, the outage written back, the keys in place, the production boundary held (88-93).
+- E0-2, the transfer, is read on 11-08. Its fix is SP-Ea's own C7, so it does not hold the start.
+
+**C2, the record measured** (`research/rd_platforms_record.py`):
+- 63.3's measures on 1,078 readings, 08-04 to 11-04, the outage's written-back readings and those of before 09-14
+  (mode not yet recorded) included;
+- 63.3 read `research/data/hourly.json`, so its frozen shares are not reproduced to the point.
+
+| Platform | Coverage | Offset | Noise | Frozen | Frozen, from 10-05 | Coverage, from 10-05 |
+|---|---|---|---|---|---|---|
+| WallGold | 100% | -0.03% | 0.44 pp | 0% | 0% | 99% |
+| Goldika | 96% | +1.11% | 0.10 pp | 0% | 0% | 100% |
+| Invi | 85% | -0.20% | 0.38 pp | 0% | 0% | 99% |
+| Milli | 97% | -0.89% | 0.38 pp | 0% | 0% | 98% |
+| Daric | 61% | +0.07% | 0.16 pp | 1% | 0% | 76% |
+| Taline | 88% | -0.12% | 0.14 pp | 4% | 5% | 84% |
+| Ayyareh | 99% | -0.01% | 0.11 pp | 7% | 4% | 100% |
+| Eligold | 98% | -0.01% | 0.11 pp | 7% | 4% | 98% |
+| Parasteh | 92% | +0.30% | 0.15 pp | 15% | 10% | 88% |
+| MioGold | 96% | -0.12% | 0.23 pp | 24% | 25% | 98% |
+| HoorGold | 92% | +0.28% | 0.27 pp | 31% | 27% | 89% |
+
+- **The index (64: "WallGold, Goldika as the backup") holds.**
+  - From 10-05 WallGold read in 453 of 458 scheduled readings, 98.9%.
+  - Goldika covered all 5 misses. Not one reading lacked both.
+  - Ea-2's 14 days are counted from 11-04.
+- **Goldika is the quietest of the full-coverage platforms:** 0.10 pp against WallGold's 0.44, and it carries its
+  own price time. That is information for the index's review, not a change.
+- **The galleries** are frozen a quarter to a third of the time, as 63.3 found: MioGold, HoorGold, and Parasteh
+  less so.
+
+**Next in SP-Ea:**
+- C4, the freshness gate;
+- C5's Tether every run, the quick win;
+- C7's transfer budget (E0-2 and Ea-7 are at risk);
+- C1's contracts, written alongside.
+
+### 96.2 The LENS, ready for the owner's review
+
+- **The three changes proposed after the render of 10-31 (87):**
+  - **"n/a" in words:** a close that was not read reads "(the last close not read)";
+  - **a tgju read that times out is asked once more;**
+  - **two cases read "both when",** three or more "each when";
+  - the Groq budget: the label job drops to 150,000 tokens when the LENS goes on, so the LENS keeps its share.
+- **Tests:** `kpi_lens` 15/15 (test_11 and test_11b).
+- **Rendered on GitHub's runner** (`probe-lens`, 13:01 Tehran, sending nothing; 1,232 characters, 70 headlines
+  read):
+  - every close read;
+  - no ceasefire market priced: Polymarket listed no live ladder;
+  - three headlines toward a strike and one toward a deal;
+  - "Lower in 2, both when the dollar dropped".
+- **For the owner:** the message as rendered. With the owner's OK, `config.lens.send` goes back on for 21:00.
+
+### 96.3 Proposed, for the owner
+
+**The gold funds in the model (an R&D study, E-10, to register before its data):**
+- **(a) In-session money:** individuals' net in a 15-minute window, against that window's record (95).
+- **(b) The funds' price against their NAV:** a premium is buyers paying over the gold inside. It needs the NAV
+  collected, from the phone (C5).
+- **(c) Creations and redemptions:** fipiran's units, 2019-2026, held.
+- **The question:** does any of them lead 18K, the platforms or the dollar over the rest of the day, the next day
+  and 20 days?
+- **What is known:** money into the funds is momentum (77.8). The daily money follows the price (47.1).
+
+**The nightly message, revamped (talk first, then a preview):**
+- It answers the four decisions of 59.3: where, when, how much, what risk.
+- Every line is one of four kinds: description, past record, forecast or recommendation.
+- 59.4's faults go:
+  - the stale box;
+  - the box-break line told for 14 days after the price is back inside.
+- The LENS could become its event block, rather than a second message at 21:00.
+
+**A forecast wing.** What the record says:
+- **Direction:** no forecast from the daily data has beaten the base rate (72.3, Eb-4).
+- **Calm:** the 20-day volatility forecast beat HAR in 3 of 3 periods (E-1b).
+- **A 10% fall:** its risk ranks days (AUC 0.71-0.76), but the probability's size is not calibrated (E-5).
+- **The AI as the room's chair** lost to the committee (23: -1.1% against +4.4%).
+
+**Proposed:** a forecast ledger, each forecast recorded before its outcome and scored against the base rate.
+- **The 20-day range** of 18K, from the calm model: it has skill now, so it can be shown with its record.
+- **The risk of a 10% fall,** shown as a rank against the record, not as a probability.
+- **The AI's forecast:**
+  - Groq reads the day's numbers, the LENS's headlines and the case library, and gives the chance 18K is
+    higher in 5 and in 20 days, with a reason;
+  - it is recorded each day, from today, with a call of about 5,000 tokens;
+  - it is scored by Brier against the base rate and shown once it beats it on its own forward record, at about
+    60 resolved forecasts.
+  - It cannot be backtested: the model has read the history it would be tested on.
+- **Under the invariants:** PREDICTION is not FACTS, and the AI does not calculate. It gives a judgement, labelled
+  as a forecast, with its score.
 
 **NEON MIGRATION REQUIRED = NO.**
