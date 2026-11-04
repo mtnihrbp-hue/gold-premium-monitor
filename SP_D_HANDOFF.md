@@ -79,6 +79,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    92 the production keys in the environment; email removed, Telegram the only channel
                                                                    93 the production boundary holds (E0-5); 91-92 merged (v1.42safe)
                                                                    94 the forward test after the 06:00 run; version 2, the CPI carried (v1.43safe)
+                                                                   95 the revamp's path as a page; the funds' in-session trades: a lost session made visible, a first look
        member, the LLM member
 ```
 
@@ -9198,5 +9199,99 @@ are parked, so nothing reads them.
   - the strict default for the studies;
   - the carry-forward: August used for November, never more than three months further back;
 - the KPI suite and the unit tests; compileall.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 95. The revamp's path as a page; the funds' in-session trades: coverage, a lost session made visible, a first look (2026-11-04)
+
+**The owner:**
+- "visualize the path, and from now on, once i ask, update and share that path as well";
+- "we agreed to collect in-day trading volume for gold etfs as well, so if there is sudden thing in the trades
+  the system can pick that. proceed".
+
+### 95.1 The path page
+
+https://claude.ai/artifact/7U1vyGnnhuaZEu19NtVguc ("SP-E Revamp Path"; private to the owner):
+- the five stages of 69.2 on a timeline from 29 Oct to 27 Dec, with today's line, and the forward test's verdict
+  of 2027-06-21 past the edge;
+- each stage's targets of 71.4, with their status: 5 done, 1 on track, 4 in progress, 2 at risk, 2 not met yet,
+  10 not started, 1 parked;
+- what waits on the owner, and what was done since the last update.
+
+The page holds its content in one data block. On the owner's request it is updated from `.project_state.json`
+and this handoff, and republished to the same address.
+
+### 95.2 The funds' in-session trades
+
+**Collected since 2026-10-18 (48.2):**
+- the phone's `read_tsetmc_live`, every 15 minutes from 12:00 to 18:15 Tehran, Saturday to Wednesday, for the 19
+  gold funds;
+- for each fund: individuals' and institutions' buy and sell volume and counts so far, and the price, volume, value
+  and number of trades so far;
+- stored as `tsetmc_live` in `iran_node_readings`. No production reader asks for these rows (`test_57`).
+
+**Coverage, 13 sessions to 11-04:**
+
+| Session | Reads |
+|---|---|
+| 10 whole sessions | 26 each |
+| 10-18, the first day | from 12:45 |
+| 10-27 | stopped at 13:45 |
+| 11-03 | none |
+
+- **11-03 was a trading day:**
+  - TSETMC's closed-day records exist for it, for 19 funds;
+  - Afran's close moved from 55,917 to 56,324;
+  - the phone was alive, with 62 good Daric reads that day.
+- **The read failed in silence.**
+  - A failed request skipped its fund without a trace.
+  - A refused request (an HTTP error) was read as "no trade yet".
+  - So nothing in Neon or the run's summary said a session was being lost.
+
+**Fixed on the phone** (`iran_node/node.py`):
+- An HTTP error now counts as a failure.
+- When any fund cannot be read, the read adds one row:
+  - source `tsetmc_live`, instrument `LIVE`, status `ERROR`;
+  - the reason in `detail`, for example "19 of 19 funds not read: HTTPError 429 x19".
+- A lost or partial session then shows in Neon and in the health check the same day.
+- The phone's log line counts the funds read and gives the reason.
+- A fund with no trade yet is still not a failure.
+- **Test:** `kpi_coherence.test_57` serves one fund timing out and the others refused with 429; one ERROR row names
+  both.
+- **On the phone's branch `sp-d-iran-node`.** It is live after the owner's `git pull` on the phone.
+
+**A first look** (`research/rd_fund_live_look.py`; exploratory, not registered). The 10 whole sessions, the 19
+funds together, each against the median of the others:
+
+| Session | By 14:00 | By the close | Individuals' net by the close | Largest 15 minutes (share of a usual day) |
+|---|---|---|---|---|
+| 10-19 | 1.0x | 0.9x | +1,588 bn toman | 30% at 13:45 (usual 5%) |
+| 10-20 | 1.7x | 1.5x | +2,473 | 41% at 13:30 (4%) |
+| 10-21 | 1.2x | 0.9x | +257 | 19% at 12:15 (16%) |
+| 10-24 | 1.2x | 1.2x | +1,322 | 43% at 14:00 (4%) |
+| 10-25 | 1.0x | 1.3x | +1,306 | 21% at 12:45 (5%) |
+| 10-26 | 1.0x | 1.1x | -33 | 13% at 12:15 (17%) |
+| 10-28 | 0.5x | 0.6x | -307 | 23% at 15:30 (4%) |
+| 10-31 | 1.2x | 1.3x | +243 | 22% at 12:15 (17%) |
+| 11-01 | 0.7x | 0.7x | -135 | 11% at 12:15 (16%) |
+| 11-02 | 0.8x | 0.8x | +68 | 18% at 17:30 (3%) |
+
+- A whole session traded about 6,500 to 15,100 billion toman across the 19 funds.
+- **Bursts are common.** In 5 of 10 sessions one 15-minute window carried 18% to 43% of a usual day, where the
+  usual for that window is 3% to 5%.
+  - A plain alert on value would fire every other session: noise, not news.
+  - The detector has to say who traded and which way: individuals' net in the window, against its own record at
+    that time of day.
+- **Ten sessions cannot calibrate that.** 48.2's study, at about 60 sessions (mid-January), stays the gate.
+
+**For the system to pick a sudden move, proposed:**
+1. **The detector registered before the study's data is complete:** individuals' net money in a 15-minute window,
+   and the session's pace, each against the same window's record; what 18K, the platforms and the funds did over
+   the rest of the day and the next.
+2. **If it holds,** a line where the reader sees it, previewed for the owner first: the evening message or
+   Direction.
+3. **No push unless the study supports one,** as 47.1 found for whole days.
+
+Production does not read the rows until then.
 
 **NEON MIGRATION REQUIRED = NO.**

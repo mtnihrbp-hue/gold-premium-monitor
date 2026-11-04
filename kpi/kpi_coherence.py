@@ -1701,6 +1701,9 @@ class KPICoherence(unittest.TestCase):
             def json(self):
                 return self.data
 
+            def raise_for_status(self):
+                return None
+
         def fake(url, **k):
             asked.append(url)
             code = url.split("/")[-1] if "ClosingPrice" in url else url.split("/")[-3]
@@ -1717,9 +1720,28 @@ class KPICoherence(unittest.TestCase):
             self.assertEqual(node.read_tsetmc_live(tehran=_dt(2026, 10, 18, 18, 16)), [], "after it")
             self.assertEqual(asked, [], "nothing is asked outside the session")
             rows = node.read_tsetmc_live(tehran=_dt(2026, 10, 18, 13, 5))
+
+            # a session lost to TSETMC says why in one ERROR row (11-03 left no trace; SP_D_HANDOFF.md section 95)
+            class _Refused(Exception):
+                response = type("Response", (), {"status_code": 429})()
+
+            def refusing(url, **k):
+                code = url.split("/")[-1] if "ClosingPrice" in url else url.split("/")[-3]
+                if code == node.GOLD_FUNDS[1][0]:
+                    raise node.requests.exceptions.ReadTimeout("slow")
+                if code != node.GOLD_FUNDS[2][0]:
+                    raise _Refused("429 Too Many Requests")
+                return fake(url, **k)
+            node.requests.get = refusing
+            lost = node.read_tsetmc_live(tehran=_dt(2026, 11, 3, 13, 0))
         finally:
             node.requests.get = real
         self.assertEqual(len(rows), len(node.GOLD_FUNDS) - 1, "a fund with no trade yet gives no row")
+        self.assertNotIn("ERROR", {r["status"] for r in rows}, "a fund with no trade yet is not a failure")
+        self.assertEqual([r["status"] for r in lost], ["OK", "ERROR"])
+        n = len(node.GOLD_FUNDS)
+        self.assertEqual(lost[1]["instrument"], "LIVE")
+        self.assertEqual(lost[1]["detail"], f"{n - 1} of {n} funds not read: ReadTimeout x1, _Refused 429 x{n - 2}")
         self.assertEqual({r["source"] for r in rows}, {"tsetmc_live"})
         self.assertEqual(set(rows[0]["payload"]), set(node.LIVE_FLOW_KEYS) | set(node.LIVE_PRICE_KEYS))
         self.assertEqual(rows[0]["detail"], "20261018-130500")
