@@ -41,7 +41,15 @@ Translate each pick as a news editor would, into one plain English line of at mo
   "Foreign Policy:"); an outlet you cannot name with certainty is transliterated, never replaced by another;
 - a condition stays a condition, a claim stays a claim;
 - nothing that is not in the headline: no number, name or claim of your own.
-Answer with JSON only: {"strike": [{"id": <number>, "en": "<line>"}], "deal": [{"id": <number>, "en": "<line>"}]}"""
+Then sum up the picks in "read": one or two plain English sentences, at most 220 characters, on where tonight's picked
+headlines point together (toward a strike, toward a deal, or mixed) and how strongly. Only from the picks: no
+number, name or claim that is not in them, no advice, nothing about prices or markets. Empty when nothing was picked.
+Answer with JSON only: {"strike": [{"id": <number>, "en": "<line>"}], "deal": [{"id": <number>, "en": "<line>"}],
+"read": "<sentences>"}"""
+# The read's limits (SP_D_HANDOFF.md section 97): the owner asked for the AI's conclusion on the event block; it
+# may sum up the picks and nothing else, so a number they do not carry or a word of advice drops it.
+READ_LIMIT = 260
+ADVICE = re.compile(r"\b(buy|sell|invest|price|prices|market|markets|should|recommend|forecast)\w*", re.I)
 DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
 
 
@@ -96,7 +104,18 @@ def validate(reply, heads):
             used.add(k)
             kept.append((heads[k - 1], html.escape(en, quote=False)))
         out[side] = kept
+    out["read"] = _read(reply.get("read"), [h for side in ("strike", "deal") for h, _ in out[side]])
     return out
+
+
+def _read(text, picked):
+    """The model's sum-up of its picks, or None: none picked, too long, a number the picks do not carry, advice."""
+    text = " ".join(str(text or "").split())
+    if not picked or not 20 <= len(text) <= READ_LIMIT or ADVICE.search(text):
+        return None
+    if not _numbers(text) <= set().union(*(_numbers(h) for h in picked)):
+        return None
+    return html.escape(text, quote=False)
 
 
 def read(heads, key=None, post=None):

@@ -124,6 +124,19 @@ class LensKPI(unittest.TestCase):
         for rule in ("who says it stays", "a condition stays a condition", "never replaced by another",
                      "the meaning, not word for word"):
             self.assertIn(rule, news_lens.SYSTEM)
+        # the sum-up of the picks (SP_D_HANDOFF.md section 97): from the picks only, no advice, no price
+        for rule in ("Only from the picks", "no advice, nothing about prices or markets", "Empty when nothing was picked"):
+            self.assertIn(rule, news_lens.SYSTEM)
+        picks = {"strike": [{"id": 1, "en": "80 US tankers in Israel"}], "deal": [{"id": 3, "en": "Trump: talks are going on"}]}
+        read = lambda text: news_lens.validate(dict(picks, read=text), HEADS)["read"]
+        self.assertEqual(read("Mixed tonight: 80 tankers in Israel against talks that go on."),
+                         "Mixed tonight: 80 tankers in Israel against talks that go on.")
+        self.assertIsNone(read("Mixed tonight: 120 aircraft against talks."), "a number the picks do not carry")
+        self.assertIsNone(read("Mixed tonight; investors should wait before they buy."), "advice")
+        self.assertIsNone(read("Mixed tonight, and gold prices may move."), "a price")
+        self.assertIsNone(read("x" * 300), "too long")
+        self.assertIsNone(news_lens.validate({"strike": [], "deal": [], "read": "Nothing points either way tonight."},
+                                             HEADS)["read"], "nothing picked, nothing summed up")
 
     def test_05_no_key_a_spent_quota_or_an_unreadable_reply_leaves_the_news_out(self):
         class R:
@@ -197,8 +210,15 @@ class LensKPI(unittest.TestCase):
 
     def test_10_the_message_four_blocks_persian_dates_the_last_line_and_its_length(self):
         text = telegram_lens.build_lens_message(view())
-        for block in ("<b>NOW</b>", "<b>THE EVENT</b>", "<b>WHAT FOLLOWED BEFORE</b>", "<b>READ</b>"):
+        for block in ("<b>NOW</b>", "<b>THE EVENT</b>"):
             self.assertIn(block, text)
+        for block in ("<b>WHAT FOLLOWED BEFORE</b>", "<b>READ</b>"):     # the owner, 2026-11-04: out (section 97)
+            self.assertNotIn(block, text)
+        summed = dict(view()["news"], read="Mixed tonight: tankers in Israel against talks in Tehran.")
+        text2 = telegram_lens.build_lens_message(view(news=summed))
+        self.assertIn("<b>In short:</b> Mixed tonight: tankers in Israel against talks in Tehran.", text2)
+        self.assertIn("<i>The AI model's reading of these headlines only</i>", text2)
+        self.assertNotIn("In short", text, "no sum-up, no line")
         self.assertTrue(text.startswith("<b>GOLDPremium: LENS</b> · 9 Aban, 21:05"))
         self.assertTrue(text.endswith(telegram_lens.FOOTER))
         self.assertIn("to 11 Aban: 92 in 100; to 17 Aban: 71 in 100 (was 75)", text)
@@ -213,7 +233,6 @@ class LensKPI(unittest.TestCase):
         self.assertIn("tgju's closes could not be read tonight.", text)
         self.assertIn("No market priced the ceasefire tonight.", text)
         self.assertIn("The headlines were not read tonight.", text)
-        self.assertIn("<b>WHAT FOLLOWED BEFORE</b>", text)
         self.assertIn("No headline of 4 pointed either way.",
                       telegram_lens.build_lens_message(view(news={"strike": [], "deal": []})))
         # a close that was not read is said in words, never "n/a" (SP_D_HANDOFF.md section 96)
