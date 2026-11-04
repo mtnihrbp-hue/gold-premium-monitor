@@ -2014,8 +2014,8 @@ class KPICoherence(unittest.TestCase):
         """The owner, 2026-10-29: "we had agreed upon a wording list ... is there a dict list to be referenced?"
         The list is the vocabulary table in skills/telegram-product.md; its rows marked "test" are enforced here
         over the text the Telegram surfaces and the chart write (docstrings and comments aside). The parked
-        legacy alert and e-mails (alerts/telegram.py, helpers' SP-A blocks, resend_mail) are left to SP-E
-        (SP_D_HANDOFF.md section 64)."""
+        legacy alert (alerts/telegram.py, helpers' SP-A blocks) is left to SP-E (SP_D_HANDOFF.md section 64); the
+        e-mails were removed on 2026-11-04 (section 92)."""
         import ast
         import re as _re
         root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
@@ -2273,6 +2273,29 @@ class KPICoherence(unittest.TestCase):
         self.assertNotIn("forward", production, "production's workflow does not start it")
         self.assertIn('FROZEN = "E-8 candidate, frozen 2026-10-30', (REPO / "research" / "engine_today.py").read_text(
             encoding="utf-8"), "a change to the rule opens a new version")
+
+    def test_70_telegram_is_the_only_channel_and_the_parked_alerts_stay_parked(self):
+        """The owner, 2026-11-04: "the main platform is the tlrgm so we dont need the email thing" (SP_D_HANDOFF.md
+        section 92). No mail module, import, package or secret is left. config.email's two switches still park the
+        BUY/SELL alert and the daily recap on Telegram, as they did (sections 35.6, 50.1)."""
+        import json
+        self.assertFalse((SRC / "alerts" / "resend_mail.py").exists())
+        self.assertFalse((SRC / "alerts" / "gmail.py").exists())
+        for path in SRC.rglob("*.py"):
+            text = path.read_text(encoding="utf-8")
+            for word in ("import resend", "resend_mail", "smtplib", "send_email", "EMAIL_TO", "RESEND_API_KEY"):
+                self.assertNotIn(word, text, f"{path.name}: {word}")
+        self.assertNotIn("resend==", (REPO / "requirements.txt").read_text(encoding="utf-8"))
+        production = (REPO / ".github" / "workflows" / "gold-monitor.yml").read_text(encoding="utf-8")
+        self.assertNotIn("RESEND_API_KEY", production)
+        self.assertNotIn("EMAIL_TO", production)
+        with open(REPO / "config" / "config.json", encoding="utf-8") as f:
+            email = json.load(f)["email"]
+        self.assertIs(email["send_alerts"], False, "the old BUY/SELL alert stays parked until the owner says")
+        self.assertIs(email["send_daily_recap"], False)
+        main_src = (SRC / "main.py").read_text(encoding="utf-8")
+        self.assertIn('email_cfg.get("send_alerts", True)', main_src)
+        self.assertIn('email_cfg.get("send_daily_recap", True)', main_src)
 
 if __name__ == "__main__":
     print("=" * 55)

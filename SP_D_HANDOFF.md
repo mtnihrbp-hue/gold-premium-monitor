@@ -76,6 +76,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    89 Neon's storage measured; A8's unique keys tested on a Neon branch; the owner's answers of 10 Aban
                                                                    90 A8 applied; tags on pulled replies; the forward test on GitHub's runner; the production environment; the LENS off (v1.41safe)
                                                                    91 health check of 11 Aban; the forward test's first night: two findings; the recovery steps removed
+                                                                   92 the production keys in the environment; email removed, Telegram the only channel
        member, the LLM member
 ```
 
@@ -9026,5 +9027,59 @@ Taken at 10:10 Tehran (`PROJECT_OPERATIONS.md` 15), read-only.
   - the worker pasted into Cloudflare for `#status`;
   - the LENS's review;
   - the two forward-test questions above.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 92. The production keys in the environment; email removed (2026-11-04)
+
+### 92.1 The keys (KPI E0-5, in progress)
+
+- **The owner added** to the `production` environment:
+  - `DATABASE_URL` at 06:28 UTC;
+  - `TELEGRAM_BOT_TOKEN` at 06:30, replaced at 06:42;
+  - `TELEGRAM_CHAT_ID` at 06:37.
+- **The 10:00 run** (06:30:31 UTC) was the first to read the environment's copies, which take precedence over the
+  repository's while both exist. It saved its reading at 10:01 through the new `DATABASE_URL`.
+- **The first bot token was most likely another bot's.**
+  - The owner read the chat id through Telegram's `getUpdates`, which answered normally with message ids 2 and 3.
+  - Production's bot has the worker's webhook, and Telegram refuses `getUpdates` on a bot with a webhook.
+  - Production's chat also runs to thousands of messages.
+  - The owner replaced it at 06:42, before any run sent with it.
+  - The test is an Update in the usual chat: the report must arrive in the same chat as the worker's
+    acknowledgement.
+- **The chat id** is `chat.id`. In a private chat it is the user's own id, the same for every bot.
+- **Next:**
+  - the repository copies deleted, after the Update test;
+  - the check of `PROJECT_OPERATIONS.md` 19, step 5.
+
+### 92.2 Email removed
+
+**The owner:** "the email, lets shut it down in the code as well, the main platform is the tlrgm so we dont need
+the email thing"; Resend "if its for the email, we can opt it out". Resend is an email-sending service and served
+nothing else.
+
+**Removed:**
+- `src/alerts/resend_mail.py` (Resend) and `src/alerts/gmail.py` (SMTP, imported by nothing);
+- `main`'s three email sends: the BUY signal's, the old BUY/SELL alert's and the daily recap's, with their import;
+- `resend==2.44.0` from `requirements.txt`;
+- `RESEND_API_KEY` and `EMAIL_TO` from `gold-monitor.yml`;
+- the two email tests of `tests/test_alert_routing.py`. Its Telegram tests, which hold `final_decision` as the
+  alert's sole authority, stay.
+
+**Kept:**
+- `config.email.send_alerts` and `send_daily_recap`, both false. They also park the Telegram copies of the old
+  alert (50.1) and of the recap (35.6), so their names and meaning are unchanged.
+- Each Telegram send is untouched.
+
+**Test:** `kpi_coherence.test_70`:
+- no mail module, import, package or secret is left;
+- both switches are still false and still read by `main`.
+
+**Checks:** the KPI suite 31/31 (coherence 65), the unit tests 20/20, compileall, `main` imports.
+
+**The repository's `RESEND_API_KEY` and `EMAIL_TO`** can be deleted now, before the merge: `main`'s email paths
+are parked, so nothing reads them.
+
+**On `sp-de`** with 91's removal of the recovery steps, for the owner's review before the merge.
 
 **NEON MIGRATION REQUIRED = NO.**

@@ -15,7 +15,6 @@ from caluclator.trends import get_trend_summary, get_market_spread
 from caluclator.momentum import build_momentum_context
 from persistence.state import load_state, save_state
 
-from alerts.resend_mail import send_daily_recap as send_email_recap, send_alert as send_email_alert, send_signal_email
 from alerts.telegram_signal import build_buy_signal_message, send_buy_signal
 from analysis.confirmation import SignalConfirmation, resolve_signal_confirmation
 from caluclator.signals import DEFAULT_COOLDOWN_HOURS
@@ -528,10 +527,8 @@ def _resolve_signal_confirmation(markets, fair, usd, world_from_fallback, thresh
 
 def _send_buy_signal(markets, fair, premium, signal_state, confirmation, baselines,
                      thresholds):
-    """Resolve UPDATE's presentation values for this reading and send the BUY message.
-
-    Telegram and email are isolated from each other, as every other alert path is.
-    """
+    """Resolve UPDATE's presentation values for this reading and send the BUY message to Telegram, the
+    only channel since the owner removed email on 2026-11-04 (SP_D_HANDOFF.md section 92)."""
     run_premium = baselines.run.premium_percent if baselines and baselines.run else None
     run_elapsed_hours = None
     if baselines and baselines.run and baselines.run.timestamp:
@@ -546,10 +543,6 @@ def _send_buy_signal(markets, fair, premium, signal_state, confirmation, baselin
         valuation=valuation, baselines=baselines,
         cooldown_hours=thresholds.get("cooldown_hours", DEFAULT_COOLDOWN_HOURS),
     )
-    try:
-        send_signal_email("GOLDPremium: BUY SIGNAL", text)
-    except Exception as e:
-        print(f"ERROR: Email BUY signal failed: {e}")
     try:
         send_buy_signal(text)
     except Exception as e:
@@ -1962,10 +1955,6 @@ def main():
         _send_buy_signal(markets, fair, premium, signal_state, confirmation, baselines, thresholds)
     elif should_send_alert:
         try:
-            send_email_alert(signal, world, usd, fair, lowest, premium, markets, trends=trends, momentum=momentum, previous_markets=previous_markets, signal_state=signal_state)
-        except Exception as e:
-            print(f"ERROR: Email alert failed: {e}")
-        try:
             send_telegram_alert(signal, world, usd, fair, lowest, premium, markets, trends=trends, momentum=momentum, previous_markets=previous_markets, signal_state=signal_state)
         except Exception as e:
             print(f"ERROR: Telegram alert failed: {e}")
@@ -1978,11 +1967,6 @@ def main():
         recap_already_sent = state.get("last_recap_date") == today_key
         if email_cfg.get("send_daily_recap", True) and not recap_already_sent:
             recap_delivered = False
-            try:
-                send_email_recap(world, usd, fair, lowest, premium, markets, trends=trends, momentum=momentum, previous_markets=previous_markets)
-                recap_delivered = True
-            except Exception as e:
-                print(f"ERROR: Email daily recap failed: {e}")
             try:
                 send_telegram_recap(world, usd, fair, lowest, premium, markets, trends=trends, momentum=momentum, previous_markets=previous_markets, input_directions=input_directions, signal_state=signal_state)
                 recap_delivered = True

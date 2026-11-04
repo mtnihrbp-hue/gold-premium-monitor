@@ -156,10 +156,6 @@ jobs:
           RECORD_SPOOL_FILE: record_spool.jsonl
           RECORD_MIRROR_FILE: record_mirror.sqlite
 
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-
-          EMAIL_TO: ${{ secrets.EMAIL_TO }}
-
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
 
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

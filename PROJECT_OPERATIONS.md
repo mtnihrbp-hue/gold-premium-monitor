@@ -700,11 +700,14 @@ moved by script):
 
 1. GitHub, the repository, **Settings → Environments → production**: confirm "Deployment branches and tags"
    lists `main` only.
-2. In the same page, **Add environment secret** for each of `DATABASE_URL`, `TELEGRAM_BOT_TOKEN`,
-   `TELEGRAM_CHAT_ID`, `RESEND_API_KEY`, `EMAIL_TO`, with the same values as today.
+2. In the same page, **Add environment secret** for each of `DATABASE_URL`, `TELEGRAM_BOT_TOKEN` and
+   `TELEGRAM_CHAT_ID`, with the same values as today. (`RESEND_API_KEY` and `EMAIL_TO` served the email, removed
+   on 2026-11-04, `SP_D_HANDOFF.md` 92: no longer needed anywhere.)
 3. Wait for the next hourly run and confirm it is green (section 15, step 1).
-4. **Settings → Secrets and variables → Actions:** delete those five repository secrets. `GROQ_API_KEY` stays
-   a repository secret: the probes use it, and it opens no production data.
+4. **Settings → Secrets and variables → Actions:** delete the repository's `DATABASE_URL`,
+   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, and the unused `RESEND_API_KEY`, `EMAIL_TO`, `GOLD_API_KEY` and
+   `TRIGGER_TOKEN`. `GROQ_API_KEY` stays a repository secret: the probes use it, and it opens no production
+   data.
 5. The check (E0-5): a probe run from another branch that prints whether `DATABASE_URL` is set prints no.
 
 Until step 4, `CLAUDE.md`'s rule stands: every run of `gold-monitor.yml`, from any branch, is production.

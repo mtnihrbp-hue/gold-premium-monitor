@@ -6,7 +6,6 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from alerts.resend_mail import send_alert as send_email_alert
 from alerts.telegram import send_alert as send_telegram_alert
 
 
@@ -68,38 +67,6 @@ class TestAlertRouting(unittest.TestCase):
         message = mock_send.call_args.args[0]
         self.assertIn("BUY SIGNAL", message)
         self.assertNotIn("SELL SIGNAL", message)
-
-    @patch("alerts.resend_mail._send")
-    def test_email_does_not_send_when_final_is_wait(self, mock_send):
-        send_email_alert(
-            self.signal,
-            2400,
-            50000,
-            1900000,
-            1880000,
-            -1.05,
-            self.markets,
-            signal_state=self.state_wait,
-        )
-        mock_send.assert_not_called()
-
-    @patch("alerts.resend_mail._send")
-    def test_email_accepts_momentum_keyword(self, mock_send):
-        send_email_alert(
-            self.signal,
-            2400,
-            50000,
-            1900000,
-            1880000,
-            -1.05,
-            self.markets,
-            trends=None,
-            momentum={"verbal_direction": "Toward Buy"},
-            signal_state=self.state_buy,
-        )
-        mock_send.assert_called_once()
-        subject, _html = mock_send.call_args.args
-        self.assertEqual(subject, "BUY Gold Alert")
 
 
 if __name__ == "__main__":
