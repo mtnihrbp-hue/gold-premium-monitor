@@ -81,6 +81,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    94 the forward test after the 06:00 run; version 2, the CPI carried (v1.43safe)
                                                                    95 the revamp's path as a page; the funds' in-session trades: a lost session made visible, a first look
                                                                    96 SP-Ea opened (C2: the index holds); the LENS ready for review; the funds, the nightly message, a forecast wing proposed
+                                                                   97 the LENS cut to the event with the AI's sum-up; the NAV collected; the funds' week; a range forecast measured
        member, the LLM member
 ```
 
@@ -9400,5 +9401,126 @@ Production does not read the rows until then.
   - It cannot be backtested: the model has read the history it would be tested on.
 - **Under the invariants:** PREDICTION is not FACTS, and the AI does not calculate. It gives a judgement, labelled
   as a forecast, with its score.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 97. The LENS cut to the event with the AI's sum-up; the NAV collected; the funds' week; a range forecast measured (2026-11-04)
+
+### 97.1 The LENS
+
+**The owner, on 96.2's render:**
+- "the event is good, i guess it can be wrapped up with an llm conclusion";
+- WHAT FOLLOWED BEFORE "is total BS", and so is READ.
+
+**Built:**
+- **The two blocks are out.** The message is NOW and THE EVENT.
+- **"In short:"**
+  - the AI model's sum-up of its own picks, in the same Groq call: one or two sentences, at most 220 characters;
+  - its line reads "The AI model's reading of these headlines only".
+- **`news_lens._read` drops it** when nothing was picked, when it is too long, when it carries a number the picks do
+  not, or when it gives advice or speaks of prices or markets (the invariants: LLM ≠ MARKET CALCULATION; no
+  authority).
+
+**Rendered on the runner** (13:38 Tehran, sending nothing; 919 characters):
+- "In short: Tonight's picks show mixed signals: rising worries of a strike alongside clear calls for negotiation,
+  indicating a moderate but uncertain outlook."
+- **A flaw seen:** "Analysts ask how Democratic win limits Trump's push for war with Iran" was placed toward a strike, where it
+  reads as de-escalation. The picks are the model's judgement, and vary between rounds (87).
+
+**Tests:** `kpi_lens` 15/15. `test_04` holds the sum-up's limits; `test_10` holds the blocks.
+
+### 97.2 The NAV
+
+**The owner:** "the nav can walk in".
+
+**TSETMC's `Fund/GetETFByInsCode/{code}`** answers direct from Iran. For Ayar at 13:38:
+- redemption NAV 696,212 and subscription NAV 699,377 rial;
+- the last trade 693,052: about 0.45% below the gold it holds.
+
+**On the phone** (`iran_node/node.py`):
+- the in-session read adds `nav_pRedTran`, `nav_pSubTran` and `nav_hEven` to each fund's row, at the :00 and :30
+  reads;
+- every 30 minutes, not 15, so TSETMC is asked a third more;
+- a NAV not read never costs the fund's row, and is counted apart in the ERROR row ("NAV not read: ...").
+- **Test:** `kpi_coherence.test_57`: the NAV at :05, none at :20, and a refused NAV counted apart.
+- **On `sp-d-iran-node`,** live after the owner's `git pull` on the phone, with 95's ERROR row.
+
+### 97.3 The funds' block: the week, and who
+
+**The owner:**
+- "it says 7 days to 12th of ABAN ... irrelevent ... i only need that week data ... the week starts at saturday
+  and lasts to wendsday";
+- "the money reading, doenst imply if its hotmoney smart money or not ... maybe finding some models, or fine tuning
+  this part".
+
+**What the block reads today:**
+- `gold_demand.WINDOW`, the last 7 trading sessions, so "7 days to 12 Aban" ran from 10-25 to 11-03, across two
+  weeks.
+
+**Proposed: this week, Saturday to Wednesday, so far,** against the same sessions of a usual week (the past 52
+weeks' first n sessions). This week's real figures, Saturday 10-31 to Tuesday 11-03, 4 sessions:
+- individuals took out 687B toman, where a usual week's first 4 sessions bring 1,586B in; 26% of the past 50
+  weeks were lower;
+- buyers 68,028 a day, as usual;
+- per head: sellers 245M toman, buyers 92M;
+- last week, 5 sessions: 2,661B in.
+
+**Hot money and smart money,** to test (E-10, part (d)), on the seed's daily individuals' flows from 2017:
+- **TSETMC's client types are two-sided:** individuals' net in is institutions' net out, for the funds mostly the
+  market maker issuing units. So "who" alone says little. The size of each side's tickets says more.
+- **The classes, to register before the test:**
+  - **hot:** many buyers, small tickets, after 18K has run up;
+  - **accumulation (smart):** large buyer tickets against small seller tickets while 18K is flat or down;
+  - **distribution:** large seller tickets while 18K is high.
+- **The question:** what 18K did over the next 5 and 20 sessions after each, against any week.
+- A class reaches the block only with its record, as a past record, not as advice.
+
+### 97.4 A range forecast, measured
+
+**The owner:**
+- "the 20D is huge, i guess tuning to next 10 or 7D is much better";
+- "the risk of x% fall is BS";
+- "a domain should be guessed by the model ... if today is 25.50, it should say next 7D or 3D, the gold could be 26.1 or
+  24.8 ... a every close range ... this forecast, now can be judged and proves the quality of parameters and our
+  model".
+
+**A first look** (exploratory; the panel's 18K closes, E-1b's calm forecasts, 2018-2026):
+- the band is today's close times exp(± z × the forecast daily volatility × √h);
+- h is 3 trading days, and 6 for about 7 calendar days.
+
+| Horizon | Claimed | Held | Median half-width |
+|---|---|---|---|
+| 3 trading days | 68% | 64% | ±2.4% |
+| 3 trading days | 80% | 73% | ±3.0% |
+| about 7 days | 68% | 59% | ±3.4% |
+| about 7 days | 80% | 70% | ±4.3% |
+
+- **By year:** the 7-day 80% band held 61-78%.
+- **Against a plain trailing 20-day volatility:** it held 77% and 73%, wider (±3.4% and ±4.9%).
+- **The calm model's bands are narrower and hold less than they claim:** the tails are fat, and the drift is left
+  out. A calibrated band takes its edges from the record's own errors, not from the normal curve.
+- **At tonight's calm forecast,** 1.41% a day at 25.50M, an 80% band runs:
+  - 3 days: 24.71-26.31;
+  - 7 days: 24.40-26.65.
+- **The owner's example, 24.8-26.1 for 7 days,** is about ±2.5%. At today's volatility that would hold about
+  55-60% of the time.
+
+**The call:**
+- A range for 3 and 7 days, stated with its confidence and scored every day, is the right forecast. It can be
+  judged, and it shows whether each input earns its place.
+- **The skill is in the width and in the event risk, not in a narrow centre:**
+  - 18K's moves are mostly the dollar's (75.3), and no daily direction model has beaten the base rate (72.3);
+  - the volatility forecast has (E-1b).
+- **The build:**
+  - (1) the calibrated band from the calm model, with the rial's drift in its centre, backtested walk-forward
+    (it can be: it uses only data);
+  - (2) the inputs that may narrow, widen or shift it, each kept only if it improves the interval score on the
+    record: the dollar's acceleration, the funds' week, the platforms' gap, the LENS's event risk read by the AI,
+    the chart's levels;
+  - (3) the AI's own range, recorded from day one and scored forward only, since it has read the history.
+- **Elliott waves:** the count is subjective, and no mechanical version has shown out-of-sample skill. It can enter
+  as a candidate only in a mechanical form.
+- **The chart's levels** held no better than any line at the same distance (52.1, `direction.LINE_HELD_PCT`).
+- **The fall risk** stays in the forward test (Ed-1), out of the messages.
 
 **NEON MIGRATION REQUIRED = NO.**
