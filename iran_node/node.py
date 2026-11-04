@@ -184,13 +184,19 @@ def read_tsetmc_live(tehran=None, any_minute=False):
     minute = tehran.hour * 60 + tehran.minute
     if not any_minute and (tehran.weekday() in (3, 4) or not LIVE_FROM <= minute <= LIVE_TO):
         return []                                        # Thursday, Friday, or outside the session
-    rows = []
+    rows, failed = [], {}
     for code, _symbol in GOLD_FUNDS:
         try:
-            flow = requests.get(TSETMC_LIVE_FLOW.format(code=code), headers=HEADERS, timeout=(5, 10)).json()
-            price = requests.get(TSETMC_LIVE_PRICE.format(code=code), headers=HEADERS, timeout=(5, 10)).json()
-            flow, price = flow.get("clientType") or {}, price.get("closingPriceInfo") or {}
-        except Exception:  # noqa: BLE001 -- TSETMC slow or down: the next run
+            got = []
+            for url in (TSETMC_LIVE_FLOW, TSETMC_LIVE_PRICE):
+                r = requests.get(url.format(code=code), headers=HEADERS, timeout=(5, 10))
+                r.raise_for_status()
+                got.append(r.json())
+            flow, price = got[0].get("clientType") or {}, got[1].get("closingPriceInfo") or {}
+        except Exception as e:  # noqa: BLE001 -- TSETMC slow or down: the next run; the reason is kept below
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            reason = f"{type(e).__name__}{f' {status}' if status else ''}"
+            failed[reason] = failed.get(reason, 0) + 1
             continue
         if not price.get("qTotTran5J"):
             continue                                     # no trade yet today, or a holiday
@@ -199,6 +205,11 @@ def read_tsetmc_live(tehran=None, any_minute=False):
         rows.append({"source": "tsetmc_live", "instrument": f"CLIENTTYPE_{code}", "bid": None, "ask": None,
                      "value": None, "status": "OK", "detail": f"{price.get('dEven')}-{price.get('hEven')}",
                      "payload": payload})
+    if failed:  # one row saying why: 11-03's session was lost without a trace (SP_D_HANDOFF.md section 95)
+        why = ", ".join(f"{k} x{n}" for k, n in sorted(failed.items()))
+        rows.append({"source": "tsetmc_live", "instrument": "LIVE", "bid": None, "ask": None, "value": None,
+                     "status": "ERROR", "detail": f"{sum(failed.values())} of {len(GOLD_FUNDS)} funds not read: {why}"[:300],
+                     "payload": None})
     return rows
 
 
@@ -287,7 +298,8 @@ def main(argv):
     if flows:
         summary += f"; tsetmc {len(flows)} fund-days ({', '.join(sorted({r['detail'] for r in flows}))})"
     if live:
-        summary += f"; tsetmc live {len(live)} funds"
+        summary += f"; tsetmc live {sum(r['status'] == 'OK' for r in live)} funds"
+        summary += "".join(f" ({r['detail']})" for r in live if r["status"] != "OK")
     if "--test" in argv:
         log(f"TEST {summary} (nothing sent)")
         return 0
