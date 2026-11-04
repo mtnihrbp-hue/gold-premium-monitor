@@ -216,6 +216,35 @@ class LensKPI(unittest.TestCase):
         self.assertIn("<b>WHAT FOLLOWED BEFORE</b>", text)
         self.assertIn("No headline of 4 pointed either way.",
                       telegram_lens.build_lens_message(view(news={"strike": [], "deal": []})))
+        # a close that was not read is said in words, never "n/a" (SP_D_HANDOFF.md section 96)
+        m = dict(view()["market"], world_pct=None, usd_pct=None)
+        text = telegram_lens.build_lens_message(view(market=m))
+        self.assertIn("World gold $3,876 (the last close not read)", text)
+        self.assertNotIn("n/a", text)
+        # two cases read "both", three or more "each"
+        two = dict(view()["strikes"], lower=view()["strikes"]["lower"][:1] * 2, lower_with_dollar_down=True)
+        self.assertIn("Lower in 2, both when the dollar dropped", "\n".join(telegram_lens._cases(dict(view(), strikes=two))))
+        three = dict(two, lower=two["lower"][:1] * 3)
+        self.assertIn("Lower in 3, each when the dollar dropped", "\n".join(telegram_lens._cases(dict(view(), strikes=three))))
+
+    def test_11b_a_tgju_read_that_times_out_is_asked_once_more(self):
+        import requests
+        import collector.tgju as tgju
+        calls, real = [], tgju.fetch_daily_candles
+
+        def slow_once(instrument, rows=5, **k):
+            calls.append(instrument)
+            if instrument == "ons" and calls.count("ons") == 1:
+                raise requests.exceptions.ReadTimeout("tgju slow")
+            return candles().get(instrument, candles()["geram18"])
+        try:
+            tgju.fetch_daily_candles = slow_once
+            v = lens.build_view({}, 3876.0, 2_740_000.0, datetime(2026, 10, 31, 17, 40), fetch_odds=lambda now: [],
+                                news=lambda: (None, 0))
+        finally:
+            tgju.fetch_daily_candles = real
+        self.assertEqual(calls.count("ons"), 2, "asked again after the timeout")
+        self.assertIsNotNone(v["market"])
 
     def test_12_once_a_day_from_21_behind_its_switch_never_raising(self):
         import main

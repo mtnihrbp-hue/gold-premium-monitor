@@ -20,6 +20,11 @@ def _signed(value):
     return f"{value:+.1f}%".replace("-", "−") if value is not None else "n/a"
 
 
+def _vs(label, pct):
+    """A NOW line: the change since the last close, or words when that close was not read (never "n/a")."""
+    return f"{label}: {_signed(pct)}" if pct is not None else f"{label} (the last close not read)"
+
+
 def _tomans(rials):
     return f"{rials / 10:,.0f}" if rials else "n/a"
 
@@ -39,12 +44,12 @@ def _now(m):
     if not m:
         return ["<b>NOW</b>", "<i>tgju's closes could not be read tonight.</i>"]
     lines = [f"<b>NOW</b> vs the last close ({_day(m['ref_date'])})",
-             f"18K {format_m_tomans_short(m['price'])} (market, tgju): {_signed(m['price_pct'])}" if m["price"] else
+             _vs(f"18K {format_m_tomans_short(m['price'])} (market, tgju)", m["price_pct"]) if m["price"] else
              "18K: the platforms could not be read",
-             f"World gold ${m['world']:,.0f}: {_signed(m['world_pct'])}" if m["world"] else "World gold: not read",
-             f"USD/IRR {_tomans(m['usd'])}: {_signed(m['usd_pct'])}" if m["usd"] else "USD/IRR: not read"]
+             _vs(f"World gold ${m['world']:,.0f}", m["world_pct"]) if m["world"] else "World gold: not read",
+             _vs(f"USD/IRR {_tomans(m['usd'])}", m["usd_pct"]) if m["usd"] else "USD/IRR: not read"]
     if m["tether"]:
-        lines.append(f"Tether {_tomans(m['tether'])}: {_signed(m['tether_pct'])}"
+        lines.append(_vs(f"Tether {_tomans(m['tether'])}", m["tether_pct"])
                      + (", the highest on record" if m["tether_record"] else ""))
     gap = _gap(m["gap_now"])
     if gap:
@@ -89,8 +94,9 @@ def _cases(v):
              f"100); typical move {s['typical_abs']:.1f}% (any day: {s['base_typical']:.1f}%)"]
     if s["lower"]:
         each = ", ".join(f"{_signed(c['gold18_40'])} ({_day(c['date'], year=True)})" for c in s["lower"])
-        lines.append(f"Lower in {len(s['lower'])}" + (", each when the dollar dropped" if s["lower_with_dollar_down"]
-                                                      else "") + f": {each}")
+        n = len(s["lower"])
+        when = {1: ", when the dollar dropped", 2: ", both when the dollar dropped"}.get(n, ", each when the dollar dropped")
+        lines.append(f"Lower in {n}" + (when if s["lower_with_dollar_down"] else "") + f": {each}")
     if d:
         line = f"{d['n']} deals: 18K higher 40 days later in {d['higher']}; typical move {d['typical_abs']:.1f}%"
         worst = d["worst_first_week"]
