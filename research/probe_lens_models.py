@@ -1,17 +1,17 @@
-"""Which Groq model and which prompt sort the LENS's headlines best (SP_D_HANDOFF.md section 98; temporary probe).
+"""Which model sorts and words the LENS best (SP_D_HANDOFF.md sections 98-100; temporary probe).
 
-On one list of tonight's headlines, each candidate model is asked three times with two prompts:
-- A, the LENS's prompt as it runs (intelligence/news_lens.SYSTEM);
-- B, the same with each side defined exactly, the political and legal limits on a war named as de-escalation,
-  and a short reason for each pick.
-Writes probe_lens_models.json: the headlines, the models Groq lists, and each round's picks with their side and
-reason, for scoring by hand against a labelled set. Sends nothing; the key is never printed.
+Five models, three rounds each, on one list of tonight's headlines, with the LENS's prompt as it ships
+(intelligence/news_lens.SYSTEM): Qwen 3.8 and gpt-oss-120b on Groq, Kimi K2.6 through Hugging Face (Novita),
+NVIDIA Nemotron 3 Ultra and Google Gemma 4 31B on OpenRouter's free tier. Writes probe_lens_models.json: the headlines,
+and each round's picks (side, English, reason), its gold picks and its sum-up, for scoring by hand. Sends nothing;
+no key is printed.
 
     python research/probe_lens_models.py
 """
 
 import json
 import os
+import re
 import sys
 import time
 
@@ -22,81 +22,82 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 from intelligence import news_lens  # noqa: E402
 
-URL = "https://api.groq.com/openai/v1/chat/completions"
-WANTED = tuple(os.environ.get("PROBE_MODELS", "openai/gpt-oss-120b,qwen/qwen3.8-27b").split(","))
+GROQ = "https://api.groq.com/openai/v1/chat/completions"
+HF = "https://router.huggingface.co/v1/chat/completions"
+OPENROUTER = "https://openrouter.ai/api/v1/chat/completions"
+CANDIDATES = [
+    ("Qwen 3.8 (Groq)", GROQ, "qwen/qwen3.8-27b", "GROQ_API_KEY", {"reasoning_format": "hidden"}),
+    ("gpt-oss-120b (Groq)", GROQ, "openai/gpt-oss-120b", "GROQ_API_KEY", {"reasoning_effort": "low"}),
+    ("Kimi K2.6 (Hugging Face)", HF, "moonshotai/Kimi-K2.6:novita", "HF_TOKEN", {}),
+    ("Nemotron 3 Ultra (OpenRouter)", OPENROUTER, "nvidia/nemotron-3-ultra-550b-a55b:free", "OPENROUTER_API_KEY", {}),
+    ("Gemma 4 31B (OpenRouter)", OPENROUTER, "google/gemma-4-31b-it:free", "OPENROUTER_API_KEY", {}),
+]
 ROUNDS = 3
 
-SIDES = """Each side, exactly:
-- "strike": a step that makes a US or Israeli strike on Iran, or the war's return, MORE likely: military moves and
-  deployments, threats and ultimatums, talks failing or broken off, attacks, sanctions snapping back.
-- "deal": a step that makes talks, a deal or de-escalation more likely, or a strike LESS likely: talks under way,
-  mediation, offers, a ceasefire kept, and limits on a war: a vote, a court, public opposition, an election that
-  weakens a hawk, an ally refusing to join.
-- Neither: commentary with no step either way, prices and markets alone, domestic news.
-A headline that carries both steps goes to the side of its main step. When unsure, leave it out."""
 
-PROMPT_B = news_lens.SYSTEM.replace(
-    "none on both sides; a side may be empty.",
-    "none on both sides; a side may be empty.\n" + SIDES).replace(
-    '{"id": <number>, "en": "<line>"}', '{"id": <number>, "en": "<line>", "why": "<at most 12 words>"}')
+def parse(text):
+    try:
+        return json.loads(text)
+    except (TypeError, ValueError):
+        m = re.search(r"\{.*\}", text or "", re.S)          # a reply around its JSON
+        return json.loads(m.group(0)) if m else None
 
 
-def ask(key, model, system, heads):
-    body = {"model": model, "temperature": 0, "max_completion_tokens": 2500,
-            "response_format": {"type": "json_object"},
-            "messages": [{"role": "system", "content": system},
+def ask(url, model, key, options, heads):
+    body = {"model": model, "temperature": 0, "max_tokens": 3000, **options, "response_format": {"type": "json_object"},
+            "messages": [{"role": "system", "content": news_lens.SYSTEM},
                          {"role": "user", "content": "\n".join(f"{i}. {h}" for i, h in enumerate(heads, start=1))}]}
-    if model.startswith("openai/gpt-oss"):
-        body["reasoning_effort"] = "low"
-    if model.startswith("qwen/"):
-        body["reasoning_format"] = "hidden"          # Qwen thinks aloud; only the answer is wanted
-    for attempt in range(3):
-        r = requests.post(URL, headers={"Authorization": f"Bearer {key}"}, json=body, timeout=120)
-        if r.status_code == 429:
-            time.sleep(min(float(r.headers.get("retry-after", 20)), 60) + 1)
+    for attempt in range(4):
+        t0 = time.time()
+        try:
+            r = requests.post(url, headers={"Authorization": f"Bearer {key}"}, json=body, timeout=180)
+        except requests.RequestException as e:
+            return {"error": f"{type(e).__name__}"}
+        if r.status_code in (429, 503) and attempt < 3:
+            time.sleep(min(float(r.headers.get("retry-after", 20) or 20), 60) + 5)
             continue
-        if r.status_code == 400 and "reasoning_format" in body:
-            body.pop("reasoning_format")
+        if r.status_code == 400 and "response_format" in body:
+            body.pop("response_format")
             continue
         if r.status_code != 200:
-            return {"error": f"HTTP {r.status_code}: {r.text[:160]}"}
+            return {"error": f"HTTP {r.status_code}: {r.text[:200]}"}
         try:
-            reply = json.loads(r.json()["choices"][0]["message"]["content"])
+            data = r.json()
+            reply = parse(data["choices"][0]["message"]["content"])
         except Exception as e:  # noqa: BLE001
             return {"error": f"unreadable: {type(e).__name__}"}
-        usage = r.json().get("usage", {})
-        return {"reply": reply, "tokens": usage.get("total_tokens")}
-    return {"error": "429 three times"}
+        return {"reply": reply, "tokens": (data.get("usage") or {}).get("total_tokens"), "seconds": round(time.time() - t0, 1)}
+    return {"error": "refused four times"}
 
 
 def main():
-    key = os.environ["GROQ_API_KEY"]
-    listed = requests.get("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {key}"},
-                          timeout=30).json()
-    available = sorted(m["id"] for m in listed.get("data", []))
-    models = [m for m in WANTED if m in available]
     heads = news_lens.day_headlines()
-    print(f"models listed: {len(available)}; tried: {models}; headlines: {len(heads)}")
+    print(f"headlines: {len(heads)}")
     runs = []
-    for model in models:
-        for label, system in (("B", news_lens.SYSTEM),):  # SYSTEM is prompt B since 98.1
-            for k in range(ROUNDS):
-                got = ask(key, model, system, heads)
-                picks = {}
-                for side in ("strike", "deal"):
-                    for p in (got.get("reply") or {}).get(side) or []:
-                        try:
-                            picks[int(p["id"])] = {"side": side, "en": str(p.get("en", ""))[:140],
-                                                   "why": str(p.get("why", ""))[:100]}
-                        except (KeyError, TypeError, ValueError):
-                            continue
-                runs.append({"model": model, "prompt": label, "round": k + 1, "tokens": got.get("tokens"),
-                             "error": got.get("error"), "picks": picks})
-                print(f"{model:48} {label} {k + 1}: {len(picks)} picks, {got.get('tokens')} tokens"
-                      + (f"  {got['error']}" if got.get("error") else ""))
-                time.sleep(2)
-    json.dump({"available": available, "heads": heads, "runs": runs}, open("probe_lens_models.json", "w",
-              encoding="utf-8"), ensure_ascii=False, indent=1)
+    for label, url, model, key_env, options in CANDIDATES:
+        key = os.environ.get(key_env)
+        if not key:
+            print(f"{label}: no {key_env}")
+            continue
+        for k in range(ROUNDS):
+            got = ask(url, model, key, options, heads)
+            reply = got.get("reply") if isinstance(got.get("reply"), dict) else {}
+            picks = {}
+            for side in ("strike", "deal", "gold"):
+                for p in reply.get(side) or []:
+                    try:
+                        picks.setdefault(side, []).append({"id": int(p["id"]), "en": str(p.get("en", ""))[:160],
+                                                           "why": str(p.get("why", ""))[:100]})
+                    except (KeyError, TypeError, ValueError):
+                        continue
+            kept = news_lens.validate(reply, heads) if reply else None
+            runs.append({"model": label, "round": k + 1, "tokens": got.get("tokens"), "seconds": got.get("seconds"),
+                         "error": got.get("error"), "picks": picks, "read": str(reply.get("read", ""))[:300],
+                         "kept_read": (kept or {}).get("read")})
+            print(f"{label:32} {k + 1}: " + ", ".join(f"{s} {len(v)}" for s, v in picks.items())
+                  + f" | {got.get('tokens')} tokens, {got.get('seconds')} s" + (f" | {got['error'][:120]}" if got.get("error") else ""))
+            time.sleep(4)
+    json.dump({"heads": heads, "runs": runs}, open("probe_lens_models.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 
 
 if __name__ == "__main__":
