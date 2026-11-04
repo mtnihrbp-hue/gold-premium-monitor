@@ -148,30 +148,69 @@ def _read(text, picked):
     return html.escape(text, quote=False)
 
 
+SUM_UP = """You read a few English news lines about Iran, sorted toward a strike or toward a deal. Sum them up in "read": one or
+two plain sentences, at most 220 characters, on where they point together (toward a strike, toward a deal, or mixed)
+and how strongly. Only from these lines: no number, name or claim that is not in them, no advice, nothing about prices
+or markets. Answer with JSON only: {"read": "<sentences>"}"""
+
+
+def _ask(post, key, model, system, content, max_tokens=2500):
+    """One model's JSON reply, or None: asked again once after a per-minute 429, never after the day's quota is spent."""
+    body = {"model": model, "temperature": 0, "max_completion_tokens": max_tokens, **MODEL_OPTIONS.get(model, {}),
+            "response_format": {"type": "json_object"},
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": content}]}
+    for attempt in range(2):
+        try:
+            r = post(URL, headers={"Authorization": f"Bearer {key}"}, json=body, timeout=90)
+            if r.status_code == 429 and attempt == 0 and "per day" not in r.text.lower():
+                time.sleep(min(float(r.headers.get("retry-after", 20)), 30) + 1)
+                continue
+            r.raise_for_status()
+            return json.loads(r.json()["choices"][0]["message"]["content"])
+        except Exception as e:  # noqa: BLE001 -- the other judge, then the lens says the news was not read
+            print(f"LENS NEWS: {model} did not answer: {type(e).__name__}: {str(e)[:120]}")
+            return None
+    return None
+
+
+def agree(qwen, gptoss):
+    """The two judges' picks combined (the owner, 2026-11-04; SP_D_HANDOFF.md section 101): a strike or deal pick
+    stands when both put its headline on the same side, in gpt-oss's line, which dropped less; gold, the headlines
+    both took first, then Qwen's, in Qwen's line, which picked better. Where they disagree it is left out."""
+    side_of = lambda got: {h: (side, en) for side in ("strike", "deal") for h, en in got[side]}
+    a, b = side_of(qwen), side_of(gptoss)
+    out = {side: [(h, en) for h, en in gptoss[side] if a.get(h, (None,))[0] == side][:PER_SIDE] for side in ("strike", "deal")}
+    both = {h for h, _ in gptoss["gold"]}
+    gold = [(h, en) for h, en in qwen["gold"] if h in both] + [(h, en) for h, en in qwen["gold"] if h not in both]
+    out["gold"] = gold[:GOLD_PICKS]
+    return out
+
+
 def read(heads, key=None, post=None):
-    """The model's validated picks for the headlines, or None: no key, no headlines, the quota spent, no reply."""
+    """The two judges' validated picks for the headlines, with a sum-up of what stands, or None: no key, no headlines,
+    neither judge answering. One judge alone is used as it stands when the other cannot answer."""
     key = key or os.environ.get("GROQ_API_KEY")
     if not key or not heads:
         return None
     post = post or requests.post
+    listing = "\n".join(f"{i}. {h}" for i, h in enumerate(heads, start=1))
+    judged = {}
     for model in MODELS:
-        body = {"model": model, "temperature": 0, "max_completion_tokens": 2500, **MODEL_OPTIONS.get(model, {}),
-                "response_format": {"type": "json_object"},
-                "messages": [{"role": "system", "content": SYSTEM},
-                             {"role": "user", "content": "\n".join(f"{i}. {h}" for i, h in enumerate(heads, start=1))}]}
-        for attempt in range(2):
-            try:
-                r = post(URL, headers={"Authorization": f"Bearer {key}"}, json=body, timeout=90)
-                if r.status_code == 429 and attempt == 0 and "per day" not in r.text.lower():
-                    time.sleep(min(float(r.headers.get("retry-after", 20)), 30) + 1)
-                    continue
-                r.raise_for_status()
-                got = validate(json.loads(r.json()["choices"][0]["message"]["content"]), heads)
-                if got is not None:
-                    got["model"] = model
-                    return got
-                print(f"LENS NEWS: {model}'s reply could not be read")
-            except Exception as e:  # noqa: BLE001 -- the next model, then the lens says the news was not read
-                print(f"LENS NEWS: {model} did not answer: {type(e).__name__}: {str(e)[:120]}")
-            break
-    return None
+        reply = _ask(post, key, model, SYSTEM, listing)
+        got = validate(reply, heads) if reply is not None else None
+        if got is not None:
+            judged[model] = got
+        elif reply is not None:
+            print(f"LENS NEWS: {model}'s reply could not be read")
+    if not judged:
+        return None
+    if len(judged) == 2:
+        out = agree(judged[MODELS[0]], judged[MODELS[1]])
+        lines = [en for side in ("strike", "deal") for _, en in out[side]]
+        summed = _ask(post, key, MODELS[1], SUM_UP, "\n".join(f"- {en}" for en in lines), 600) if lines else None
+        out["read"] = _read((summed or {}).get("read"), [h for side in ("strike", "deal") for h, _ in out[side]])
+        out["models"] = list(MODELS)
+        return out
+    model, got = next(iter(judged.items()))
+    got["models"] = [model]
+    return got
