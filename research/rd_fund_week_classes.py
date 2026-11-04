@@ -24,6 +24,15 @@ B8). The verdict: LEANS when both halves differ from every week the same way by 
 3 or more episodes in each; else describes only.
 
     python research/rd_fund_week_classes.py
+
+The run (2026-11-04, SP_D_HANDOFF.md 98): all three classes "describes only". Seen after it, not registered:
+the week's ticket size (power) ranked in fifths has the same shape in both halves, an inverted U. Registered from
+2026-11-04 for the forward test, weekly, on weeks after 2026-11-04 only:
+- SELLERS: power rank < 40 (bigger sellers' tickets);
+- BUYERS: 40 <= power rank < 80 (buyers' tickets bigger, not extreme);
+- CROWDED: power rank >= 80.
+The test: 18K up the next week (7 days), and its mean over 4 weeks, BUYERS against SELLERS, judged at 60 weeks: BUYERS
+higher on both, by 10 points of weeks up and 2 points of return.
 """
 
 import bisect
