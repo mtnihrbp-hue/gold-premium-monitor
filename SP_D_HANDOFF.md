@@ -86,6 +86,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    99 Qwen sorts the LENS, the headline's verb restored; E-11: every dimension does not beat the calm band
                                                                    100 five models on the LENS; gold headlines; the funds' line in the owner's form; E-12: no method beats the calm band
                                                                    101 two judges on the LENS; the nightly message previewed
+                                                                   102 the LENS live; a second model reviews every line; the 3-day line with a chance and a floor (v1.44safe)
        member, the LLM member
 ```
 
@@ -9963,5 +9964,67 @@ Decision support, not an instruction to trade.
 3. The order of the blocks.
 4. Direction's GOLD DEMAND and the room's report read the same funds reading. They move to the week with it, so
    every message says the same.
+
+**NEON MIGRATION REQUIRED = NO.**
+
+## 102. The LENS live; a second model reviews every line before the owner; the 3-day line with a chance and a floor (2026-11-07)
+
+**The owner, on 101:**
+- the next trade week's range "is extremly BS ... what a user can understand from this?": dropped;
+- the 3-day range "i need some sort of certainty, based on this no one ... can judge";
+- "from now on, can you check, before passing to me, with one of the AIs that you think is ok the msg and the aim?";
+- "the news can come live to see whats around and start polishing";
+- the chart: "keep it";
+- Direction and the room's report to the week: "agreed";
+- the four unused secrets: "no harm", kept;
+- the phone: "i did updated the phone".
+
+### 102.1 The 3-day line: a chance and a floor
+
+A range a reader cannot judge gives way to two numbers the reader can check three days later.
+
+**Measured,** 2018-2026, on 2,341 days, by the latest fund week's ticket-size zone (98.2):
+
+| Zone | Days | 3-day close higher | 3-day close below the low edge | Typical 3-day move |
+|---|---|---|---|---|
+| sellers lead | 719 | 58% | 9% | +0.3% |
+| buyers lead | 1,230 | 61% | 10% | +0.8% |
+| crowded | 369 | 57% | 10% | +0.4% |
+| every day | 2,341 | 60% | 10% | +0.6% |
+
+- The zone hardly moves the 3-day odds. The floor holds 9 days in 10 by construction, and is judgeable.
+
+### 102.2 The review by a second model
+
+**`research/review_message.py`** on the probe runner: gpt-oss-120b (reasoning medium) and Qwen 3.8 read each line as an
+Iranian retail investor on a phone. Each gives:
+- what the reader concludes;
+- clear, judgeable and useful, 1 to 10;
+- the problems;
+- a better line with the same numbers.
+
+| Line | gpt-oss | Qwen | The points taken |
+|---|---|---|---|
+| "Next 3 days vs the close of 12 Aban (25.51M): 6 in 10 to close higher; 9 in 10 to stay above 24.83 (-2.7%)." | 5 / 4 / 5 | 9 / 9 / 8 | percentages, not "6 in 10"; say what -2.7% is measured from |
+| the funds' line of 100.3 | 3 / 4 / 4 | 8 / 9 / 8 | gpt-oss read 25.51M as the funds' units, so name 18K's close; add the typical week |
+
+- **Qwen's better funds line said "dipped",** on the vocabulary's Never list. The table is checked after the review, too.
+
+**After the review:**
+- "18K, next 3 days vs its close of 12 Aban (25.51M): 58% to close higher; 90% to stay above 24.83 (-2.7%)."
+- "Big holders are selling the gold funds this week. Next trade week vs 18K's close of 12 Aban (25.51M): 46% to close lower
+  (typical 38%); 25% to drop to 24.83 (-2.7%)."
+
+### 102.3 The LENS live
+
+- **`config.lens.send` true from 2026-11-07,** the two judges of 101.1; the first message at 21:00 Tehran tonight.
+- **The labels' budget at 150,000 tokens a run** (`probe-news-labels`), so gpt-oss's daily Groq quota keeps the LENS's
+  share.
+  - The push that set it started a second label run in a day. It was cancelled at its label step, so tonight's judges
+    are not left without quota.
+- **The merge:** `main` tagged `v1.44safe` (13cecad, SP-D 94), then fast-forwarded with `SP-D` to `sp-de`: 95 to 102.
+- **Checks:**
+  - the KPI suite 31/31 (lens 17, coherence 65), the unit tests 20/20, compileall;
+  - the phone's code was already on `sp-d-iran-node` (95, 97).
 
 **NEON MIGRATION REQUIRED = NO.**
