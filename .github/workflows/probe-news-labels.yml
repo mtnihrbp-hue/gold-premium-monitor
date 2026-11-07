@@ -72,7 +72,7 @@ jobs:
           LABEL_FROM: "2022-01-01"
           LABEL_TO: "2025-10-14"
           LABEL_STRIDE: "3"
-          LABEL_TOKEN_BUDGET: "170000"
+          LABEL_TOKEN_BUDGET: "150000"
       - if: always() && steps.ready.outputs.ready == 'yes'
         run: |
           git config user.name "probe" && git config user.email "probe@users.noreply.github.com"
