@@ -3,8 +3,9 @@
 Runs on the owner's phone in Termux, from an Iranian connection, and reads what GitHub's
 runner cannot reach: Daric (403 to the runner since 2026-10-03); and TSETMC's daily money flow
 of the gold funds (section 33), which TSETMC gives only to Iranian addresses, and its live flow
-inside the session (section 48). Each reading goes to Neon's HTTPS endpoint as one row of
-iran_node_readings; production reads Daric's and TSETMC's days from there. Taline, HoorGold and
+inside the session (section 48). WallGold and Goldika it reads as a stand-by, for the runs that
+get no live quote of their own (section 105). Each reading goes to Neon's HTTPS endpoint as one
+row of iran_node_readings; production reads Daric's and TSETMC's days from there. Taline, HoorGold and
 MioGold, read here from 10-06 to compare Iran's view with the runner's (section 31), are no longer
 read: the study ended and production never read them (SP_D_HANDOFF.md 73.9).
 
@@ -56,6 +57,10 @@ DARIC = "https://apisc.daric.gold/loan/api/v1/User/Collateral/GetGoldlPrice"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Linux; Android 12; SM-G973F) AppleWebKit/537.36 "
                          "(KHTML, like Gecko) Chrome/128.0 Mobile Safari/537.36",
            "Accept": "application/json"}
+# The stand-by's two platforms (owner, 2026-11-08; SP_D_HANDOFF.md section 105). No payload: production needs only the
+# price, and these rows stay in Neon.
+WALLGOLD = "https://api.wallgold.ir/api/v1/price?side=buy&symbol=GLD_18C_750TMN"
+GOLDIKA = "https://api.goldika.ir/api/public/price"
 
 
 # TSETMC's money flow for the room's money-flow member (SP_D_HANDOFF.md sections 24, 27, 33): each
@@ -134,6 +139,38 @@ def read_daric():
         data = r.json()["Data"]
         row.update(ask=float(data["BestSellPrice"]) * 10, bid=float(data["BestBuyPrice"]) * 10,
                    status="OK", payload=data)
+    except Exception as e:  # noqa: BLE001 -- an error is a reading too
+        row["detail"] = f"{type(e).__name__}: {e}"[:300]
+    return row
+
+
+def _standby_row(source, instrument):
+    return {"source": source, "instrument": instrument, "bid": None, "ask": None, "value": None,
+            "status": "ERROR", "detail": None, "payload": None}
+
+
+def read_wallgold():
+    """WallGold's price, rial: its buy and sell answers are one number (SP_D_HANDOFF.md 64.3), so bid and ask are too."""
+    row = _standby_row("wallgold", "WALLGOLD_18K")
+    try:
+        r = requests.get(WALLGOLD, headers=HEADERS, timeout=(5, 15))
+        r.raise_for_status()
+        price = float(r.json()["result"]["price"]) * 10
+        row.update(ask=price, bid=price, status="OK")
+    except Exception as e:  # noqa: BLE001 -- an error is a reading too
+        row["detail"] = f"{type(e).__name__}: {e}"[:300]
+    return row
+
+
+def read_goldika():
+    """Goldika's two sides, rial, with the time Goldika set them (UTC) in `detail`, so a copy can be told from a price."""
+    row = _standby_row("goldika", "GOLDIKA_18K")
+    try:
+        r = requests.get(GOLDIKA, headers=HEADERS, timeout=(5, 15))
+        r.raise_for_status()
+        price = r.json()["data"]["price"]
+        row.update(ask=float(price["buy"]), bid=float(price["sell"]), status="OK",
+                   detail=price.get("createdAt") or price.get("created_at"))
     except Exception as e:  # noqa: BLE001 -- an error is a reading too
         row["detail"] = f"{type(e).__name__}: {e}"[:300]
     return row
@@ -313,7 +350,7 @@ def main(argv):
     except Exception as e:  # noqa: BLE001 -- the research read must never cost Daric's reading
         live = []
         log(f"tsetmc live failed: {type(e).__name__}")
-    readings = [dict(row, node=node, observed_at=now) for row in [read_daric()] + flows + live]
+    readings = [dict(row, node=node, observed_at=now) for row in [read_daric(), read_wallgold(), read_goldika()] + flows + live]
     summary = "; ".join(describe(row) for row in readings if row["source"] not in ("tsetmc", "tsetmc_live"))
     if flows:
         summary += f"; tsetmc {len(flows)} fund-days ({', '.join(sorted({r['detail'] for r in flows}))})"

@@ -5,6 +5,7 @@ from dataclasses import replace
 
 from collector.kitco import get_world_gold_price
 from collector.bonbast import get_usd_sell_rate
+from collector.goldika import _utc as goldika_utc
 from collector.iran import get_market_prices
 from analysis.snapshot_builder import build_analysis_snapshot
 from collector.news.ingest import run_news_ingestion
@@ -26,7 +27,7 @@ from alerts.telegram import (
     send_daily_recap as send_telegram_recap,
 )
 from alerts.telegram_update_v1 import send_update_v1
-from validation.data import validate_world_gold, validate_usd_rate, validate_market_prices, validate_fair_price, STALE_LOOKBACK_DAYS
+from validation.data import validate_world_gold, validate_usd_rate, validate_market_prices, validate_fair_price, STALE_LOOKBACK_DAYS, MAX_QUOTE_AGE_HOURS
 from database.connection import get_session
 from database.repository import save_market_snapshot, save_market_state, save_price_observation, get_input_directions, get_recent_platform_prices, get_latest_node_reading
 from intelligence.freshness import evaluate_freshness
@@ -492,37 +493,54 @@ def _recent_platform_history(now):
         session.close()
 
 
-NODE_MAX_AGE_MINUTES = 30   # the node reads every 15 minutes: two missed readings and Daric stays out
+NODE_MAX_AGE_MINUTES = 30   # the node reads every 15 minutes: two missed readings and the platform stays out
+# What the phone reads as a stand-by (owner, 2026-11-08; SP_D_HANDOFF.md section 105): platform, source, instrument, and
+# whether both sides are published. WallGold's buy and sell answers are one number (64.3), so it stays one-sided as read.
+NODE_STANDBY = (("WallGold", "wallgold", "WALLGOLD_18K", False), ("Goldika", "goldika", "GOLDIKA_18K", True))
+
+
+def _quote_from_node(raw_markets, now, platform, source, instrument, two_sided=True):
+    """Put `platform`'s newest OK reading from the Iran-side node into `raw_markets`. It enters validation like any
+    platform's, the source's own price time where the node kept one and otherwise the read time as the quote's time, so
+    the stale-quote rules apply to it. Fails open: without the database or a recent reading the platform stays as its
+    collector left it."""
+    session = get_session()
+    if session is None:
+        return
+    try:
+        row = get_latest_node_reading(session, source, instrument, now - timedelta(minutes=NODE_MAX_AGE_MINUTES))
+        if row is None:
+            print(f" {platform}: no node reading in the last {NODE_MAX_AGE_MINUTES} minutes")
+            return
+        ask, bid = float(row.ask), float(row.bid)
+        quote = {"price": ask, "status": "OK", "quoted_at": goldika_utc(row.detail) or row.observed_at}
+        if two_sided:
+            quote.update(buy=ask, sell=bid)
+        raw_markets[platform] = quote
+        print(f" {platform}: from the Iran node ({row.node}, read {(now - row.observed_at).total_seconds() / 60:.0f} min ago)")
+    except Exception as e:
+        print(f" {platform}: node reading unavailable: {e}")
+    finally:
+        session.close()
 
 
 def _daric_from_node(raw_markets, now):
     """Daric's quote from the Iran-side node when the runner is refused (SP_D_HANDOFF.md
     section 30). Daric answers 403 to GitHub's addresses; the owner's phone in Iran reads
-    it every 15 minutes into iran_node_readings. The reading enters validation like any
-    platform's, its read time as the quote's time, so the stale-quote rules apply to it.
+    it every 15 minutes into iran_node_readings."""
+    if raw_markets.get("Daric", {}).get("status") != "OK":
+        _quote_from_node(raw_markets, now, "Daric", "daric", "DARIC_18K")
 
-    Fails open: without the database or a recent reading, Daric stays as its collector
-    left it, and is discarded as before.
-    """
-    if raw_markets.get("Daric", {}).get("status") == "OK":
-        return
-    session = get_session()
-    if session is None:
-        return
-    try:
-        row = get_latest_node_reading(session, "daric", "DARIC_18K",
-                                      now - timedelta(minutes=NODE_MAX_AGE_MINUTES))
-        if row is None:
-            print(f" Daric: no node reading in the last {NODE_MAX_AGE_MINUTES} minutes")
-            return
-        ask, bid = float(row.ask), float(row.bid)
-        raw_markets["Daric"] = {"price": ask, "buy": ask, "sell": bid, "status": "OK",
-                                "quoted_at": row.observed_at}
-        print(f" Daric: from the Iran node ({row.node}, read {(now - row.observed_at).total_seconds() / 60:.0f} min ago)")
-    except Exception as e:
-        print(f" Daric: node reading unavailable: {e}")
-    finally:
-        session.close()
+
+def _standby_from_node(raw_markets, now):
+    """WallGold's and Goldika's quote from the phone when the runner has no live one (SP_D_HANDOFF.md section 105): the
+    read failed, or the CDN served a copy older than validation accepts, as Goldika's did from 2026-10-01
+    (SP_C_HANDOFF.md section 44)."""
+    for platform, source, instrument, two_sided in NODE_STANDBY:
+        info = raw_markets.get(platform, {})
+        quoted = info.get("quoted_at")
+        if info.get("status") != "OK" or (quoted is not None and now - quoted > timedelta(hours=MAX_QUOTE_AGE_HOURS)):
+            _quote_from_node(raw_markets, now, platform, source, instrument, two_sided)
 
 
 def _resolve_signal_confirmation(markets, fair, usd, world_from_fallback, thresholds):
@@ -1813,6 +1831,7 @@ def main():
 
     raw_markets = get_market_prices()
     _daric_from_node(raw_markets, now)
+    _standby_from_node(raw_markets, now)
     for name, info in raw_markets.items():
         status = info.get("status", "UNKNOWN")
         print(f" {name:<15} {status.replace('ERROR: ', '') if status.startswith('ERROR: ') else status}")

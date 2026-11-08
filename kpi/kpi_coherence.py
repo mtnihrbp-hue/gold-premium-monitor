@@ -1841,7 +1841,7 @@ class KPICoherence(unittest.TestCase):
                 return self.body
         tmp = tempfile.mkdtemp()
         saved = {k: getattr(node, k) for k in ("SPOOL", "REJECTED", "LOG", "STATE_FILE", "LOCK", "ENV_FILE", "settings",
-                                                 "read_daric", "read_tsetmc", "read_tsetmc_live")}
+                                                 "read_daric", "read_wallgold", "read_goldika", "read_tsetmc", "read_tsetmc_live")}
         real_post = node.requests.post
         try:
             for k, name in (("SPOOL", "spool"), ("REJECTED", "rejected"), ("LOG", "log"), ("STATE_FILE", "state"),
@@ -1852,6 +1852,7 @@ class KPICoherence(unittest.TestCase):
             rows = [{"source": "daric", "instrument": f"R{k}", "bid": None, "ask": None, "value": float(k),
                      "status": "OK", "detail": None, "payload": None} for k in range(4)]
             node.read_daric = lambda: rows[0]
+            node.read_wallgold, node.read_goldika = (lambda: dict(rows[0], instrument="W")), (lambda: dict(rows[0], instrument="G"))
             # the comparison pages went on 2026-10-30 (SP_D_HANDOFF.md 73.9): the other rows come as live reads
             node.read_tsetmc = lambda remember=True, any_minute=False: []
             node.read_tsetmc_live = lambda any_minute=False: rows[1:]
@@ -1865,7 +1866,7 @@ class KPICoherence(unittest.TestCase):
             answers["R0"] = _R(402, {"message": "Your project has exceeded the data transfer quota"})
             with redirect_stdout(io.StringIO()):
                 self.assertEqual(node.main([]), 2)
-            self.assertEqual(len(node.load_spool()), 4, "the quota stops the queue: everything waits")
+            self.assertEqual(len(node.load_spool()), 6, "the quota stops the queue: everything waits")
         finally:
             node.requests.post = real_post
             for k, v in saved.items():
@@ -2472,6 +2473,52 @@ class KPICoherence(unittest.TestCase):
                      "_evaluate_deep_discount_push"):
             body = main_src[main_src.index(f"def {name}("):]
             self.assertIn("_history_session(", body[:body.index("\ndef ", 10)], name)
+
+    def test_75_the_phone_stands_by_for_wallgold_and_goldika(self):
+        """The owner, 2026-11-08 (SP_D_HANDOFF.md section 105). The phone reads the two platforms; a failed read is a row
+        too; both come in rial; WallGold is one number, Goldika two sides with its own time. Production's half is held in
+        kpi_signal_confirmation 52-55."""
+        import sys as _sys
+        _sys.path.insert(0, str(REPO / "iran_node"))
+        import node
+
+        class _R:
+            def __init__(self, body):
+                self.body = body
+
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return self.body
+        answers = {node.WALLGOLD: _R({"result": {"price": "25234000"}}),
+                   node.GOLDIKA: _R({"data": {"price": {"buy": 255114153, "sell": 252000000,
+                                                         "createdAt": "2026-11-08T13:00:05.000000Z"}}})}
+        real_get = node.requests.get
+
+        def fake(url, **k):
+            return answers[url]
+        try:
+            node.requests.get = fake
+            wall, gold = node.read_wallgold(), node.read_goldika()
+            self.assertEqual((wall["status"], wall["ask"], wall["bid"]), ("OK", 252_340_000.0, 252_340_000.0))
+            self.assertEqual((wall["source"], wall["instrument"], wall["payload"]), ("wallgold", "WALLGOLD_18K", None))
+            self.assertEqual((gold["ask"], gold["bid"], gold["detail"]),
+                             (255_114_153.0, 252_000_000.0, "2026-11-08T13:00:05.000000Z"))
+            self.assertEqual((gold["source"], gold["instrument"], gold["payload"]), ("goldika", "GOLDIKA_18K", None))
+
+            def down(url, **k):
+                raise ConnectionError("no route")
+            node.requests.get = down
+            for failed in (node.read_wallgold(), node.read_goldika()):
+                self.assertEqual((failed["status"], failed["ask"]), ("ERROR", None))
+                self.assertIn("no route", failed["detail"])
+        finally:
+            node.requests.get = real_get
+        # the runner's collector asks the same addresses, so the phone's price is the same price
+        collector = (SRC / "collector" / "wallgold.py").read_text(encoding="utf-8")
+        self.assertIn(node.WALLGOLD, collector)
+        self.assertIn(node.GOLDIKA, (SRC / "collector" / "goldika.py").read_text(encoding="utf-8"))
 
 if __name__ == "__main__":
     print("=" * 55)

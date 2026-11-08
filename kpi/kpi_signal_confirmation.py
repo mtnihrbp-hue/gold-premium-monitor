@@ -798,6 +798,59 @@ class KPISignalConfirmation(unittest.TestCase):
         self.assertLess(source.index("_daric_from_node(raw_markets, now)"),
                         source.index("validate_market_prices(raw_markets"))
 
+    # -- 12. The phone as stand-by for WallGold and Goldika (SP_D_HANDOFF.md section 105) -----
+
+    def _standby_row(self, source, instrument, minutes, bid, ask, detail=None):
+        from database.models import IranNodeReading
+        session = _test_get_session()
+        session.query(IranNodeReading).delete()
+        session.add(IranNodeReading(node="s10", source=source, instrument=instrument, observed_at=NOW - timedelta(minutes=minutes),
+                                    status="OK", bid=bid, ask=ask, detail=detail, received_at=NOW))
+        session.commit()
+        session.close()
+
+    def test_52_a_failed_wallgold_takes_the_phones_reading_one_sided_as_read(self):
+        import main
+        self._standby_row("wallgold", "WALLGOLD_18K", 5, 252_340_000, 252_340_000)
+        markets = {"WallGold": {"price": None, "status": "ERROR: 502"}, "Goldika": {"price": 255_000_000.0, "status": "OK"}}
+        with redirect_stdout(io.StringIO()):
+            main._standby_from_node(markets, NOW)
+        wall = markets["WallGold"]
+        self.assertEqual((wall["status"], wall["price"], wall["quoted_at"]), ("OK", 252_340_000, NOW - timedelta(minutes=5)))
+        self.assertNotIn("buy", wall, "the collector publishes one number for WallGold; the stand-by must not add sides")
+        self.assertEqual(markets["Goldika"]["price"], 255_000_000.0, "a live Goldika is left alone")
+
+    def test_53_a_stale_goldika_copy_is_replaced_with_goldikas_own_time(self):
+        """The CDN answers OK with a copy from weeks ago: the read succeeded, but only the stamp shows it is not a price."""
+        import main
+        stamp = (NOW - timedelta(minutes=7)).strftime("%Y-%m-%dT%H:%M:%S.000000Z")
+        self._standby_row("goldika", "GOLDIKA_18K", 3, 252_000_000, 255_100_000, detail=stamp)
+        markets = {"Goldika": {"price": 240_000_000.0, "status": "OK", "quoted_at": NOW - timedelta(days=19)},
+                   "WallGold": {"price": 252_000_000.0, "status": "OK"}}
+        with redirect_stdout(io.StringIO()):
+            main._standby_from_node(markets, NOW)
+        gold = markets["Goldika"]
+        self.assertEqual((gold["buy"], gold["sell"], gold["price"]), (255_100_000, 252_000_000, 255_100_000))
+        self.assertEqual(gold["quoted_at"], NOW - timedelta(minutes=7), "Goldika's own time, not the phone's read time")
+
+    def test_54_the_stand_by_leaves_a_live_quote_and_an_old_phone_reading_alone(self):
+        import main
+        self._standby_row("wallgold", "WALLGOLD_18K", 5, 1, 2)
+        live = {"WallGold": {"price": 252_000_000.0, "status": "OK"},
+                "Goldika": {"price": 255_000_000.0, "status": "OK", "quoted_at": NOW - timedelta(minutes=2)}}
+        main._standby_from_node(live, NOW)
+        self.assertEqual(live["WallGold"]["price"], 252_000_000.0, "a live read is never replaced")
+        self._standby_row("wallgold", "WALLGOLD_18K", main.NODE_MAX_AGE_MINUTES + 1, 1, 2)
+        failed = {"WallGold": {"price": None, "status": "ERROR: 502"}}
+        with redirect_stdout(io.StringIO()):
+            main._standby_from_node(failed, NOW)
+        self.assertTrue(failed["WallGold"]["status"].startswith("ERROR"), "a phone reading older than half an hour entered")
+
+    def test_55_the_stand_by_goes_through_validation_like_any_platform(self):
+        import main
+        source = inspect.getsource(main)
+        self.assertLess(source.index("_standby_from_node(raw_markets, now)"), source.index("validate_market_prices(raw_markets"))
+
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(KPISignalConfirmation)
     result = unittest.TextTestRunner(verbosity=2).run(suite)
