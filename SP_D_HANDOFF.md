@@ -10028,3 +10028,77 @@ Iranian retail investor on a phone. Each gives:
   - the phone's code was already on `sp-d-iran-node` (95, 97).
 
 **NEON MIGRATION REQUIRED = NO.**
+
+## 103. Health check of 17 Aban; where the plan stands (2026-11-08)
+
+**The owner:** "now the daily health check and then see where we are based on the plan." Read-only; nothing in production
+changed. **NEON MIGRATION REQUIRED = NO.**
+
+### 103.1 The health check (11-02 10:10 to 11-08 10:55 Tehran)
+
+**Runs:** 111 (96 ANALYZE, 14 UPDATE, 1 DIRECTION), all passed, no hour missed, 16 a day from 11-03 to 11-07.
+
+**The phone is silent.**
+- Last row received 04:30:10 Tehran on 11-08; none by 10:55.
+- In the eight days before, the only silence over 90 minutes was 11-03, 11:45 to 19:15.
+- Nothing told anyone. Ea-9, the heartbeat, is what would have raised it after two hours.
+- The 24 hours before it stopped: Daric 70 OK, 2 errors; tsetmc 19; tsetmc_live 468 OK, 12 errors. The session of 11-07:
+  26 reads, 468 fund rows, 228 with the NAV. Daric's 429s have not come back since 11-05.
+
+**Neon's transfer: E0-2 not met.**
+- 474.8 MB by 11-08 07:10 UTC. From 77.2 MB on 11-02 06:38 UTC: 397.6 MB in 6.02 days, 66 MB a day, 3.58 MB a run.
+- Projected about 1.97 GB a month, against the target of under 1.5 GB. Under the 4 GB alarm and the 5 GB cap.
+- SP-E0 cannot close on it. Ea-7 (3 MB a run) is not met either.
+- `pg_stat_statements` is not installed, so the database cannot rank its readers. That needs one measured run.
+- Storage 60 MB; A8's five keys in place.
+
+**Run length: Ea-8 not being met.** Median 4.1, 4.6, 4.8, 5.2, 5.5, 6.1 minutes from 11-03 to 11-08, against a target of
+under 4.
+- **The cause is the outcome backfill.** The gap before its log line grew from 71 s (11-03) to 128 s (11-04) to 181 s
+  (11-08).
+- `backfill_outcome_evaluations` looks back 168 hours and makes one query per snapshot, then about four per unresolved
+  horizon. Production came back on 11-01, so the window has been filling since then. It filled today: 112 snapshots at
+  16 a day. The climb should stop here (to be seen on 11-09).
+- **72 horizon rows are retried on every run; 50 of them cannot resolve.** In the window:
+  - the 6-hour horizon of the 16:00-21:00 snapshots: 42, six hours on seven days;
+  - the 1-hour horizon of 21:00: 7;
+  - one 24-hour row;
+  - the schedule ends at 21:00, so nothing is observed at those targets. They stay INSUFFICIENT_DATA;
+  - the other 22 have targets not yet reached.
+- **The "18.7 minutes" of 11-04 21:00 was not job time** (Install 30 s, Execute 254 s): GitHub's metadata.
+- By estimate the backfill reads about 0.5 MB of the 3.58 MB a run, so fixing it will not close E0-2 alone.
+- Also seen on 11-08 10:00: a 64-second wait before `ROOM inputs ... unavailable: market-indices: HTTPError`.
+
+**Decisions.**
+- 24 hours: CHEAP/WAIT/DISCOUNT_DOMINANT 16, CHEAP/BUY 1.
+- `final_decision` BUY on 11-03 17:01, 11-04 20:04, 11-06 13:01, 11-07 14:01, the first since 10-13. The alert is parked,
+  and the 11-07 run's log says so (`SIGNAL BUY parked, not sent (premium -2.45%)`).
+- Typical premium by day, 11-01 to 11-08: -0.14, -0.5, -1.53, -2.06, -2.83, -2.2, -2.48, -3.18; latest -2.76.
+
+**The rest.**
+- **Platforms** (24 h / 72 h): all 17/52, except Invi 17/50 and Taline 7/37 (the stale copy, C3).
+- **Index:** WallGold 68 of 69 since 11-04, Goldika covered the miss.
+- **Candles:** tgju and etfbaz to 11-07, Afran 11-08.
+- **PAPER:** the room 128.5M, buy-and-hold 127.9M, the system 129.9M; no trades in 48 hours.
+- **Forward test v2:** lines for 11-03, 11-04, 11-05, 11-07 (risk 13.2%, 14.1%, 14.6%, 14.1%), in gold, written about
+  06:05 Tehran.
+- **The LENS:** first live send 11-07 21:00, no judge errors.
+- **E-9's labels:** 271 of 600 days in the span (2022-01-01 to 2025-10-14); today's resume pushed.
+
+### 103.2 Where the plan stands
+
+- **SP-E0:** 4 of 5 passed; E0-2 not met, so the stage stays open. A1/A2 parked.
+- **SP-Ea (to 11-29):** Ea-2 on track. Ea-7 and Ea-8 not being met. Ea-6 due 11-15, at 3 of 7. Due 11-22: Ea-1, Ea-5, Ea-9.
+  Due 11-29: Ea-3, Ea-4, Ea-10.
+- **SP-Eb.RD:** Eb-2 done. Eb-1 due 11-15, not started. Eb-3 due 11-22. Eb-4 and Eb-5 not met so far: no direction model
+  and no method beat the calm band (E-11, E-12).
+- **SP-Ec:** ahead of its dates. The LENS is live; the nightly message is previewed, not wired.
+- **SP-Ed:** the forward test runs; verdict 2027-06-21.
+
+### 103.3 Proposed, for the owner
+
+1. **The backfill:** stop retrying a horizon a day after its target, and read the existing evaluations in one query.
+   Expected to bring a run back to about 4 minutes. It changes no stored result; a day's grace keeps the rows an outage's
+   spool could still complete.
+2. **The readers:** one measured run counting bytes per query, then cut to reach 1.5 GB.
+3. **Ea-9, the heartbeat:** today is the case it exists for.

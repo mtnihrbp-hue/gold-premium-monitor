@@ -465,7 +465,7 @@
         "target": "projected under 1.5 GB for the month",
         "measure": "data_transfer_bytes on 11-01 at 06:00 and 11-08",
         "by": "2026-11-08",
-        "status": "open"
+        "status": "not met 2026-11-08: 474.8 MB by 07:10 UTC, 66 MB a day, 3.58 MB a run, projected about 1.97 GB a month against under 1.5 GB; SP-E0 stays open (SP_D_HANDOFF.md 103.1)"
       },
       {
         "id": "E0-3",
@@ -515,7 +515,7 @@
         "target": "a price in at least 98% of scheduled runs, and the backup covers every miss",
         "measure": "14 days of runs from 11-08",
         "by": "2026-11-22",
-        "status": "on track: WallGold 98.9% of scheduled readings from 10-05, Goldika covered all 5 misses; the 14 days counted from 11-04 (SP_D_HANDOFF.md 96.1)"
+        "status": "on track: WallGold 68 of 69 readings since 11-04, Goldika covered the miss; the 14 days counted from 11-04 (SP_D_HANDOFF.md 96.1, 103.1)"
       },
       {
         "id": "Ea-3",
@@ -565,7 +565,7 @@
         "target": "an average of 3 MB or less over 7 days",
         "measure": "data_transfer_bytes across 7 days divided by the runs",
         "by": "2026-11-29",
-        "status": "open"
+        "status": "not being met: 3.58 MB a run over 11-02 to 11-08 (SP_D_HANDOFF.md 103.1)"
       },
       {
         "id": "Ea-8",
@@ -575,7 +575,7 @@
         "target": "a median under 4 minutes with Neon",
         "measure": "gh run list over 7 days",
         "by": "2026-11-29",
-        "status": "open"
+        "status": "not being met: median 6.1 minutes on 11-08, rising since 11-03 with the outcome backfill's 7-day window, which filled on 11-08 (SP_D_HANDOFF.md 103.1)"
       },
       {
         "id": "Ea-9",
@@ -585,7 +585,7 @@
         "target": "2 hours without a phone row raises a SERVICE notice",
         "measure": "a test, and one real case",
         "by": "2026-11-22",
-        "status": "open"
+        "status": "open: the phone went silent at 04:30 Tehran on 11-08 and nothing raised it (SP_D_HANDOFF.md 103.1)"
       },
       {
         "id": "Ea-10",
@@ -595,7 +595,7 @@
         "target": "every item labelled by the fixed schema; a daily event table from 2026-01 onward for the R&D",
         "measure": "the label counts",
         "by": "2026-11-29",
-        "status": "open"
+        "status": "in progress: E-9's labels 271 of 600 days (SP_D_HANDOFF.md 103.1)"
       },
       {
         "id": "Eb-1",
@@ -655,7 +655,7 @@
         "target": "every line labelled and tied to one number; test_64 passes; the owner's approved preview",
         "measure": "the preview and the tests",
         "by": "2026-12-20",
-        "status": "open"
+        "status": "in progress: the LENS live since 2026-11-07; the nightly message previewed, not wired (SP_D_HANDOFF.md 102, 103.2)"
       },
       {
         "id": "Ed-1",
