@@ -2409,7 +2409,7 @@ class KPICoherence(unittest.TestCase):
         self.assertIn("retry_all=True", main_src[main_src.index("def _reevaluate_after_write_back"):])
 
     def test_74_the_price_history_comes_from_the_copy_brought_up_to_date(self):
-        """Four reads of the same price history were 80% of what a run took from Neon (SP_D_HANDOFF.md section 104).
+        """Four reads of the same price history were 60% of what a run took from Neon (SP_D_HANDOFF.md section 104).
         While Neon answers they use the local copy, after it has taken what Neon added, so the answers are Neon's. With no
         copy, with an outage's held readings in it, or when the catch-up fails, they read Neon. In an outage the push and
         the stored context still do not run from the copy, as the owner set (37.12)."""

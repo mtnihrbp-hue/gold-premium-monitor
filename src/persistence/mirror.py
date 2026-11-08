@@ -151,7 +151,7 @@ def _copy_new(m, session, after, since):
 
 def history_session():
     """A session on the copy for the reads of the price history every run repeats, or None when the copy cannot
-    serve them and the caller reads Neon. The four such reads were 80% of what a run took from Neon, the same rows each
+    serve them and the caller reads Neon. The four such reads were 60% of what a run took from Neon, the same rows each
     time (SP_D_HANDOFF.md section 104). The copy first takes what Neon added since it was saved, so the answers are
     Neon's; a copy holding an outage's readings waits for the rebuild at the end of the run."""
     if not enabled() or built_at() is None:
