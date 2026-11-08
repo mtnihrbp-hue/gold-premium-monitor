@@ -10102,3 +10102,164 @@ under 4.
    spool could still complete.
 2. **The readers:** one measured run counting bytes per query, then cut to reach 1.5 GB.
 3. **Ea-9, the heartbeat:** today is the case it exists for.
+
+## 104. Eight platforms; the health check's three fixes; the messages' new shape agreed (2026-11-08)
+
+**The owner:**
+- "ok on the keeps, with one caveat, keep the hoorgold as well";
+- "we can rewire the Analyze to be used to pull the night msg, before night if required, your call?";
+- "rest is ok on the should do";
+- "i remember we talked too much on the gold fund thing, but nothing relevant came to me";
+- "go ahead with the fixes".
+
+**On `sp-de`; not merged until the owner has reviewed it.** **NEON MIGRATION REQUIRED = NO.**
+
+### 104.1 The platforms: eight of eleven
+
+**Measured on 520 scheduled readings from 10-05 and 116 runs from 11-02** (`research/rd_platforms_record.py`, the runs' logs):
+
+| Platform | Read | Frozen | Own time | Verdict |
+|---|---|---|---|---|
+| WallGold | 99% | 0% | yes | keep, the index |
+| Goldika | 100% | 0% | yes | keep, the backup |
+| Milli | 98% | 1% | yes | keep |
+| Ayyareh | 100% | 4% | no | keep, publishes its fees |
+| Invi | 98% | 0% | no | keep |
+| Daric | 79% | 0% | no | keep, through the phone |
+| Parasteh | 89% | 9% | no | keep, a bazaar reference |
+| HoorGold | 91% | 27% | no | keep (the owner), a bazaar reference |
+| Taline | 82% | 9% | no | **dropped**: 36 of 116 runs discarded as a stale copy |
+| Eligold | 98% | 4% | no | **dropped**: often Ayyareh's exact price |
+| MioGold | 98% | 26% | no | **dropped** |
+
+- **The discount a reader sees:** without Taline it moves 0.00 points typically and under 0.12 in 95% of readings. The
+  gold-product platforms never entered it.
+- **The stored `premium_percent`:** Taline or a gold-product platform was the cheapest in 39 of the 520 readings (Milli in
+  410). Those no longer set it. The owner was told before agreeing.
+- **Collection time is not what changes:** the eleven were read together in about 8 seconds.
+- `collector/iran.COLLECTORS` holds eight. The three modules and Taline's 1% band stay unused, should one return. `platforms.PRODUCT_PLATFORMS`
+  keeps Eligold and MioGold, because the stored history carries their names.
+- The fee table (Ea-6) is now six gram platforms, three of them done.
+- `kpi_coherence.test_71`.
+
+**Not fixed by the cut:** Milli sets the stored premium in 79% of readings, 0.87% below the others; the platforms publish
+different sides of the price; WallGold, the index of section 64, is wired to no message.
+
+### 104.2 The backfill
+
+`outcome_evaluator.backfill_outcome_evaluations` asked 72 horizons again on every run. A horizon already evaluated is now
+asked only while its target is within the tolerance ahead of now and no more than 24 hours behind it
+(`RETRY_AFTER_TARGET_HOURS`).
+- 49 could never resolve: the 6-hour horizon of 16:00-21:00 and the 1-hour of 21:00, because the schedule ends at 21:00.
+- 22 had targets still ahead.
+- **A first evaluation is always made.** The run that writes back an outage's readings asks every unresolved horizon again
+  (`main._reevaluate_after_write_back`, `retry_all`), so no stored result changes.
+- The window's evaluations are read in one query, not one per snapshot.
+- **Measured:** 76 horizons evaluated a run became 10.
+- `kpi_sp_c3` 14-16; `kpi_coherence.test_73`.
+
+### 104.3 Neon's readers, measured
+
+**How:** one scheduled run against a temporary Neon branch (deleted after), counting the rows and bytes of every statement by
+the function that read it, the workflow's cache files in place, sending nothing. The bonbast reader fails on this workstation,
+so the dollar was fixed at 266,110; it reads nothing from Neon. The baseline's 3.78 MB against production's 3.58 MB a run
+says the count is about right.
+
+| Reader | Before | After |
+|---|---|---|
+| The stale-quote history, 60 days | 738 KB | local copy |
+| The discount's series, for the stored context | 509 KB | local copy |
+| The same series again, for the push | 509 KB | local copy |
+| The second platform's series, for the confirmation | 496 KB | local copy |
+| The outcome evaluation | about 900 KB | about 110 KB |
+| The regime's thresholds, the phone's rows, news | 433 KB | 433 KB, unchanged |
+| **A run** | **3.78 MB, 1,000 statements** | **0.67 MB, 235 statements** |
+
+- **The four reads were the same rows each time, and the run already keeps them** in `record_mirror.sqlite`, which until now
+  served only outages.
+- **`mirror.history_session`:** while Neon answers, the copy first takes what Neon added since it was saved (about 1 KB), so the
+  answers are Neon's, and the four read from it.
+- It reads Neon as before when there is no copy, when the copy holds an outage's readings, or when the catch-up fails.
+- In an outage the push and the stored context still do not use the copy (37.12).
+- **Checked against Neon on the temporary branch:** the history, both series, the position, the rank, the push's levels, the
+  deep zone and the confirmation were the same, 8 of 8.
+- **A correction made by hand in Neon reaches the copy within a week,** as it did for outages (37.12). After one, delete the
+  cached copy, or these reads use the old row for up to seven days.
+- **Expected, not yet seen in production:** about 0.4 GB a month against E0-2's 1.5 GB, and about 0.6 MB a run against Ea-7's
+  3 MB. The run's median from 6.1 minutes to about 3.5-4 (the backfill was about 180 seconds of it). Measured after the merge.
+- `kpi_coherence.test_74`, and `test_50` holds which reader uses what.
+
+### 104.4 The phone's heartbeat
+
+**The case:** the phone stopped at 04:30 on 11-08 (its battery) and nothing said so.
+- `analysis/service`: a fifth service, `phone`. A scheduled run reads when the phone last read anything
+  (`repository.get_latest_node_time`, one row; every run of the node writes a Daric row, a failed read included).
+- Silent over 60 minutes counts as down. Two hourly runs must agree, as for every service, so the notice comes two to three
+  hours in (Ea-9). Since 11-01 the longest gap while it was alive was 90 minutes, once.
+- With the database out of reach the phone is left unjudged.
+- **Reviewed by the second AI before the owner saw it.** gpt-oss and Qwen scored it clear (8-9). Qwen read "the phone in Iran is
+  sending again" as Telegram working again in Iran, so the words are "the data collector in Iran":
+
+```
+GOLDPremium: SERVICE · 17 Aban, 07:00
+The data collector in Iran has sent nothing since 04:30.
+Not arriving: Daric's price and the gold funds' data.
+The other platforms and prices are not affected.
+```
+
+```
+The data collector in Iran is working again, after 9 hours.
+```
+
+- Status adds "the data collector in Iran silent since 04:30". `kpi_coherence.test_72`.
+
+### 104.5 The messages: the new shape, agreed
+
+Measured over the last six days: UPDATE pulled 14 times, DIRECTION once, ANALYZE never.
+
+| Message | What it should do |
+|---|---|
+| UPDATE | **WHERE to buy now:** platforms ranked by real cost with fees, the discount in one line, stale prices marked |
+| ANALYZE | **Rewired (owner, this section): pulls the nightly message before night.** Today's content retires; how unusual the discount is moves to UPDATE, data health to Status |
+| DIRECTION | **WHEN:** trend, buy or wait, the funds' Saturday-Wednesday week, the 3-day line; the levels go |
+| The nightly message | **One message:** the day, the 3-day line, the funds, the event, the room as how much; replaces the PAPER report and the LENS |
+| The evening without a database | Retired: the nightly message shows "unknown" |
+| The deep-discount push | Stopped until it has a record |
+| The breakout push | The flag only |
+| The room's trade push | Kept |
+| The BUY signal | Stays parked |
+| SERVICE | Kept, with the phone |
+| Status | Kept |
+
+**The rewired ANALYZE, decided:**
+- the same builder as the 21:00 message, with the time of the pull;
+- read-only, as the report wing is;
+- a pull before 21:00 is never recorded or scored, so the forecast record stays the nightly's alone.
+
+**The order** (59.2, surface by surface; each previewed, reviewed by the second AI, merged alone with a safe tag): the nightly
+message and ANALYZE's rewiring first, the two pushes' changes with it; UPDATE, once the fee table is done; DIRECTION. Until each
+merges, the old one keeps running.
+
+### 104.6 The gold funds: where it stands
+
+**The owner is right: nothing new has reached a message.** What arrives is still the old block, the last 7 sessions, in the
+21:00 report and DIRECTION, with no conclusion.
+- **The week and the one line agreed on 11-04 and 11-07 are not wired.** They live in the nightly message, which is not built.
+- **Collected:** closed days from the seed (2017) and the phone; in-session every 15 minutes since 10-18, 14 sessions, 12 whole;
+  the NAV since 11-07, one session.
+- **What the research holds:**
+  - whole-day money: no edge on the clean record (53); it follows the price (47.1);
+  - bursts inside a session are common, 5 sessions of 10: on their own, noise (95.2);
+  - **ticket size, the one shape found:** sellers lead, 18K up the next week 53%; buyers lead, 70%; crowded, 56%; every
+    week, 60% (98.2). Seen after the run, so registered and judged forward at 60 weeks;
+  - hot money, accumulation, distribution: described only (98.2).
+- **The E-10 study** of the in-session flows and the NAV waits for about 60 sessions, mid-January.
+- **Reading now:** 10-31 to 11-04, individuals took out 1,550B toman; sellers' tickets 247M against buyers' 98M; power rank 4 of 100,
+  SELLERS; the week before, rank 15, SELLERS; 11-07 alone, rank 4. 18K went from 26.06M at that week's last close to
+  25.59M on 11-07, -1.8%. One week proves nothing.
+
+### 104.7 Open
+
+- **The phone had sent nothing from 04:30 through at least 12:45 on 11-08,** after the owner recharged it: its schedule did not
+  restart, or it has no connection.
+- **For the owner, unanswered:** the phone as stand-by for WallGold and Goldika; the discount on the three lowest or on the index.

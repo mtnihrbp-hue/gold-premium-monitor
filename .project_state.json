@@ -465,7 +465,7 @@
         "target": "projected under 1.5 GB for the month",
         "measure": "data_transfer_bytes on 11-01 at 06:00 and 11-08",
         "by": "2026-11-08",
-        "status": "not met 2026-11-08: 474.8 MB by 07:10 UTC, 66 MB a day, 3.58 MB a run, projected about 1.97 GB a month against under 1.5 GB; SP-E0 stays open (SP_D_HANDOFF.md 103.1)"
+        "status": "not met 2026-11-08: about 1.97 GB a month against under 1.5 GB (SP_D_HANDOFF.md 103.1); the cut built on sp-de takes a measured run from 3.78 MB to 0.67 MB, expected about 0.4 GB a month, to be measured after its merge (104.3); SP-E0 stays open until then"
       },
       {
         "id": "E0-3",
@@ -552,10 +552,10 @@
         "stage": "SP-Ea",
         "what": "The fee table",
         "baseline": "Ayyareh's from its own answer only",
-        "target": "all 7 gram platforms: buy, sell and withdrawal costs, dated",
+        "target": "all 6 gram platforms: buy, sell and withdrawal costs, dated",
         "measure": "the table, filled by the owner",
         "by": "2026-11-15",
-        "status": "open"
+        "status": "in progress: 3 of 6 gram platforms (WallGold, Daric, Ayyareh); Taline no longer read (SP_D_HANDOFF.md 104.1)"
       },
       {
         "id": "Ea-7",
@@ -565,7 +565,7 @@
         "target": "an average of 3 MB or less over 7 days",
         "measure": "data_transfer_bytes across 7 days divided by the runs",
         "by": "2026-11-29",
-        "status": "not being met: 3.58 MB a run over 11-02 to 11-08 (SP_D_HANDOFF.md 103.1)"
+        "status": "built on sp-de, not merged: a measured run from 3.78 MB to 0.67 MB (SP_D_HANDOFF.md 104.3); to be measured over 7 days after its merge"
       },
       {
         "id": "Ea-8",
@@ -575,7 +575,7 @@
         "target": "a median under 4 minutes with Neon",
         "measure": "gh run list over 7 days",
         "by": "2026-11-29",
-        "status": "not being met: median 6.1 minutes on 11-08, rising since 11-03 with the outcome backfill's 7-day window, which filled on 11-08 (SP_D_HANDOFF.md 103.1)"
+        "status": "built on sp-de, not merged: the backfill evaluates 10 horizons a run, not 76 (SP_D_HANDOFF.md 104.2); expected about 3.5-4 minutes against 6.1; to be measured after its merge"
       },
       {
         "id": "Ea-9",
@@ -585,7 +585,7 @@
         "target": "2 hours without a phone row raises a SERVICE notice",
         "measure": "a test, and one real case",
         "by": "2026-11-22",
-        "status": "open: the phone went silent at 04:30 Tehran on 11-08 and nothing raised it (SP_D_HANDOFF.md 103.1)"
+        "status": "built on sp-de, not merged: SERVICE reports the phone two to three hours into a silence (SP_D_HANDOFF.md 104.4)"
       },
       {
         "id": "Ea-10",
