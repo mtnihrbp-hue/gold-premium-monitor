@@ -1,12 +1,8 @@
 [
-  {"aim": "One forecast the reader can check in three days. Did 18K close above tonight's price, and did it stay above the floor? 18K is the Iranian 18-karat gold price per gram, in million toman.",
-   "text": "18K, next 3 days vs tonight's 25.32M: 58% to close higher; 90% to stay above 24.60M (−2.8%)."},
-  {"aim": "Show what the gold funds' individual investors did so far this trading week (Saturday to Wednesday), and say plainly that one session is too few to conclude anything. The last sentence names what last week showed, without a forecast.",
-   "text": "GOLD FUNDS · this week so far, Sat 16 Aban (1 session; Sunday's not read yet)\nMoney: individuals took out 317B toman; a usual first session brings 420B in\nBuyers: 70,191 a day, as usual\nPer head: sellers 245M toman, buyers 95M\nToo early to call this week. Last week (9–13 Aban), big holders were selling."},
-  {"aim": "How much of the system's paper (simulated, no real money) portfolio is in gold and how much in the fixed-income fund Afran, and its total value. No advice.",
-   "text": "THE ROOM (PAPER): 3 g in gold, the rest in Afran (fixed income) since 10 Aban · total 127.9M toman"},
-  {"aim": "The reader pulled the nightly message before 21:00. Say that this copy is an early look: the official one comes at 21:00, and only that one's forecast is recorded and later scored.",
-   "text": "GOLDPremium: NIGHT · 17 Aban, 17:05\nPulled early. The 21:00 report is the one recorded and scored."},
-  {"aim": "How far the market price of 18K sits below what world gold and the dollar imply, now and at yesterday's last reading.",
-   "text": "Discount 3.2% below world price (was 2.9% below at the close of 16 Aban)"}
+  {"aim": "How far WallGold's 18K gold price sits below what world gold and the dollar imply. The reader should know the figure rests on one named platform's price.",
+   "text": "Discount         3.21%  below world price\n                 on WallGold's price"},
+  {"aim": "The one platform the discount rests on could not be read this time, so there is no discount figure in this message. The other prices in the message are unaffected.",
+   "text": "Discount         not read (WallGold)"},
+  {"aim": "Pulled before the evening report, so the base of the forecast is the price at this moment. The reader can check it in three days against the same figure in that night's message.",
+   "text": "18K, 3 days from now vs 25.32M now: 58% to close higher; 90% to close above 24.60M (−2.8%)."}
 ]
