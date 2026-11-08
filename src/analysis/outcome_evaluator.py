@@ -17,6 +17,10 @@ DEFAULT_HORIZONS = [1, 6, 24]
 DEFAULT_TOLERANCE_MINUTES = 15
 DEFAULT_FLAT_TOLERANCE = 0.01
 REPRESENTATIVE_FALLBACK_CHAIN = ["milli", "ayyareh", "wallgold"]
+# A horizon evaluated and still unresolved this long after its target is not asked again. The schedule ends at 21:00,
+# so nothing is observed at the +6h targets of 16:00-21:00 or the +1h target of 21:00: 49 of the 72 horizons every run
+# retried, and most of the minutes a run had gained since 11-03 (SP_D_HANDOFF.md section 104).
+RETRY_AFTER_TARGET_HOURS = 24
 
 
 def _get_nearest_observation(
@@ -359,11 +363,13 @@ def backfill_outcome_evaluations(
     tolerance_minutes: Optional[int] = None,
     flat_tolerance: Optional[float] = None,
     config: Optional[Dict] = None,
+    retry_all: bool = False,
 ) -> int:
     """Backfill outcome evaluations for recent analysis snapshots.
 
     Safe to run repeatedly. Evaluates only snapshots that do not already
-    have a COMPLETE evaluation for each horizon.
+    have a COMPLETE evaluation for each horizon, and of those skips a horizon
+    already evaluated whose target passed more than RETRY_AFTER_TARGET_HOURS ago.
 
     Args:
         hours: lookback window from now
@@ -371,6 +377,7 @@ def backfill_outcome_evaluations(
         tolerance_minutes: target matching tolerance
         flat_tolerance: FLAT threshold
         config: optional configuration dict
+        retry_all: ask every unresolved horizon again, for the run that wrote back an outage's readings
 
     Returns:
         Number of evaluations created/updated
@@ -382,22 +389,31 @@ def backfill_outcome_evaluations(
         return 0
 
     try:
-        since = datetime.utcnow() - timedelta(hours=hours)
+        now = datetime.utcnow()
+        since = now - timedelta(hours=hours)
+        last_target = now - timedelta(hours=RETRY_AFTER_TARGET_HOURS)
         snapshots = session.query(AnalysisSnapshot).options(
             load_only(AnalysisSnapshot.id, AnalysisSnapshot.analysis_timestamp),
         ).filter(
             AnalysisSnapshot.analysis_timestamp >= since,
         ).order_by(AnalysisSnapshot.analysis_timestamp.desc()).all()
 
+        # The window's evaluations in one read, not one per snapshot.
+        status_of = {(snapshot_id, horizon): status for snapshot_id, horizon, status in session.query(
+            OutcomeEvaluation.analysis_snapshot_id, OutcomeEvaluation.horizon_hours, OutcomeEvaluation.outcome_status,
+        ).join(AnalysisSnapshot, AnalysisSnapshot.id == OutcomeEvaluation.analysis_snapshot_id).filter(
+            AnalysisSnapshot.analysis_timestamp >= since,
+        ).all()}
+
         count = 0
         for snap in snapshots:
-            existing_evals = session.query(OutcomeEvaluation).filter(
-                OutcomeEvaluation.analysis_snapshot_id == snap.id,
-                OutcomeEvaluation.outcome_status == "COMPLETE",
-            ).all()
-            existing_horizons = {e.horizon_hours for e in existing_evals}
-
-            needed_horizons = [h for h in (horizons or DEFAULT_HORIZONS) if h not in existing_horizons]
+            needed_horizons = []
+            for h in (horizons or DEFAULT_HORIZONS):
+                status = status_of.get((snap.id, h))
+                if status == "COMPLETE":
+                    continue
+                if status is None or retry_all or snap.analysis_timestamp + timedelta(hours=h) >= last_target:
+                    needed_horizons.append(h)
             if not needed_horizons:
                 continue
 

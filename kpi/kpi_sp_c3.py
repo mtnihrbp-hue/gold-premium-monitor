@@ -290,6 +290,65 @@ class KPISPC3(unittest.TestCase):
         self.assertIsNotNone(row.premium_movement_percent)
         self.assertEqual(row.premium_direction, "UP")
 
+    # --- the retries a run can no longer afford (SP_D_HANDOFF.md section 104) ----
+
+    def _status(self, snapshot_id):
+        session = _test_get_session()
+        row = session.query(OutcomeEvaluation).filter(
+            OutcomeEvaluation.analysis_snapshot_id == snapshot_id,
+            OutcomeEvaluation.horizon_hours == 1,
+        ).one()
+        session.close()
+        return row.outcome_status
+
+    def test_14_a_horizon_a_day_past_its_target_is_not_asked_again(self):
+        """Every run asked 72 horizons again and 50 of them could never resolve: the schedule ends at 21:00, so
+        nothing is observed at those targets. The run that writes back an outage still asks them all."""
+        reference = datetime.utcnow() - timedelta(hours=40)
+        snapshot_id = _seed_snapshot(reference)
+        _seed_observation(reference, 230_000_000)
+        self.assertEqual(backfill_outcome_evaluations(hours=168, horizons=[1]), 1, "a first evaluation is always made")
+        self.assertEqual(self._status(snapshot_id), "INSUFFICIENT_DATA")
+
+        _seed_observation(reference + timedelta(hours=1), 232_000_000)
+        self.assertEqual(backfill_outcome_evaluations(hours=168, horizons=[1]), 0, "a day past its target: left alone")
+        self.assertEqual(self._status(snapshot_id), "INSUFFICIENT_DATA")
+        self.assertEqual(backfill_outcome_evaluations(hours=168, horizons=[1], retry_all=True), 1)
+        self.assertEqual(self._status(snapshot_id), "COMPLETE")
+
+    def test_15_within_a_day_of_its_target_a_horizon_is_still_asked(self):
+        reference = datetime.utcnow() - timedelta(hours=20)
+        snapshot_id = _seed_snapshot(reference)
+        _seed_observation(reference, 230_000_000)
+        backfill_outcome_evaluations(hours=168, horizons=[1])
+        self.assertEqual(self._status(snapshot_id), "INSUFFICIENT_DATA")
+        _seed_observation(reference + timedelta(hours=1), 232_000_000)
+        backfill_outcome_evaluations(hours=168, horizons=[1])
+        self.assertEqual(self._status(snapshot_id), "COMPLETE")
+
+    def test_16_the_windows_evaluations_are_read_once(self):
+        """One read per snapshot was a third of the backfill's trips to Neon."""
+        from sqlalchemy import event
+        for hours in (30, 20, 10):
+            reference = datetime.utcnow() - timedelta(hours=hours)
+            _seed_snapshot(reference)
+            _seed_observation(reference, 230_000_000)
+            _seed_observation(reference + timedelta(hours=1), 232_000_000)
+        backfill_outcome_evaluations(hours=168, horizons=[1])
+
+        reads = []
+
+        def seen(_conn, _cursor, statement, *_rest):
+            if statement.lstrip().upper().startswith("SELECT") and "outcome_evaluations" in statement:
+                reads.append(statement)
+
+        event.listen(_TEST_ENGINE, "before_cursor_execute", seen)
+        try:
+            self.assertEqual(backfill_outcome_evaluations(hours=168, horizons=[1]), 0)
+        finally:
+            event.remove(_TEST_ENGINE, "before_cursor_execute", seen)
+        self.assertEqual(len(reads), 1)
+
 
 if __name__ == "__main__":
     loader = unittest.TestLoader()

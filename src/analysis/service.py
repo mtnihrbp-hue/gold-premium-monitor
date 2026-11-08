@@ -5,11 +5,12 @@ The owner, 2026-10-16: "the user should be informed of any possible outage, it c
 through the status command as we have on tlgrm or a push msg"; then "go ahead with the outage notice".
 Telegram's Status reported the latest GitHub run, and every run of the Neon outage finished green.
 
-Four services, seen by every scheduled run right after it collects:
+Five services, seen by every scheduled run right after it collects:
   database     Neon answers
   world gold   a live quote, not the stored fallback
   dollar       bonbast answered
   platforms    at least three platforms answered: UPDATE's discount is the mean of the three cheapest
+  phone        the phone in Iran read something within the hour (SP_D_HANDOFF.md section 104)
 
 A change is announced once, when two scheduled runs in a row agree (CONFIRM_RUNS), so one failed read
 does not alarm. Each service starts as working, so an outage already under way is announced by the
@@ -17,18 +18,23 @@ second run that sees it. The state is kept in state.json under "service". Pure: 
 sends nothing.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 CONFIRM_RUNS = 2
 MIN_PLATFORMS = 3          # bubble_position.CHEAP_BASIS_COUNT: the basis needs three platforms
-SERVICES = ("database", "world gold", "dollar", "platforms")
+# Two hourly runs must agree, so a notice comes two to three hours into a silence (KPI Ea-9: two hours). The phone reads
+# every 15 minutes, and since 11-01 its longest gap while alive was 90 minutes, once.
+PHONE_SILENT_MINUTES = 60
+SERVICES = ("database", "world gold", "dollar", "platforms", "phone")
 
 
-def observe(world, world_from_fallback, usd, raw_markets, database_ok, database_reason="", first_held=None):
+def observe(world, world_from_fallback, usd, raw_markets, database_ok, database_reason="", first_held=None,
+            phone_last=None, now=None):
     """This run's view of each service. `first_held` is the oldest write the spool holds: while the
-    database is out of reach it dates the outage better than the first run that saw it."""
+    database is out of reach it dates the outage better than the first run that saw it. `phone_last` is
+    when the phone last read anything; None (the database out of reach) leaves the phone unjudged."""
     working = sum(1 for info in (raw_markets or {}).values() if info.get("status") == "OK")
-    return {
+    seen = {
         "database": {"ok": bool(database_ok), "reason": database_reason or "",
                      "since_hint": first_held.isoformat() if isinstance(first_held, datetime) else None},
         "world gold": {"ok": world is not None and not world_from_fallback,
@@ -36,6 +42,10 @@ def observe(world, world_from_fallback, usd, raw_markets, database_ok, database_
         "dollar": {"ok": usd is not None},
         "platforms": {"ok": working >= MIN_PLATFORMS, "count": working, "total": len(raw_markets or {})},
     }
+    if phone_last is not None and now is not None:
+        seen["phone"] = {"ok": now - phone_last <= timedelta(minutes=PHONE_SILENT_MINUTES),
+                         "since_hint": phone_last.isoformat()}
+    return seen
 
 
 def update(state, observed, now):

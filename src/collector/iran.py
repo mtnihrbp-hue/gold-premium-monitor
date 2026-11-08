@@ -25,27 +25,23 @@ import time
 from collector.milli import get_milli_price
 from collector.goldika import get_goldika_price
 from collector.wallgold import get_wallgold_price
-from collector.taline import get_taline_price
 from collector.hoorgold import get_hoorgold_price
 from collector.parasteh import get_parasteh_price
 from collector.ayyareh import get_ayyareh_price
-from collector.miogold import get_miogold_price
-from collector.eligallery import get_eligold_price
 from collector.daric import get_daric_price
 from collector.invi import get_invi_price
 
+# Taline, Eligold and MioGold are no longer read (owner, 2026-11-08; SP_D_HANDOFF.md section 104): a stale copy in 36 of
+# 116 runs, often Ayyareh's exact price, and frozen 26% of the time.
 COLLECTORS = [
     get_milli_price,
     get_goldika_price,
     get_wallgold_price,
-    get_taline_price,
     get_ayyareh_price,
     get_hoorgold_price,
     get_parasteh_price,
-    get_miogold_price,
     get_daric_price,
     get_invi_price,
-    get_eligold_price,
 ]
 
 # Hard ceiling: if a collector hangs, we stop waiting after this many seconds
@@ -101,8 +97,8 @@ def get_market_prices():
         thread.start()
         threads.append((thread, collector))
 
-    # One shared deadline, not one timeout per join: eleven sequential joins of
-    # GLOBAL_COLLECTOR_TIMEOUT each would allow eleven times the intended ceiling.
+    # One shared deadline, not one timeout per join: sequential joins of
+    # GLOBAL_COLLECTOR_TIMEOUT each would allow the intended ceiling once per collector.
     deadline = time.monotonic() + GLOBAL_COLLECTOR_TIMEOUT
     for thread, _ in threads:
         thread.join(timeout=max(0.0, deadline - time.monotonic()))

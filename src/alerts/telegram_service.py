@@ -92,6 +92,13 @@ def build_message(name, change, record, now, kept=None, left=None, mirror_built=
     elif name == "dollar":
         start = datetime.fromisoformat(record["was_since"]) if record.get("was_since") else since
         lines.append(f"The dollar rate is updating again, {_after(start, now)}.")
+    elif name == "phone" and change == "down":
+        lines.append(f"The data collector in Iran has sent nothing since {_at(since, now)}.")
+        lines.append("Not arriving: Daric's price and the gold funds' data.")
+        lines.append("The other platforms and prices are not affected.")
+    elif name == "phone":
+        start = datetime.fromisoformat(record["was_since"]) if record.get("was_since") else since
+        lines.append(f"The data collector in Iran is working again, {_after(start, now)}.")
     elif name == "platforms" and change == "down":
         lines.append(f"Only {record.get('count', 0)} of {record.get('total', 0)} platforms answered since "
                      f"{_at(since, now)}; the discount needs three.")
@@ -110,7 +117,8 @@ def status_line(state, now):
         since = _at(datetime.fromisoformat(rec["since"]), now) if rec.get("since") else "now"
         out.append({"database": "the database out of reach", "world gold": "world gold not live",
                     "dollar": "the dollar rate unavailable",
-                    "platforms": "too few platforms answering"}[name] + f" since {since}")
+                    "platforms": "too few platforms answering",
+                    "phone": "the data collector in Iran silent"}[name] + f" since {since}")
     return "Service: all working." if not out else "Service: " + "; ".join(out) + "."
 
 

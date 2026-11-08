@@ -2346,6 +2346,65 @@ class KPICoherence(unittest.TestCase):
         self.assertIn('email_cfg.get("send_alerts", True)', main_src)
         self.assertIn('email_cfg.get("send_daily_recap", True)', main_src)
 
+    def test_71_the_platforms_read_are_the_eight_the_owner_kept(self):
+        """The owner, 2026-11-08: Taline, Eligold and MioGold are no longer read; HoorGold stays (SP_D_HANDOFF.md section
+        104). The stored history still carries the three names, so the two gold-product ones stay classified as such."""
+        from collector import iran
+        import platforms
+        self.assertEqual({c.__name__ for c in iran.COLLECTORS},
+                         {"get_milli_price", "get_goldika_price", "get_wallgold_price", "get_ayyareh_price",
+                          "get_invi_price", "get_daric_price", "get_parasteh_price", "get_hoorgold_price"})
+        self.assertFalse(platforms.is_gram("Eligold"))
+        self.assertFalse(platforms.is_gram("MioGold"))
+
+    def test_72_a_silent_phone_raises_a_notice_two_to_three_hours_in(self):
+        """KPI Ea-9 (SP_D_HANDOFF.md section 104): on 11-08 the phone stopped at 04:30 and nothing said so for hours. Two
+        runs must agree, as for every service; the phone is left unjudged while the database cannot be read. The word
+        "collector": a second model read "the phone in Iran" as Iran's telephone service."""
+        from analysis import service
+        from alerts.telegram_service import build_message, status_line
+        last = datetime(2026, 11, 8, 1, 0)                                # 04:30 Tehran
+        markets = {f"P{k}": {"status": "OK"} for k in range(8)}
+        state = {}
+
+        def run(when, seen_last=last):
+            return service.update(state, service.observe(4150.0, False, 270_000.0, markets, True, "", None,
+                                                         phone_last=seen_last, now=when), when)
+
+        self.assertEqual(run(last + timedelta(minutes=50)), [], "within the hour")
+        self.assertEqual(run(last + timedelta(minutes=110)), [], "one run is not enough")
+        down = run(last + timedelta(minutes=170))
+        self.assertEqual([(n, c) for n, c, _ in down], [("phone", "down")])
+        self.assertEqual(down[0][2]["since"], last.isoformat(), "dated by its last reading")
+        self.assertEqual(run(last + timedelta(minutes=230)), [], "announced once")
+
+        text = build_message("phone", "down", down[0][2], last + timedelta(minutes=170))
+        self.assertIn("The data collector in Iran has sent nothing since 04:30.", text)
+        self.assertIn("Not arriving: Daric's price and the gold funds' data.", text)
+        self.assertEqual(status_line(state, last + timedelta(minutes=230)),
+                         "Service: the data collector in Iran silent since 04:30.")
+
+        unjudged = service.observe(4150.0, False, 270_000.0, markets, True, "", None, phone_last=None,
+                                   now=last + timedelta(hours=9))
+        self.assertNotIn("phone", unjudged, "the database out of reach says nothing about the phone")
+
+        back_at = last + timedelta(hours=9)
+        self.assertEqual(run(back_at, back_at), [])
+        back = run(back_at + timedelta(hours=1), back_at + timedelta(hours=1))
+        self.assertEqual([(n, c) for n, c, _ in back], [("phone", "back")])
+        self.assertIn("The data collector in Iran is working again, after 10 hours.",
+                      build_message("phone", "back", back[0][2], back_at + timedelta(hours=1)))
+        main_src = (SRC / "main.py").read_text(encoding="utf-8")
+        self.assertIn("phone_last=_phone_last_seen() if reachable else None", main_src)
+
+    def test_73_a_write_back_asks_every_unresolved_horizon_again(self):
+        """The backfill leaves a horizon alone a day after its target; a write-back can bring what it was waiting for, so
+        the run that stores held writes asks them all (SP_D_HANDOFF.md section 104)."""
+        main_src = (SRC / "main.py").read_text(encoding="utf-8")
+        flush = main_src[main_src.index("def _flush_spool"):main_src.index("def _reevaluate_after_write_back")]
+        self.assertIn("_reevaluate_after_write_back(config)", flush)
+        self.assertIn("retry_all=True", main_src[main_src.index("def _reevaluate_after_write_back"):])
+
 if __name__ == "__main__":
     print("=" * 55)
     print("CROSS-CUTTING COHERENCE")

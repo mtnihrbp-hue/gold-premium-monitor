@@ -366,11 +366,23 @@ def _flush_spool(config=None):
             print(f"SPOOL re-check: {deferred} held quotes deferred by the stale-quote rules")
         written, dropped, left = spool.flush(session, spool_writers(session, entries), entries, keep=kept)
         print(f"SPOOL: {written} held writes stored, {dropped} rejected, {left} still held")
+        if written:
+            _reevaluate_after_write_back(config)
     except Exception as e:
         session.rollback()
         print(f"SPOOL: {len(entries)} held writes wait: {str(e).strip().splitlines()[0][:160]}")
     finally:
         session.close()
+
+
+def _reevaluate_after_write_back(config):
+    """A write-back can bring the observation an evaluation was waiting for, however old its target: every
+    unresolved horizon in the window is asked once more (SP_D_HANDOFF.md section 104). Never raises."""
+    try:
+        from analysis.outcome_evaluator import backfill_outcome_evaluations
+        print(f"Outcome backfill after the write-back: {backfill_outcome_evaluations(config=config, retry_all=True)} evaluation(s)")
+    except Exception as e:  # noqa: BLE001
+        print(f"Outcome backfill after the write-back failed: {e}")
 
 
 def _recheck_held(session, entries):
@@ -1273,6 +1285,21 @@ def _paper_chart(session, analyst, live_sell):
 NEON_SUSPENDED_AT = datetime(2026, 10, 13, 17, 30)
 
 
+def _phone_last_seen():
+    """When the phone in Iran last read anything, or None when that cannot be read (SP_D_HANDOFF.md section 104)."""
+    session = get_session()
+    if session is None:
+        return None
+    try:
+        from database.repository import get_latest_node_time
+        return get_latest_node_time(session)
+    except Exception as e:  # noqa: BLE001
+        print(f"Phone heartbeat unavailable: {e}")
+        return None
+    finally:
+        session.close()
+
+
 def _service_watch(state, now, world, world_from_fallback, usd, raw_markets):
     """See each service in this scheduled run, announce a change once two runs agree, and leave the line
     Telegram's Status shows (analysis/service.py, alerts/telegram_service.py, SP-D section 37.15). Runs
@@ -1299,7 +1326,8 @@ def _service_watch(state, now, world, world_from_fallback, usd, raw_markets):
         elif now < datetime(2026, 11, 1) and not record.get("database", {}).get("last_ok"):
             first = min(first, NEON_SUSPENDED_AT) if first else NEON_SUSPENDED_AT
         observed = service.observe(world, world_from_fallback, usd, raw_markets, reachable,
-                                   mirror.unreachable_reason(), first)
+                                   mirror.unreachable_reason(), first,
+                                   phone_last=_phone_last_seen() if reachable else None, now=now)
         changes = service.update(record, observed, now)
         database = record.get("database", {})
         if not observed["database"]["ok"]:

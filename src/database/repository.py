@@ -256,6 +256,16 @@ def get_latest_node_reading(session, source, instrument, since):
     )
 
 
+def get_latest_node_time(session):
+    """When the phone in Iran last read anything (naive UTC), or None: its heartbeat (SP_D_HANDOFF.md section 104).
+    Every run of the node writes a Daric row, a failed read included."""
+    return (
+        session.query(func.max(IranNodeReading.observed_at))
+        .filter(IranNodeReading.source == "daric", IranNodeReading.instrument == "DARIC_18K")
+        .scalar()
+    )
+
+
 def get_input_directions(world, usd, session):
     """Return direction indicators for world gold and USD."""
     if world is None or usd is None:
