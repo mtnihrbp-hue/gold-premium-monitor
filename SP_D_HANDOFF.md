@@ -87,6 +87,9 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    100 five models on the LENS; gold headlines; the funds' line in the owner's form; E-12: no method beats the calm band
                                                                    101 two judges on the LENS; the nightly message previewed
                                                                    102 the LENS live; a second model reviews every line; the 3-day line with a chance and a floor (v1.44safe)
+                                                                   103 health check of 17 Aban; where the plan stands
+                                                                   104 eight platforms; the backfill; Neon's readers cut; the phone's heartbeat; the messages' new shape (v1.45safe)
+                                                                   105 merged; the phone stands by for two platforms; the discount's basis tested; the nightly message previewed
        member, the LLM member
 ```
 
@@ -10263,3 +10266,98 @@ merges, the old one keeps running.
 - **The phone had sent nothing from 04:30 through at least 12:45 on 11-08,** after the owner recharged it: its schedule did not
   restart, or it has no connection.
 - **For the owner, unanswered:** the phone as stand-by for WallGold and Goldika; the discount on the three lowest or on the index.
+
+## 105. Merged; the phone stands by for two platforms; the discount's basis on the record; the nightly message previewed again (2026-11-08)
+
+**The owner, on 104:** "GO AHEAD FULL POWER"; on the phone as a stand-by, "YES"; on the discount's basis, "waiting for your feedback".
+
+**NEON MIGRATION REQUIRED = NO.**
+
+### 105.1 The merge
+
+- `main` tagged `v1.45safe` (7b0d716, SP-D 102), then fast-forwarded with `SP-D` to `sp-de` at b68e9ad: 103 and 104.
+- **Before it:** KPI suite 31/31, unit tests 20/20, compileall, on b68e9ad.
+- **The first run on it, 17:00 Tehran:** 2.2 minutes, the last two runs before it 4.3 and 6.2. Eight platforms read, 10 horizons evaluated, the copy current, every service reading.
+- E0-2, Ea-7 and Ea-8 are measured over the 7 days from here.
+
+### 105.2 The phone stands by for WallGold and Goldika
+
+**Built on `sp-de` (97a0b3e), the phone's half on `sp-d-iran-node` (571bf6a); production's half not merged.**
+
+- **`iran_node/node.py`** reads the two on every run, the addresses the runner's collectors ask, as sources `wallgold` and `goldika`. WallGold is one number (64.3); Goldika two sides, with its own price time in `detail`. No payload. A failed read is a row, as Daric's is. About 192 small rows a day.
+- **`main._standby_from_node`** takes the phone's newest OK row of the last 30 minutes when the runner's read failed, or when the runner got a copy older than `MAX_QUOTE_AGE_HOURS` (the Sotoon case, SP_C 44).
+- **A live read is never replaced.** The quote goes through validation like any platform's, with Goldika's own time where the row carries it, so the stale-quote rules still apply. WallGold stays one-sided, as the runner reads it.
+- **Fails open:** no database or no recent row, and the platform stays as its collector left it.
+- **The phone's rows wait for production without harm:** nothing reads these two sources until the merge.
+- `kpi_signal_confirmation` 52-55, `kpi_coherence.test_75`, and `test_60` carries the phone's new reads. KPI 31/31, unit tests 20/20, compileall.
+
+### 105.3 The discount's basis, tested on the record
+
+**`research/rd_discount_basis.py`:** the three lowest gram platforms, the WallGold index (Goldika as its backup, 64.1), and the gram median, replayed on the six gram platforms still read. 619 scheduled readings since the stale-quote rules (09-29).
+
+| | Three lowest | WallGold index |
+|---|---|---|
+| Typical discount | 1.51% | 1.33% |
+| A reading-to-reading move, typical size | 0.26 pp | 0.30 pp |
+| Moves over 0.5 pp | 13.5% | 17.9% |
+| A frozen quote inside it | 3.6% of readings | 0.2% |
+| What a frozen quote cost the number, on average | 0.003 pp | 0.0002 pp |
+| Deep on the day's last reading, of 37 days | 5 | 7 (all 5 of the others among them) |
+
+- **They tell one story:** correlation 0.97; the same direction day over day on 35 of 37 days.
+- **The backup is the index's weakness:** Goldika sits about 1% above. In the 6 readings WallGold was missing, the index jumped by up to 1.8 points with no market move (11-05 08:01: 1.05% below where the three lowest said 2.81%). The 10-30 readings show the same.
+- **The frozen-quote advantage is real and worth almost nothing:** the stale-quote rules and a one-third weight already contain it.
+- **Neither predicts better:** 25-27 days cannot separate them. The correlation of the discount with 18K's 7-day move is -0.28 for the three lowest and -0.15 for the index, inside each other's error.
+- **The three lowest's weakness:** Milli sits in them in 95% of readings, and without Milli the discount reads 0.28 points shallower. Its side of the price is unknown (37.7). It is a constant lean, so the ranks and the deep level are unaffected, but the size a reader sees leans deep.
+
+**My call, which reverses 64.4's "the discount is measured on the index alone" and is the owner's to accept:** keep the three lowest as the discount. WallGold's place is the where-to-buy ranking at real cost, which is the question it answers. The evidence does not justify re-basing every rank and level, a 15% noisier number, and a backup that fakes moves. **Nothing changed in code; the comparison can be replayed from the stored prices at any time.**
+
+### 105.4 The nightly message, previewed from today's real numbers
+
+**Three corrections found while building it:**
+- **The 3-day line's base.** The line of 102 measured from yesterday's close, so at 21:00 one of its three days had already gone. Proposed: tonight's price, resolved at the close three trading days later, as the record measures it.
+- **"To stay above" was wrong.** The record (102.1) is the third day's close. Both reviewers asked; the line says "to close above".
+- **The funds' line on a thin week.** The zones were registered on weeks of 3 or more sessions, and on Saturday and Sunday there are fewer. Below 3 sessions the block says so and names last week, with no forecast. On those nights, "next trade week" of last week is already this week and partly resolved.
+
+**A divergence closed in the design.** The LENS's "Discount" line is the market median at tgju's level against world price, not UPDATE's three lowest: at 17:00 today 2.9% and 3.2%, the same word. The nightly message takes UPDATE's number and its value at the last reading of the day before, so one word has one number.
+
+**Reviewed by gpt-oss-120b and Qwen 3.8 before the owner (102.2).** Taken: "to close above"; the room's holding given in money, not "the rest"; "Early look. Only the 21:00 report is recorded and scored."; "big holders among them", since "individuals" and "big holders" read as two groups.
+
+```
+GOLDPremium: NIGHT · 17 Aban, 17:05
+Early look. Only the 21:00 report is recorded and scored.
+
+NOW vs the close of 16 Aban
+18K 25.32M (market, tgju): −1.1%
+World gold $4,072: +0.0%
+USD/IRR 265,500: −0.2%
+Tether 267,360: +0.0%
+Discount 3.2% below world price (was 2.9% below at the close of 16 Aban)
+
+NEXT 3 DAYS
+18K, 3 days from now vs tonight's 25.32M: 58% to close higher; 90% to close above 24.60M (−2.8%).
+
+GOLD FUNDS · this week so far, Sat 16 Aban (1 session; Sunday's not read yet)
+Money: individuals took out 317B toman; a usual first session brings 420B in
+Buyers: 70,191 a day, as usual
+Per head: sellers 245M toman, buyers 95M
+Too early to call this week. Last week (9–13 Aban), big holders among them were selling.
+
+THE EVENT
+(as the LENS sends it, unchanged)
+
+THE ROOM (PAPER)
+75.6M toman in gold (3 g), 52.3M in Afran (fixed income) since 10 Aban · total 127.9M
+
+Decision support, not an instruction to trade.
+```
+
+- **At 21:00** the second line goes and the time is 21:00.
+- **From a week's third session,** the funds' last line becomes the owner's form (102.2). Before wiring, check that the 25% of 100.3 is measured the way the line says it.
+- **The chart,** kept as its own photo (102).
+- **Not built.** Talk, preview, then wire.
+
+### 105.5 Open
+
+- **The phone had sent nothing from 04:30 through at least 17:25 on 11-08.** The first notice of the new heartbeat is due at the 18:00 run or the one after, if it stays silent.
+- **For the owner:** the basis (105.3); the nightly message's lock, with its base of tonight's price (105.4); the merge of production's half of 105.2; the two judges, strict or softer.

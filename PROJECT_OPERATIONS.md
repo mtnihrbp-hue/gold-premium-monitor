@@ -614,16 +614,17 @@ INSERT (`SP_D_HANDOFF.md` sections 30-31).
 code        iran_node/node.py (Python + requests), iran_node/setup.sh (one-time setup)
 on phone    ~/gold-premium-monitor (git clone -b sp-d-iran-node), ~/.iran_node.env (NEON_URL, NODE)
 schedule    cronie, every 15 minutes; Termux:Boot restarts it after a reboot
-reads       Daric; TSETMC's closed days of the 19 gold
+reads       Daric; WallGold and Goldika as a stand-by (SP_D_HANDOFF.md 105.2); TSETMC's closed days of the 19 gold
             funds (each hour's first quarter, source tsetmc); from 2026-10-18 TSETMC's live flow of the same
             funds, 12:00-18:15 Saturday-Wednesday, about 520 rows a trading day (source tsetmc_live, research
             only; SP_D_HANDOFF.md 48.2)
 local       ~/iran_node.log; ~/iran_node_spool.jsonl holds what could not be sent; ~/iran_node_rejected.jsonl
             the rows Neon refused for their content (SQLSTATE 22, 23), set aside; ~/.iran_node.lock, one run
             at a time (SP-D 52.4)
-update      cd ~/gold-premium-monitor && git pull
+update      cd ~/gold-premium-monitor && git pull (and sh iran_node/setup.sh after a dead battery: wake lock, schedule, one reading)
 production  main._daric_from_node: the newest OK reading of the last 30 minutes, when
-            Daric's own collector fails; validated like any platform
+            Daric's own collector fails; validated like any platform. main._standby_from_node does the
+            same for WallGold and Goldika, and for a copy older than validation accepts
 ```
 
 The role is made by SQL, never through Neon's API or console: a role made there joins
