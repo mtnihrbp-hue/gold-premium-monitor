@@ -104,7 +104,7 @@ Production is `main`, dispatched by cron-job.org and the Cloudflare worker with 
 | Daily recap | — | `alerts/telegram_*` (email removed 2026-11-04, SP-D 92) | **parked** 2026-10-15 (`config.email.send_daily_recap`) |
 | The pulse | the first scheduled run of a Tehran day (06:00), when the last close broke out of a box, up or down, or out of a flag | `main._chart_pulse`, `alerts/telegram_pulse.py` | live from 2026-10-22 (SP-D 56-57); tgju's candles, no database needed; each break told once, and not when the next close is back inside the box (SP-D 60); no BUY, SELL or WAIT |
 | LENS | first run from 21:00 | `analysis/lens.py`, `alerts/telegram_lens.py`, `intelligence/news_lens.py`, `collector/polymarket.py`, `analysis/cases.py` | built 2026-10-31 on sp-de (SP-D 86), not yet on `main`: now against the last close, the ceasefire's real-money odds (Polymarket), the day's headlines toward a strike or a deal picked and translated by the AI model (Groq, the first AI call in production; owner 2026-10-31), what followed past strikes and deals (`seed/cases.json`), the read from the numbers; no database needed; `config.lens.send` |
-| SERVICE | when the database, world gold, the dollar or the platforms stop or come back (two runs agreeing) | `analysis/service.py`, `alerts/telegram_service.py` | live from 10-16 (SP-D 37.15); Status shows the same line (the worker pasted 10-17) |
+| SERVICE | when the database, world gold, the dollar, the platforms or the phone in Iran stop or come back (two runs agreeing) | `analysis/service.py`, `alerts/telegram_service.py` | live from 10-16 (SP-D 37.15); the phone added in SP-D 104; Status shows the same line (the worker pasted 10-17) |
 
 **Parked, not deleted** (owner, 2026-10-16: the Analysis Wing "is to be rethought, not retired"):
 `config.analysis_wing` turns off the evidence package, interpretation, features and read model, the
@@ -122,12 +122,12 @@ Telegram-channel news reader (`collector/news/telegram_channels.py`, research on
 
 1. **Flush the spool** (section 7) before the run takes its time.
 2. **Collect**, each source isolated:
-   - eleven platforms under one deadline;
+   - eight platforms under one deadline;
    - world gold: gold-api.com, then Kitco's stream, then goldprice.org, under one 60-second deadline;
    - the dollar from bonbast.
 3. **Validate** (`validation/data.py`). Sanity ranges, then the stale-quote rules: the source's own
-   price time, a repeat, a jump, and Taline's 1% band. They act on that reading only; `CLAUDE.md` gives
-   them in full.
+   price time, a repeat, a jump, and Taline's 1% band (idle while Taline is not read). They act on that
+   reading only; `CLAUDE.md` gives them in full.
 4. **Store the observations** (`price_observations`): the representative price, and BUY and SELL rows
    for the two-sided platforms.
 5. **Decide**:
@@ -153,17 +153,16 @@ back. The runner is pinned to `ubuntu-24.04`.
 
 ## 5. The data and what it means
 
-**Platforms.** Eleven Iranian platforms, collected from GitHub's runner. Daric refuses the runner
-(since 2026-10-03) and is read by the owner's phone. What each one's `price` means differs (SP-D
-37.7):
+**Platforms.** Eight Iranian platforms, collected from GitHub's runner. Daric refuses the runner
+(since 2026-10-03) and is read by the owner's phone. Taline, Eligold and MioGold were dropped on
+2026-11-08 (SP-D 104); their stored history stays. What each one's `price` means differs (SP-D 37.7):
 
 | Platform | `price` | Both sides stored |
 |---|---|---|
 | Daric, Goldika | what a buyer pays | yes |
-| Taline | between its two sides | yes, from 10-16 |
 | Ayyareh | its published price; the fees give the sides | no: the representative chain reads it |
 | Milli, Invi, WallGold | one price, side not published | no |
-| MioGold, Parasteh, HoorGold, Eligold | a gallery's reference price, not a raw-gold price | no |
+| Parasteh, HoorGold | a gallery's reference price, not a raw-gold price | no |
 
 So "the discount" compares mixed kinds of number. That is known and kept, because changing what
 `price` means would break every rank and level drawn from its history. A one-sided discount is to be
@@ -174,8 +173,8 @@ measured before any change.
   SP-D 64): world gold × the dollar × 0.75 / 31.1035.
 - **The discount a reader sees:** the mean of the three cheapest **gram** platforms against the world price
   (`analysis/bubble_position.cheap_basis_price`). The gold-product platforms (Eligold, HoorGold, Parasteh,
-  MioGold; `src/platforms.py`) are shown apart, since 2026-10-29 (SP-D 65). The 30-day record is rebuilt on the
-  same basis.
+  MioGold; `src/platforms.py`) are shown apart, since 2026-10-29 (SP-D 65), and only HoorGold and Parasteh are
+  still read (SP-D 104). The 30-day record is rebuilt on the same basis.
 - **The stored `premium_percent`:** from the single cheapest platform. The engine, outcomes and
   snapshots read this one, and the split is deliberate (`SP_C_HANDOFF.md` 15.1).
 - **The deep-discount level:** one number for every surface, `deep_discount_threshold()` over the
@@ -377,14 +376,11 @@ until the sentence that says otherwise.
 | The decision engine's BUYs do not pick better moments | owner's decision on 39.6 | SP-D 39.3 |
 | Morning readings priced on yesterday's dollar; dollar freshness stored as always fresh | research first | `SP_C_HANDOFF.md` 34.3 |
 | Daric refuses GitHub's runner | their side; the phone reads it | SP-D 29-31 |
-| Taline's frozen copy is stored when it sits within its band and its usual position | open | SP-D 20, 29 |
 | Google News's " - Publisher" suffix defeats the title hash (one story from two outlets) | open | `SP_C_HANDOFF.md` 34.5 |
 | `high_impact_count` reads `relevance` for values only `impact` holds (always 0) | open; parked with the evidence package | `SP_C_HANDOFF.md` 33.3 |
-| The outcome backfill retries horizons that cannot complete for 7 days | open | health check 2026-10-03 |
 | `AFRAN_LAST` dated one to two sessions late (tablokhani's `closing_1d_ago`) | small; with the next change to the room | SP-D 29 |
 | `structure_state` DISCOUNT_DOMINANT on almost every row | measured, left alone; a rare-event detector | `SP_C_HANDOFF.md` 28, 34.6 |
 | The analysis snapshot's support and resistance are labelled by extremum type | unshown; readers get Direction's levels | `SP_C_HANDOFF.md` 41.1 |
-| Ayyareh and Eligold quote the same price in about 60% of readings | watch (owner: keep both) | `SP_C_HANDOFF.md` 44 |
 | The news LLM classification path has never run in production | open | `SP_C_HANDOFF.md` 27.5 |
 | 92 `datetime.utcnow()` calls, deprecated in Python 3.12 | open; the clean-up | SP-D 36.3 |
 

@@ -116,17 +116,64 @@ def _read_only(session, flush_context, instances):
         raise RuntimeError("the record mirror is read-only")
 
 
+def _copy_session():
+    from sqlalchemy import event
+    from sqlalchemy.orm import sessionmaker
+    session = sessionmaker(bind=_mirror_engine())()
+    event.listen(session, "before_flush", _read_only)
+    return session
+
+
 def read_session():
     """A session for the reads that can be served from the copy: Neon's when it answers, the copy's
     when it does not and a copy exists, and otherwise Neon's (which then fails as it always has)."""
     from database import connection
     if not enabled() or reachable() or built_at() is None:
         return connection.get_session()
-    from sqlalchemy import event
-    from sqlalchemy.orm import sessionmaker
-    session = sessionmaker(bind=_mirror_engine())()
-    event.listen(session, "before_flush", _read_only)
-    return session
+    return _copy_session()
+
+
+def _copy_new(m, session, after, since):
+    """Copy into the open transaction `m` the readings Neon holds past id `after`. Returns the rows copied."""
+    from sqlalchemy import select
+    snap, prices, _ = _tables()
+    new_snaps = [dict(r) for r in session.execute(
+        select(snap).where(snap.c.timestamp >= since, snap.c.id > after).order_by(snap.c.id)).mappings()]
+    new_prices = [dict(r) for r in session.execute(
+        select(prices).select_from(prices.join(snap, prices.c.snapshot_id == snap.c.id))
+        .where(snap.c.timestamp >= since, snap.c.id > after).order_by(prices.c.id)).mappings()]
+    if new_snaps:
+        m.execute(snap.insert(), new_snaps)
+    if new_prices:
+        m.execute(prices.insert(), new_prices)
+    return len(new_snaps) + len(new_prices)
+
+
+def history_session():
+    """A session on the copy for the reads of the price history every run repeats, or None when the copy cannot
+    serve them and the caller reads Neon. The four such reads were 80% of what a run took from Neon, the same rows each
+    time (SP_D_HANDOFF.md section 104). The copy first takes what Neon added since it was saved, so the answers are
+    Neon's; a copy holding an outage's readings waits for the rebuild at the end of the run."""
+    if not enabled() or built_at() is None:
+        return None
+    from sqlalchemy import func, select
+    from database import connection
+    snap, _, _ = _tables()
+    neon = connection.get_session()
+    if neon is None:
+        return None
+    try:
+        with _mirror_engine().begin() as m:
+            if m.execute(select(func.count()).select_from(snap).where(snap.c.id < 0)).scalar():
+                return None
+            after = m.execute(select(func.max(snap.c.id))).scalar() or 0
+            _copy_new(m, neon, after, datetime.utcnow() - timedelta(days=WINDOW_DAYS))
+    except Exception as e:  # noqa: BLE001
+        print(f"MIRROR not current, reading Neon: {str(e).strip().splitlines()[0][:200]}")
+        return None
+    finally:
+        neon.close()
+    return _copy_session()
 
 
 def refresh(session, now=None):
@@ -150,15 +197,7 @@ def refresh(session, now=None):
                 after = 0
             else:
                 after = m.execute(select(func.max(snap.c.id))).scalar() or 0
-            new_snaps = [dict(r) for r in session.execute(
-                select(snap).where(snap.c.timestamp >= since, snap.c.id > after).order_by(snap.c.id)).mappings()]
-            new_prices = [dict(r) for r in session.execute(
-                select(prices).select_from(prices.join(snap, prices.c.snapshot_id == snap.c.id))
-                .where(snap.c.timestamp >= since, snap.c.id > after).order_by(prices.c.id)).mappings()]
-            if new_snaps:
-                m.execute(snap.insert(), new_snaps)
-            if new_prices:
-                m.execute(prices.insert(), new_prices)
+            copied = _copy_new(m, session, after, since)
             old = select(snap.c.id).where(snap.c.timestamp < since)
             m.execute(prices.delete().where(prices.c.snapshot_id.in_(old)))
             m.execute(snap.delete().where(snap.c.timestamp < since))
@@ -168,7 +207,7 @@ def refresh(session, now=None):
             for key, value in stamps.items():
                 m.execute(meta.delete().where(meta.c.key == key))
                 m.execute(meta.insert(), [{"key": key, "value": value}])
-        return len(new_snaps) + len(new_prices)
+        return copied
     except Exception as e:  # noqa: BLE001
         print(f"MIRROR not refreshed: {str(e).strip().splitlines()[0][:200]}")
         return None

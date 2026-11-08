@@ -1393,10 +1393,13 @@ class KPICoherence(unittest.TestCase):
         keeps Neon's session and the spool."""
         import main
         from update import baseline_resolver
-        readers = {"_resolve_decision_valuation", "_recent_platform_history", "_resolve_signal_confirmation",
-                   "_resolve_presentation_context", "main"}
+        readers = {"_resolve_decision_valuation", "_resolve_presentation_context", "main"}
         for name in readers:
             self.assertIn("_read_session()", inspect.getsource(getattr(main, name)), name)
+        for name in ("_recent_platform_history", "_resolve_signal_confirmation"):
+            self.assertIn("_history_session(_read_session)", inspect.getsource(getattr(main, name)), name)
+        # section 104: the copy while Neon answers; in an outage the push keeps Neon, so it stays parked
+        self.assertIn("_history_session(get_session)", inspect.getsource(main._evaluate_deep_discount_push))
         for name in ("_evaluate_deep_discount_push", "_paper_run", "_send_analyze_report", "_direction_precompute",
                      "_send_direction_report", "_flush_spool", "_save_price_observations", "_collect_tgju_candles"):
             self.assertNotIn("_read_session()", inspect.getsource(getattr(main, name)), name)
@@ -2404,6 +2407,71 @@ class KPICoherence(unittest.TestCase):
         flush = main_src[main_src.index("def _flush_spool"):main_src.index("def _reevaluate_after_write_back")]
         self.assertIn("_reevaluate_after_write_back(config)", flush)
         self.assertIn("retry_all=True", main_src[main_src.index("def _reevaluate_after_write_back"):])
+
+    def test_74_the_price_history_comes_from_the_copy_brought_up_to_date(self):
+        """Four reads of the same price history were 80% of what a run took from Neon (SP_D_HANDOFF.md section 104).
+        While Neon answers they use the local copy, after it has taken what Neon added, so the answers are Neon's. With no
+        copy, with an outage's held readings in it, or when the catch-up fails, they read Neon. In an outage the push and
+        the stored context still do not run from the copy, as the owner set (37.12)."""
+        import main
+        from database.repository import get_recent_platform_prices
+        mirror = self._mirror_file(reachable=True)
+        now = datetime.utcnow()
+        source = _test_get_session()
+        self.addCleanup(source.close)
+
+        def reading(at):
+            row = MarketSnapshot(timestamp=at, world_gold_usd=4300.0, usd_irr=230_000.0, fair_price=FAIR,
+                                 premium_percent=-3.0, collection_mode="scheduled")
+            source.add(row)
+            source.flush()
+            source.add(PlatformPrice(snapshot_id=row.id, platform_name="A", timestamp=at, price_irr=FAIR * 0.97))
+            source.commit()
+
+        def on_neon(session):
+            bound = session.bind is _TEST_ENGINE
+            session.close()
+            return bound
+
+        self.assertTrue(on_neon(main._history_session(_test_get_session)), "no copy yet: Neon")
+        reading(now - timedelta(hours=3))
+        mirror.refresh(source, now)
+        reading(now - timedelta(hours=1))             # written after the copy was saved
+
+        since = now - timedelta(days=1)
+        copy = main._history_session(_test_get_session)
+        try:
+            self.assertIsNot(copy.bind, _TEST_ENGINE, "Neon in reach and a copy: the copy")
+            self.assertEqual([(t, n, float(p)) for _, t, n, p in get_recent_platform_prices(copy, since)],
+                             [(t, n, float(p)) for _, t, n, p in get_recent_platform_prices(source, since)],
+                             "brought up to date first: the reading written after it was saved is there")
+            self.assertEqual(len(get_recent_platform_prices(copy, since)), 2)
+        finally:
+            copy.close()
+
+        original = mirror._copy_new
+        mirror._copy_new = lambda *a: (_ for _ in ()).throw(RuntimeError("the catch-up failed"))
+        try:
+            self.assertTrue(on_neon(main._history_session(_test_get_session)), "a failed catch-up: Neon")
+        finally:
+            mirror._copy_new = original
+
+        mirror._reachable = False
+        self.assertTrue(on_neon(main._history_session(_test_get_session)), "the push's fallback in an outage: not the copy")
+        outage = main._history_session(main._read_session)
+        self.assertIsNot(outage.bind, _TEST_ENGINE, "the outage path of the readers that have one is unchanged")
+        outage.close()
+
+        mirror._reachable = True
+        mirror.add_held({"timestamp": now, "fair_price": FAIR, "premium_percent": -3.0, "world_gold_usd": 4300.0,
+                         "usd_irr": 230_000.0, "signal": None, "confidence": None, "collection_mode": "scheduled"}, [])
+        self.assertTrue(on_neon(main._history_session(_test_get_session)), "an outage's held readings: Neon until rebuilt")
+
+        main_src = (SRC / "main.py").read_text(encoding="utf-8")
+        for name in ("_recent_platform_history", "_resolve_signal_confirmation", "_build_valuation_context",
+                     "_evaluate_deep_discount_push"):
+            body = main_src[main_src.index(f"def {name}("):]
+            self.assertIn("_history_session(", body[:body.index("\ndef ", 10)], name)
 
 if __name__ == "__main__":
     print("=" * 55)

@@ -167,7 +167,7 @@ tokens (worker, cron-job.org) are fine-grained: this repository, Actions read an
 
 **Status** (`src/worker/telegram-trigger.js`) reports the latest run, and since 2026-10-16 also the
 service line the last scheduled run left as an annotation of its job: the database, world gold, the
-dollar and the platforms (SP-D 37.15). The worker is deployed by pasting the file into Cloudflare's
+dollar, the platforms (SP-D 37.15) and the phone in Iran (SP-D 104). The worker is deployed by pasting the file into Cloudflare's
 dashboard, so a change to it is live only once it is pasted.
 
 Current status:
@@ -614,7 +614,7 @@ INSERT (`SP_D_HANDOFF.md` sections 30-31).
 code        iran_node/node.py (Python + requests), iran_node/setup.sh (one-time setup)
 on phone    ~/gold-premium-monitor (git clone -b sp-d-iran-node), ~/.iran_node.env (NEON_URL, NODE)
 schedule    cronie, every 15 minutes; Termux:Boot restarts it after a reboot
-reads       Daric; Taline, HoorGold, MioGold (compared with production); TSETMC's closed days of the 19 gold
+reads       Daric; TSETMC's closed days of the 19 gold
             funds (each hour's first quarter, source tsetmc); from 2026-10-18 TSETMC's live flow of the same
             funds, 12:00-18:15 Saturday-Wednesday, about 520 rows a trading day (source tsetmc_live, research
             only; SP_D_HANDOFF.md 48.2)

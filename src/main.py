@@ -107,6 +107,14 @@ def _read_session():
     return get_session()
 
 
+def _history_session(fallback):
+    """The session for the reads of the price history every run repeats: the local copy, brought up to date, while
+    Neon answers (persistence/mirror.history_session, SP_D_HANDOFF.md section 104); else `fallback()`, as before."""
+    from persistence import mirror
+    session = mirror.history_session() if mirror.enabled() and mirror.reachable() else None
+    return session if session is not None else fallback()
+
+
 def _resolve_decision_valuation(premium, thresholds):
     """The valuation leg, or an abstention.
 
@@ -472,7 +480,7 @@ def _recent_platform_history(now):
     guess is worse than keeping it -- and the confirmation check below still fails
     closed, so a stale quote that slips through cannot carry a signal on its own.
     """
-    session = _read_session()
+    session = _history_session(_read_session)
     if session is None:
         return []
     try:
@@ -524,7 +532,7 @@ def _resolve_signal_confirmation(markets, fair, usd, world_from_fallback, thresh
     check that cannot run holds the signal, because a recommendation that cannot show
     its evidence must not be sent (SP_C_HANDOFF.md section 38).
     """
-    session = _read_session()
+    session = _history_session(_read_session)
     if session is None:
         return SignalConfirmation(world_live=not world_from_fallback, status="NO_SESSION")
     try:
@@ -571,7 +579,7 @@ def _build_valuation_context(premium, markets=None, fair=None, thresholds=None):
     Non-blocking: returns None on any failure, since a missing context must never
     prevent a decision from being persisted.
     """
-    session = get_session()
+    session = _history_session(get_session)
     if session is None:
         return None
     try:
@@ -1570,7 +1578,7 @@ def _evaluate_deep_discount_push(markets, fair, state):
     from alerts.telegram_analyze import send_push
     from caluclator.gold import find_lowest_market_price
 
-    session = get_session()
+    session = _history_session(get_session)
     if session is None:
         return
     try:

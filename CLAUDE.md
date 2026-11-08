@@ -122,8 +122,8 @@ them; do not restate them. `kpi_coherence.test_20` fails on a local redefinition
 
 The discount shown to a reader is the mean of the three cheapest **gram** platforms
 (`analysis/bubble_position.cheap_basis_price`). Since 2026-10-29 the gold-product platforms
-(Eligold, HoorGold, Parasteh, MioGold), which are jewellery galleries' prices and often frozen,
-are shown apart and enter no discount, its record, the push or the BUY confirmation. One
+(HoorGold and Parasteh; Eligold and MioGold until they were dropped on 2026-11-08), which are
+jewellery galleries' prices and often frozen, are shown apart and enter no discount, its record, the push or the BUY confirmation. One
 definition, `src/platforms.py`; `kpi_coherence.test_65` holds every reader to it
 (`SP_D_HANDOFF.md` section 65). `market_snapshots.premium_percent` is
 still computed from the single cheapest of every platform and is what the decision engine,
@@ -286,7 +286,7 @@ where you stand: check a platform from the runner's side (Psiphon), not from Ira
   move (holds remembered in `state.json`): a live price that jumped moves and is
   accepted at the next reading, a copy repeats and stays held. It fired once in two
   months of replay; it is a backstop, not an outlier filter.
-- **Taline** is also discarded when more than 1.0% from the median.
+- **Taline** is also discarded when more than 1.0% from the median. Idle since 2026-11-08: Taline is no longer read (`SP_D_HANDOFF.md` §104).
 
 Staleness is not distance. A fresh price far from the others is information, and
 platforms have natural offsets (Goldika about +1.1%, Milli about -0.9%). Do not turn
@@ -300,7 +300,7 @@ Fail-safe law used throughout collection/analysis: on missing data, use a safe d
 
 ### Source layout
 
-- `src/collector/` — per-platform Iranian gold price collectors (HoorGold, Parasteh, Daric, Taline, Ayyareh, Invi, MioGold, Eligold, Goldika, Milli, WallGold) plus `kitco.py` (XAU/USD), `bonbast.py` (USD/IRR), `news/` (RSS ingestion), `tgju.py` (tgju's daily candles for technical analysis, stored by `main` in `market_daily_candles`, never mixed with platform prices), and `tablokhani.py` / `etfbaz.py` (the PAPER room's daily inputs GitHub's runner reaches: the stock index, Afran's close, Tether, stored as their own sources in `market_daily_candles`; TSETMC's money flow comes through the Iran-side node, `iran_node/node.py`; fipiran still waits). Each platform's `price` means something different -- a buyer's price (Daric, Goldika), a price between the sides (Taline, Ayyareh), one price of unknown side (Milli, Invi, WallGold), or a jewellery gallery's reference (MioGold, Parasteh, HoorGold, Eligold); see `SP_D_HANDOFF.md` §37.7 before comparing them. Representative Iranian price fallback order is `Milli → Ayyareh → WallGold → UNKNOWN`; source failures must stay isolated from each other. Unit normalization (e.g. Toman→Rial) is a collector-level responsibility, not a market-model adjustment.
+- `src/collector/` — per-platform Iranian gold price collectors, eight read since 2026-11-08 (HoorGold, Parasteh, Daric, Ayyareh, Invi, Goldika, Milli, WallGold; the modules of Taline, Eligold and MioGold remain, unused, `collector/iran.py`) plus `kitco.py` (XAU/USD), `bonbast.py` (USD/IRR), `news/` (RSS ingestion), `tgju.py` (tgju's daily candles for technical analysis, stored by `main` in `market_daily_candles`, never mixed with platform prices), and `tablokhani.py` / `etfbaz.py` (the PAPER room's daily inputs GitHub's runner reaches: the stock index, Afran's close, Tether, stored as their own sources in `market_daily_candles`; TSETMC's money flow comes through the Iran-side node, `iran_node/node.py`; fipiran still waits). Each platform's `price` means something different -- a buyer's price (Daric, Goldika), a price between the sides (Ayyareh), one price of unknown side (Milli, Invi, WallGold), or a jewellery gallery's reference (Parasteh, HoorGold); see `SP_D_HANDOFF.md` §37.7 before comparing them. Representative Iranian price fallback order is `Milli → Ayyareh → WallGold → UNKNOWN`; source failures must stay isolated from each other. Unit normalization (e.g. Toman→Rial) is a collector-level responsibility, not a market-model adjustment.
 - `src/caluclator/` (sic — existing spelling, keep it) — deterministic market math: fair price, premium/bubble, momentum, signal/decision state, trends, structure, conflict resolution, and `chartist.py` (the chart reader: swings, structure, channel, box, patterns, phase).
 - `src/validation/` — input validation gates before values enter calculation.
 - `src/analysis/` — the Analysis Wing pipeline: scheduler, snapshot builder, regime detection, structure, outcome evaluation, runner; and the SP-D PAPER portfolio (`paper.py`, `quant.py`, `room.py`: the front office's posture from eight members, `SP_D_HANDOFF.md` sections 27 and 33). `src/seed/` holds the room's histories production cannot fetch (TEDPIX and the cost of money, built by `research/build_seeds.py`; the gold funds' money flow, `research/build_flow_seed.py`), which production extends with its own daily readings: tablokhani's, and TSETMC's money flow from the Iran-side node (`iran_node_readings`).

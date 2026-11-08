@@ -14,7 +14,7 @@ Implemented (`PROJECT_MEMORY.md` section 3):
 - `/Direction` — the trend, buy now or wait, support and resistance, what to watch, gold demand
 
 - `Status` — the latest run, and the service line the last scheduled run left (database, world gold,
-  dollar, platforms; `SP_D_HANDOFF.md` 37.15)
+  dollar, platforms, the phone in Iran; `SP_D_HANDOFF.md` 37.15, 104)
 
 Each pulled reply ends with its command as a tag on its own last line, `#update`, `#analyze`, `#direction` or
 `#status`, so the owner can find every reply to one command (the owner, 2026-11-01; `SP_D_HANDOFF.md` 90). It is
