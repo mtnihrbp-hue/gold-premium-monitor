@@ -369,7 +369,7 @@ class KPISignalConfirmation(unittest.TestCase):
         self.assertIn("3.08%  below world price", text)
         self.assertNotIn("4.93", text)
         # of the 7 gram platforms: the 4 gold-product platforms are not in the basis (SP_D_HANDOFF.md 65)
-        self.assertIn("from the 3 cheapest of 7", text)
+        self.assertIn("on WallGold's price", text)
         self.assertIn("91% of the last 30 days", text)
         self.assertIn("If 3.50% or more", text)
 

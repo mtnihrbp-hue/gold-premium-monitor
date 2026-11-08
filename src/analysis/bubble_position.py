@@ -32,7 +32,7 @@ from typing import List, Optional
 
 from caluclator.valuation import classify_valuation
 from database.models import MarketSnapshot, PlatformPrice
-from platforms import gram_markets, is_gram
+from platforms import index_markets, is_index
 from timeutil import local_date, to_utc
 # One definition each, at the src root -- see `tolerances.py`.
 from tolerances import COMPARABLE_BAND_FRACTION, UNCHANGED_DEADBAND_PP
@@ -360,6 +360,9 @@ def resolve_bubble_position(
 #
 # The single cheapest platform is still resolved and displayed, as the execution
 # price. What changed is which number the valuation rests on.
+#
+# Since 2026-11-08 the reader's discount passes only WallGold's price through here (platforms.INDEX_PLATFORM; owner: "no, just
+# wallgold"; SP_D_HANDOFF.md section 106), so its mean is of one.
 CHEAP_BASIS_COUNT = 3
 
 # Before the collection_mode migration of 2026-09-14, nothing recorded whether a
@@ -612,7 +615,7 @@ def _basis_series(session, window_start, now):
             snapshot_id,
             {"timestamp": timestamp, "fair": float(fair), "mode": mode, "prices": []},
         )
-        if is_gram(name):
+        if is_index(name):
             entry["prices"].append(float(price))
 
     series = []
@@ -667,17 +670,17 @@ def resolve_relative_valuation(
 
     prices = []
     if markets:
-        # the gram platforms only: a gold-product platform's price is a gallery's, often frozen (platforms.py)
+        # the index alone (platforms.py)
         prices = [
-            float(info["price"]) for info in gram_markets(markets).values()
+            float(info["price"]) for info in index_markets(markets).values()
             if info.get("status") == "OK" and info.get("price") is not None
         ]
     basis_price = cheap_basis_price(prices)
     current = signed_gap(basis_price, fair_price)
     if session is None:
         # The basis and its gap need only today's prices; only the rank needs the record. Without it the
-        # discount stays on the three cheapest, as every other reading shows it, and the ranks are absent
-        # -- it fell back to the single cheapest while the database was out of reach (SP_D_HANDOFF.md 54).
+        # discount stays on the index, as every other reading shows it, and the ranks are absent -- it fell
+        # back to the single cheapest while the database was out of reach (SP_D_HANDOFF.md 54).
         return _basis_only(window_days, current, basis_price, prices)
 
     # The reference distribution ends at the last completed local day, and the window
@@ -701,7 +704,8 @@ def resolve_relative_valuation(
         return _basis_only(window_days, current, basis_price, prices)
 
     if current is None:
-        if not series:
+        # a reading without the index has no discount: the last one is not passed off as this one's
+        if not series or (markets and fair_price):
             return _empty_valuation(window_days)
         current = series[-1][2]
 

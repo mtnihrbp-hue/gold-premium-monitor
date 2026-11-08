@@ -7,8 +7,8 @@ wanting to buy a gold ring, so you need to see what normally the gold product pl
 - **Gold grams:** Milli, Goldika, WallGold, Taline, Ayyareh, Daric, Invi.
 - **Gold products:** a jewellery gallery's 18K price, frozen 17% to 61% of the time on the record (63.3).
 
-The discount, its 30-day record, the deep-discount level, the push and the BUY confirmation rest on the gram
-platforms. The product platforms are shown apart, as the bazaar's reference.
+The where-to-buy list and the BUY confirmation rest on the gram platforms. The product platforms are shown apart, as the
+bazaar's reference. The discount, its 30-day record and the deep-discount level rest on one gram platform, the index below.
 
 `market_snapshots.premium_percent` keeps every platform's single cheapest, as stored since July: it is the
 parked BUY engine's input, and changing it would split its series.
@@ -18,10 +18,25 @@ One definition here, as `timeutil` holds the time and `tolerances` the bands.
 
 PRODUCT_PLATFORMS = frozenset({"Eligold", "HoorGold", "Parasteh", "MioGold"})
 
+# The discount rests on WallGold's price alone (owner, 2026-11-08: "no, just wallgold"; SP_D_HANDOFF.md section 106). There is
+# no backup: Goldika sits about 1% above it, and in its stead showed moves of up to 1.8 points that never happened (105.3). A
+# reading without WallGold has no discount, and says so.
+INDEX_PLATFORM = "WallGold"
+
 
 def is_gram(name):
     """True for a platform where gold is bought and sold as grams."""
     return name not in PRODUCT_PLATFORMS
+
+
+def is_index(name):
+    """True for the one platform the discount rests on."""
+    return name == INDEX_PLATFORM
+
+
+def index_markets(markets):
+    """The index platform of a {name: info} reading: one entry, or none when it was not read."""
+    return {name: info for name, info in (markets or {}).items() if is_index(name)}
 
 
 def gram_markets(markets):

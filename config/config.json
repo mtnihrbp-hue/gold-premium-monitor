@@ -125,6 +125,10 @@
     "write_back": ["reading", "observation", "candles"],
     "note": "Owner, 2026-10-30: the outage's held writes are not written back by themselves when Neon returns: \"we should only write back the data we will use and is trustworthy, not everything that we have collected so far ... clean up, and once confirmed move it to neon\". They stay held in the spool, exported, checked and cleaned outside production, and written back only once the owner confirms (SP_D_HANDOFF.md section 70). Confirmed by the owner on 2026-10-30 (\"1-ok\"): readings, price observations and daily inputs are written back; news stays held, to be kept locally for the news revamp, not in Neon (section 73)."
   },
+  "push": {
+    "deep_discount": false,
+    "note": "The deep-discount push is stopped until it has a record (owner, 2026-11-08; SP_D_HANDOFF.md 104.5, 106): it is still evaluated, and each push it would have sent is logged as parked. true brings it back."
+  },
   "lens": {
     "send": true,
     "note": "Live from 2026-11-07 (the owner: \"the news can come live to see whats around and start polishing\"; SP_D_HANDOFF.md 102): two judges, Qwen 3.8 and gpt-oss-120b. Off 2026-11-01 to 11-07 until the owner had reviewed a full message (the owner: \"the LENS need more time from my side\"); merged to main switched off so the rest of sp-de is not held (SP_D_HANDOFF.md 90). The nightly LENS (SP_D_HANDOFF.md 84-86): now against the last close, the ceasefire's real-money odds (Polymarket), the day's headlines toward a strike or a deal picked and translated by the AI model (Groq; approved by the owner 2026-10-31: \"1-approved. 2-go ahead\"), what followed past strikes and deals (src/seed/cases.json), and the read from the numbers. Once per Tehran day from 21:00. false stops it."

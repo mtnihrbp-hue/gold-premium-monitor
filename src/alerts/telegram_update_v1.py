@@ -26,7 +26,7 @@ from alerts.helpers import (
     format_m_tomans_short,
 )
 from analysis.bubble_position import cheap_basis_price, signed_gap
-from platforms import gram_markets, is_gram, product_markets
+from platforms import INDEX_PLATFORM, gram_markets, index_markets, is_index, product_markets
 from update.baseline_resolver import UpdateBaselines
 
 
@@ -77,6 +77,14 @@ def _elapsed_label(timestamp, now=None):
         return f"{minutes}m ago"
     hours, rest = divmod(minutes, 60)
     return f"{hours}h ago" if rest == 0 else f"{hours}h {rest}m ago"
+
+
+def _reader_gap(valuation, premium, markets):
+    """The gap a reader is shown: the valuation's, on the index. A reading without the index has none, never the stored
+    minimum under the same word; only with no valuation at all does the stored premium stand in, as it always has."""
+    gap = valuation.gap if valuation is not None and valuation.gap is not None else premium
+    read = any(info.get("status") == "OK" and info.get("price") is not None for info in index_markets(markets).values())
+    return None if markets and not read else gap
 
 
 def _gap_naming(premium):
@@ -206,10 +214,9 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
     # built from the same number rather than pairing a trimmed reading against an
     # untrimmed row.
     basis_now = valuation.basis_price if valuation is not None else None
-    basis_count = valuation.basis_count if valuation is not None else 0
     if basis_now is not None:
         rows.append(_market_row(
-            f"Lowest {basis_count}",
+            INDEX_PLATFORM,
             format_m_tomans_short(basis_now),
             _delta_bare(_pct_change(basis_now, _baseline_basis(run))),
             _delta_bare(_pct_change(basis_now, _baseline_basis(day))),
@@ -227,7 +234,7 @@ def _build_market(world, usd, fair, platform_avg, lowest, highest, spread, premi
     # Same naming and same direction as THE NUMBER. The row previously carried the
     # signed premium, so the identical market movement appeared here with the
     # opposite sign to the block above it.
-    gap = valuation.gap if valuation is not None and valuation.gap is not None else premium
+    gap = _reader_gap(valuation, premium, markets)
     gap_label, _ = _gap_naming(gap)
     rows.append(_market_row(
         gap_label,
@@ -332,19 +339,21 @@ def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state
     if structure:
         lowest = structure["low_price"]
 
-    # Everything below rests on the trimmed basis, not on the single cheapest
+    # Everything below rests on the index, WallGold (platforms.py), not on the single cheapest
     # platform. `premium` is still the stored, minimum-based value and is used only
     # where a valuation is unavailable.
-    gap = valuation.gap if valuation is not None and valuation.gap is not None else premium
+    gap = _reader_gap(valuation, premium, markets)
     label, side = _gap_naming(gap)
     basis_now = valuation.basis_price if valuation is not None else None
-    basis_count = valuation.basis_count if valuation is not None else 0
 
     # "world price": world gold times the dollar, which the market has stayed under for months; not "fair
     # value" (the external audit's B1) and no longer "parity" (owner, 2026-10-29; SP_D_HANDOFF.md section 64)
-    lines.append(_row(label, f"{abs(gap):.2f}%  {side} world price"))
-    if basis_count and total_platforms:
-        lines.append(_cont(f"from the {basis_count} cheapest of {total_platforms}"))
+    if gap is None:
+        lines.append(_row("Discount", f"not read ({INDEX_PLATFORM})"))
+    else:
+        lines.append(_row(label, f"{abs(gap):.2f}%  {side} world price"))
+        if basis_now is not None:
+            lines.append(_cont(f"on {INDEX_PLATFORM}'s price"))
 
     run_gap = _baseline_gap(run, basis_now)
     run_move = _gap_movement(gap, run_gap)
@@ -395,7 +404,7 @@ def _build_the_number(premium, lowest, fair, platform_avg, markets, signal_state
             lines.append(_row("Platforms", f"{below} of {total} below world price"))
 
     lines.append("")
-    cheapest = _cheapest_platforms(markets, basis_count)
+    cheapest = _cheapest_platforms(markets, CHEAPEST_SHOWN)
     if cheapest:
         lines.append(_row("Cheapest " + str(len(cheapest)),
                           ", ".join(name for name, _ in cheapest)))
@@ -432,23 +441,24 @@ def _price_range(sorted_prices):
 
 
 def _baseline_basis(baseline):
-    """Trimmed basis price of a baseline snapshot, rebuilt from its platform prices."""
+    """The index's price at a baseline snapshot, from its platform prices."""
     if baseline is None or not baseline.platform_prices:
         return None
-    return cheap_basis_price(p for name, p in baseline.platform_prices.items() if is_gram(name))
+    return cheap_basis_price(p for name, p in baseline.platform_prices.items() if is_index(name))
 
 
 def _baseline_gap(baseline, fallback_basis=None):
-    """Signed gap of a baseline snapshot, rebuilt on the trimmed basis.
+    """Signed gap of a baseline snapshot, rebuilt on the index.
 
     The baseline carries every platform price it recorded, so the basis is
     recomputed rather than read from its stored premium, which was minimum-based.
+    A baseline without the index has no gap to compare with.
     """
     if baseline is None or not baseline.fair_price:
         return None
-    basis = cheap_basis_price(p for name, p in baseline.platform_prices.items() if is_gram(name))
+    basis = cheap_basis_price(p for name, p in baseline.platform_prices.items() if is_index(name))
     if basis is None:
-        return baseline.premium_percent
+        return None
     return signed_gap(basis, baseline.fair_price)
 
 
@@ -457,6 +467,9 @@ def _level_with_change(value, change):
     if change is not None:
         text += f"  {change:+.2f}%"
     return text
+
+
+CHEAPEST_SHOWN = 3                  # the platforms listed as the cheapest: where to buy, not the discount's basis
 
 
 def _cheapest_platforms(markets, count):

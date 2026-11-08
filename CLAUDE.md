@@ -120,8 +120,9 @@ them; do not restate them. `kpi_coherence.test_20` fails on a local redefinition
 
 ### Valuation basis
 
-The discount shown to a reader is the mean of the three cheapest **gram** platforms
-(`analysis/bubble_position.cheap_basis_price`). Since 2026-10-29 the gold-product platforms
+The discount shown to a reader rests on WallGold's price alone (`platforms.INDEX_PLATFORM`; owner, 2026-11-08, "no, just
+wallgold", `SP_D_HANDOFF.md` section 106). There is no backup: a reading without WallGold has no discount and says so
+(`kpi_coherence.test_76`). Until then it was the mean of the three cheapest gram platforms. Since 2026-10-29 the gold-product platforms
 (HoorGold and Parasteh; Eligold and MioGold until they were dropped on 2026-11-08), which are
 jewellery galleries' prices and often frozen, are shown apart and enter no discount, its record, the push or the BUY confirmation. One
 definition, `src/platforms.py`; `kpi_coherence.test_65` holds every reader to it

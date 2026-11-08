@@ -1600,10 +1600,10 @@ def _evaluate_deep_discount_push(markets, fair, state):
     if session is None:
         return
     try:
-        from platforms import gram_markets
-        # the gram platforms only, as UPDATE and ANALYZE read the discount (platforms.py)
+        from platforms import index_markets
+        # the index alone, as UPDATE and ANALYZE read the discount (platforms.py)
         prices = [
-            float(info["price"]) for info in gram_markets(markets).values()
+            float(info["price"]) for info in index_markets(markets).values()
             if info.get("status") == "OK" and info.get("price") is not None
         ]
         gap = signed_gap(cheap_basis_price(prices), fair)
@@ -1623,6 +1623,9 @@ def _evaluate_deep_discount_push(markets, fair, state):
             state["deep_discount_armed"] = decision.armed_after
 
         if not decision.should_fire:
+            return
+        if not (load_config().get("push") or {}).get("deep_discount", False):
+            print(f"PUSH parked: would have fired at gap={round(gap, 2)} (SP_D_HANDOFF.md 104.5, 106)")
             return
 
         lowest = find_lowest_market_price(markets)
@@ -1657,12 +1660,13 @@ def _basis_change(markets, fair, baselines):
     run = baselines.run if baselines else None
     if run is None or not run.platform_prices or not run.fair_price or not fair:
         return None
+    from platforms import index_markets, is_index
     prices = [
-        float(info["price"]) for info in (markets or {}).values()
+        float(info["price"]) for info in index_markets(markets).values()
         if info.get("status") == "OK" and info.get("price") is not None
     ]
     now_gap = signed_gap(cheap_basis_price(prices), fair)
-    run_gap = signed_gap(cheap_basis_price(run.platform_prices.values()), run.fair_price)
+    run_gap = signed_gap(cheap_basis_price(p for name, p in run.platform_prices.items() if is_index(name)), run.fair_price)
     if now_gap is None or run_gap is None:
         return None
     return abs(now_gap) - abs(run_gap)

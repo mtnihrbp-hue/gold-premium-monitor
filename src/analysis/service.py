@@ -21,7 +21,7 @@ sends nothing.
 from datetime import datetime, timedelta
 
 CONFIRM_RUNS = 2
-MIN_PLATFORMS = 3          # bubble_position.CHEAP_BASIS_COUNT: the basis needs three platforms
+MIN_PLATFORMS = 3          # the where-to-buy list needs three platforms
 # Two hourly runs must agree, so a notice comes two to three hours into a silence (KPI Ea-9: two hours). The phone reads
 # every 15 minutes, and since 11-01 its longest gap while alive was 90 minutes, once.
 PHONE_SILENT_MINUTES = 60

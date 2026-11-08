@@ -90,6 +90,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    103 health check of 17 Aban; where the plan stands
                                                                    104 eight platforms; the backfill; Neon's readers cut; the phone's heartbeat; the messages' new shape (v1.45safe)
                                                                    105 merged; the phone stands by for two platforms; the discount's basis tested; the nightly message previewed
+                                                                   106 the stand-by live (v1.46safe); the discount on WallGold alone; the 3-day line's check; the big holders
        member, the LLM member
 ```
 
@@ -10361,3 +10362,70 @@ Decision support, not an instruction to trade.
 
 - **The phone had sent nothing from 04:30 through at least 17:25 on 11-08.** The first notice of the new heartbeat is due at the 18:00 run or the one after, if it stays silent.
 - **For the owner:** the basis (105.3); the nightly message's lock, with its base of tonight's price (105.4); the merge of production's half of 105.2; the two judges, strict or softer.
+
+## 106. The stand-by live; the discount on WallGold alone; the 3-day line's check; the big holders (2026-11-08)
+
+**The owner, on 105:**
+- on the 3-day base: "how to fix it?";
+- "to close above" and the funds' line from the third session: "ok", "ok";
+- on keeping the three lowest: "no, just wallgold";
+- "else is ok": the nightly message locked, the two judges strict, the stand-by merged;
+- "on the gold fund thing, you said the big heads to be counted, is it considered here? and how this translates".
+
+**NEON MIGRATION REQUIRED = NO.**
+
+### 106.1 The stand-by merged
+
+`main` tagged `v1.46safe` (b68e9ad), then fast-forwarded with `SP-D` to 8cfd321: 105's stand-by and record. It waits for the phone: nothing reads these rows until the phone sends them.
+
+### 106.2 The discount on WallGold alone
+
+**Built on `sp-de`; not merged until the owner has seen its lines.** The owner's decision reverses my call of 105.3, and removes its main objection: there is no backup to fake a move.
+
+- **One definition:** `platforms.INDEX_PLATFORM`, with `is_index` and `index_markets`. UPDATE's discount and its baselines, the 30-day series and the deep level, the 7-day column, ANALYZE and the push read it.
+- **No backup.** A reading without WallGold has no discount. UPDATE says "Discount  not read (WallGold)"; neither the last reading's number nor the stored minimum stands in. WallGold was missing in 6 of the 619 readings since 09-29, five of them on the morning of 10-30, and the phone now stands by.
+- **Untouched:** `market_snapshots.premium_percent` (the parked BUY engine's input, 15.1) and the BUY's second-platform confirmation, on the gram platforms. "Cheapest 3" stays: it says where to buy, not how deep.
+- **UPDATE's lines:** the continuation "from the 3 cheapest of 6" becomes "on WallGold's price"; the market table's "Lowest 3" row becomes "WallGold".
+- **On production's reading of 17:00 today:** 3.21% below world price on WallGold, against 3.24% on the three lowest. The deep level is 2.42% on both.
+- **Reviewed by the second AI (102.2):** Qwen scored the lines 8-9 for clarity. gpt-oss's points were the date and a source name, which the message's header and footer carry. Nothing changed.
+
+**The deep-discount push stops in this batch, not with the nightly message.** Its corroboration, "the deep discount without its cheapest platform too", has nothing to check on one platform, and both false pushes on record rested on one stale quote (44). Stopping was already agreed (104.5). `config.push.deep_discount` false: it is still evaluated, and each push it would have sent is logged as "PUSH parked", which is the record 104.5 asks for.
+
+**Tests:** `kpi_coherence.test_76`; `test_65` renamed for what it now holds; the fixtures of `kpi_sp_c4`, `kpi_sp_c6` and the coherence file seed a WallGold row. KPI 31/31, unit tests 20/20, compileall.
+
+### 106.3 The 3-day line: the base and its check
+
+**The fix:** the base is the 18K figure of the message's own NOW line, and the check is the NOW line three trading nights later (Friday does not count). A Sunday night's line resolves on Wednesday night's message.
+
+- **Why not tgju's close at the far end:** tonight's figure sits typically 0.29% from that day's tgju close over 75 days, and 0.35% to 0.58% below it on the last five. A base on one series and a check on another would hand "to close higher" several points for free: 0.5% is about 0.2 of the 3-day spread, about 7 points of chance. One series at both ends has no such gap, and a reader can check it in the message itself.
+- **The old base carried a typical 1.00%** from the day already gone.
+- **An early look** says "vs 25.32M now" and is not recorded. Reviewed: Qwen 9/10 clear.
+- The chance and floor stay as measured on the record (102.1).
+
+### 106.4 The big heads: what the message holds
+
+**What was said (97.3, 98.2, 100.3):** the money in or out says little, because what individuals put in, institutions take out, mostly the market maker issuing units. The size of each side's ticket says more.
+
+**How it is counted.** TSETMC gives each side's total money and number of people, so ticket size is money divided by people. The week's power is the buyers' ticket over the sellers'. It is ranked against the 52 weeks before.
+
+**It cannot name people:** an average says the sellers' tickets are large, not how many large sellers there are.
+
+**How it translates:**
+
+| Power rank | Called | 18K up the next week | Closed the next week lower | Dropped to the 3-day floor |
+|---|---|---|---|---|
+| under 40 | Sellers lead: "big holders are selling" | 53% | 46% | 25% |
+| 40 to 80 | Buyers lead | 70% | 29% | 14% |
+| 80 and over | Crowded | 56% | 42% | 23% |
+| any week | | 60% | 38% | 21% |
+
+- **In the message:** the "Per head" line, the words "big holders", and from the third session the funds' forecast line with these rates.
+- **Last week:** sellers' tickets 247M against buyers' 98M, 2.5 times; power rank 4 of 100, sellers lead. Saturday alone: 245M and 95M, rank 4.
+- **Hot money, accumulation, distribution:** tested as named patterns (98.2), none separated. The message does not use the words.
+- Found after the run, so the table is a past record, judged forward at 60 weeks (98.2).
+
+### 106.5 Open
+
+- **The phone:** silent since 04:30 on 11-08.
+- **For the owner:** the merge of 106.2.
+- **Next, on sp-de:** the nightly message wired (locked), with ANALYZE's rewiring and the breakout push as the flag only.

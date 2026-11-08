@@ -88,7 +88,7 @@ def build_buy_signal_message(*, fair, markets, signal_state, confirmation, valua
         _row(label, f"{abs(gap):.2f}%  {side} world price"),
     ]
     if basis_count and total_platforms:
-        lines.append(_cont(f"from the {basis_count} cheapest of {total_platforms}"))
+        lines.append(_cont("on WallGold's price"))
     if valuation is not None and valuation.status == "OK":
         window = valuation.window_days
         lines.append(_row("Bigger than", f"{valuation.bigger_than}% of the last {window} days"))
@@ -126,7 +126,7 @@ def build_buy_signal_message(*, fair, markets, signal_state, confirmation, valua
         lines.append(_row("Dollar rate", f"live{updated}"))
         lines.append(_row("World gold", "live"))
 
-    cheapest = _cheapest_platforms(markets, basis_count or 3)
+    cheapest = _cheapest_platforms(markets, 3)
     lines.append("")
     if cheapest:
         lines.append(_row(f"Cheapest {len(cheapest)}", ", ".join(name for name, _ in cheapest)))

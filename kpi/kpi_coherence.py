@@ -184,7 +184,7 @@ def _seed(readings):
         )
         session.add(snapshot)
         session.flush()
-        for index, name in enumerate(("A", "B", "C", "D")):
+        for index, name in enumerate(("WallGold", "B", "C", "D")):
             price = basis if index < 3 else basis * 1.05
             session.add(PlatformPrice(snapshot_id=snapshot.id, platform_name=name,
                                       timestamp=timestamp, price_irr=price))
@@ -307,7 +307,7 @@ class KPICoherence(unittest.TestCase):
         session = _test_get_session()
         valuation = bp.resolve_relative_valuation(
             session,
-            markets={n: {"price": FAIR * 0.97, "status": "OK"} for n in "ABC"},
+            markets={n: {"price": FAIR * 0.97, "status": "OK"} for n in ("WallGold", "B", "C")},
             fair_price=FAIR, now=NOW)
         fire = pt.resolve_push_thresholds(session, now=NOW).fire_at
         self.assertEqual(valuation.status, "OK")
@@ -1976,13 +1976,13 @@ class KPICoherence(unittest.TestCase):
         self.assertIn('dm.get("label")', _inspect.getsource(telegram_direction._demand))
         self.assertIn("_keep_funds_reading(state, now)", _inspect.getsource(main.main))
         self.assertIsNotNone(gold_demand.MIN_FUNDS)
-        # UPDATE's basis without the database: the three cheapest, ranks absent
+        # UPDATE's basis without the database: the index, ranks absent
         M = 1e7
-        prices = {"A": 25.70, "B": 25.80, "C": 25.80, "D": 25.82, "E": 26.12}
+        prices = {"A": 25.70, "B": 25.80, "WallGold": 25.80, "D": 25.82, "E": 26.12}
         markets = {k: {"status": "OK", "price": v * M} for k, v in prices.items()}
         val = bp.resolve_relative_valuation(None, markets=markets, fair_price=26.36 * M)
-        self.assertEqual((val.basis_count, val.status), (3, "INSUFFICIENT_DATA"))
-        self.assertAlmostEqual(val.gap, (25.7667 / 26.36 - 1) * 100, places=2)
+        self.assertEqual((val.basis_count, val.status), (1, "INSUFFICIENT_DATA"))
+        self.assertAlmostEqual(val.gap, (25.80 / 26.36 - 1) * 100, places=2)
         self.assertIsNone(val.bigger_than)
         # the box: its targets from the edges as shown
         found = {"ranges": [(_dt(2026, 10, 1).date(), _dt(2026, 10, 15).date(), 252_655_000.0, 267_390_000.0, True)],
@@ -2080,10 +2080,10 @@ class KPICoherence(unittest.TestCase):
                             found.append(f"{module}:{node.lineno} {word!r} in {node.value[:50]!r}")
         self.assertEqual(found, [])
 
-    def test_65_the_discount_rests_on_the_gram_platforms_everywhere(self):
+    def test_65_the_two_kinds_of_platform_have_one_definition(self):
         """The owner, 2026-10-29: two kinds of platform, grams and gold products ("Eligold - Hoorgold - Parasteh
-        and Mio gold"), and "fix now the discounts". One definition (platforms.py); every reader of the discount,
-        its record, the push's corroboration and the BUY's second platform filters on it (SP_D_HANDOFF.md 65)."""
+        and Mio gold"). One definition (platforms.py). The where-to-buy list and the BUY's second platform filter on the
+        grams (SP_D_HANDOFF.md 65); the discount, since 2026-11-08, on the index (test_76)."""
         import inspect as _inspect
         import platforms
         import main
@@ -2100,11 +2100,11 @@ class KPICoherence(unittest.TestCase):
                         if "PRODUCT_PLATFORMS =" in fh.read():
                             defined.append(f)
         self.assertEqual(defined, ["platforms.py"], "one definition")
-        for reader in (bubble_position._basis_series, confirmation.second_gap_series):
-            self.assertIn("is_gram(name)", _inspect.getsource(reader), reader.__name__)
-        self.assertIn("is_gram(name)", _inspect.getsource(analyze_report))
-        self.assertIn("gram_markets(markets)", _inspect.getsource(bubble_position.resolve_relative_valuation))
-        self.assertIn("gram_markets(markets)", _inspect.getsource(main._evaluate_deep_discount_push))
+        self.assertIn("is_gram(name)", _inspect.getsource(confirmation.second_gap_series))
+        self.assertIn("is_index(name)", _inspect.getsource(bubble_position._basis_series))
+        self.assertIn("is_index(name)", _inspect.getsource(analyze_report))
+        self.assertIn("index_markets(markets)", _inspect.getsource(bubble_position.resolve_relative_valuation))
+        self.assertIn("index_markets(markets)", _inspect.getsource(main._evaluate_deep_discount_push))
         self.assertIn("gram_markets(markets)", _inspect.getsource(telegram_update_v1._cheapest_platforms))
         self.assertIn("gram_markets(markets)", _inspect.getsource(telegram_signal))
         # the BUY's second platform is a gram platform even when a gallery quotes lower
@@ -2519,6 +2519,37 @@ class KPICoherence(unittest.TestCase):
         collector = (SRC / "collector" / "wallgold.py").read_text(encoding="utf-8")
         self.assertIn(node.WALLGOLD, collector)
         self.assertIn(node.GOLDIKA, (SRC / "collector" / "goldika.py").read_text(encoding="utf-8"))
+
+    def test_76_the_discount_rests_on_wallgold_alone(self):
+        """The owner, 2026-11-08: "no, just wallgold" (SP_D_HANDOFF.md section 106). One platform, no backup; a reading
+        without it has no discount and says so, never the stored minimum or the last reading under the same word; the
+        record is rebuilt from WallGold's own rows; the list of where to buy keeps three."""
+        import platforms
+        from alerts import telegram_update_v1 as u
+        self.assertEqual(platforms.INDEX_PLATFORM, "WallGold")
+        self.assertEqual(list(platforms.index_markets({"WallGold": {}, "Goldika": {}, "Milli": {}})), ["WallGold"])
+        _seed(_hourly(PRODUCTION_SHAPE * 3))
+        session = _test_get_session()
+        fair, wall = FAIR, FAIR * 0.96
+        others = {"Milli": {"price": FAIR * 0.90, "status": "OK"}, "Goldika": {"price": FAIR * 1.01, "status": "OK"},
+                  "Invi": {"price": FAIR * 0.93, "status": "OK"}}
+        read = bp.resolve_relative_valuation(session, markets=dict(others, WallGold={"price": wall, "status": "OK"}),
+                                             fair_price=fair, now=NOW)
+        self.assertAlmostEqual(read.gap, -4.0, places=6, msg="WallGold's price alone, however low the others")
+        self.assertEqual((read.basis_price, read.basis_count), (wall, 1))
+        gone = bp.resolve_relative_valuation(session, markets=others, fair_price=fair, now=NOW)
+        self.assertIsNone(gone.gap, "no WallGold, no discount: neither Goldika's nor the last reading's")
+        self.assertEqual(gone.status, "UNKNOWN" if gone.status == "UNKNOWN" else "INSUFFICIENT_DATA")
+        self.assertIsNone(u._reader_gap(gone, -3.5, others), "never the stored minimum under the word discount")
+        self.assertEqual(u._reader_gap(None, -3.5, None), -3.5, "no valuation and no reading: the stored premium, as before")
+        self.assertEqual(len(u._cheapest_platforms(dict(others, WallGold={"price": wall, "status": "OK"}), u.CHEAPEST_SHOWN)), 3)
+        session.close()
+        # the push is evaluated, parked, and logged (104.5)
+        with open(REPO / "config" / "config.json", encoding="utf-8") as f:
+            self.assertFalse(json.load(f)["push"]["deep_discount"])
+        body = (SRC / "main.py").read_text(encoding="utf-8")
+        body = body[body.index("def _evaluate_deep_discount_push("):]
+        self.assertLess(body.index("PUSH parked"), body.index("send_push("), "parked before anything is sent")
 
 if __name__ == "__main__":
     print("=" * 55)

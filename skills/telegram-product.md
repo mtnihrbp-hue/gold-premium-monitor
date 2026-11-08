@@ -204,7 +204,7 @@ This is the one list of words for every message and the chart (`SP_D_HANDOFF.md`
 | The gap below it | "Discount 2.25% below world price", always a positive number | - | review |
 | The gap above it | "Premium 2.10% above world price" | - | review |
 | The gap changing | increased, decreased | widening, deepening, shrinking, narrowing | test |
-| A large gap | heavily discounted; the three lowest platforms are "Lowest 3" | cheap, said of the market | review |
+| A large gap | heavily discounted; the index's row in the market table is "WallGold" | cheap, said of the market | review |
 | Price direction | cheaper, more expensive, most expensive | dear, dearer, dearest | test |
 | A fall | drop | dip, dipped | test |
 | Reaching an average | touched the 20D EMA | - | review |

@@ -463,7 +463,7 @@ def resolve_price_movement(
 
     from database.models import MarketSnapshot, PlatformPrice
     from collections import defaultdict
-    from platforms import is_gram
+    from platforms import is_index
 
     try:
         reference_end = to_utc(datetime.combine(local_date(now), datetime.min.time()))
@@ -491,7 +491,7 @@ def resolve_price_movement(
     grouped = defaultdict(lambda: {"prices": []})
     for snapshot_id, timestamp, _mode, price, name in rows:
         grouped[snapshot_id]["timestamp"] = timestamp
-        if is_gram(name):        # the gram platforms only (platforms.py)
+        if is_index(name):       # the index alone (platforms.py)
             grouped[snapshot_id]["prices"].append(float(price))
 
     prices = []
@@ -598,9 +598,9 @@ def build_analyze_report(session, markets=None, fair_price=None,
 
     current_gap = None
     if markets and fair_price:
-        from platforms import gram_markets
+        from platforms import index_markets
         prices = [
-            float(info["price"]) for info in gram_markets(markets).values()
+            float(info["price"]) for info in index_markets(markets).values()
             if info.get("status") == "OK" and info.get("price") is not None
         ]
         current_gap = signed_gap(cheap_basis_price(prices), fair_price)

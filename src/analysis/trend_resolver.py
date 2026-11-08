@@ -13,6 +13,7 @@ from datetime import date, datetime, timedelta
 from typing import Dict, Optional
 
 from analysis.bubble_position import cheap_basis_price, signed_gap
+from platforms import is_index
 from database.models import MarketSnapshot, PlatformPrice
 from timeutil import local_date, local_now, to_utc
 
@@ -40,7 +41,7 @@ def _platform_prices(session, snapshot_id: int):
         .filter(PlatformPrice.snapshot_id == snapshot_id)
         .all()
     )
-    return [float(row.price_irr) for row in rows if row.price_irr is not None]
+    return {row.platform_name: float(row.price_irr) for row in rows if row.price_irr is not None}
 
 
 def _daily_values(session, start_date: date, end_date: date) -> Dict[date, Dict[str, list]]:
@@ -74,8 +75,8 @@ def _daily_values(session, start_date: date, end_date: date) -> Dict[date, Dict[
             bucket["premium_percent"].append(float(snapshot.premium_percent))
         prices = _platform_prices(session, snapshot.id)
         if prices:
-            bucket["platform_average"].append(sum(prices) / len(prices))
-            basis = cheap_basis_price(prices)
+            bucket["platform_average"].append(sum(prices.values()) / len(prices))
+            basis = cheap_basis_price(p for name, p in prices.items() if is_index(name))
             if basis is not None:
                 bucket["cheap_basis"].append(basis)
                 if snapshot.fair_price is not None:

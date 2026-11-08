@@ -80,7 +80,7 @@ def _seed(readings):
     session.query(PlatformPrice).delete()
     session.query(MarketSnapshot).delete()
     for timestamp, mode, size in readings:
-        # price chosen so the mean of the three cheapest gives exactly `size`
+        # price chosen so the index, WallGold, gives exactly `size`
         basis = FAIR * (1 - size / 100.0)
         snapshot = MarketSnapshot(
             timestamp=timestamp, world_gold_usd=4300.0, usd_irr=230_000.0,
@@ -88,7 +88,7 @@ def _seed(readings):
         )
         session.add(snapshot)
         session.flush()
-        for index, name in enumerate(("A", "B", "C", "D")):
+        for index, name in enumerate(("WallGold", "B", "C", "D")):
             price = basis if index < 3 else basis * 1.05
             session.add(PlatformPrice(snapshot_id=snapshot.id, platform_name=name,
                                       timestamp=timestamp, price_irr=price))
@@ -493,7 +493,7 @@ class KPISPC6(unittest.TestCase):
         ranking. Below MIN_MOVE_SAMPLE the label says nothing."""
         from analysis.bubble_position import MIN_MOVE_SAMPLE, resolve_relative_valuation
         _seed(_hourly([3.0 + (i % 7) * 0.1 for i in range(60)]))
-        markets = {n: {"price": FAIR * 0.97, "status": "OK"} for n in "ABC"}
+        markets = {n: {"price": FAIR * 0.97, "status": "OK"} for n in ("WallGold", "B", "C")}
         thin = resolve_relative_valuation(
             _test_get_session(), markets=markets, fair_price=FAIR,
             change_pp=0.4, change_hours=11.0, now=NOW)

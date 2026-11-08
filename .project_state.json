@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "project": "Gold Premium Monitor",
-  "active_branch": "sp-de; main fast-forwarded to sp-de on 2026-11-08 at SP-D 104 (v1.45safe before); main is production",
+  "active_branch": "sp-de; main fast-forwarded to sp-de on 2026-11-08 at SP-D 105 (v1.46safe before); main is production",
   "current_phase": "SP-D (SP_D_HANDOFF.md): Direction live on main since 2026-10-03 (sections 1-8); the PAPER portfolio, the room as its front office, live on main since 2026-10-05 18:01 (sections 9-28); health check and record 2026-10-06 (section 29). Proposed next, for the owner's decision: Taline's frozen copies, the Iran-side node, the news leg with the LLM (section 29)",
   "current_phase_status": "SP-C CLOSED (merged 2026-09-28, 2b7c5f8; v1.3safe before). SP-D IN PROGRESS: Direction merged 2026-10-03 (v1.4safe before); PAPER merged 2026-10-05 15:57 (v1.6safe before); the go-live hotfix (scipy/pandas pins, venue label) fast-forwarded 17:07 (v1.7safe = 2957699 before). Production (cron-job.org and the Telegram worker) dispatches ref main. SP_D_HANDOFF.md sections 28-29.",
   "completed_phases": [
@@ -679,9 +679,10 @@
       }
     ]
   },
-  "latest_safe_tag": "v1.45safe (7b0d716, main before SP-D 103-104, 2026-11-08)",
-  "open_items_sp_d_105": [
+  "latest_safe_tag": "v1.46safe (b68e9ad, main before the phone's stand-by, 2026-11-08)",
+  "open_items_sp_d_106": [
     "The phone silent from 04:30 on 2026-11-08 (SP_D_HANDOFF.md 105.5); after it returns, git pull and setup.sh bring the stand-by",
-    "For the owner: the discount's basis, my call to keep the three lowest (105.3); the nightly message's lock (105.4); merging production's half of the stand-by (105.2); the two judges"
+    "For the owner: merge the discount on WallGold alone and the push stopped (SP_D_HANDOFF.md 106.2)",
+    "Next on sp-de: the nightly message wired, locked by the owner on 2026-11-08 (105.4, 106.3), with ANALYZE's rewiring and the breakout push as the flag only"
   ]
 }

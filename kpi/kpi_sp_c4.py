@@ -116,7 +116,7 @@ def _baseline(timestamp, premium, fair, platform_avg):
         usd_irr=230_700.0,
         fair_price=fair,
         premium_percent=premium,
-        platform_prices={},
+        platform_prices={"WallGold": fair * (1 + premium / 100)},
         platform_average=platform_avg,
         platform_count=11,
     )
@@ -148,6 +148,7 @@ MARKETS = {
     "Milli": {"status": "OK", "price": 230_200_000},
     "Goldika": {"status": "OK", "price": 233_900_000},
     "Taline": {"status": "OK", "price": 231_100_000},
+    "WallGold": {"status": "OK", "price": 232_000_000},
     "Broken": {"status": "FAILED", "price": None},
 }
 
@@ -209,7 +210,7 @@ def _seed_priced(session, timestamp, mode, price):
     )
     session.add(snapshot)
     session.flush()
-    for offset, name in enumerate(("A", "B", "C", "D")):
+    for offset, name in enumerate(("WallGold", "B", "C", "D")):
         session.add(PlatformPrice(
             snapshot_id=snapshot.id, platform_name=name, timestamp=timestamp,
             price_irr=price + offset * 100_000,
@@ -320,7 +321,7 @@ class KPISPC4(unittest.TestCase):
         text = _render_number()
         lines = text.split("\n")
         index = next(i for i, line in enumerate(lines) if "below world price" in line)
-        self.assertIn("from the 3 cheapest of 4", lines[index + 1])
+        self.assertIn("on WallGold's price", lines[index + 1])
 
     def test_20_block_shows_where_the_platforms_outside_the_basis_sit(self):
         # Without this a single platform's move is indistinguishable from a market
@@ -328,7 +329,7 @@ class KPISPC4(unittest.TestCase):
         text = _render_number()
         self.assertIn("Cheapest 3", text)
         # Prices are stored in Rials and shown in millions of Tomans.
-        self.assertIn("The other gram platform: 23.39M.", text)
+        self.assertIn("The other 2 gram platforms: 23.20M - 23.39M.", text)
         # a gold-product platform is shown apart, never in the basis (owner, 2026-10-29; SP_D_HANDOFF.md 65)
         with_product = _render_number(markets=dict(MARKETS, MioGold={"status": "OK", "price": 200_000_000}))
         self.assertIn("Gold products (1): 20.00M.", with_product)
@@ -336,7 +337,7 @@ class KPISPC4(unittest.TestCase):
 
     def test_21_outside_basis_prices_exclude_the_basis_and_any_failure(self):
         others = _outside_basis_prices(MARKETS, ["Ayyareh", "Milli"])
-        self.assertEqual(others, [231_100_000, 233_900_000])
+        self.assertEqual(others, [231_100_000, 232_000_000, 233_900_000])
 
     def test_21b_cheapest_platforms_are_returned_cheapest_first(self):
         self.assertEqual(
@@ -476,7 +477,7 @@ class KPISPC4(unittest.TestCase):
             if info["price"] is not None
         }
         baselines.run.fair_price = FAIR
-        gap = signed_gap(cheap_basis_price(baselines.run.platform_prices.values()), FAIR)
+        gap = signed_gap(cheap_basis_price([baselines.run.platform_prices["WallGold"]]), FAIR)
         text = _render_number(baselines=baselines,
                               valuation=_Valuation(gap=gap, move_label="a normal move"))
         self.assertIn("unchanged", text)
@@ -501,13 +502,13 @@ class KPISPC4(unittest.TestCase):
     def test_28_platform_consensus_reports_the_measure_not_agreement(self):
         # "all 11 agree" implied price consensus and was false on a day one platform
         # sat 2.87% off the field. The count is about position against fair value.
-        self.assertIn("all 4 below world price", _render_number())
+        self.assertIn("all 5 below world price", _render_number())
         # counted on the gram platforms of the reading itself since 2026-10-29, not the stored structure,
         # which counts the gold-product platforms too (SP_D_HANDOFF.md 65)
         two_above = dict(MARKETS, Goldika={"status": "OK", "price": 240_000_000},
                          Taline={"status": "OK", "price": 241_000_000})
-        self.assertIn("2 of 4 below world price", _render_number(markets=two_above))
-        self.assertIn("all 4 below world price",
+        self.assertIn("3 of 5 below world price", _render_number(markets=two_above))
+        self.assertIn("all 5 below world price",
                       _render_number(markets=dict(MARKETS, MioGold={"status": "OK", "price": 250_000_000})))
 
     # -- the table speaks the same language ------------------------------------
@@ -525,8 +526,8 @@ class KPISPC4(unittest.TestCase):
         text = _build_market(4285.0, 230_700.0, FAIR, PLATFORM_AVG, LOWEST,
                              233_900_000, 9_100_000, -5.68, _baselines(),
                              markets=MARKETS, valuation=_Valuation())
-        # "Lowest 3" since 2026-10-29: the vocabulary never calls the market cheap (SP_D_HANDOFF.md section 64)
-        self.assertIn("Lowest 3", text)
+        # the index's own row since 2026-11-08 (SP_D_HANDOFF.md section 106)
+        self.assertIn("WallGold", text)
         self.assertNotIn("Platform ", text)
 
     def test_29c_table_column_matches_the_row_label_in_the_block(self):
@@ -661,8 +662,8 @@ class KPISPC4(unittest.TestCase):
         # and must react to it, or the message would stop responding to the market.
         self._seed_days()
         session = _test_get_session()
-        cheap = dict(MARKETS, Ayyareh={"status": "OK", "price": 200_000_000})
-        dear = dict(MARKETS, Ayyareh={"status": "OK", "price": 237_000_000})
+        cheap = dict(MARKETS, WallGold={"status": "OK", "price": 200_000_000})
+        dear = dict(MARKETS, WallGold={"status": "OK", "price": 237_000_000})
         a = resolve_relative_valuation(session, markets=cheap, fair_price=FAIR, now=NOW)
         b = resolve_relative_valuation(session, markets=dear, fair_price=FAIR, now=NOW)
         self.assertEqual(a.deep_at, b.deep_at)
