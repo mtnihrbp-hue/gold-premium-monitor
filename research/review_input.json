@@ -1,10 +1,10 @@
 [
  {
-  "aim": "The nightly message's 3-day outlook for 18K: give the reader something certain enough to act on and to check three days later. The numbers are from the record since 2018: 18K closed higher 3 trading days later on 60% of days; a 3-day close below the band's low edge happened on 10% of days.",
-  "text": "Next 3 days vs the close of 12 Aban (25.51M): 6 in 10 to close higher; 9 in 10 to stay above 24.83 (−2.7%)."
+  "aim": "A service notice, sent only when the phone in Iran that collects part of the data stops sending. The phone supplies two things: Daric's gold price and the gold funds' trading data. The reader needs to know what is affected and since when, and that the other prices can still be trusted. Nothing is asked of the reader; the owner fixes it. It is judged by whether it was true at the time.",
+  "text": "The phone in Iran has sent nothing since 04:30.\nNot arriving: Daric's price and the gold funds' data.\nThe other platforms and prices are not affected."
  },
  {
-  "aim": "The nightly message's gold-funds line: tell the reader what the big holders of the gold ETFs did this week and what has followed such weeks. From the record since 2017: after weeks when big sellers led, 18K ended the next trade week lower 46% of the time (typical week 38%) and dropped to −2.7% at some point 25% of the time (typical 21%).",
-  "text": "Big holders are selling the gold funds this week. Next trade week vs the close of 12 Aban (25.51M): 46% to close lower; 25% to drop to 24.83 (−2.7%)."
+  "aim": "The follow-up notice when that phone is working again. The reader needs to know it is over and how long it lasted.",
+  "text": "The phone in Iran is sending again, after 9 hours."
  }
 ]
