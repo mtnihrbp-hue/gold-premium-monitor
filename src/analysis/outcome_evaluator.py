@@ -369,7 +369,8 @@ def backfill_outcome_evaluations(
 
     Safe to run repeatedly. Evaluates only snapshots that do not already
     have a COMPLETE evaluation for each horizon, and of those skips a horizon
-    already evaluated whose target passed more than RETRY_AFTER_TARGET_HOURS ago.
+    already evaluated whose target is still ahead or passed more than
+    RETRY_AFTER_TARGET_HOURS ago.
 
     Args:
         hours: lookback window from now
@@ -392,6 +393,10 @@ def backfill_outcome_evaluations(
         now = datetime.utcnow()
         since = now - timedelta(hours=hours)
         last_target = now - timedelta(hours=RETRY_AFTER_TARGET_HOURS)
+        # A target further ahead than the matching tolerance has nothing to find yet.
+        window_minutes = tolerance_minutes if tolerance_minutes is not None else (config or {}).get(
+            "outcome_evaluation", {}).get("target_tolerance_minutes", DEFAULT_TOLERANCE_MINUTES)
+        first_target = now + timedelta(minutes=window_minutes)
         snapshots = session.query(AnalysisSnapshot).options(
             load_only(AnalysisSnapshot.id, AnalysisSnapshot.analysis_timestamp),
         ).filter(
@@ -412,7 +417,8 @@ def backfill_outcome_evaluations(
                 status = status_of.get((snap.id, h))
                 if status == "COMPLETE":
                     continue
-                if status is None or retry_all or snap.analysis_timestamp + timedelta(hours=h) >= last_target:
+                target = snap.analysis_timestamp + timedelta(hours=h)
+                if status is None or retry_all or last_target <= target <= first_target:
                     needed_horizons.append(h)
             if not needed_horizons:
                 continue

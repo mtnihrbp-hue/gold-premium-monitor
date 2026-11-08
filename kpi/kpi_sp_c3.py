@@ -117,7 +117,7 @@ class KPISPC3(unittest.TestCase):
     def test_04_fresh_snapshot_alone_cannot_resolve(self):
         # Documents why the previous wiring could never work: a snapshot created now
         # has no future observations, so its horizons are unreachable.
-        reference = datetime.now()
+        reference = datetime.utcnow()
         snapshot_id = _seed_snapshot(reference)
         _seed_observation(reference, 230_000_000)
         backfill_outcome_evaluations(hours=168, horizons=[1])
@@ -131,7 +131,7 @@ class KPISPC3(unittest.TestCase):
 
     def test_05_matured_snapshot_resolves_on_backfill(self):
         # A snapshot from two hours ago whose +1h observation now exists.
-        reference = datetime.now() - timedelta(hours=2)
+        reference = datetime.utcnow() - timedelta(hours=2)
         snapshot_id = _seed_snapshot(reference)
         _seed_observation(reference, 230_000_000)
         _seed_observation(reference + timedelta(hours=1), 232_000_000)
@@ -147,7 +147,7 @@ class KPISPC3(unittest.TestCase):
 
     def test_06_backfill_replaces_an_earlier_insufficient_verdict(self):
         """The production case: 213 rows already recorded INSUFFICIENT_DATA."""
-        reference = datetime.now() - timedelta(hours=2)
+        reference = datetime.utcnow() - timedelta(hours=2)
         snapshot_id = _seed_snapshot(reference)
         _seed_observation(reference, 230_000_000)
 
@@ -173,7 +173,7 @@ class KPISPC3(unittest.TestCase):
         self.assertEqual(rows[0].outcome_status, "COMPLETE")
 
     def test_07_backfill_is_safe_to_run_repeatedly(self):
-        reference = datetime.now() - timedelta(hours=2)
+        reference = datetime.utcnow() - timedelta(hours=2)
         snapshot_id = _seed_snapshot(reference)
         _seed_observation(reference, 230_000_000)
         _seed_observation(reference + timedelta(hours=1), 232_000_000)
@@ -203,7 +203,7 @@ class KPISPC3(unittest.TestCase):
 
     def test_09_premium_resolves_from_recorded_history(self):
         """Previously hardcoded to None on the grounds it could not be reconstructed."""
-        reference = datetime.now() - timedelta(hours=2)
+        reference = datetime.utcnow() - timedelta(hours=2)
         snapshot_id = _seed_snapshot(reference, premium=-4.0)
         _seed_observation(reference, 230_000_000)
         _seed_observation(reference + timedelta(hours=1), 232_000_000)
@@ -221,7 +221,7 @@ class KPISPC3(unittest.TestCase):
         self.assertNotEqual(row.premium_direction, "INSUFFICIENT_DATA")
 
     def test_10_premium_prefers_a_scheduled_reading(self):
-        reference = datetime.now() - timedelta(hours=2)
+        reference = datetime.utcnow() - timedelta(hours=2)
         snapshot_id = _seed_snapshot(reference, premium=-4.0)
         _seed_observation(reference, 230_000_000)
         _seed_observation(reference + timedelta(hours=1), 232_000_000)
@@ -239,7 +239,7 @@ class KPISPC3(unittest.TestCase):
         self.assertAlmostEqual(float(row.actual_premium_percent), -3.0, places=2)
 
     def test_11_premium_outside_tolerance_is_not_used(self):
-        reference = datetime.now() - timedelta(hours=2)
+        reference = datetime.utcnow() - timedelta(hours=2)
         snapshot_id = _seed_snapshot(reference, premium=-4.0)
         _seed_observation(reference, 230_000_000)
         _seed_observation(reference + timedelta(hours=1), 232_000_000)
@@ -257,7 +257,7 @@ class KPISPC3(unittest.TestCase):
 
     def test_12_premium_never_reads_backwards(self):
         # A reading before the reference must never satisfy a future horizon.
-        reference = datetime.now() - timedelta(hours=2)
+        reference = datetime.utcnow() - timedelta(hours=2)
         snapshot_id = _seed_snapshot(reference, premium=-4.0)
         _seed_observation(reference, 230_000_000)
         _seed_observation(reference + timedelta(hours=1), 232_000_000)
@@ -273,7 +273,7 @@ class KPISPC3(unittest.TestCase):
         self.assertIsNone(row.actual_premium_percent)
 
     def test_13_premium_movement_direction_is_recorded(self):
-        reference = datetime.now() - timedelta(hours=2)
+        reference = datetime.utcnow() - timedelta(hours=2)
         snapshot_id = _seed_snapshot(reference, premium=-5.0)
         _seed_observation(reference, 230_000_000)
         _seed_observation(reference + timedelta(hours=1), 232_000_000)
@@ -323,6 +323,25 @@ class KPISPC3(unittest.TestCase):
         backfill_outcome_evaluations(hours=168, horizons=[1])
         self.assertEqual(self._status(snapshot_id), "INSUFFICIENT_DATA")
         _seed_observation(reference + timedelta(hours=1), 232_000_000)
+        backfill_outcome_evaluations(hours=168, horizons=[1])
+        self.assertEqual(self._status(snapshot_id), "COMPLETE")
+
+    def test_15b_a_target_still_ahead_is_not_asked_yet(self):
+        """Twenty-two more of the 72: a 24-hour target a whole day away has nothing to find."""
+        reference = datetime.utcnow() - timedelta(minutes=10)
+        snapshot_id = _seed_snapshot(reference)
+        self.assertEqual(backfill_outcome_evaluations(hours=168, horizons=[1]), 1, "a first evaluation is always made")
+        self.assertEqual(backfill_outcome_evaluations(hours=168, horizons=[1]), 0, "its target is 50 minutes ahead")
+        self.assertEqual(self._status(snapshot_id), "INSUFFICIENT_DATA")
+
+    def test_15c_a_target_a_few_minutes_ahead_is_within_the_tolerance(self):
+        """A snapshot taken late in the last run puts its +1h target just after this run's backfill, and this run's
+        observation already answers it."""
+        reference = datetime.utcnow() - timedelta(minutes=57)
+        snapshot_id = _seed_snapshot(reference)
+        _seed_observation(reference, 230_000_000)
+        backfill_outcome_evaluations(hours=168, horizons=[1])
+        _seed_observation(reference + timedelta(minutes=55), 232_000_000)
         backfill_outcome_evaluations(hours=168, horizons=[1])
         self.assertEqual(self._status(snapshot_id), "COMPLETE")
 
