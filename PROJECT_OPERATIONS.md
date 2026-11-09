@@ -542,8 +542,8 @@ Tehran time. Read-only throughout: no query below writes.
    `market_daily_candles`. Expected: one market snapshot, one market state and one
    analysis snapshot per scheduled run (plus one snapshot and state per UPDATE), about 3
    outcomes per run, two Direction panels a day (06:00 and 13:00 slots).
-3. **Platforms.** `platform_prices` per `platform_name`, last 24 and 72 hours. Eleven
-   platforms; fewer readings than runs means a failure or a discard. Then the **stored**
+3. **Platforms.** `platform_prices` per `platform_name`, last 24 and 72 hours. Eight
+   platforms since 2026-11-08; fewer readings than runs means a failure or a discard. Then the **stored**
    prices side by side, reading by reading: a platform that holds one price for three
    hours or more while the others move is a frozen copy that passed every rule (Taline,
    2026-10-06 09:01-14:01, `SP_D_HANDOFF.md` section 29).

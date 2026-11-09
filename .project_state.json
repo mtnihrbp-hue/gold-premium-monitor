@@ -565,7 +565,7 @@
         "target": "an average of 3 MB or less over 7 days",
         "measure": "data_transfer_bytes across 7 days divided by the runs",
         "by": "2026-11-29",
-        "status": "merged 2026-11-08 (v1.45safe before): a measured run from 3.78 MB to 0.67 MB (SP_D_HANDOFF.md 104.3); the 7 days from the merge are the measure"
+        "status": "merged 2026-11-08 (v1.45safe before): a measured run from 3.78 MB to 0.67 MB (SP_D_HANDOFF.md 104.3); anchor 550.7 MB on 2026-11-09 05:13 UTC (107.1), the 7 days from it are the measure"
       },
       {
         "id": "Ea-8",
@@ -575,7 +575,7 @@
         "target": "a median under 4 minutes with Neon",
         "measure": "gh run list over 7 days",
         "by": "2026-11-29",
-        "status": "merged 2026-11-08: the first run 2.2 minutes (SP_D_HANDOFF.md 105.1); the median over the 7 days from the merge is the measure"
+        "status": "merged 2026-11-08: a median of 2.7 minutes over the first 8 scheduled runs (SP_D_HANDOFF.md 107.1); the median over the 7 days from the merge is the measure"
       },
       {
         "id": "Ea-9",
@@ -585,7 +585,7 @@
         "target": "2 hours without a phone row raises a SERVICE notice",
         "measure": "a test, and one real case",
         "by": "2026-11-22",
-        "status": "merged 2026-11-08: SERVICE reports the phone two to three hours into a silence; its first real case is the silence of 11-08 (SP_D_HANDOFF.md 104.4, 105.5)"
+        "status": "met 2026-11-09: built and tested, and one real case: the phone silent 11-08 04:30-22:55, the notice at 18:00, the return at 07:00 (SP_D_HANDOFF.md 107.1)"
       },
       {
         "id": "Ea-10",

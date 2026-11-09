@@ -91,6 +91,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    104 eight platforms; the backfill; Neon's readers cut; the phone's heartbeat; the messages' new shape (v1.45safe)
                                                                    105 merged; the phone stands by for two platforms; the discount's basis tested; the nightly message previewed
                                                                    106 the stand-by live (v1.46safe); the discount on WallGold alone; the 3-day line's check; the big holders
+                                                                   107 health check of 18 Aban
        member, the LLM member
 ```
 
@@ -10429,3 +10430,37 @@ Decision support, not an instruction to trade.
 - **The phone:** silent since 04:30 on 11-08.
 - **For the owner:** the merge of 106.2.
 - **Next, on sp-de:** the nightly message wired (locked), with ANALYZE's rewiring and the breakout push as the flag only.
+
+## 107. Health check of 18 Aban (2026-11-09)
+
+**The owner:** "ok go ahead for health check, and then we can start the day." Read-only; nothing in production changed. **NEON MIGRATION REQUIRED = NO.**
+
+### 107.1 The check (11-08 11:00 to 11-09 08:45 Tehran)
+
+**Runs:** 18 (14 ANALYZE, the owner's UPDATE, REPORT and DIRECTION of 18:40-18:52, and a short dispatch at 15:00), all passed, no hour missed. Every run on `main`.
+
+**Run length (Ea-8): on track.** On the new code, a median of 2.7 minutes over 8 scheduled runs, against 6.1 on the morning of 11-08 and a target under 4. The 21:00 run, with the report and the LENS, 5.2. The backfill evaluates 8 to 10 horizons a run.
+
+**Neon's transfer (E0-2, Ea-7): not yet measurable.** 550.7 MB by 11-09 05:13 UTC, 75.9 MB since 11-08 07:10 UTC. That span holds six or seven runs on the old code (about 23 MB) and the measuring and research of 104-106 from the workstation, so it says nothing about a run on the new code. This reading is the anchor for the next. Storage 61 MB.
+
+**The phone (Ea-9): met, on a real case.**
+- Silent from 11-08 04:30 to 22:55, 18 hours 25 minutes. The notice went out at 18:00, the second run on the new code to see it. "Back" went out at 07:00 on 11-09, the second run after the night's gap.
+- The phone pulled the new code: stand-by rows from 22:55. Daric 48 of 48, Goldika 40 of 40, TSETMC's closed day of 11-08 19 funds.
+- **11-08's in-session trades are lost,** as the silence covered the whole session. The closed day came back.
+- **WallGold from the phone fails more than half the time:** 23 of 41 reads, all `NameResolutionError` for `api.wallgold.ir`, in stretches of 15 to 75 minutes. Goldika and Daric, on the same connection, never. Read at the same minute, the phone and the runner agree (0.00% to 0.03%). The runner read WallGold in 19 of 19 runs, and no stand-by quote has been used yet. The stand-by for WallGold is therefore good only part of the time.
+
+**Platforms** (24 h / 72 h): the eight read 19/54, Invi 19/52. Eligold and MioGold stopped at the merge; Taline 0/27. No discard since the merge. No platform frozen for 3 hours since it.
+
+**Decisions.** 24 hours: CHEAP/WAIT/DISCOUNT_DOMINANT 18, CHEAP/BUY 1 (11-08 14:01, parked). Ten BUY candidates; the confirmation or hysteresis left nine at WAIT. All time: WAIT 933, UNKNOWN 263, BUY 12.
+
+**The discount at 08:00:** WallGold 3.76% below world price, the three lowest 4.20%, stored 4.46%. It widened overnight, from 2.94% on WallGold at 21:00. Morning readings can carry yesterday's dollar.
+
+**The rest.**
+- **Candles:** tgju to 11-08 (world gold 11-07), etfbaz 11-08, Afran 11-09.
+- **PAPER:** the room 128.3M (3 g), buy-and-hold 127.5M, the system 129.5M; no trades in 24 hours; every report sent at 21:01.
+- **Forward test v2:** the line for 11-08, risk 13.8%, in gold, written 06:04.
+- **The LENS:** sent at 21:00, odds none, 70 headlines. The log's "picked 102" is the count defect of 104; the message is not affected.
+- **E-9's labels:** 328 of 600 days; today's resume pushed.
+- **Warning, every run:** GitHub is forcing `actions/cache@v4` and others from Node 20 to Node 24. Nothing has failed.
+
+**Verdict:** healthy. Open: WallGold from the phone (DNS), and the transfer measure.
