@@ -680,9 +680,10 @@
     ]
   },
   "latest_safe_tag": "v1.48safe (5b95bfc, main before the nightly message, 2026-11-10)",
-  "open_items_sp_d_110": [
+  "open_items_sp_d_111": [
+    "For the owner: the audit's batch (SP_D_HANDOFF.md 111.6): the funds' line only once the week has ended, the flat 60%, the note on past rates; then the fixes without new words",
     "For the owner, by 2026-11-15: the fee table for Milli, Goldika and Invi (Ea-6)",
-    "For the owner, by 2026-12-13: the worst drop that can be sat through, replacing X and Y (SP_D_HANDOFF.md 109.6); what the deep-discount push is for (109.7)",
+    "For the owner, by 2026-12-13: the worst drop that can be sat through (109.6); what the deep-discount push is for (109.7)",
     "Next on sp-de: UPDATE as WHERE once the fee table is done, then DIRECTION; next safe tag v1.49safe"
   ]
 }

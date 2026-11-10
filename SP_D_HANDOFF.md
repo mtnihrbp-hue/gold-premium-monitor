@@ -95,6 +95,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    108 the discount on WallGold merged (v1.47safe); health check of 19 Aban; what waits on the owner
                                                                    109 nightly_forecasts applied; the nightly message wired on sp-de, not merged; the risk choice; the push replayed
                                                                    110 the nightly message merged (v1.48safe)
+                                                                   111 the outside audit weighed: the funds' line on a partial week fails; the floor stands
        member, the LLM member
 ```
 
@@ -10657,3 +10658,72 @@ The owner is passing the repository to Claude on the web for an independent audi
 
 - **For the owner:** the fee table by 11-15 (Ea-6); the worst drop that can be sat through, by 12-13 (109.6); what the deep-discount push is for (109.7).
 - **Next on `sp-de`:** UPDATE as WHERE, once the fee table is done; DIRECTION; each previewed, reviewed by the second AI, merged alone. Next safe tag `v1.49safe`.
+
+## 111. The outside audit, weighed (2026-11-10)
+
+**The owner** passed the repository to Claude on the web, read-only, and pasted its report on 872d69f (verdict: "merge after fixes"; 16 findings). By the owner's rule ("critically review, and even reject") each main claim was tested against the code and the data. **Nothing in production changed. NEON MIGRATION REQUIRED = NO.** The report arrived after the merge of 110 and before the first NIGHT message.
+
+### 111.1 Where it is right, and worse than it said: the funds' line on a partial week (F1)
+
+`research/rd_fund_line_third_session.py`, 2017-2026, 7 days ahead:
+
+| Zone | Whole week, from its last close (the record): closed lower / reached the low edge | Third session, from that night's close (as production issues it): closed lower / reached the low edge |
+|---|---|---|
+| sellers lead | 46% / 25% | 36% / 15% |
+| buyers lead | 28% / 14% | 37% / 18% |
+| crowded | 42% / 23% | 38% / 18% |
+| every week | 38% / 21% | 37% / 17% |
+
+- **On a week's third session the separation is gone.** A Monday or Tuesday line that says "46% to close lower" stands on a rate of 36%, below any week's.
+- **A correction to 109.3:** "the funds' 25% of 100.3 is confirmed" checked what "drop to" counts, not whether the rate holds when the line is issued early. It does not. 105.4's "from the third session" was mine and rested on no measure.
+- The zone on the third session equals the whole week's in 79% of 317 weeks.
+- **The audit's fix is rejected:** one row on the first night with 3 sessions keeps the mismatch it objects to. The row and the line belong on the night the week has ended: Wednesday's when its session is read (the phone's closed day lands at about 21:00; three of the last 15 days came later), otherwise Thursday's.
+- Five rows a week (F1c): true, and fixed by the same change.
+
+### 111.2 Where it is wrong: the 90% floor (F2)
+
+`research/rd_floor_walk_forward.py`, on the calm model's forecasts, themselves out of sample (monthly refits, purged by 21 days, `rd_engine_calm.py`):
+
+- **Out of sample the floor holds 90.3% of 2,046 days:** the 10% quantile learned only on earlier years, each year 88.7% to 92.5%. **2026 so far 89.9%.** The learned edge ran -1.11 to -1.18 against the shipped -1.11. The audit's "broken 1 night in 6" has no support; the worst year at the shipped edge is 88.3%.
+- **True:** 98.3's "the build learns them walk-forward" does not describe the shipped constant. The wording is corrected by this section; the number stands.
+- **Thursdays:** tgju carries them on and off (2024 none, 2026 37 in 39 weeks), so today's Thursday is a night. Leaving them out moves the floor from 90.0% to 89.4% and "higher" from 59.6% to 60.2%. The audit's fix is rejected.
+- **The zone split of the 3-day chance is rejected by me too:** 102.1 already said the zone hardly moves it. A flat 60%, which by year ran 51% to 65%. It is the same number every night and says nothing about tonight.
+
+### 111.3 The base of the NOW line (F5): the fix would make it worse
+
+`research/rd_now_line_base.py`, 653 readings since 09-29: the eight-platform figure sits a typical 0.24% from tgju's close, the gram-only figure 0.35%. "Higher" three nights later agrees with tgju's own close in 26 of 26 on both. The eight and the gram-only disagree 3 times of 39. The figure stays; which platforms made it can be stored with the forecast.
+
+### 111.4 The rest
+
+| Finding | Verdict | Why |
+|---|---|---|
+| F3 the push's guard is dead on one platform | Accepted, before any switch-on | 106.2 said so. The push is off |
+| F4 a day marked sent when the send failed; late scoring | Accepted | |
+| F6 a pull is not read-only | Half | The AI cost is true. The mirror written is lost with the runner: only scheduled runs save it (`gold-monitor.yml`). "14 pulls a day" misreads 104.5: 14 UPDATEs in six days, ANALYZE none |
+| F7 no retry on Telegram | Accepted | |
+| F8 the worker; no `permissions:` | Half | `permissions:` accepted. A worker address is in the public handoff; the chat id is in no tracked file, and a forgery needs both. A1 stays parked unless the owner lifts it |
+| F9 the phone can plant quotes | Low, the fix rejected | Filtering on the node's name stops nothing: the role can write any name. Production's role checked: INSERT only, on one table, not `neon_superuser` |
+| F10 "USD/IRR" carries tomans | True | A locked label: the owner's call |
+| F11 stale README and memory lines; F12 CI on `sp-*`; F16 the 0.05 literal (three of them) | Accepted | |
+| F13 the scoring test | Accepted | A price between the floor and the base |
+| F14 the forward test can hardly fail | Accepted, to register | `fi` frozen at 10-13 on all six ledger lines: true |
+| F15 parked signal arms the hysteresis | Default false accepted; the rest rejected | Set only when sent, the parked engine would fire BUY at every run of a standing candidate (`signals.py`: `last_alert != candidate`), and the record and the PAPER system account with it. The docstring is what is wrong |
+| "Big holders" wording | Rejected | The owner's words; 106.4 records the limit |
+
+**Checked here that the audit could not:** the CI suite passed on `main` and `SP-D` at 872d69f; the `iran_node` grants; `nightly_forecasts` empty before the first night.
+
+### 111.5 The lines proposed, reviewed by the second AI (102.2; `probe-lens` a93a6b3)
+
+Scores are clear / judgeable / useful, out of 10.
+
+| Line | gpt-oss | Qwen | What was done |
+|---|---|---|---|
+| "18K, 3 days from now vs tonight's 25.16M: 60% to close higher; 90% to close above 24.49M (−2.7%)." | 6/8/5 | 8/9/8 | Kept |
+| "Chances are past rates (3 days since 2018, funds since 2017), not a read of tonight. Each is being scored from 19 Aban." | 3/5/4 | 8/9/7 | **Replaced** with Qwen's, its subject named: "The chances above are historical rates (3 days since 2018, funds since 2017), not tonight's forecast. We are tracking accuracy from 19 Aban." |
+| "Too early to call this week: it closes on Wednesday. Last week (9–13 Aban), big holders among them were selling." | 3/4/2 | 8/9/7 | **Dropped:** the locked "Too early to call this week. Last week (...), ..." serves, with no new words |
+
+### 111.6 What waits on the owner
+
+- **Before the merge of the fixes:** the funds' line only once the week has ended; the flat 60%; the note that the chances are past rates.
+- **The fixes, without new words:** one funds row a week; retry and a true "sent"; late scoring marked; the scoring test; `permissions:`; the push's guard; README and memory lines; CI on `sp-*`; the 0.05 literals; `send_alerts` default false.
+- The `USD/IRR` label; lifting A1; the forward test's Brier mark (F14).
