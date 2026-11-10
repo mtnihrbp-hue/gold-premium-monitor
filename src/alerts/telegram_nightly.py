@@ -114,7 +114,7 @@ def _funds(v):
         extra = _sessions(f["n"])
         if f["today_missing"]:
             extra += f"; {f['today']:%A}'s not read yet"
-        lines = [f"{head} · this week{'' if f['finished'] else ' so far'}, {span} ({extra})",
+        lines = [f"{head} · this week{'' if f['closed'] else ' so far'}, {span} ({extra})",
                  _money(f)]
         buyers = f"Buyers: {f['buyers']:,.0f} a day"
         lines.append(buyers + (f", {f['buyers_word']}" if f.get("buyers_word") else ""))

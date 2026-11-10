@@ -1616,11 +1616,15 @@ def spool_writers(session, entries):
 
 def save_nightly_forecast(session, local_date, forecaster, version, recorded_at, base_price, due_date, forecast,
                           commit=True):
-    """One forecast the nightly message showed; a day and forecaster already stored stays as it is. True when written."""
+    """One forecast the nightly message showed; a day and forecaster already stored stays as it is, and the funds'
+    line is kept once a fund week, on the first night it is shown (SP_D_HANDOFF.md 111.1). True when written."""
+    from analysis.nightly import week_of
     from database.models import NightlyForecast
 
+    first_day = week_of(local_date) if forecaster == "funds_week" else local_date
     if (session.query(NightlyForecast.id)
-            .filter(NightlyForecast.local_date == local_date, NightlyForecast.forecaster == forecaster).first()):
+            .filter(NightlyForecast.forecaster == forecaster, NightlyForecast.local_date >= first_day,
+                    NightlyForecast.local_date <= local_date).first()):
         return False
     session.add(NightlyForecast(local_date=local_date, forecaster=forecaster, version=version, recorded_at=recorded_at,
                                 base_price=base_price, due_date=due_date, forecast=forecast))

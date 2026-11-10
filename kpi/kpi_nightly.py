@@ -29,6 +29,8 @@ from database import repository as repo  # noqa: E402
 from database.models import Base, MarketSnapshot, NightlyForecast, PlatformPrice  # noqa: E402
 
 TUESDAY = date(2026, 11, 10)          # 19 Aban: Sat 11-07, Sun 11-08 and Mon 11-09 are its week's sessions
+WEDNESDAY = date(2026, 11, 11)
+THURSDAY = date(2026, 11, 12)         # the week of 11-07 has closed: five sessions read
 SIGMA = 0.014
 
 
@@ -103,13 +105,13 @@ class TheNumbers(unittest.TestCase):
         self.assertTrue(f["today_missing"])
 
     def test_07_a_week_of_big_sellers_is_sellers(self):
-        f = nightly.funds_view(flows_for(TUESDAY, this_week=(1000, 400, 4000, 100)), TUESDAY)
-        self.assertEqual(f["n"], 3)
+        f = nightly.funds_view(flows_for(THURSDAY, this_week=(1000, 400, 4000, 100)), THURSDAY)
+        self.assertEqual(f["n"], 5)
         self.assertEqual(f["zone"], "SELLERS")
         self.assertLess(f["buy_head"], f["sell_head"])
 
     def test_08_a_week_of_big_buyers_ranks_high(self):
-        f = nightly.funds_view(flows_for(TUESDAY, this_week=(9000, 100, 1000, 400)), TUESDAY)
+        f = nightly.funds_view(flows_for(THURSDAY, this_week=(9000, 100, 1000, 400)), THURSDAY)
         self.assertEqual(f["zone"], "CROWDED")
 
     def test_09_the_chance_uses_the_week_that_ended(self):
@@ -127,6 +129,39 @@ class TheNumbers(unittest.TestCase):
             line = nightly.funds_line({"zone": zone}, three)
             self.assertEqual((line["lower"], line["side"], line["chance"]), (lower, side, chance))
             self.assertEqual(line["level"], three["floor"] if side == "drop" else three["high"])
+
+
+    def test_10b_a_week_not_yet_closed_has_no_line(self):
+        """On the third session the record's 46% is 36%, below any week's (SP_D_HANDOFF.md 111.1): no zone, no line."""
+        f = nightly.funds_view(flows_for(TUESDAY, this_week=(1000, 400, 4000, 100)), TUESDAY)
+        self.assertEqual(f["n"], 3)
+        self.assertFalse(f["closed"])
+        self.assertIsNone(f["zone"])
+        self.assertIsNone(nightly.funds_line(f, nightly.three_day_line(1e8, SIGMA, None)))
+        text = " ".join(tn._funds(view(f)))
+        self.assertIn("this week so far", text)
+        self.assertIn("Too early to call this week.", text)
+        self.assertNotIn("to close lower", text)
+
+    def test_10c_wednesday_needs_its_own_session(self):
+        flows = flows_for(WEDNESDAY, this_week=(1000, 400, 4000, 100))
+        f = nightly.funds_view(flows, WEDNESDAY)
+        self.assertFalse(f["closed"])
+        self.assertIsNone(f["zone"])
+        self.assertTrue(f["today_missing"])
+        flows[WEDNESDAY] = [1000.0, 400.0, 4000.0, 100.0]
+        g = nightly.funds_view(flows, WEDNESDAY)
+        self.assertTrue(g["closed"])
+        self.assertEqual((g["n"], g["zone"]), (5, "SELLERS"))
+        text = " ".join(tn._funds(view(g)))
+        self.assertIn("this week, Sat", text)
+        self.assertIn("46% to close lower (typical 38%)", text)
+
+    def test_10d_the_chance_still_reads_the_week_before_on_wednesday(self):
+        flows = flows_for(WEDNESDAY, this_week=(1000, 400, 4000, 100))
+        flows[WEDNESDAY] = [1000.0, 400.0, 4000.0, 100.0]
+        g = nightly.funds_view(flows, WEDNESDAY)
+        self.assertEqual(g["chance_zone"], g["last_zone"])         # 102.1: the last fund week that ended before the day
 
 
 class TheWords(unittest.TestCase):
@@ -196,15 +231,20 @@ class TheWords(unittest.TestCase):
 
 
 class TheRecord(unittest.TestCase):
-    def rows(self, day=TUESDAY):
+    def rows(self, day=THURSDAY):
         f = nightly.funds_view(flows_for(day, (1000, 400, 4000, 100)), day)
-        return nightly.forecast_rows(day, view(f), datetime(2026, 11, 10, 17, 30))
+        return nightly.forecast_rows(day, view(f), datetime(2026, 11, 12, 17, 30))
 
     def test_18_the_message_commits_to_two_rows(self):
         rows = self.rows()
         self.assertEqual([r["forecaster"] for r in rows], ["three_day", "funds_week"])
-        self.assertEqual(rows[0]["due_date"], date(2026, 11, 14))
-        self.assertEqual(rows[1]["due_date"], date(2026, 11, 16))         # 7 days after the last session read (100.3)
+        self.assertEqual(rows[0]["due_date"], date(2026, 11, 16))         # over the Friday (106.3)
+        self.assertEqual(rows[1]["due_date"], date(2026, 11, 18))         # 7 days after the week's last session (100.3)
+
+    def test_18b_a_week_not_yet_closed_commits_only_to_the_three_days(self):
+        f = nightly.funds_view(flows_for(TUESDAY, (1000, 400, 4000, 100)), TUESDAY)
+        rows = nightly.forecast_rows(TUESDAY, view(f), datetime(2026, 11, 10, 17, 30))
+        self.assertEqual([r["forecaster"] for r in rows], ["three_day"])
 
     def test_19_no_line_no_row(self):
         self.assertEqual(nightly.forecast_rows(TUESDAY, view(three=False), datetime(2026, 11, 10, 17, 30)), [])
@@ -217,16 +257,25 @@ class TheRecord(unittest.TestCase):
         self.assertEqual(s.query(NightlyForecast).count(), 1)
         self.assertEqual(float(s.query(NightlyForecast).one().base_price), 251577090.0)
 
+    def test_20b_the_funds_line_is_kept_once_a_week(self):
+        s = session()
+        row = self.rows()[1]
+        self.assertTrue(repo.save_nightly_forecast(s, **dict(row, local_date=WEDNESDAY)))
+        self.assertFalse(repo.save_nightly_forecast(s, **row), "Thursday: the week already has its row")
+        self.assertFalse(repo.save_nightly_forecast(s, **dict(row, local_date=date(2026, 11, 13))), "nor Friday")
+        self.assertTrue(repo.save_nightly_forecast(s, **dict(row, local_date=date(2026, 11, 18))), "the next week has its own")
+        self.assertEqual(s.query(NightlyForecast).count(), 2)
+
     def test_21_due_rows_only_and_once(self):
         s = session()
         for row in self.rows():
             repo.save_nightly_forecast(s, **row)
-        self.assertEqual(repo.due_nightly_forecasts(s, date(2026, 11, 13)), [])
-        due = repo.due_nightly_forecasts(s, date(2026, 11, 14))
+        self.assertEqual(repo.due_nightly_forecasts(s, date(2026, 11, 15)), [])
+        due = repo.due_nightly_forecasts(s, date(2026, 11, 16))
         self.assertEqual([r.forecaster for r in due], ["three_day"])
-        due[0].resolved_at = datetime(2026, 11, 14, 17, 30)
+        due[0].resolved_at = datetime(2026, 11, 16, 17, 30)
         s.commit()
-        self.assertEqual(repo.due_nightly_forecasts(s, date(2026, 11, 14)), [])
+        self.assertEqual(repo.due_nightly_forecasts(s, date(2026, 11, 16)), [])
 
     def test_22_judged_on_the_same_series(self):
         out = nightly.score("three_day", 100.0, {"floor": 97.0}, 101.0, {date(2026, 11, 14): 101.0})

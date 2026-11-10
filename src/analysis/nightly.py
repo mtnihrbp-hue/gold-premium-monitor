@@ -7,8 +7,9 @@ them and passes them in.
   latest finished fund week's ticket-size zone (102.1), the way it was measured.
 - **The funds' week,** Saturday to Wednesday: money, buyers and each side's ticket from TSETMC's individuals. The zone
   is the week's power (the buyers' ticket over the sellers') ranked in the 52 weeks before: registered in 89ae9f5 for
-  the forward test (98.2). From a week's third session the funds' line gives the record's rates by zone (100.3).
-  Those rates count a daily close at the level within 7 days of the week's last session.
+  the forward test (98.2). Once the week has closed the funds' line gives the record's rates by zone (100.3).
+  Those rates count a daily close at the level within 7 days of the week's last session; issued earlier in the week
+  they do not hold (SP_D_HANDOFF.md 111.1).
 - **The record:** what the 21:00 message showed is written down before its outcome, and judged on the same NOW line.
 """
 
@@ -28,6 +29,7 @@ TRAIL, MIN_TRAIL = 52, 26                 # the weeks a week's power is ranked i
 MIN_SESSIONS = 3                          # the zones were registered on weeks of 3 sessions or more (98.2, 105.4)
 SELLERS_BELOW, BUYERS_BELOW = 40, 80      # the zones' ranks (98.2)
 USUAL_LOW, USUAL_HIGH = 20, 80            # the buyers' count against the same sessions of the past year
+WEDNESDAY = 2
 FRIDAY = 4
 SATURDAY = 5
 FUND_DAYS = (5, 6, 0, 1, 2)               # Saturday to Wednesday, in date.weekday()
@@ -102,6 +104,7 @@ def funds_view(flows, today):
     view = {"last_week": (weeks[last][0], weeks[last][-1]), "last_zone": last_zone, "chance_zone": last_zone,
             "today_missing": today.weekday() in FUND_DAYS and today not in weeks.get(this_key, ()),
             "today": today, "finished": today.weekday() not in FUND_DAYS, "sessions": [], "n": 0, "zone": None}
+    view["closed"] = view["finished"] or (today.weekday() == WEDNESDAY and today in weeks.get(this_key, ()))
     sessions = weeks.get(this_key, [])
     now = _stats(flows, sessions) if sessions else None
     if now is None:
@@ -113,7 +116,7 @@ def funds_view(flows, today):
     view.update({"sessions": sessions, "n": n,
                  "usual_net": st.mean(s["net"] for s in first) if first else None,
                  "buyers_word": _buyers_word(_rank([s["buyers"] for s in first], now["buyers"]))})
-    if n >= MIN_SESSIONS:
+    if view["closed"] and n >= MIN_SESSIONS:   # the record's rates are a whole week's: on the third session 36%, not 46% (111.1)
         view["zone"] = _zone(power_rank(sessions, past))
         if view["finished"]:            # the record's 3-day chance reads the last fund week that has ended (102.1)
             view["chance_zone"] = view["zone"]

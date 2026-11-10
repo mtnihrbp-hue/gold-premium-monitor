@@ -1644,8 +1644,7 @@ def _record_nightly(view, now):
             print("NIGHTLY: no database session; the forecasts not recorded")
             return
         try:
-            for row in rows:
-                save_nightly_forecast(session, **row)
+            written = sum(bool(save_nightly_forecast(session, **row)) for row in rows)
             price = (view.get("three_day") or {}).get("base")
             due = due_nightly_forecasts(session, day) if price else []
             for row in due:
@@ -1653,7 +1652,7 @@ def _record_nightly(view, now):
                 row.outcome = nightly.score(row.forecaster, row.base_price, row.forecast, price, nights)
                 row.resolved_at = now
             session.commit()
-            print(f"NIGHTLY: {len(rows)} forecast(s) recorded, {len(due)} resolved")
+            print(f"NIGHTLY: {written} forecast(s) recorded, {len(due)} resolved")
         except Exception as e:
             session.rollback()
             if spool.unreachable(e):
