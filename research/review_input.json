@@ -1,8 +1,16 @@
 [
-  {"aim": "How far WallGold's 18K gold price sits below what world gold and the dollar imply. The reader should know the figure rests on one named platform's price.",
-   "text": "Discount         3.21%  below world price\n                 on WallGold's price"},
-  {"aim": "The one platform the discount rests on could not be read this time, so there is no discount figure in this message. The other prices in the message are unaffected.",
-   "text": "Discount         not read (WallGold)"},
-  {"aim": "Pulled before the evening report, so the base of the forecast is the price at this moment. The reader can check it in three days against the same figure in that night's message.",
-   "text": "18K, 3 days from now vs 25.32M now: 58% to close higher; 90% to close above 24.60M (−2.8%)."}
+  {"aim": "The gold funds' block, this week's zone: among the individuals in the gold funds, sellers' average ticket is unusually large against buyers' (the lowest 40% of the past year). On the record such weeks were followed by a weaker week. The reader can check both chances a week later against the same figure in that night's message. 'Close lower' means tgju-level 18K a week later is below tonight's price; 'drop to' means a night's figure reached that price within the week.",
+   "text": "Big holders among them are selling this week. Next trade week vs tonight's 25.16M: 46% to close lower (typical 38%); 25% to drop to 24.49M (−2.7%)."},
+  {"aim": "The same block, another zone: sellers' tickets are not unusually large against buyers' this week (the 40%-80% band of the past year). On the record such weeks were followed by the strongest next week. It does not say big holders are buying, only that they are not the ones selling.",
+   "text": "Buyers lead this week: big holders among them are not selling. Next trade week vs tonight's 25.16M: 29% to close lower (typical 38%); 30% to rise to 26.34M (+4.7%)."},
+  {"aim": "The same block, the third zone: buyers' average ticket is unusually large against sellers' (the top 20% of the past year), a rush of large buyers. On the record such weeks were followed by a weaker week than the middle zone.",
+   "text": "Big buyers crowded in this week. Next trade week vs tonight's 25.16M: 42% to close lower (typical 38%); 23% to drop to 24.49M (−2.7%)."},
+  {"aim": "Early in the fund week, with fewer than 3 sessions, no forecast is given. It names what last week showed: sellers' tickets were not unusually large.",
+   "text": "Too early to call this week. Last week (9–13 Aban), buyers led and big holders among them were not selling."},
+  {"aim": "Early in the fund week, no forecast. Last week's buyers' tickets were unusually large.",
+   "text": "Too early to call this week. Last week (9–13 Aban), big buyers crowded in."},
+  {"aim": "The message was pulled by the reader after the 21:00 report went out. Its numbers are of this moment and it is not the report that is kept and judged.",
+   "text": "Later look. Only the 21:00 report is recorded and scored."},
+  {"aim": "The caption under the daily chart of 18K, sent as its own photo just before the nightly message.",
+   "text": "18K daily · 19 Aban"}
 ]
