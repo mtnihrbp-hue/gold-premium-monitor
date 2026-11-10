@@ -92,6 +92,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    105 merged; the phone stands by for two platforms; the discount's basis tested; the nightly message previewed
                                                                    106 the stand-by live (v1.46safe); the discount on WallGold alone; the 3-day line's check; the big holders
                                                                    107 health check of 18 Aban
+                                                                   108 the discount on WallGold merged (v1.47safe); health check of 19 Aban; what waits on the owner
        member, the LLM member
 ```
 
@@ -10464,3 +10465,50 @@ Decision support, not an instruction to trade.
 - **Warning, every run:** GitHub is forcing `actions/cache@v4` and others from Node 20 to Node 24. Nothing has failed.
 
 **Verdict:** healthy. Open: WallGold from the phone (DNS), and the transfer measure.
+
+## 108. The discount on WallGold merged; health check of 19 Aban; what waits on the owner (2026-11-10)
+
+**The owner:** "ok on the merge, daily health check, and then there is bunch of work, i guess there are a lot on my bucket to approve and decide." **NEON MIGRATION REQUIRED = NO.**
+
+### 108.1 The merge
+
+`main` tagged `v1.47safe` (8cfd321), then fast-forwarded with `SP-D` to `sp-de` at 5b95bfc: 106 and 107. Before it: KPI suite 31/31, unit tests 20/20, compileall, on 5b95bfc. From here UPDATE's discount rests on WallGold alone, and the deep-discount push is evaluated and logged, not sent.
+
+### 108.2 The check (11-09 08:45 to 11-10 10:03 Tehran, before the merge)
+
+**Runs:** 22, one failed. The owner's UPDATE of 11-09 21:46 ended `failure` in 51 seconds with no job and no log: GitHub never started it, so no reply came. It is not reproducible from anything on record; the pull of 11-10 08:35 worked.
+
+**Run length (Ea-8):** a median of 3.0 minutes over 17 hourly runs.
+
+**Neon's transfer (E0-2, Ea-7): the first clean measure.** 567.9 MB at 11-10 06:33 UTC, 17.2 MB in the 25.3 hours since the anchor of 107.1: 22 runs, 0.78 MB a run against 3.58 before and Ea-7's 3 MB; about 16 MB a day, about 0.5 GB a month against E0-2's 1.5 GB. It holds the health checks' own reads. One day; the 7 days are the measure.
+
+**The phone:** no gap in 30 hours. WallGold's name errors (107.1) stopped at 11-09 14:15 and 97 reads in a row have passed: it was the phone's connection, and it cleared by itself. Daric 118 OK, 2 errors. The session of 11-09 recorded, 473 fund rows: 15 sessions in all, the NAV in 2. Daric came from the phone at 21:00 (s10, read 1 minute before). The stand-by for WallGold and Goldika has not been needed.
+
+**Platforms:** the eight 18 of 18 in 24 hours, none discarded. Parasteh held one price for three hours on the morning of 11-09: a gallery's, shown apart.
+
+**The discount at 10:01:** WallGold 3.65% below world price, the three lowest 3.63%, stored 3.65%.
+
+**Decisions:** 24 hours: CHEAP/WAIT 17, CHEAP/BUY 1 (11-09 15:01, parked). The confirmation or hysteresis held the other candidates. All time: WAIT 953, UNKNOWN 263, BUY 13.
+
+**The rest.** Candles to 11-09, Afran 11-10. PAPER: the room 128.07M, buy-and-hold 127.42M, the system 129.36M; no trades in 24 hours; every report sent at 21:01. The LENS sent. Forward test v2: the line for 11-09, risk 12.5%, in gold. E-9's labels: 386 of 600 days; today's resume pushed. Storage 62 MB.
+
+**Verdict:** healthy.
+
+### 108.3 What waits on the owner
+
+**To answer now:**
+1. **One small Neon table for the nightly message's forecasts,** so each is recorded before its outcome and scored (101.2, 102.1). The 21:00 run cannot write to `forward-ledger`, whose one writer is `forward-test.yml`. By the migration policy: tested on a temporary branch, then applied on the owner's word. Recommended.
+2. **Ea-2 loses its second half** ("the backup covers 100% of the index's misses"): the owner chose no backup (106.2).
+
+**Only the owner can do:**
+3. **The fee table (Ea-6, due 11-15):** Milli, Goldika and Invi, buy, sell and withdrawal costs, dated. It holds UPDATE's where-to-buy.
+
+**To decide later, with numbers brought first:**
+4. **The risk choice (69.3, Eb-5, 12-13):** how much wealth to give up for how much shallower a worst drop. X and Y were never set.
+5. **What brings the deep-discount push back:** the logged would-be pushes are its record.
+
+**Previews coming, each for approval before its merge:** the nightly message rendered; UPDATE; DIRECTION.
+
+**Optional, the owner's:** the monthly table from cbi.ir saved in a browser (M2 stays untested without it, 82.1); the worker pasted into Cloudflare for `#status` (90).
+
+**Parked by the owner, unchanged:** the BUY alert; the broadcast to friends; A1/A2 (the lowest priority, 70.4).

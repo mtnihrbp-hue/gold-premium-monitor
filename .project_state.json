@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "project": "Gold Premium Monitor",
-  "active_branch": "sp-de; main fast-forwarded to sp-de on 2026-11-08 at SP-D 105 (v1.46safe before); main is production",
+  "active_branch": "sp-de; main fast-forwarded to sp-de on 2026-11-10 at SP-D 107 (v1.47safe before); main is production",
   "current_phase": "SP-D (SP_D_HANDOFF.md): Direction live on main since 2026-10-03 (sections 1-8); the PAPER portfolio, the room as its front office, live on main since 2026-10-05 18:01 (sections 9-28); health check and record 2026-10-06 (section 29). Proposed next, for the owner's decision: Taline's frozen copies, the Iran-side node, the news leg with the LLM (section 29)",
   "current_phase_status": "SP-C CLOSED (merged 2026-09-28, 2b7c5f8; v1.3safe before). SP-D IN PROGRESS: Direction merged 2026-10-03 (v1.4safe before); PAPER merged 2026-10-05 15:57 (v1.6safe before); the go-live hotfix (scipy/pandas pins, venue label) fast-forwarded 17:07 (v1.7safe = 2957699 before). Production (cron-job.org and the Telegram worker) dispatches ref main. SP_D_HANDOFF.md sections 28-29.",
   "completed_phases": [
@@ -465,7 +465,7 @@
         "target": "projected under 1.5 GB for the month",
         "measure": "data_transfer_bytes on 11-01 at 06:00 and 11-08",
         "by": "2026-11-08",
-        "status": "not met 2026-11-08: about 1.97 GB a month against under 1.5 GB (SP_D_HANDOFF.md 103.1); the cut built on sp-de takes a measured run from 3.78 MB to 0.67 MB, expected about 0.4 GB a month, to be measured after its merge (104.3); SP-E0 stays open until then"
+        "status": "not met 2026-11-08, about 1.97 GB a month against under 1.5 GB (SP_D_HANDOFF.md 103.1); after the cut about 16 MB a day, about 0.5 GB a month, on the first clean day (108.2); the 7 days from 2026-11-09 are the measure"
       },
       {
         "id": "E0-3",
@@ -565,7 +565,7 @@
         "target": "an average of 3 MB or less over 7 days",
         "measure": "data_transfer_bytes across 7 days divided by the runs",
         "by": "2026-11-29",
-        "status": "merged 2026-11-08 (v1.45safe before): a measured run from 3.78 MB to 0.67 MB (SP_D_HANDOFF.md 104.3); anchor 550.7 MB on 2026-11-09 05:13 UTC (107.1), the 7 days from it are the measure"
+        "status": "merged 2026-11-08: 0.78 MB a run over the first clean day (17.2 MB, 22 runs; SP_D_HANDOFF.md 108.2) against 3 MB; the 7 days from 2026-11-09 05:13 UTC are the measure"
       },
       {
         "id": "Ea-8",
@@ -575,7 +575,7 @@
         "target": "a median under 4 minutes with Neon",
         "measure": "gh run list over 7 days",
         "by": "2026-11-29",
-        "status": "merged 2026-11-08: a median of 2.7 minutes over the first 8 scheduled runs (SP_D_HANDOFF.md 107.1); the median over the 7 days from the merge is the measure"
+        "status": "merged 2026-11-08: a median of 3.0 minutes over 17 hourly runs (SP_D_HANDOFF.md 108.2); the median over the 7 days from the merge is the measure"
       },
       {
         "id": "Ea-9",
@@ -595,7 +595,7 @@
         "target": "every item labelled by the fixed schema; a daily event table from 2026-01 onward for the R&D",
         "measure": "the label counts",
         "by": "2026-11-29",
-        "status": "in progress: E-9's labels 271 of 600 days (SP_D_HANDOFF.md 103.1)"
+        "status": "in progress: E-9's labels 386 of 600 days (SP_D_HANDOFF.md 108.2)"
       },
       {
         "id": "Eb-1",
@@ -679,10 +679,10 @@
       }
     ]
   },
-  "latest_safe_tag": "v1.46safe (b68e9ad, main before the phone's stand-by, 2026-11-08)",
-  "open_items_sp_d_106": [
-    "The phone silent from 04:30 on 2026-11-08 (SP_D_HANDOFF.md 105.5); after it returns, git pull and setup.sh bring the stand-by",
-    "For the owner: merge the discount on WallGold alone and the push stopped (SP_D_HANDOFF.md 106.2)",
+  "latest_safe_tag": "v1.47safe (8cfd321, main before the discount on WallGold alone, 2026-11-10)",
+  "open_items_sp_d_108": [
+    "For the owner, now: one Neon table for the nightly forecasts; Ea-2's backup half retired (SP_D_HANDOFF.md 108.3)",
+    "For the owner, by 2026-11-15: the fee table for Milli, Goldika and Invi (Ea-6)",
     "Next on sp-de: the nightly message wired, locked by the owner on 2026-11-08 (105.4, 106.3), with ANALYZE's rewiring and the breakout push as the flag only"
   ]
 }
