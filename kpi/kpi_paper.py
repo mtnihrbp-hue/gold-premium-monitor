@@ -243,6 +243,8 @@ class KPIPaper(unittest.TestCase):
         self.assertIn("no room view: the default, all in gold", room_evals[-1].reason,
                       "without enough history the room holds its default: gold")
 
+        self.addCleanup(setattr, main, "_nightly_on", main._nightly_on)
+        main._nightly_on = lambda config=None: False                    # the old report's words; the switch: kpi_nightly
         main._paper_run(_markets(), _State(), utc(17, 31))              # 21:01
         main._paper_run(_markets(), _State(), utc(17, 45))              # a second run after 21:00
         reports = s.query(PaperActivity).filter(PaperActivity.kind == "REPORT").all()
@@ -1134,6 +1136,24 @@ class KPIPaper(unittest.TestCase):
         start = date(2026, 6, 1)
         return [Candle(start + timedelta(days=k), x, x * 1.004, x * 0.996, x, "COMPLETE") for k, x in enumerate(c)]
 
+    def test_48b_a_box_break_is_no_longer_pushed(self):
+        """The breakout push is the flag only (the owner, 2026-11-08; SP_D_HANDOFF.md 104.5): the box break stays on
+        the chart and in the readings, and sends nothing."""
+        import main
+        import alerts.telegram_pulse as tp
+        import persistence.candle_cache as cc
+        rows = self._breakdown_rows()
+        sent, real = [], (cc.direct, tp.send_pulse)
+        try:
+            cc.direct = lambda instrument, today, rows_=None: rows
+            tp.send_pulse = sent.append
+            now = datetime.combine(rows[-1].trade_date + timedelta(days=1), datetime.min.time()) + timedelta(hours=2, minutes=35)
+            with redirect_stdout(io.StringIO()):
+                main._chart_pulse(now, {})
+        finally:
+            cc.direct, tp.send_pulse = real
+        self.assertEqual(sent, [])
+
     def test_48_the_pulse_tells_a_break_once_at_the_first_run_of_the_day(self):
         """The owner, 2026-10-22: "the gold is coming out of the box ... but there is no pulse to the user, no
         alert is sent"; the pulse locked with breakouts and breakdowns both (SP_D_HANDOFF.md section 57)."""
@@ -1142,10 +1162,11 @@ class KPIPaper(unittest.TestCase):
         import persistence.candle_cache as cc
         rows = self._breakdown_rows()
         last = rows[-1].trade_date
-        sent, reads, real = [], [], (cc.direct, tp.send_pulse)
+        sent, reads, real = [], [], (cc.direct, tp.send_pulse, tp.PUSHED)
         try:
             cc.direct = lambda instrument, today, rows_=None: reads.append(today) or rows
             tp.send_pulse = sent.append
+            tp.PUSHED = tp.KINDS         # the box break's own message; what is pushed is the flag only (test_48b)
             state = {}
             now = datetime.combine(last + timedelta(days=1), datetime.min.time()) + timedelta(hours=2, minutes=35)
             with redirect_stdout(io.StringIO()):
@@ -1153,7 +1174,7 @@ class KPIPaper(unittest.TestCase):
                 main._chart_pulse(now + timedelta(hours=1), state)           # the same day: not read again
                 main._chart_pulse(now + timedelta(days=1), state)            # the next day: read, not told again
         finally:
-            cc.direct, tp.send_pulse = real
+            cc.direct, tp.send_pulse, tp.PUSHED = real
         self.assertEqual(len(sent), 1, "told once")
         self.assertEqual(len(reads), 2, "one tgju read a day")
         text = re.sub(r"</?[bi]>", "", sent[0])

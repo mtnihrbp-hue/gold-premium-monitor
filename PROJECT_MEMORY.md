@@ -285,7 +285,7 @@ Neon Postgres on the free plan:
 ```text
 market_snapshots  platform_prices  market_states  price_observations  news_events
 analysis_snapshots  outcome_evaluations  platform_candles  market_daily_candles
-direction_snapshots  paper_accounts  paper_activity  iran_node_readings
+direction_snapshots  paper_accounts  paper_activity  iran_node_readings  nightly_forecasts
 system_events  market_hypotheses
 ```
 

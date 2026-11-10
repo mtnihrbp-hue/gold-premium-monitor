@@ -1606,7 +1606,62 @@ def spool_writers(session, entries):
             return
         session.add(NewsEvent(**p, processed_at=datetime.utcnow()))
 
-    return {"reading": reading, "observation": observation, "candles": candles, "news": news}
+    def forecast(session, p):
+        save_nightly_forecast(session, commit=False, **p)
+
+    return {"reading": reading, "observation": observation, "candles": candles, "news": news, "forecast": forecast}
+
+
+# -- the nightly message's forecasts (SP_D_HANDOFF.md section 109) ------------------------------
+
+def save_nightly_forecast(session, local_date, forecaster, version, recorded_at, base_price, due_date, forecast,
+                          commit=True):
+    """One forecast the nightly message showed; a day and forecaster already stored stays as it is. True when written."""
+    from database.models import NightlyForecast
+
+    if (session.query(NightlyForecast.id)
+            .filter(NightlyForecast.local_date == local_date, NightlyForecast.forecaster == forecaster).first()):
+        return False
+    session.add(NightlyForecast(local_date=local_date, forecaster=forecaster, version=version, recorded_at=recorded_at,
+                                base_price=base_price, due_date=due_date, forecast=forecast))
+    if commit:
+        session.commit()
+    return True
+
+
+def due_nightly_forecasts(session, today):
+    """The forecasts due on or before Tehran day `today` and not yet resolved, oldest first."""
+    from database.models import NightlyForecast
+
+    return (session.query(NightlyForecast)
+            .filter(NightlyForecast.resolved_at.is_(None), NightlyForecast.due_date <= today)
+            .order_by(NightlyForecast.local_date.asc(), NightlyForecast.id.asc()).all())
+
+
+def nightly_prices(session, after, through):
+    """{day: the NOW line's 18K figure} for the nights after `after` through `through`, from the 3-day rows."""
+    from database.models import NightlyForecast
+
+    return {day: float(price) for day, price in
+            session.query(NightlyForecast.local_date, NightlyForecast.base_price)
+            .filter(NightlyForecast.forecaster == "three_day", NightlyForecast.local_date > after,
+                    NightlyForecast.local_date <= through)}
+
+
+def index_gap_on(session, day, index_name):
+    """The gap on the index platform at the last scheduled reading of Tehran day `day`, in the sign of
+    bubble_position.signed_gap; None when that day has no such reading."""
+    from timeutil import TEHRAN_UTC_OFFSET
+
+    start = datetime(day.year, day.month, day.day) - TEHRAN_UTC_OFFSET
+    row = (session.query(PlatformPrice.price_irr, MarketSnapshot.fair_price)
+           .join(MarketSnapshot, PlatformPrice.snapshot_id == MarketSnapshot.id)
+           .filter(MarketSnapshot.collection_mode == "scheduled", PlatformPrice.platform_name == index_name,
+                   MarketSnapshot.timestamp >= start, MarketSnapshot.timestamp < start + timedelta(days=1))
+           .order_by(MarketSnapshot.timestamp.desc()).first())
+    if row is None or not row[0] or not row[1]:
+        return None
+    return (float(row[0]) / float(row[1]) - 1) * 100
 
 
 # -- DIRECTION (SP-D, SP_D_HANDOFF.md section 4) ------------------------------------------------

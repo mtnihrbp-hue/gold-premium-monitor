@@ -2065,7 +2065,8 @@ class KPICoherence(unittest.TestCase):
         self.assertIn("fair value", never)
         self.assertGreaterEqual(len(never), 12)
         surfaces = ("telegram_update_v1", "telegram_analyze", "telegram_signal", "telegram_service",
-                    "telegram_direction", "telegram_paper", "telegram_pulse", "gold_funds", "chart", "telegram_lens")
+                    "telegram_direction", "telegram_paper", "telegram_pulse", "gold_funds", "chart", "telegram_lens",
+                    "telegram_nightly")
         found = []
         for module in surfaces:
             path = os.path.join(root, "src", "alerts", f"{module}.py")
@@ -2127,8 +2128,8 @@ class KPICoherence(unittest.TestCase):
         with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "config.json"),
                   encoding="utf-8") as f:
             # confirmed by the owner on 2026-10-30: readings, observations and daily inputs; news held (73)
-            self.assertEqual(json.load(f)["spool"]["write_back"], ["reading", "observation", "candles"])
-        self.assertEqual(main._write_back_kinds(), {"reading", "observation", "candles"})
+            self.assertEqual(json.load(f)["spool"]["write_back"], ["reading", "observation", "candles", "forecast"])
+        self.assertEqual(main._write_back_kinds(), {"reading", "observation", "candles", "forecast"})
         folder = tempfile.mkdtemp()
         os.environ["RECORD_SPOOL_FILE"] = os.path.join(folder, "spool.jsonl")
         self.addCleanup(os.environ.pop, "RECORD_SPOOL_FILE", None)
@@ -2288,7 +2289,7 @@ class KPICoherence(unittest.TestCase):
         worker = (SRC / "worker" / "telegram-trigger.js").read_text(encoding="utf-8")
         self.assertIn("`${statusMsg}\\n\\n#status`", worker)
         self.assertNotIn("#update", worker, "the acknowledgements carry no tag: a search would show each request twice")
-        for name in ("telegram_lens", "telegram_paper", "telegram_pulse", "telegram_service", "telegram_signal"):
+        for name in ("telegram_lens", "telegram_nightly", "telegram_paper", "telegram_pulse", "telegram_service", "telegram_signal"):
             self.assertNotIn("tagged(", (SRC / "alerts" / f"{name}.py").read_text(encoding="utf-8"), name)
         self.assertNotIn("tagged(", inspect.getsource(telegram_analyze.send_push), "the deep-discount push")
 

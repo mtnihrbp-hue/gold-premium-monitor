@@ -14,6 +14,7 @@ from timeutil import persian_day, to_tehran
 
 TITLES = {"RANGE BREAKOUT": "BREAKOUT", "RANGE BREAKDOWN": "BREAKDOWN", "FLAG": "BREAKOUT"}
 KINDS = tuple(TITLES)
+PUSHED = ("FLAG",)      # the flag only: the one pattern that beat any day (the owner, 2026-11-08; SP_D_HANDOFF.md 104.5)
 
 
 def _m(rial):

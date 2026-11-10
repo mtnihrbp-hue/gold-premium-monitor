@@ -416,6 +416,33 @@ class DirectionSnapshot(Base):
     )
 
 
+class NightlyForecast(Base):
+    """A forecast the 21:00 nightly message showed, written before its outcome (SP_D_HANDOFF.md section 109).
+
+    One row per Tehran day and forecaster. `base_price` is the 18K figure of the message's own NOW line, in rial,
+    and the check is the same line later, so one series stands at both ends (section 106.3). `forecast` is never
+    rewritten; `outcome` and `resolved_at` are filled in once, on or after `due_date`. A pull before 21:00 writes
+    nothing.
+    """
+
+    __tablename__ = "nightly_forecasts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    local_date = Column(Date, nullable=False)
+    forecaster = Column(String(32), nullable=False)
+    version = Column(String(24), nullable=False)
+    recorded_at = Column(DateTime, nullable=False)
+    base_price = Column(Numeric(20, 2), nullable=False)
+    due_date = Column(Date, nullable=False)
+    forecast = Column(JSON, nullable=False)
+    outcome = Column(JSON, nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("local_date", "forecaster", name="uq_nightly_forecasts_day"),
+    )
+
+
 class PaperAccount(Base):
     """A hypothetical account trading whole grams of 18K under the owner's contract.
 

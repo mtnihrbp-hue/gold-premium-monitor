@@ -39,7 +39,7 @@ python tests/test_momentum.py
 python kpi/kpi_pre_sp_c14c.py
 ```
 
-Run the entire KPI suite (31 files) — this is the regression check before calling any phase complete:
+Run the entire KPI suite (32 files) — this is the regression check before calling any phase complete:
 ```
 python kpi/run_all.py
 ```
@@ -315,7 +315,7 @@ Fail-safe law used throughout collection/analysis: on missing data, use a safe d
 
 ### Database / Neon migration policy
 
-Neon Postgres is the long-term historical store (`market_snapshots`, `platform_prices`, `market_states`, `news_events`, `price_observations`, `analysis_snapshots`, `outcome_evaluations`, `platform_candles`, `market_daily_candles`, `direction_snapshots`, `paper_accounts`, `paper_activity`, `iran_node_readings`). The last is written by the owner's phone in Iran as the role `iran_node`, which may only INSERT: make such a role with SQL, never through Neon's API or console, whose roles join `neon_superuser` (`PROJECT_OPERATIONS.md` §16). Any schema-affecting change requires: inspect production → compare migration intent → write incremental migration → verify on a temporary Neon branch → explicit authorization → apply to production → verify → sync docs/`.project_state.json`. Do not introduce a migration merely because a feature exists — demonstrate the persistence requirement first, and explicitly record `NEON MIGRATION REQUIRED = NO` when a phase needs none.
+Neon Postgres is the long-term historical store (`market_snapshots`, `platform_prices`, `market_states`, `news_events`, `price_observations`, `analysis_snapshots`, `outcome_evaluations`, `platform_candles`, `market_daily_candles`, `direction_snapshots`, `paper_accounts`, `paper_activity`, `iran_node_readings`, `nightly_forecasts`). The last is written by the owner's phone in Iran as the role `iran_node`, which may only INSERT: make such a role with SQL, never through Neon's API or console, whose roles join `neon_superuser` (`PROJECT_OPERATIONS.md` §16). Any schema-affecting change requires: inspect production → compare migration intent → write incremental migration → verify on a temporary Neon branch → explicit authorization → apply to production → verify → sync docs/`.project_state.json`. Do not introduce a migration merely because a feature exists — demonstrate the persistence requirement first, and explicitly record `NEON MIGRATION REQUIRED = NO` when a phase needs none.
 
 ### Phase completion discipline
 

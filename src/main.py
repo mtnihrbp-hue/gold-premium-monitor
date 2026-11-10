@@ -320,7 +320,7 @@ def _collect_room_inputs(now=None):
         session.close()
 
 
-WRITE_BACK_KINDS = ("reading", "observation", "candles", "news")
+WRITE_BACK_KINDS = ("reading", "observation", "candles", "news", "forecast")
 
 
 def _write_back_kinds(config=None):
@@ -742,31 +742,38 @@ def _direction_precompute(markets, signal_state, now):
         session.close()
 
 
-def _gold_demand(session):
-    """The gold funds' last 7 trading days for Direction's GOLD DEMAND (analysis/gold_demand.py, SP-D
-    section 35.11): src/seed's daily totals, then the days the Iran node sent after them, a fund's latest
-    copy of a day, a day counting when gold_demand.MIN_FUNDS of the seed's funds have it. {} on failure
-    or without enough days: the section is then left out."""
+def _fund_days(session):
+    """The gold funds' individuals by day: src/seed's daily totals, then the days the Iran node sent after them, a
+    fund's latest copy of a day, a day counting when gold_demand.MIN_FUNDS of the seed's funds have it. Raises when
+    the node's days cannot be read."""
     from datetime import date as _date, datetime as _dt
     from analysis import gold_demand
     from database.repository import get_node_rows
+    seed = json.load(open(os.path.join(SEED_DIR, "gold_fund_daily.json"), encoding="utf-8"))
+    totals = {_date.fromisoformat(k): v[:4] for k, v in seed["days"].items()}
+    seed_end, funds = max(totals), set(seed["funds"])
+    by_day = {}
+    for row in get_node_rows(session, "tsetmc", _dt.combine(seed_end, _dt.min.time())):
+        record, day = row.payload or {}, row.detail or ""
+        code = str(record.get("insCode") or row.instrument.replace("CLIENTTYPE_", ""))
+        if len(day) != 8 or code not in funds:
+            continue
+        day = _date(int(day[:4]), int(day[4:6]), int(day[6:]))
+        if day > seed_end:
+            by_day.setdefault(day, {})[code] = record
+    for day, records in by_day.items():
+        if len(records) >= gold_demand.MIN_FUNDS:
+            totals[day] = [sum(float(r.get(k) or 0) for r in records.values())
+                           for k in ("buy_I_Value", "buy_I_Count", "sell_I_Value", "sell_I_Count")]
+    return totals
+
+
+def _gold_demand(session):
+    """The gold funds' last 7 trading days for Direction's GOLD DEMAND (analysis/gold_demand.py, SP-D
+    section 35.11). {} on failure or without enough days: the section is then left out."""
+    from analysis import gold_demand
     try:
-        seed = json.load(open(os.path.join(SEED_DIR, "gold_fund_daily.json"), encoding="utf-8"))
-        totals = {_date.fromisoformat(k): v[:4] for k, v in seed["days"].items()}
-        seed_end, funds = max(totals), set(seed["funds"])
-        by_day = {}
-        for row in get_node_rows(session, "tsetmc", _dt.combine(seed_end, _dt.min.time())):
-            record, day = row.payload or {}, row.detail or ""
-            code = str(record.get("insCode") or row.instrument.replace("CLIENTTYPE_", ""))
-            if len(day) != 8 or code not in funds:
-                continue
-            day = _date(int(day[:4]), int(day[4:6]), int(day[6:]))
-            if day > seed_end:
-                by_day.setdefault(day, {})[code] = record
-        for day, records in by_day.items():
-            if len(records) >= gold_demand.MIN_FUNDS:
-                totals[day] = [sum(float(r.get(k) or 0) for r in records.values())
-                               for k in ("buy_I_Value", "buy_I_Count", "sell_I_Value", "sell_I_Count")]
+        totals = _fund_days(session)
         days = sorted(totals)
         return gold_demand.assess(days, [totals[d] for d in days])
     except Exception as e:
@@ -800,7 +807,7 @@ def _chart_pulse(now, state):
     next run. Each event is sent once. Never raises."""
     try:
         import numpy as np
-        from alerts.telegram_pulse import KINDS, build_pulse_message, send_pulse
+        from alerts.telegram_pulse import PUSHED, build_pulse_message, send_pulse
         from analysis.direction import GOLD
         from caluclator import patterns
         from persistence.candle_cache import direct
@@ -821,7 +828,7 @@ def _chart_pulse(now, state):
         undone = {(d, k) for d, k, _back in found.get("back", [])}
         for day, kind, level, target, stop in found["events"]:
             key = f"{day.isoformat()}:{kind}"
-            if kind not in KINDS or day < dates[-2] or key in sent:
+            if kind not in PUSHED or day < dates[-2] or key in sent:
                 continue          # only the last two closes: a run that missed a day still tells it, once
             if (day, kind) in undone:
                 continue          # back inside the box by the next close: not a break to push (section 60)
@@ -1178,7 +1185,7 @@ def _paper_report(session, accounts, day, quote, sig, now, view=None, fund=(None
     from analysis import paper
     from alerts.telegram_paper import build_report_message, build_room_report_message, send_paper_report
     from database.repository import paper_latest, paper_rows_on, save_paper_activity
-    from timeutil import to_tehran
+    from timeutil import persian_day, to_tehran
 
     front_name = paper.ROOM if paper.ROOM in accounts else paper.ANALYST
     front = accounts[front_name]
@@ -1213,6 +1220,15 @@ def _paper_report(session, accounts, day, quote, sig, now, view=None, fund=(None
     trades = [(t.action, t.grams, float(t.price), ((t.inputs or {}).get("quote") or {}).get("venue"),
                f"{to_tehran(t.at):%H:%M}") for t in paper_rows_on(session, front.id, day, "TRADE")]
     holding, cash, base, base_day, units, value = lines[front_name]
+    if _nightly_on():
+        # the words go in the nightly message (SP_D_HANDOFF.md 104.5, 105.4); the chart stays, as its own photo
+        from alerts.telegram import _send_photo
+        png = _paper_chart(session, front, sell)
+        if png:
+            _send_photo(png, f"18K daily · {persian_day(day)}")
+        print(f"PAPER report stored: {holding} g + {units:,.0f} {paper.FUND} units + {cash:,.0f} cash at {sell:,.0f} ({venue}), "
+              f"chart {'yes' if png else 'no'}")
+        return
     hold = lines.get(paper.HOLD)
     if front_name == paper.ROOM:
         text = build_room_report_message(day, venue, sell, note, holding, units, fund_price, fund_estimated, value,
@@ -1517,9 +1533,208 @@ def _lens_run(markets, world, usd, now, state, config=None):
             state["lens"] = {"date": day, "odds": view["odds_state"]}
         news = view["news"]
         print(f"LENS sent: odds {len(view['odds'])}, headlines {view['headlines']}, picked "
-              f"{'none: not read' if news is None else sum(len(v) for v in news.values())}")
+              f"{'none: not read' if news is None else sum(len(news.get(k) or ()) for k in ('strike', 'deal', 'gold'))}")
     except Exception as e:
         print(f"LENS failed: {e}")
+
+
+# -- the nightly message (SP_D_HANDOFF.md 104.5, 105.4, 106.3, 109) -------------------------------------------------
+
+FORWARD_LEDGER = ("https://raw.githubusercontent.com/mtnihrbp-hue/gold-premium-monitor/forward-ledger/"
+                  "data/shadow_ledger_v2.jsonl")
+CALM_MAX_AGE_DAYS = 5       # an older line is not tonight's risk: the 3-day line then says unknown
+
+
+def _nightly_on(config=None):
+    """Whether the nightly message has replaced the PAPER report's text, the LENS and the evening's fallback."""
+    return bool(((config or load_config()).get("nightly") or {}).get("send", False))
+
+
+def _calm_sigma(now):
+    """18K's forecast daily volatility, the forward test's latest line (the branch forward-ledger, read from the
+    public repository; PROJECT_OPERATIONS.md section 18). None when unread or too old."""
+    from datetime import date as _date
+    import requests
+    from timeutil import local_date
+    try:
+        response = requests.get(FORWARD_LEDGER, timeout=20)
+        response.raise_for_status()
+        line = json.loads(response.text.strip().splitlines()[-1])
+        if (local_date(now) - _date.fromisoformat(line["date"])).days > CALM_MAX_AGE_DAYS:
+            print(f"NIGHTLY: the forward test's last line is {line['date']}, too old")
+            return None
+        return float(line["calm_daily_vol"])
+    except Exception as e:  # noqa: BLE001 -- the line says unknown
+        print(f"NIGHTLY: the forward test's line not read: {type(e).__name__}")
+        return None
+
+
+def _nightly_room(session):
+    """The room as how much: gold, Afran, the total, the last trade's day. None when it cannot be read."""
+    from analysis import paper
+    from database.models import PaperAccount
+    from database.repository import paper_latest
+    account = session.query(PaperAccount).filter(PaperAccount.name == paper.ROOM).first()
+    last = paper_latest(session, account.id, kinds=("REPORT", "EVAL", "TRADE")) if account else None
+    if last is None or last.value is None:
+        return None
+    fund = (last.inputs or {}).get("fund") or {}
+    afran = float(fund.get("units") or 0) * float(fund.get("price") or 0)
+    total, cash = float(last.value), float(last.cash or 0)
+    trade = paper_latest(session, account.id, kinds=("TRADE",))
+    return {"total": total, "afran": afran, "gold": total - afran - cash, "grams": last.holding,
+            "since": trade.local_date.isoformat() if trade is not None else None}
+
+
+def _nightly_view(markets, world, usd, now, previous_odds=None, pull=False):
+    """Everything the nightly message prints. `usd` is bonbast's, in Tomans. A part that cannot be read is None and
+    the message says unknown: the fail-safe law, and the evening's fallback retired (104.5)."""
+    from datetime import date as _date
+    from analysis import lens, nightly
+    from analysis.bubble_position import signed_gap
+    from analysis.direction import live_gold_price
+    from database.repository import index_gap_on
+    from platforms import INDEX_PLATFORM, index_markets
+    from timeutil import local_date
+
+    view = lens.build_view(markets, world, usd * 10 if usd else None, now, previous_odds=previous_odds)
+    today, market = local_date(now), view["market"]
+    fair = calculate_fair_price(world, usd) * 10 if world and usd else None
+    gap_now = signed_gap((index_markets(markets).get(INDEX_PLATFORM) or {}).get("price"), fair)
+    then, flows, room = None, None, None
+    session = _read_session()
+    if session is not None:
+        try:
+            reads = (("the discount's last close", lambda: index_gap_on(session, _date.fromisoformat(market["ref_date"]), INDEX_PLATFORM)
+                      if market else None),
+                     ("the funds' days", lambda: _fund_days(session)),
+                     ("the room", lambda: _nightly_room(session)))
+            found = []
+            for label, read in reads:
+                try:
+                    found.append(read())
+                except Exception as e:  # noqa: BLE001 -- that part says unknown
+                    print(f"NIGHTLY: {label} not read: {str(e).strip().splitlines()[0][:160]}")
+                    session.rollback()
+                    found.append(None)
+            then, flows, room = found
+        finally:
+            session.close()
+    funds = nightly.funds_view(flows, today) if flows else None
+    price = market["price"] if market and market["price"] else live_gold_price(markets)
+    three = nightly.three_day_line(price, _calm_sigma(now), funds["chance_zone"] if funds else None)
+    view.update({"discount": {"now": gap_now, "then": then, "index": INDEX_PLATFORM}, "three_day": three, "funds": funds,
+                 "funds_line": nightly.funds_line(funds, three), "room": room, "pull": pull})
+    return view
+
+
+def _record_nightly(view, now):
+    """Write down what tonight's message committed to, and judge what falls due: on the NOW line, one series at both
+    ends (106.3). A row Neon cannot take is held in the spool. Never raises."""
+    try:
+        from analysis import nightly
+        from database.repository import due_nightly_forecasts, nightly_prices, save_nightly_forecast
+        from persistence import spool
+        from timeutil import local_date
+
+        day = local_date(now)
+        rows = nightly.forecast_rows(day, view, now)
+        session = get_session()
+        if session is None:
+            print("NIGHTLY: no database session; the forecasts not recorded")
+            return
+        try:
+            for row in rows:
+                save_nightly_forecast(session, **row)
+            price = (view.get("three_day") or {}).get("base")
+            due = due_nightly_forecasts(session, day) if price else []
+            for row in due:
+                nights = nightly_prices(session, row.local_date, day)
+                row.outcome = nightly.score(row.forecaster, row.base_price, row.forecast, price, nights)
+                row.resolved_at = now
+            session.commit()
+            print(f"NIGHTLY: {len(rows)} forecast(s) recorded, {len(due)} resolved")
+        except Exception as e:
+            session.rollback()
+            if spool.unreachable(e):
+                held = [row["forecaster"] for row in rows if spool.hold("forecast", row)]
+                print(f"NIGHTLY: the database is out of reach; held: {', '.join(held) or 'none'}")
+            else:
+                print(f"NIGHTLY: the record failed: {e}")
+        finally:
+            session.close()
+    except Exception as e:  # noqa: BLE001 -- the record must not cost the run
+        print(f"NIGHTLY: the record failed: {e}")
+
+
+def _nightly_run(markets, world, usd, now, state, config=None):
+    """The one nightly message, once per Tehran day from 21:00, kept in state.json with the ceasefire's odds for
+    tomorrow's "(was ...)", under the LENS's key so the odds carry over. Never raises."""
+    try:
+        from analysis import paper
+        from alerts.telegram_nightly import build_nightly_message, send_nightly
+        from timeutil import local_date, local_now
+
+        if not _nightly_on(config) or local_now(now).hour < paper.REPORT_HOUR:
+            return
+        day = local_date(now).isoformat()
+        kept = (state or {}).get("lens") or {}
+        if kept.get("date") == day:
+            return
+        view = _nightly_view(markets, world, usd, now, previous_odds=kept.get("odds"))
+        send_nightly(build_nightly_message(view))
+        if state is not None:
+            state["lens"] = {"date": day, "odds": view["odds_state"]}
+        _record_nightly(view, now)
+        print(f"NIGHTLY sent: 3-day line {'yes' if view['three_day'] else 'unknown'}, funds "
+              f"{'yes' if view['funds'] else 'unknown'}, room {'yes' if view['room'] else 'unknown'}")
+    except Exception as e:  # noqa: BLE001 -- a message must not cost the run
+        print(f"NIGHTLY failed: {e}")
+
+
+def _collect_read_only(now, state):
+    """World gold, the dollar and the platforms, read and validated and stored nowhere, for a pull before night
+    (104.5: read-only, as the report wing is). What cannot be read is None and the message says so."""
+    world, usd, markets = None, None, {}
+    try:
+        world = get_world_gold_price()
+        if world is not None:
+            validate_world_gold(world)
+    except Exception as e:  # noqa: BLE001
+        print(f"PULL: world gold not read: {e}")
+        world = None
+    try:
+        usd = get_usd_sell_rate()
+        validate_usd_rate(usd)
+    except Exception as e:  # noqa: BLE001
+        print(f"PULL: the dollar not read: {e}")
+        usd = None
+    try:
+        raw = get_market_prices()
+        _daric_from_node(raw, now)
+        _standby_from_node(raw, now)
+        markets = validate_market_prices(raw, history=_recent_platform_history(now), now=now,
+                                         holds=dict(state.get("quote_holds") or {}))
+    except Exception as e:  # noqa: BLE001
+        print(f"PULL: the platforms not read: {e}")
+    return world, usd, markets
+
+
+def _send_nightly_pull(state):
+    """/Analyze: the nightly message now, with the time of the pull. Reads only: never recorded, never scored
+    (SP_D_HANDOFF.md 104.5). A failure says so rather than leaving the reader without an answer."""
+    from alerts.telegram import _send, tagged
+    from alerts.telegram_analyze import build_unavailable_message
+    from alerts.telegram_nightly import build_nightly_message, send_nightly
+    now = datetime.utcnow()
+    try:
+        world, usd, markets = _collect_read_only(now, state)
+        view = _nightly_view(markets, world, usd, now, previous_odds=(state.get("lens") or {}).get("odds"), pull=True)
+        send_nightly(tagged(build_nightly_message(view), "analyze"))
+        print(f"PULL sent: 3-day line {'yes' if view['three_day'] else 'unknown'}, funds {'yes' if view['funds'] else 'unknown'}")
+    except Exception as e:  # noqa: BLE001
+        print(f"PULL failed: {e}")
+        _send(tagged(build_unavailable_message(), "analyze"))
 
 
 def _send_direction_report():
@@ -1782,10 +1997,12 @@ def main():
         _send_direction_report()
         return
     if report_only:
-        # The Live Wing boundary in its strictest form. A reader asking what the
-        # record shows must not collect prices, create a snapshot or produce an
-        # outcome, so this returns before any collection happens at all.
-        _send_analyze_report()
+        # The Live Wing boundary: a reader's pull must not create a snapshot or produce an outcome. The nightly
+        # message reads prices now and stores nothing (SP_D_HANDOFF.md 104.5); the old report reads only the record.
+        if _nightly_on(config):
+            _send_nightly_pull(state)
+        else:
+            _send_analyze_report()
         return
     collection_run_id = _generate_collection_run_id()
     if is_scheduled:
@@ -1988,8 +2205,11 @@ def main():
         _chart_pulse(now, state)
         _direction_precompute(markets, signal_state, now)
         _paper_run(markets, signal_state, now)
-        _evening_fallback(markets, now, state)
-        _lens_run(markets, world, usd, now, state, config)
+        if _nightly_on(config):
+            _nightly_run(markets, world, usd, now, state, config)
+        else:
+            _evening_fallback(markets, now, state)
+            _lens_run(markets, world, usd, now, state, config)
         if snapshot_id is not None:
             try:
                 analysis_snapshot_id = build_analysis_snapshot(config=config)

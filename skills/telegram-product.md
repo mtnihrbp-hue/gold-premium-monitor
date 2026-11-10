@@ -30,6 +30,7 @@ Scheduled, not commanded:
   then says "Broke up on X; back inside the box since Y" (60);
 - the room's 21:00 report, with the day's chart as a photo;
 - the LENS, at the first run from 21:00 (`SP_D_HANDOFF.md` 84-86): now against the last close, the ceasefire's real-money odds, the day's headlines toward a strike or a deal (the AI model picks and translates them, never writes a claim), what followed past strikes and deals against any day, and the read from the numbers; previewed 2026-10-31, its layout locked once the owner reviews it; switched off by `config.lens.send` from 2026-11-01 until that review (`SP_D_HANDOFF.md` 90);
+- NIGHT, at the first run from 21:00 (`SP_D_HANDOFF.md` 105.4, 106.3, 109): replaces the room's report text and the LENS once `config.nightly.send` is merged: NOW against the last close, the next 3 days, the funds' Saturday-to-Wednesday week, the event as the LENS sends it, the room as how much; the chart goes as its own photo; /Analyze pulls the same message, never recorded or scored;
 - the room's trades;
 - the BUY signal, parked by the owner on 2026-10-18 (computed and logged, not sent; `SP_D_HANDOFF.md` 50.1);
 - the deep-discount push, parked until Neon returns.

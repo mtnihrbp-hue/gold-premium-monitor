@@ -465,6 +465,27 @@ CREATE INDEX IF NOT EXISTS ix_iran_node_readings_lookup
     ON iran_node_readings (source, instrument, observed_at DESC);
 
 -- ============================================================
+-- 15. THE NIGHTLY MESSAGE'S FORECASTS (SP-D, 2026-11-10)
+-- ============================================================
+-- What the 21:00 message committed to, written before its outcome and judged on the same
+-- message's NOW line. forecast is never rewritten; only outcome and resolved_at are filled
+-- in. Migration: sql/neon_migration_nightly_forecasts.sql (SP_D_HANDOFF.md section 109).
+
+CREATE TABLE IF NOT EXISTS nightly_forecasts (
+    id SERIAL PRIMARY KEY,
+    local_date DATE NOT NULL,
+    forecaster VARCHAR(32) NOT NULL,
+    version VARCHAR(24) NOT NULL,
+    recorded_at TIMESTAMP NOT NULL,
+    base_price NUMERIC(20, 2) NOT NULL,
+    due_date DATE NOT NULL,
+    forecast JSONB NOT NULL,
+    outcome JSONB,
+    resolved_at TIMESTAMP,
+    CONSTRAINT uq_nightly_forecasts_day UNIQUE (local_date, forecaster)
+);
+
+-- ============================================================
 -- 9. VERIFICATION
 -- ============================================================
 
@@ -487,7 +508,8 @@ WHERE table_schema = 'public'
       'direction_snapshots',
       'paper_accounts',
       'paper_activity',
-      'iran_node_readings'
+      'iran_node_readings',
+      'nightly_forecasts'
   )
 ORDER BY table_name;
 

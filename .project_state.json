@@ -512,7 +512,7 @@
         "stage": "SP-Ea",
         "what": "The index answers",
         "baseline": "WallGold 100% of readings, 08-04 to 10-04 (63.3)",
-        "target": "a price in at least 98% of scheduled runs, and the backup covers every miss",
+        "target": "a price from WallGold in at least 98% of scheduled runs (the backup's half retired by the owner, 2026-11-10; SP_D_HANDOFF.md 106.2, 109.2)",
         "measure": "14 days of runs from 11-08",
         "by": "2026-11-22",
         "status": "on track: WallGold 68 of 69 readings since 11-04, Goldika covered the miss; the 14 days counted from 11-04 (SP_D_HANDOFF.md 96.1, 103.1)"
@@ -680,9 +680,10 @@
     ]
   },
   "latest_safe_tag": "v1.47safe (8cfd321, main before the discount on WallGold alone, 2026-11-10)",
-  "open_items_sp_d_108": [
-    "For the owner, now: one Neon table for the nightly forecasts; Ea-2's backup half retired (SP_D_HANDOFF.md 108.3)",
+  "open_items_sp_d_109": [
+    "For the owner: the nightly message's preview and its two rewritten lines (SP_D_HANDOFF.md 109.4, 109.5), before its merge",
     "For the owner, by 2026-11-15: the fee table for Milli, Goldika and Invi (Ea-6)",
-    "Next on sp-de: the nightly message wired, locked by the owner on 2026-11-08 (105.4, 106.3), with ANALYZE's rewiring and the breakout push as the flag only"
+    "For the owner, by 2026-12-13: the worst fall that can be sat through, replacing X and Y (109.6); what the deep-discount push is for (109.7)",
+    "Next on sp-de after the nightly merge (tag v1.48safe first): UPDATE as WHERE, then DIRECTION"
   ]
 }

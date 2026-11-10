@@ -93,6 +93,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    106 the stand-by live (v1.46safe); the discount on WallGold alone; the 3-day line's check; the big holders
                                                                    107 health check of 18 Aban
                                                                    108 the discount on WallGold merged (v1.47safe); health check of 19 Aban; what waits on the owner
+                                                                   109 nightly_forecasts applied; the nightly message wired on sp-de, not merged; the risk choice; the push replayed
        member, the LLM member
 ```
 
@@ -10512,3 +10513,121 @@ Decision support, not an instruction to trade.
 **Optional, the owner's:** the monthly table from cbi.ir saved in a browser (M2 stays untested without it, 82.1); the worker pasted into Cloudflare for `#status` (90).
 
 **Parked by the owner, unchanged:** the BUY alert; the broadcast to friends; A1/A2 (the lowest priority, 70.4).
+
+## 109. The forecasts' table; the nightly message wired on `sp-de`; the risk choice explained; the deep-discount push replayed (2026-11-10)
+
+**The owner, on 108.3:** "1- YES ADD / 2- YES / 4- not clear, elabore / 5- again, lets talk". **NEON MIGRATION REQUIRED = YES, applied** (109.1). The first run on WallGold alone (11:00 Tehran, run 42775760181) passed in 2.9 minutes, WallGold read at 251,630,000, the push evaluated and silent.
+
+### 109.1 `nightly_forecasts`, applied
+
+`sql/neon_migration_nightly_forecasts.sql`: one new table, no existing table touched. One row per Tehran day and forecaster; `base_price` is the 18K figure of the message's own NOW line, in rial; `forecast` is never rewritten; `outcome` and `resolved_at` are filled in once, on or after `due_date`.
+
+By the migration policy: production inspected (15 tables, no such table); tested on `temp-nightly-forecasts`, copied from production (10 columns, a second row for the same day and forecaster refused by the unique key, an outcome written and read back, the rollback tested), then deleted; applied to production at 17:25 Tehran on the owner's word. Verified: 16 tables, 10 columns, 0 rows. `sql/neon_schema.sql` carries it.
+
+### 109.2 Ea-2 loses its second half
+
+"The backup covers every miss" is gone (the owner chose no backup, 106.2). Ea-2 is now a price from WallGold in at least 98% of scheduled runs over 14 days.
+
+### 109.3 The nightly message, wired on `sp-de`, not merged
+
+**One switch, `config.nightly.send`:** the message below replaces the PAPER report's text, the LENS and the evening without a database, and `/Analyze` pulls it. Off, the old messages run as before.
+
+- **`analysis/nightly.py`** computes; **`alerts/telegram_nightly.py`** formats. The event block is the LENS's own function, so it is unchanged. Each part that cannot be read says "Unknown tonight."
+- **The 3-day line.** The base is the NOW line's 18K. The low edge is -1.11 x the calm daily volatility x root 3, the volatility from the latest line of `forward-ledger` read from the public repository (an older line than 5 days: unknown).
+- **The chance's zone is the last finished fund week,** as 102.1 measured it, so on Saturday to Wednesday it is last week's zone and on Thursday and Friday this week's.
+- **The funds' 25% of 100.3 is confirmed:** it counted a daily close at or below the level within 7 days of the week's last session. "To drop to" holds, and the score counts any night's figure at the level.
+- **The record.** The 21:00 message writes a `three_day` row and, from a week's third session, a `funds_week` row; each night judges what falls due, on the NOW line. A row Neon cannot take waits in the spool (`forecast`, on the write-back list).
+- **Fridays:** a Friday night's line is recorded as any other; the 3 trading nights skip Friday, so Thursday's and Friday's lines fall due together. A public holiday counts as a night. Both can be read out of the record by `local_date`.
+- **The pull writes nothing:** it reads prices without storing them, as the owner agreed (104.5).
+- **The chart** stays, as its own photo before the text. The REPORT rows of the PAPER accounts are written as before.
+- **The breakout push is the flag only** (104.5, `PUSHED`). The box break stays on the chart.
+- **A message over Telegram's limit is cut between blocks.** The LENS's "picked" log count is fixed.
+
+**Tests:** `kpi/kpi_nightly.py` (33), `kpi_paper.test_48b`; `test_13` holds the old report by turning the switch off; `kpi_coherence.test_66` lists `forecast`. KPI suite 32/32, unit tests 20/20, compileall.
+
+### 109.4 The message, from the real numbers of 19 Aban at 17:38
+
+```
+GOLDPremium: NIGHT · 19 Aban, 21:00
+
+NOW vs the close of 18 Aban
+18K 25.16M (market, tgju): −1.5%
+World gold $4,073: −1.7%
+USD/IRR 260,800: −1.2%
+Tether 264,786: +0.0%
+Discount 2.1% below world price (was 3.1% below at the close of 18 Aban)
+
+NEXT 3 DAYS
+18K, 3 days from now vs tonight's 25.16M: 58% to close higher; 90% to close above 24.49M (−2.7%).
+
+GOLD FUNDS · this week so far, Sat 16 – Mon 18 Aban (3 sessions; Tuesday's not read yet)
+Money: individuals took out 1,193B toman; the usual first 3 sessions bring 1,107B in
+Buyers: 58,607 a day, as usual
+Per head: sellers 251M toman, buyers 103M
+Big holders among them are selling this week. Next trade week vs tonight's 25.16M: 46% to close lower (typical 38%); 25% to drop to 24.49M (−2.7%).
+
+THE EVENT
+(as the LENS sends it)
+
+THE ROOM (PAPER)
+75.2M toman in gold (3 g), 52.4M in Afran (fixed income) since 10 Aban · total 127.7M
+
+Decision support, not an instruction to trade.
+```
+
+### 109.5 The second AI's review (102.2; run on `probe-lens`, fb6252f)
+
+Scores are clear / judgeable / useful, out of 10.
+
+| Line | gpt-oss | Qwen | What was done |
+|---|---|---|---|
+| Sellers' line | 5/6/5 | 8/9/8 | Kept: the owner's form (100.3); it reads with the block's "individuals" above it |
+| Buyers' line, "Buyers lead this week: big holders among them are not selling." | 4/3/3 | 6/8/7 | **Rewritten:** "Big holders among them are selling no more than usual this week." The zone's rank says the sellers' tickets are not unusually large; "not selling" said more than the measure does |
+| Crowded line | 4/6/5 | 8/9/8 | Kept |
+| Last week, buyers | 7/8/6 | 8/9/7 | Rewritten to match: "big holders among them sold no more than usual" |
+| Last week, crowded | 5/3/4 | 9/8/7 | Kept |
+| "Later look. ..." | 3/2/2 | 9/10/8 | **Rewritten** with gpt-oss's line: "These numbers are from now. Only the 21:00 report is recorded and scored." |
+| Chart caption | 5/4/3 | 10/10/8 | Kept: a label |
+
+Both rewritten lines are new since the owner's lock; the owner sees them with the preview.
+
+### 109.6 The risk choice, what it is
+
+**Eb-5 has two ways to pass on 12-13.** One: more money than holding gold, with no deeper fall (no simple rule did it, 66.2). Two: "at most X% of wealth given up for a worst drop at least Y points shallower", where the owner sets X and Y (69.3).
+
+**Measured on the harness of 66 (`research/rd_mix_table.py`), a plain mix of gold and fixed income, rebalanced monthly, with no model at all** (wealth from 1, 2015-03 to 2026-10; worst fall from a peak):
+
+| Gold share | Wealth | Worst fall |
+|---|---|---|
+| 100% | 274 | -45.2% |
+| 85% | 189 | -39.8% |
+| 70% | 128 | -33.9% |
+| 50% | 73 | -24.9% |
+| 30% | 40 | -14.3% |
+| Trend in steps (B5: 100% above the 50-day average, 40% below) | 257 | -34.1% |
+
+**My objection to X and Y as written:** any pair loose enough to pass is passed by the plain mix, with no model. X = 20% and Y = 10 points passes the 70/30 mix in two of the three periods (P1 gave up 15% for 11.3 points, P2 18% for 12.2, P3 33% for 7.9).
+
+**Proposed instead, one number, the owner's:** the worst fall that can be sat through without selling. The model then has to end with more money than the plain mix that falls that far. B5 already clears that bar in P1 and P2 (5.44 and 5.07 against 4.32 and 4.81 at the same fall) and about ties in P3. The number moves no money now; it sets the pass mark of 12-13.
+
+### 109.7 The deep-discount push, replayed on WallGold alone
+
+The rule as written (85th percentile of the settled 30 days, re-arm band), over the stored readings from 08-10 to 11-08: 90 days, **14 would-be pushes, about one a week.** `research/rd_push_replay.py`; every figure on WallGold's own price.
+
+| Three days later | Pushes | Any day |
+|---|---|---|
+| The discount narrowed | 11 of 12, typically by 1.32 points | 45 of 87, 0.07 |
+| WallGold's price higher | 8 of 12, typically +0.88% | 56 of 87 (64%), +0.61% |
+| Since 09-29 only: higher | 2 of 5, typically -0.49% | |
+
+- **It does mark something real:** a deep discount closes, 11 times of 12. Part of that is arithmetic: an extreme reading tends to come back.
+- **It does not pay the buyer more than any other day.** In 7 of the 12, the fair price (world gold and the dollar) fell over the next three days, so the gap closed from that side.
+- **A second platform group disagreed in 4 of the 14:** the three lowest of the others were not as deep. On WallGold alone nothing would have checked those.
+- The sample is 12 and the first six fall in a rising August. It settles nothing either way.
+
+**My recommendation:** keep it off as a "good moment to buy" push; UPDATE and the nightly message already show the discount. The owner decides what the push is for.
+
+### 109.8 Open
+
+- **For the owner:** the preview of 109.4 and the two rewritten lines, before the merge; the number of 109.6 by 12-13; 109.7; the fee table by 11-15 (Ea-6).
+- **Next:** on approval, tag `v1.48safe` and merge. Then UPDATE as WHERE, once the fee table is done, and DIRECTION.
