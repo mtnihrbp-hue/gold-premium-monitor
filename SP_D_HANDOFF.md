@@ -94,6 +94,7 @@ SP-De  the quant fit, the room alert at 3 and its  section 35 on    branch sp-de
                                                                    107 health check of 18 Aban
                                                                    108 the discount on WallGold merged (v1.47safe); health check of 19 Aban; what waits on the owner
                                                                    109 nightly_forecasts applied; the nightly message wired on sp-de, not merged; the risk choice; the push replayed
+                                                                   110 the nightly message merged (v1.48safe)
        member, the LLM member
 ```
 
@@ -10631,3 +10632,28 @@ The rule as written (85th percentile of the settled 30 days, re-arm band), over 
 
 - **For the owner:** the preview of 109.4 and the two rewritten lines, before the merge; the number of 109.6 by 12-13; 109.7; the fee table by 11-15 (Ea-6).
 - **Next:** on approval, tag `v1.48safe` and merge. Then UPDATE as WHERE, once the fee table is done, and DIRECTION.
+
+## 110. The nightly message merged (2026-11-10)
+
+**The owner:** "go ahead with the merge", after the preview of 109.4 and its two rewritten lines (109.5). **NEON MIGRATION REQUIRED = NO** (the table was applied in 109.1).
+
+### 110.1 Before the merge
+
+- **On 872d69f, the commit merged:** KPI suite 32/32, unit tests 20/20, compileall.
+- **The forecast record through the real code on real Postgres** (`temp-nightly-record`, copied from production, since deleted): two past lines due that day resolved, tonight's two rows written, a second run the same night wrote and resolved nothing. The outcome and the forecast read back as objects from JSONB.
+- **`/Analyze` through its real function,** real collectors, a read-only connection to production, the send replaced by a print: the message built, `state.json` unchanged, `nightly_forecasts` still empty. Parasteh was discarded for a connection error and the message went on.
+
+### 110.2 The merge
+
+`main` tagged `v1.48safe` (5b95bfc), then fast-forwarded with `SP-D` to `sp-de` at 872d69f: 108 and 109. **Rollback without a code change:** `config.nightly.send` false brings the old messages back; the breakout push's change needs the tag.
+
+**From the 21:00 run of 19 Aban (11-10):** one NIGHT message and the chart as its own photo replace the room's report text and the LENS; the evening without a database is retired; `/Analyze` pulls NIGHT, never recorded or scored; a box break no longer pushes, a flag still does.
+
+### 110.3 An outside audit
+
+The owner is passing the repository to Claude on the web for an independent audit and review report, on `sp-de`, read-only by its brief. Its findings are to be weighed against this record, not applied by default.
+
+### 110.4 Open
+
+- **For the owner:** the fee table by 11-15 (Ea-6); the worst drop that can be sat through, by 12-13 (109.6); what the deep-discount push is for (109.7).
+- **Next on `sp-de`:** UPDATE as WHERE, once the fee table is done; DIRECTION; each previewed, reviewed by the second AI, merged alone. Next safe tag `v1.49safe`.

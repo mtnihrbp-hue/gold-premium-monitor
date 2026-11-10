@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "project": "Gold Premium Monitor",
-  "active_branch": "sp-de; main fast-forwarded to sp-de on 2026-11-10 at SP-D 107 (v1.47safe before); main is production",
+  "active_branch": "sp-de; main fast-forwarded to sp-de on 2026-11-10 at SP-D 109 (v1.48safe before); main is production",
   "current_phase": "SP-D (SP_D_HANDOFF.md): Direction live on main since 2026-10-03 (sections 1-8); the PAPER portfolio, the room as its front office, live on main since 2026-10-05 18:01 (sections 9-28); health check and record 2026-10-06 (section 29). Proposed next, for the owner's decision: Taline's frozen copies, the Iran-side node, the news leg with the LLM (section 29)",
   "current_phase_status": "SP-C CLOSED (merged 2026-09-28, 2b7c5f8; v1.3safe before). SP-D IN PROGRESS: Direction merged 2026-10-03 (v1.4safe before); PAPER merged 2026-10-05 15:57 (v1.6safe before); the go-live hotfix (scipy/pandas pins, venue label) fast-forwarded 17:07 (v1.7safe = 2957699 before). Production (cron-job.org and the Telegram worker) dispatches ref main. SP_D_HANDOFF.md sections 28-29.",
   "completed_phases": [
@@ -679,11 +679,10 @@
       }
     ]
   },
-  "latest_safe_tag": "v1.47safe (8cfd321, main before the discount on WallGold alone, 2026-11-10)",
-  "open_items_sp_d_109": [
-    "For the owner: the nightly message's preview and its two rewritten lines (SP_D_HANDOFF.md 109.4, 109.5), before its merge",
+  "latest_safe_tag": "v1.48safe (5b95bfc, main before the nightly message, 2026-11-10)",
+  "open_items_sp_d_110": [
     "For the owner, by 2026-11-15: the fee table for Milli, Goldika and Invi (Ea-6)",
-    "For the owner, by 2026-12-13: the worst fall that can be sat through, replacing X and Y (109.6); what the deep-discount push is for (109.7)",
-    "Next on sp-de after the nightly merge (tag v1.48safe first): UPDATE as WHERE, then DIRECTION"
+    "For the owner, by 2026-12-13: the worst drop that can be sat through, replacing X and Y (SP_D_HANDOFF.md 109.6); what the deep-discount push is for (109.7)",
+    "Next on sp-de: UPDATE as WHERE once the fee table is done, then DIRECTION; next safe tag v1.49safe"
   ]
 }
